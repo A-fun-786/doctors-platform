@@ -10,7 +10,7 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 
 - **Phase 1 (Complete):** Foundation setup and public-facing marketing landing page with initial `/register` and `/login` routes.
 - **Phase 2 (Complete):** Backend foundation and database layer (FastAPI, SQLAlchemy 2.x, PostgreSQL, Alembic migrations, `Doctor` + `Tenant` multi-tenant identity boundary).
-- **Phase 3 (Complete):** Authentication and Doctor Registration (Google Sign-In, extensible multi-provider model, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
+- **Phase 3 (Complete):** Authentication and Doctor Registration (Email/Password registration & login, Google Sign-In (requires GCP OAuth credentials), extensible multi-provider model, PBKDF2-HMAC-SHA256 password hashing, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
 - **Upcoming Phases:** Phase 4 (Doctor Dashboard), Phase 5+ (Doctor Profile, Branding, Services, Dynamic Websites).
 
 ---
@@ -24,8 +24,8 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 | **TypeScript** | Type safety enforced across all components. Strict mode enabled in `tsconfig.json` |
 | **Tailwind CSS** | Utility-first styling — no CSS files per component, single design token source via `tailwind.config.ts` |
 | **Lucide React** | Lightweight, tree-shakeable icon library; no SVG management overhead |
-| **Google Identity Services** | Official Google OAuth 2.0 / OpenID Connect frontend SDK integration for one-tap and button authentication |
-| **Client-Side Auth Utility (`lib/api.ts`)** | Lightweight native `fetch` client and localStorage JWT token management |
+| **Google Identity Services** | Official Google OAuth 2.0 / OpenID Connect frontend SDK integration for one-tap and button authentication (inactive until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is configured) |
+| **Client-Side Auth Utility (`lib/api.ts`)** | Lightweight native `fetch` client, localStorage JWT token management, email register/login and Google auth methods |
 | **System font stack** | Avoids external network dependency for fonts during build; uses `font-sans` |
 
 ### Backend & Database
@@ -35,7 +35,8 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 | **SQLAlchemy 2.x** | Modern Python ORM using declarative mapped columns, typed relationships, and explicit foreign keys |
 | **PostgreSQL 16** | Robust relational database for multi-tenant data isolation, ACID compliance, and relational integrity |
 | **psycopg3 (`psycopg[binary]`)** | Modern, officially supported PostgreSQL driver for synchronous database operations |
-| **google-auth** | Official Google authentication client library for secure Google ID token verification |
+| **PBKDF2-HMAC-SHA256 (`hashlib` + `secrets`)** | Stdlib-based password hashing with per-user cryptographic salt and timing-safe comparison — zero additional dependencies |
+| **google-auth** | Official Google authentication client library for secure Google ID token verification (used by Google provider; inactive until `GOOGLE_CLIENT_ID` is configured) |
 | **PyJWT** | High-performance, RFC 7519 compliant JSON Web Token encoding and decoding for platform sessions |
 | **Alembic** | Source-of-truth migration management for incremental database schema evolution |
 | **Pydantic v2 / Settings** | Type-safe environment variable parsing (`pydantic-settings`) and validation |
@@ -50,8 +51,9 @@ The project is structured as a modular frontend + backend workspace.
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         FRONTEND: NEXT.JS CLIENT                            │
-│   Marketing landing page (/), Google Auth (/login, /register),              │
-│   Protected Dashboard (/dashboard), API Client (lib/api.ts)                 │
+│   Marketing landing page (/), Email Auth (/login, /register),               │
+│   Google Auth (inactive until configured), Protected Dashboard (/dashboard),│
+│   API Client (lib/api.ts)                                                   │
 │   (Port 3000)                                                               │
 └──────────────────────────────────┬──────────────────────────────────────────┘
                                    │ HTTP / CORS (http://localhost:3000)
@@ -61,10 +63,11 @@ The project is structured as a modular frontend + backend workspace.
 │                                                                             │
 │  backend/app/main.py ─────────── Root health check, CORS middleware, docs   │
 │  ├── backend/app/core/ ───────── Settings (config.py), DB session (database.py),│
-│  │                               Security & JWT (security.py)               │
-│  ├── backend/app/api/ ────────── Auth routes (/api/v1/auth/google, /me),    │
-│  │                               Health routes (/api/v1/health), deps.py    │
-│  ├── backend/app/services/ ───── auth_service.py (Tenant slug + Provisioning)│
+│  │                               Security, JWT & Password Hashing (security.py)│
+│  ├── backend/app/api/ ────────── Auth routes (/api/v1/auth/register, /login,│
+│  │                               /google, /me), Health routes, deps.py      │
+│  ├── backend/app/services/ ───── auth_service.py (Email & Google auth,      │
+│  │                               Tenant slug + Provisioning)                │
 │  └── backend/app/models/ ─────── SQLAlchemy models (Base, Doctor, Tenant)   │
 │  (Port 8000)                                                                │
 └──────────────────────────────────┬──────────────────────────────────────────┘
@@ -132,11 +135,14 @@ When a browser visits `/login` or `/register`:
 ```
 Browser → GET "/login" or "/register"
   └── Next.js App Router matches app/login/page.tsx or app/register/page.tsx
-        └── Renders components/auth/GoogleAuthForm.tsx
-              ├── Loads Google Identity Services SDK (if client ID configured)
-              ├── Displays Google Sign-In button + 1-Click Quick Demo accounts
-              └── On authentication:
-                    ├── Calls authenticateWithGoogle(credential) via lib/api.ts
+        └── Renders components/auth/EmailAuthForm.tsx
+              ├── Displays email & password form fields (register or login mode)
+              ├── Shows inactive Google Sign-In button placeholder (until NEXT_PUBLIC_GOOGLE_CLIENT_ID configured)
+              └── On form submission:
+                    ├── Register mode → calls registerWithEmail(email, password) via lib/api.ts
+                    │     → POST /api/v1/auth/register
+                    ├── Login mode → calls loginWithEmail(email, password) via lib/api.ts
+                    │     → POST /api/v1/auth/login
                     ├── Receives platform JWT access token + doctor & tenant data
                     ├── Stores JWT in localStorage ("docspace_auth_token")
                     └── Redirects to "/dashboard"
@@ -197,6 +203,20 @@ HTTP Client (Browser / Frontend / cURL)
   │     └── GET /api/v1/health/database → app/core/database.py:get_db() (SELECT 1)
   │
   └── /api/v1/auth ─────────── app/main.py → app/api/router.py → app/api/routes/auth.py
+        │
+        ├── POST /api/v1/auth/register ── app/services/auth_service.py:register_email()
+        │                                   ├── Validate email & password (min 6 chars)
+        │                                   ├── Check for existing doctor by email
+        │                                   ├── Hash password (PBKDF2-HMAC-SHA256 via security.py)
+        │                                   ├── Derive doctor name from email if not provided
+        │                                   ├── Atomically create Doctor + Tenant (with unique slug)
+        │                                   └── Issue Platform JWT (HS256 access token)
+        │
+        ├── POST /api/v1/auth/login ───── app/services/auth_service.py:login_email()
+        │                                   ├── Find doctor by email
+        │                                   ├── Verify password hash (timing-safe comparison)
+        │                                   ├── Reject Google-provider accounts (no hashed_password)
+        │                                   └── Issue Platform JWT (HS256 access token)
         │
         ├── POST /api/v1/auth/google ── app/services/auth_service.py:authenticate_google()
         │                                 ├── Verify Google token (app/core/security.py)
@@ -417,11 +437,11 @@ export default function Home() {
 
 #### [`app/register/page.tsx`](file:///Users/mdaffanahmed/VS Code/Full stack/Doctors Platform/app/register/page.tsx)
 
-**Purpose:** Doctor practice registration and onboarding route `/register`. Renders `GoogleAuthForm` in registration mode.
+**Purpose:** Doctor practice registration and onboarding route `/register`. Renders `EmailAuthForm` in registration mode.
 
 **Key content:**
 - Page metadata (`title: "Register Practice - DocSpace"`)
-- Renders `<GoogleAuthForm mode="register" />` for Google-based practice creation with workspace auto-provisioning
+- Renders `<EmailAuthForm mode="register" />` for email/password-based practice creation with workspace auto-provisioning
 - Auto-redirects to `/dashboard` upon registration
 
 **Linkage:**
@@ -432,16 +452,16 @@ export default function Home() {
 
 #### [`app/login/page.tsx`](file:///Users/mdaffanahmed/VS Code/Full stack/Doctors Platform/app/login/page.tsx)
 
-**Purpose:** Doctor portal login route `/login`. Renders `GoogleAuthForm` in login mode.
+**Purpose:** Doctor portal login route `/login`. Renders `EmailAuthForm` in login mode.
 
 **Key content:**
 - Page metadata (`title: "Doctor Login - DocSpace"`)
-- Renders `<GoogleAuthForm mode="login" />` for Google-based doctor authentication
+- Renders `<EmailAuthForm mode="login" />` for email/password-based doctor authentication
 - Auto-redirects to `/dashboard` upon successful login
 
 **Linkage:**
 - Wrapped by `app/layout.tsx`
-- Linked from: `Navbar.tsx` (Login link) and `GoogleAuthForm` mode switcher
+- Linked from: `Navbar.tsx` (Login link) and `EmailAuthForm` mode switcher
 
 ---
 
