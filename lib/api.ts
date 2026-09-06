@@ -87,6 +87,83 @@ export async function authenticateWithGoogle(credential: string): Promise<AuthRe
 }
 
 /**
+ * Register a new doctor using email and password.
+ */
+export async function registerWithEmail(
+  email: string,
+  password: string,
+  fullName?: string
+): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      full_name: fullName,
+    }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Registration failed. Please try again.";
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        errorMessage =
+          typeof errorData.detail === "string"
+            ? errorData.detail
+            : JSON.stringify(errorData.detail);
+      }
+    } catch {
+      // Fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: AuthResponse = await response.json();
+  setAuthToken(data.access_token);
+  return data;
+}
+
+/**
+ * Log in an existing doctor using email and password.
+ */
+export async function loginWithEmail(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Invalid email or password.";
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        errorMessage =
+          typeof errorData.detail === "string"
+            ? errorData.detail
+            : JSON.stringify(errorData.detail);
+      }
+    } catch {
+      // Fallback
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data: AuthResponse = await response.json();
+  setAuthToken(data.access_token);
+  return data;
+}
+
+/**
  * Fetch the currently authenticated doctor profile and tenant workspace.
  */
 export async function getCurrentDoctor(token?: string): Promise<DoctorMeResponse> {

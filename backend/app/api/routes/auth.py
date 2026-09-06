@@ -6,6 +6,8 @@ from app.core.database import get_db
 from app.models.doctor import Doctor
 from app.schemas.auth import (
     GoogleAuthRequest,
+    EmailRegisterRequest,
+    EmailLoginRequest,
     AuthResponse,
     DoctorMeResponse,
     TenantResponse,
@@ -28,6 +30,46 @@ def google_auth(
 ) -> AuthResponse:
     """Authenticate or register doctor using Google ID token."""
     return auth_service.authenticate_google(db=db, credential=payload.credential)
+
+
+@router.post(
+    "/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Doctor Email Registration",
+    description="Register a new doctor account with email and password. Automatically creates isolated tenant workspace.",
+)
+def email_register(
+    payload: EmailRegisterRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Register doctor using email and password."""
+    return auth_service.register_email(
+        db=db,
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+        phone=payload.phone,
+    )
+
+
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Doctor Email Login",
+    description="Authenticate an existing doctor with email and password.",
+)
+def email_login(
+    payload: EmailLoginRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Authenticate doctor using email and password."""
+    return auth_service.login_email(
+        db=db,
+        email=payload.email,
+        password=payload.password,
+    )
 
 
 @router.get(

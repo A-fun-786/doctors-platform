@@ -474,13 +474,27 @@ export default function Home() {
 - Token storage helpers: `getAuthToken()`, `setAuthToken(token)`, `removeAuthToken()`
 - TypeScript interfaces: `Doctor`, `Tenant`, `AuthResponse`, `DoctorMeResponse`
 - `authenticateWithGoogle(credential: string)`: sends Google ID token to `POST /api/v1/auth/google`, stores JWT, and returns auth response
+- `registerWithEmail(email, password, fullName?)`: sends email & password to `POST /api/v1/auth/register`, stores JWT, and returns auth response
+- `loginWithEmail(email, password)`: sends credentials to `POST /api/v1/auth/login`, stores JWT, and returns auth response
 - `getCurrentDoctor(token?: string)`: fetches authenticated profile from `GET /api/v1/auth/me` with `Authorization: Bearer` header
 
 ---
 
-#### [`components/auth/GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS Code/Full stack/Doctors Platform/components/auth/GoogleAuthForm.tsx)
+#### [`components/auth/EmailAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/EmailAuthForm.tsx)
 
-**Purpose:** Interactive Google Sign-In and practice registration form component.
+**Purpose:** Simple email and password authentication & registration form.
+
+**Key content:**
+- Supports `mode="login"` and `mode="register"`
+- Clean email & password inputs with client validation and loading states
+- Inactive Google Sign-In button placeholder (until Google OAuth credentials configured)
+- Automatic workspace provisioning and redirect to `/dashboard` upon authentication
+
+---
+
+#### [`components/auth/GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/GoogleAuthForm.tsx)
+
+**Purpose:** Interactive Google Sign-In and practice registration form component (preserved for Google OAuth).
 
 **Key content:**
 - Supports official Google Identity Services SDK (`https://accounts.google.com/gsi/client`) when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set

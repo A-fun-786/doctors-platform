@@ -200,3 +200,64 @@ def test_inactive_doctor_cannot_authenticate(client, db_session):
     response = client.post("/api/v1/auth/google", json={"credential": mock_token})
     assert response.status_code == 401
     assert "Inactive" in response.json()["detail"]
+
+
+def test_email_registration_and_login_flow(client, db_session):
+    # 1. Register with email & password
+    reg_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "strongpassword123",
+        },
+    )
+    assert reg_response.status_code == 201
+    data = reg_response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["doctor"]["email"] == "dr.smith@example.com"
+    assert data["doctor"]["auth_provider"] == "email"
+    assert "dr-smith" in data["tenant"]["slug"]
+
+    # 2. Duplicate registration should fail
+    dup_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "strongpassword123",
+        },
+    )
+    assert dup_response.status_code == 400
+    assert "already exists" in dup_response.json()["detail"]
+
+    # 3. Login with wrong password should fail
+    bad_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "wrongpassword",
+        },
+    )
+    assert bad_login.status_code == 401
+
+    # 4. Login with correct password should succeed
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "strongpassword123",
+        },
+    )
+    assert login_response.status_code == 200
+    login_data = login_response.json()
+    assert "access_token" in login_data
+    assert login_data["doctor"]["email"] == "dr.smith@example.com"
+
+    # 5. Access /me with the issued JWT
+    token = login_data["access_token"]
+    me_response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == "dr.smith@example.com"

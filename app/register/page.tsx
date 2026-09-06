@@ -1,4 +1,4 @@
-import GoogleAuthForm from "@/components/auth/GoogleAuthForm";
+import EmailAuthForm from "@/components/auth/EmailAuthForm";
 
 export const metadata = {
   title: "Register Practice - DocSpace",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function RegisterPage() {
-  return <GoogleAuthForm mode="register" />;
+  return <EmailAuthForm mode="register" />;
 }

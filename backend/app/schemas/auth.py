@@ -8,11 +8,10 @@ class GoogleAuthRequest(BaseModel):
     credential: str
 
 
-# Extensible schema for future email/password registration
 class EmailRegisterRequest(BaseModel):
-    full_name: str
     email: str
     password: str
+    full_name: Optional[str] = None
     phone: Optional[str] = None
 
 

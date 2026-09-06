@@ -1,3 +1,6 @@
+import hashlib
+import os
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 import jwt
@@ -6,6 +9,35 @@ from google.auth.transport import requests as google_requests
 from app.core.config import get_settings
 
 settings = get_settings()
+
+
+def hash_password(password: str) -> str:
+    """Hash a plaintext password using PBKDF2-HMAC-SHA256 with a secure salt."""
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt),
+        100000,
+    )
+    return f"{salt}${key.hex()}"
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plaintext password against its stored hash."""
+    if not hashed_password or "$" not in hashed_password:
+        return False
+    try:
+        salt, stored_hash = hashed_password.split("$", 1)
+        key = hashlib.pbkdf2_hmac(
+            "sha256",
+            plain_password.encode("utf-8"),
+            bytes.fromhex(salt),
+            100000,
+        )
+        return secrets.compare_digest(key.hex(), stored_hash)
+    except Exception:
+        return False
 
 
 def verify_google_token(credential: str) -> Dict[str, Any]:

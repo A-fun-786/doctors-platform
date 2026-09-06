@@ -4,7 +4,12 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.security import verify_google_token, create_access_token
+from app.core.security import (
+    verify_google_token,
+    create_access_token,
+    hash_password,
+    verify_password,
+)
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 from app.schemas.auth import (
@@ -146,6 +151,139 @@ class AuthService:
             token_type="bearer",
             doctor=DoctorResponse.model_validate(doctor),
             tenant=TenantResponse.model_validate(doctor.tenant or tenant),
+        )
+
+    @staticmethod
+    def register_email(
+        db: Session,
+        email: str,
+        password: str,
+        full_name: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> AuthResponse:
+        """
+        Register a doctor using email and password.
+        Atomically creates Doctor and Tenant records.
+        """
+        email = email.lower().strip()
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required",
+            )
+        if not password or len(password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 6 characters long",
+            )
+
+        # Check for existing doctor
+        existing_doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        if existing_doctor:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this email already exists",
+            )
+
+        # Derive clean doctor name if not provided
+        if not full_name or not full_name.strip():
+            user_part = email.split("@")[0].replace(".", " ").replace("-", " ").replace("_", " ")
+            full_name = f"Dr. {user_part.title()}"
+        else:
+            full_name = full_name.strip()
+
+        hashed_pw = hash_password(password)
+
+        try:
+            doctor = Doctor(
+                email=email,
+                full_name=full_name,
+                phone=phone,
+                auth_provider="email",
+                hashed_password=hashed_pw,
+                is_active=True,
+            )
+            db.add(doctor)
+            db.flush()
+
+            slug = generate_unique_tenant_slug(db, doctor.full_name)
+            tenant = Tenant(
+                doctor_id=doctor.id,
+                slug=slug,
+                status="active",
+            )
+            db.add(tenant)
+            db.commit()
+            db.refresh(doctor)
+            db.refresh(tenant)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to register doctor account: {str(exc)}",
+            )
+
+        access_token = create_access_token(subject=str(doctor.id))
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse.model_validate(doctor),
+            tenant=TenantResponse.model_validate(tenant),
+        )
+
+    @staticmethod
+    def login_email(db: Session, email: str, password: str) -> AuthResponse:
+        """
+        Authenticate a doctor using email and password.
+        """
+        email = email.lower().strip()
+        if not email or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and password are required",
+            )
+
+        doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        if not doctor:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+
+        if not doctor.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Inactive user account",
+            )
+
+        if not doctor.hashed_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account was registered using Google. Please sign in with Google or reset password.",
+            )
+
+        if not verify_password(password, doctor.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+
+        tenant = doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, doctor.full_name)
+            tenant = Tenant(doctor_id=doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        access_token = create_access_token(subject=str(doctor.id))
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse.model_validate(doctor),
+            tenant=TenantResponse.model_validate(tenant),
         )
 
 
