@@ -36,6 +36,7 @@ class DoctorResponse(BaseModel):
     email: str
     avatar_url: Optional[str] = None
     auth_provider: str = "google"
+    onboarding_completed: bool = False
 
 
 class AuthResponse(BaseModel):
@@ -53,6 +54,10 @@ class DoctorMeResponse(BaseModel):
     id: uuid.UUID
     full_name: str
     email: str
+    phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    speciality: Optional[str] = None
+    bio: Optional[str] = None
+    onboarding_completed: bool = False
     auth_provider: str = "google"
     tenant: Optional[TenantResponse] = None

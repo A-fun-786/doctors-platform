@@ -735,7 +735,9 @@ const steps = [
 
 #### [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py)
 
-**Purpose:** Core cryptographic security and token verification module.
+**Purpose:** Core cryptographic security, password hashing, and token verification module.
+- `hash_password(password: str)`: generates PBKDF2-HMAC-SHA256 hash with cryptographically secure 16-byte salt via `secrets.token_hex()`. Returns `salt$hash` format string
+- `verify_password(plain_password: str, hashed_password: str)`: validates plaintext password against stored hash using timing-safe `secrets.compare_digest()` to prevent timing attacks
 - `verify_google_token(credential: str)`: validates Google ID tokens via `google-auth` / tokeninfo API, with development-mode mock token parsing support
 - `create_access_token(subject: str, expires_delta)`: generates signed HS256 JWT access tokens
 - `decode_access_token(token: str)`: validates and decodes platform JWT access tokens
@@ -779,7 +781,10 @@ const steps = [
 #### [`backend/app/schemas/auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/auth.py)
 
 **Purpose:** Pydantic validation schemas for authentication and user metadata.
-- Schemas: `GoogleAuthRequest`, `EmailRegisterRequest`, `EmailLoginRequest`, `TenantResponse`, `DoctorResponse`, `AuthResponse`, `DoctorMeResponse`.
+- `GoogleAuthRequest`: contains `credential` (Google ID Token string)
+- `EmailRegisterRequest`: contains `email`, `password` (required), `full_name` and `phone` (optional). Doctor name is auto-derived from email if omitted
+- `EmailLoginRequest`: contains `email` and `password` (both required)
+- `TenantResponse`, `DoctorResponse`, `AuthResponse`, `DoctorMeResponse`: response serialization schemas with `from_attributes=True` for ORM model compatibility
 
 ---
 
@@ -788,7 +793,9 @@ const steps = [
 **Purpose:** Business logic layer for authentication, registration, and workspace provisioning.
 - `slugify(text: str)`: transforms doctor names into URL-safe slugs
 - `generate_unique_tenant_slug(db, full_name)`: deterministic unique tenant slug generator with collision resolution (`dr-ahmed-khan`, `dr-ahmed-khan-2`)
-- `AuthService.authenticate_google(db, credential)`: handles single-transaction atomic creation of `Doctor` and `Tenant`, updates existing doctor metadata, and issues JWT access token
+- `AuthService.authenticate_google(db, credential)`: handles single-transaction atomic creation of `Doctor` and `Tenant` via Google token, updates existing doctor metadata, and issues JWT access token
+- `AuthService.register_email(db, email, password, full_name?, phone?)`: validates inputs, checks for duplicate emails, hashes password with PBKDF2, auto-derives doctor name from email if not provided, atomically creates `Doctor` (with `auth_provider="email"`) and `Tenant`, and issues JWT access token
+- `AuthService.login_email(db, email, password)`: finds doctor by email, verifies stored password hash, rejects Google-provider accounts that lack a `hashed_password`, checks `is_active`, and issues JWT access token
 
 ---
 
@@ -803,7 +810,11 @@ const steps = [
 
 **Purpose:** API routing structure.
 - `routes/health.py`: `GET /api/v1/health` and `GET /api/v1/health/database`
-- `routes/auth.py`: `POST /api/v1/auth/google` (Google authentication/registration) and `GET /api/v1/auth/me` (protected current doctor endpoint)
+- `routes/auth.py`:
+  - `POST /api/v1/auth/register` (email/password doctor registration — 201 Created)
+  - `POST /api/v1/auth/login` (email/password doctor authentication — 200 OK)
+  - `POST /api/v1/auth/google` (Google ID token authentication/registration — 200 OK)
+  - `GET /api/v1/auth/me` (protected current doctor endpoint with Bearer JWT)
 
 ---
 
@@ -819,7 +830,7 @@ const steps = [
 
 **Purpose:** Automated test suites using SQLite in-memory engine with `StaticPool`.
 - `test_health_and_models.py`: verifies root health, v1 health, database connectivity check, CORS headers, and OpenAPI schema routes.
-- `test_auth.py`: verifies Google registration, existing doctor login, slug collision handling, JWT generation, protected `/me` endpoint, invalid/missing tokens, and inactive user rejection.
+- `test_auth.py`: verifies Google registration, existing doctor login, slug collision handling, JWT generation, protected `/me` endpoint, invalid/missing tokens, inactive user rejection, **email registration (201), duplicate email prevention (400), wrong password rejection (401), correct password login (200), and JWT-protected `/me` access with email-issued tokens**.
 
 ---
 
@@ -849,11 +860,12 @@ const steps = [
 | **Footer platform description** | [`Footer.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Footer.tsx) | `<p>` below the logo |
 | **Footer navigation links** | [`Footer.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Footer.tsx) | `<ul>` link items in each column |
 | **Order of landing page sections** | [`app/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/page.tsx) | Component order in `<main>` |
-| **Registration page copy / mode** | [`app/register/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/register/page.tsx) | Renders `GoogleAuthForm mode="register"` |
-| **Login page copy / mode** | [`app/login/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/login/page.tsx) | Renders `GoogleAuthForm mode="login"` |
-| **Google Auth UI / Demo accounts** | [`GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/GoogleAuthForm.tsx) | Button handlers, GIS integration, and demo account presets |
+| **Registration page copy / mode** | [`app/register/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/register/page.tsx) | Renders `EmailAuthForm mode="register"` |
+| **Login page copy / mode** | [`app/login/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/login/page.tsx) | Renders `EmailAuthForm mode="login"` |
+| **Email Auth form UI / validation** | [`EmailAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/EmailAuthForm.tsx) | Email & password fields, inactive Google button, form handlers |
+| **Google Auth UI / Demo accounts** | [`GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/GoogleAuthForm.tsx) | Button handlers, GIS integration, and demo account presets (preserved for Google OAuth) |
 | **Protected Dashboard page** | [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) | Profile banner, workspace cards, and logout logic |
-| **Frontend API client & tokens** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Fetch wrapper, JWT token storage, and API methods |
+| **Frontend API client & tokens** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Fetch wrapper, JWT token storage, `registerWithEmail`, `loginWithEmail`, `authenticateWithGoogle`, and `getCurrentDoctor` methods |
 
 ### Backend & Database
 | I want to change... | Open this file | What to edit |
@@ -866,8 +878,11 @@ const steps = [
 | **Doctor database columns** | [`backend/app/models/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/doctor.py) | `Doctor` class mapped columns + Alembic migration |
 | **Tenant database columns** | [`backend/app/models/tenant.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/tenant.py) | `Tenant` class mapped columns + Alembic migration |
 | **Tenant slug generation / collision** | [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py) | `slugify` and `generate_unique_tenant_slug` functions |
+| **Password hashing / verification** | [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py) | `hash_password` and `verify_password` functions |
 | **Google auth verification logic** | [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py) | `verify_google_token` and `create_access_token` |
+| **Email registration / login logic** | [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py) | `AuthService.register_email` and `AuthService.login_email` methods |
 | **Current Doctor dependency** | [`backend/app/api/deps.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/deps.py) | `get_current_doctor` bearer token validation |
+| **Auth API endpoints** | [`backend/app/api/routes/auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/auth.py) | `email_register`, `email_login`, `google_auth`, `get_me` route handlers |
 | **New API routes** | [`backend/app/api/router.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/router.py) | Include new route modules in `api_router` |
 | **Health check logic** | [`backend/app/api/routes/health.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/health.py) | `health_check` and `database_health_check` handlers |
 | **PostgreSQL Docker credentials** | [`docker-compose.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docker-compose.yml) | `environment` variables under `postgres` service |
@@ -891,6 +906,10 @@ These are implicit contracts between files. Breaking them causes silent visual, 
 | `CORS_ORIGINS` must include frontend port (`http://localhost:3000`) | `backend/.env` → `app/main.py` | Browser blocks frontend API requests with CORS errors |
 | `TOKEN_STORAGE_KEY` must match across auth helpers | `lib/api.ts` | Token persistence or logout fails to clear active JWT session |
 | `JWT_SECRET_KEY` must be at least 32 characters long | `backend/.env` → `security.py` | PyJWT generates security warnings or fails signature verification |
+| `EmailAuthForm` must import `registerWithEmail` and `loginWithEmail` from `lib/api.ts` | `EmailAuthForm.tsx` → `lib/api.ts` | Email registration/login form silently fails with undefined function errors |
+| `hash_password` salt format must be `hex$hex` | `security.py` `hash_password` ↔ `verify_password` | Password verification always fails, locking out all email-registered doctors |
+| `auth_provider` value must be `"email"` for email-registered doctors | `auth_service.py` → `security.py` | `login_email` rejects email accounts or allows cross-provider login |
+| `/api/v1/auth/register` and `/api/v1/auth/login` frontend URLs must match backend route prefixes | `lib/api.ts` → `routes/auth.py` | Registration/login API calls return 404 |
 
 ---
 
@@ -902,7 +921,7 @@ When future phases are implemented, here are the exact extension points:
 | :--- | :--- | :--- |
 | **Foundation & Landing (Phase 1)** | **Complete** | Public marketing landing page, brand system, and responsive shell |
 | **Backend & DB Foundation (Phase 2)** | **Complete** | FastAPI, PostgreSQL, SQLAlchemy 2.x, Alembic, `Doctor` + `Tenant` models |
-| **Auth & Doctor Registration (Phase 3)** | **Complete** | Google Sign-In (`/auth/google`), JWT tokens, auto-provisioning, `/dashboard` entry |
+| **Auth & Doctor Registration (Phase 3)** | **Complete** | Email/Password registration & login (`/auth/register`, `/auth/login`), Google Sign-In (`/auth/google` — inactive until configured), PBKDF2 password hashing, JWT tokens, auto-provisioning, `/dashboard` entry |
 | **Doctor Dashboard (Phase 4)** | Next | Extend `app/dashboard/` with metrics, overview cards; add `backend/app/api/routes/dashboard.py` |
 | **Doctor Profile Management (Phase 5)** | Planned | Add `app/models/doctor_profile.py`, migration `003_doctor_profile.py`, profile CRUD endpoints |
 | **Branding Configuration (Phase 6)** | Planned | Add `app/models/branding.py`, migration `004_branding.py`, branding endpoints |

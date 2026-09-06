@@ -33,13 +33,18 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
       setLoading(true);
       setError(null);
 
+      let authData;
       if (mode === "register") {
-        await registerWithEmail(email, password);
+        authData = await registerWithEmail(email, password);
       } else {
-        await loginWithEmail(email, password);
+        authData = await loginWithEmail(email, password);
       }
 
-      router.push("/dashboard");
+      if (authData?.doctor && !authData.doctor.onboarding_completed) {
+        router.push("/onboarding");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, String, Uuid
+from sqlalchemy import Boolean, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -33,8 +33,21 @@ class Doctor(Base, TimestampMixin):
         nullable=True,
     )
     avatar_url: Mapped[Optional[str]] = mapped_column(
-        String(500),
+        Text,
         nullable=True,
+    )
+    speciality: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    bio: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
     )
     auth_provider: Mapped[str] = mapped_column(
         String(50),

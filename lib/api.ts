@@ -1,16 +1,36 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const TOKEN_STORAGE_KEY = "docspace_auth_token";
 
+export const DEFAULT_DOCTOR_AVATAR =
+  "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80";
+
+export interface ServicesConfig {
+  appointment: boolean;
+  video_consultation: boolean;
+  medicine_inventory: boolean;
+  lab_reports: boolean;
+}
+
 export interface Tenant {
   id: string;
   slug: string;
+  clinic_name?: string | null;
+  location?: string | null;
+  service_appointment?: boolean;
+  service_video_consultation?: boolean;
+  service_medicine_inventory?: boolean;
+  service_lab_reports?: boolean;
 }
 
 export interface Doctor {
   id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
   avatar_url?: string | null;
+  speciality?: string | null;
+  bio?: string | null;
+  onboarding_completed: boolean;
   auth_provider: string;
 }
 
@@ -25,9 +45,78 @@ export interface DoctorMeResponse {
   id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
   avatar_url?: string | null;
+  speciality?: string | null;
+  bio?: string | null;
+  onboarding_completed: boolean;
   auth_provider: string;
   tenant?: Tenant | null;
+}
+
+export interface DoctorProfileResponse {
+  id: string;
+  email: string;
+  full_name: string;
+  phone?: string | null;
+  avatar_url?: string | null;
+  speciality?: string | null;
+  bio?: string | null;
+  onboarding_completed: boolean;
+  tenant_id?: string | null;
+  tenant_slug?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  services: ServicesConfig;
+}
+
+export interface DoctorProfileUpdateRequest {
+  full_name?: string;
+  phone?: string;
+  avatar_url?: string;
+  speciality?: string;
+  bio?: string;
+  clinic_name?: string;
+  location?: string;
+  services?: ServicesConfig;
+  onboarding_completed?: boolean;
+}
+
+export interface PublicDoctorProfileResponse {
+  full_name: string;
+  avatar_url?: string | null;
+  speciality?: string | null;
+  bio?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  slug: string;
+  services: ServicesConfig;
+}
+
+export interface AppointmentBookingPayload {
+  patient_name: string;
+  patient_email: string;
+  patient_phone: string;
+  appointment_date: string;
+  appointment_time: string;
+  appointment_type: "in_clinic" | "video_consultation";
+  notes?: string;
+}
+
+export interface ReportUploadPayload {
+  patient_name: string;
+  patient_phone: string;
+  report_type: string;
+  file_name: string;
+  notes?: string;
+}
+
+export interface MedicineOrderPayload {
+  patient_name: string;
+  patient_phone: string;
+  delivery_address: string;
+  medicines: string;
+  prescription_note?: string;
 }
 
 /**
@@ -195,6 +284,157 @@ export async function getCurrentDoctor(token?: string): Promise<DoctorMeResponse
       // Fallback
     }
     throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch detailed doctor profile with services settings.
+ */
+export async function getDoctorProfile(): Promise<DoctorProfileResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/profile`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load practice profile");
+  }
+
+  return response.json();
+}
+
+/**
+ * Update practice profile, clinic details, and platform services.
+ */
+export async function updateDoctorProfile(
+  payload: DoctorProfileUpdateRequest
+): Promise<DoctorProfileResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/profile`, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to update profile settings");
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch public doctor and practice info for the patient-facing page.
+ */
+export async function getPublicDoctorProfile(
+  slug: string
+): Promise<PublicDoctorProfileResponse> {
+  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Doctor practice not found");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load doctor profile");
+  }
+
+  return response.json();
+}
+
+/**
+ * Submit an appointment request on the patient page.
+ */
+export async function bookPublicAppointment(
+  slug: string,
+  payload: AppointmentBookingPayload
+) {
+  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/appointments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to book appointment");
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload a lab report from the patient page.
+ */
+export async function uploadPublicReport(
+  slug: string,
+  payload: ReportUploadPayload
+) {
+  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to upload report");
+  }
+
+  return response.json();
+}
+
+/**
+ * Order medicines from the patient page.
+ */
+export async function orderPublicMedicine(
+  slug: string,
+  payload: MedicineOrderPayload
+) {
+  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/medicine-orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to submit medicine request");
   }
 
   return response.json();

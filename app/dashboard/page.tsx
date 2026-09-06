@@ -14,21 +14,91 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
-  Layers,
+  Calendar,
+  Video,
+  Pill,
+  FileText,
+  Copy,
+  Check,
+  Globe,
+  Sparkles,
+  MapPin,
+  Stethoscope,
+  Phone,
+  AlertTriangle,
+  Save,
+  Upload,
+  RotateCcw,
+  Camera,
 } from "lucide-react";
-import { getCurrentDoctor, removeAuthToken, DoctorMeResponse } from "@/lib/api";
+import {
+  getCurrentDoctor,
+  getDoctorProfile,
+  updateDoctorProfile,
+  removeAuthToken,
+  DoctorMeResponse,
+  DoctorProfileResponse,
+  ServicesConfig,
+  DEFAULT_DOCTOR_AVATAR,
+} from "@/lib/api";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<DoctorMeResponse | null>(null);
+  const [profile, setProfile] = useState<DoctorProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit Practice Form State
+  const [fullName, setFullName] = useState("");
+  const [clinicName, setClinicName] = useState("");
+  const [location, setLocation] = useState("");
+  const [speciality, setSpeciality] = useState("");
+  const [bio, setBio] = useState("");
+  const [phone, setPhone] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string>(DEFAULT_DOCTOR_AVATAR);
+  const [services, setServices] = useState<ServicesConfig>({
+    appointment: true,
+    video_consultation: true,
+    medicine_inventory: false,
+    lab_reports: false,
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadDoctor() {
       try {
-        const data = await getCurrentDoctor();
-        setDoctor(data);
+        const [meData, profileData] = await Promise.all([
+          getCurrentDoctor(),
+          getDoctorProfile().catch(() => null),
+        ]);
+        setDoctor(meData);
+        if (profileData) {
+          setProfile(profileData);
+          setFullName(profileData.full_name || meData.full_name || "");
+          setClinicName(profileData.clinic_name || "");
+          setLocation(profileData.location || "");
+          setSpeciality(profileData.speciality || "");
+          setBio(profileData.bio || "");
+          setPhone(profileData.phone || "");
+          if (profileData.avatar_url) {
+            setAvatarUrl(profileData.avatar_url);
+          } else if (meData.avatar_url) {
+            setAvatarUrl(meData.avatar_url);
+          }
+          if (profileData.services) {
+            setServices(profileData.services);
+          }
+        } else {
+          setFullName(meData.full_name || "");
+          if (meData.avatar_url) {
+            setAvatarUrl(meData.avatar_url);
+          }
+        }
       } catch (err: unknown) {
         if (err instanceof Error) {
           setError(err.message);
@@ -48,6 +118,66 @@ export default function DashboardPage() {
   const handleLogout = () => {
     removeAuthToken();
     router.replace("/login");
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setSaveError("Please select a valid image file (PNG, JPG, or WebP).");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError("Image file size should be less than 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const toggleService = (key: keyof ServicesConfig) => {
+    setServices((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setSaveError(null);
+      setSaveSuccess(null);
+
+      const updated = await updateDoctorProfile({
+        full_name: fullName.trim(),
+        avatar_url: avatarUrl,
+        clinic_name: clinicName.trim(),
+        location: location.trim(),
+        speciality: speciality.trim(),
+        bio: bio.trim(),
+        phone: phone.trim(),
+        services,
+      });
+
+      setProfile(updated);
+      setDoctor((prev) => (prev ? { ...prev, full_name: updated.full_name, phone: updated.phone, avatar_url: updated.avatar_url } : prev));
+      setSaveSuccess("Practice details and services updated! Changes are live on your patient webpage.");
+      setTimeout(() => setSaveSuccess(null), 5000);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setSaveError(err.message);
+      } else {
+        setSaveError("Failed to update profile settings.");
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -90,19 +220,12 @@ export default function DashboardPage() {
 
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-3 pr-2 border-r border-slate-200">
-              {doctor.avatar_url ? (
-                <Image
-                  src={doctor.avatar_url}
-                  alt={doctor.full_name}
-                  width={36}
-                  height={36}
-                  className="w-9 h-9 rounded-full border border-slate-200 object-cover"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm">
-                  {doctor.full_name.charAt(0)}
-                </div>
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatarUrl || doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
+                alt={doctor.full_name}
+                className="w-9 h-9 rounded-full border border-slate-200 object-cover"
+              />
               <div className="text-left">
                 <p className="text-sm font-semibold text-slate-900 leading-none">{doctor.full_name}</p>
                 <p className="text-xs text-slate-500 mt-0.5 leading-none">{doctor.email}</p>
@@ -123,6 +246,32 @@ export default function DashboardPage() {
 
       {/* Main Dashboard Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-1 space-y-8">
+        {/* Incomplete Onboarding Banner */}
+        {doctor && !doctor.onboarding_completed && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">
+                  Finish Practice Setup &amp; Launch Patient Webpage
+                </h3>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  Your profile and practice services are not yet published. Complete the setup wizard to launch your patient portal.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/onboarding"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors shrink-0"
+            >
+              <span>Complete Setup</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
+
         {/* Welcome Banner */}
         <div className="bg-gradient-to-r from-brand-600 via-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-sm relative overflow-hidden">
           <div className="relative z-10 max-w-2xl space-y-3">
@@ -134,10 +283,433 @@ export default function DashboardPage() {
               Welcome, {doctor.full_name}
             </h1>
             <p className="text-blue-100 text-sm sm:text-base leading-relaxed">
-              Your practice workspace and dedicated tenant isolation are initialized and ready.
+              Manage your practice details, enable platform services, and monitor your patient-facing webpage.
             </p>
           </div>
           <div className="absolute right-0 bottom-0 translate-x-10 translate-y-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        </div>
+
+        {/* Patient-Facing Webpage Card */}
+        {doctor.tenant?.slug && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-900">Your Live Patient Webpage</h2>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live &amp; Synced
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Patients can use this link to book appointments, teleconsultations, order medicines, and submit reports.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const origin = typeof window !== "undefined" ? window.location.origin : "";
+                    navigator.clipboard.writeText(`${origin}/${doctor.tenant?.slug}`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2500);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700">Copied Link!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Patient Link</span>
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  href={`/${doctor.tenant.slug}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-colors"
+                >
+                  <span>Visit Webpage</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Active Services Badges */}
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 mr-2">Active Services:</span>
+              <span
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border ${
+                  services.appointment
+                    ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                }`}
+              >
+                <Calendar className="w-3 h-3" />
+                <span>Appointments</span>
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border ${
+                  services.video_consultation
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                }`}
+              >
+                <Video className="w-3 h-3" />
+                <span>Video Consult</span>
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border ${
+                  services.medicine_inventory
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                }`}
+              >
+                <Pill className="w-3 h-3" />
+                <span>Medicine Orders</span>
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border ${
+                  services.lab_reports
+                    ? "bg-purple-50 border-purple-200 text-purple-700 font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-400 line-through"
+                }`}
+              >
+                <FileText className="w-3 h-3" />
+                <span>Lab Reports</span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Practice Profile & Services Editor */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                  Edit Practice Profile &amp; Services
+                </h2>
+                <span className="text-xs bg-brand-50 text-brand-700 font-semibold px-2 py-0.5 rounded border border-brand-200">
+                  Live Sync
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Any changes made here are instantly reflected on your patient-facing webpage.
+              </p>
+            </div>
+          </div>
+
+          {saveSuccess && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{saveSuccess}</span>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+              {saveError}
+            </div>
+          )}
+
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            {/* Profile Photo Section */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">
+                Doctor Profile Photo
+              </label>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-brand-200 shadow-sm shrink-0 bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatarUrl}
+                    alt="Doctor Profile Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="space-y-2 text-center sm:text-left flex-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload New Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {avatarUrl !== DEFAULT_DOCTOR_AVATAR && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatarUrl(DEFAULT_DOCTOR_AVATAR)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Use Default Photo</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    {avatarUrl === DEFAULT_DOCTOR_AVATAR
+                      ? "Currently using default healthcare avatar. Click 'Upload New Photo' to use your own image."
+                      : "Custom photo active. Click 'Save & Sync Changes' below to update your patient portal."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Doctor Details Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Doctor Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Medical Speciality <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={speciality}
+                  onChange={(e) => setSpeciality(e.target.value)}
+                  placeholder="e.g. Cardiologist"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Clinic / Hospital Name
+                </label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder="e.g. Metropolitan Medical Center"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Clinic Location / Address
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. 500 Medical Plaza, Suite 400"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Practice Contact Phone
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+1 (555) 123-4567"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  About Section / Doctor Bio
+                </label>
+                <textarea
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Share qualifications, experience, and clinic information for patients..."
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+
+            {/* Services Toggle Grid */}
+            <div className="pt-4 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
+                Offer Platform Services (Toggle to show/hide on patient page)
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Appointment */}
+                <div
+                  onClick={() => toggleService("appointment")}
+                  className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-colors ${
+                    services.appointment
+                      ? "bg-blue-50/50 border-blue-300 ring-1 ring-blue-300"
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">In-Clinic Appointments</p>
+                      <p className="text-[11px] text-slate-500">Slot booking &amp; scheduling</p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                      services.appointment
+                        ? "bg-brand-600 border-brand-600 text-white"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {services.appointment && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* 2. Video Consultation */}
+                <div
+                  onClick={() => toggleService("video_consultation")}
+                  className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-colors ${
+                    services.video_consultation
+                      ? "bg-indigo-50/50 border-indigo-300 ring-1 ring-indigo-300"
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                      <Video className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Video Consultation</p>
+                      <p className="text-[11px] text-slate-500">Telehealth appointments</p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                      services.video_consultation
+                        ? "bg-indigo-600 border-indigo-600 text-white"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {services.video_consultation && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* 3. Medicine Inventory */}
+                <div
+                  onClick={() => toggleService("medicine_inventory")}
+                  className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-colors ${
+                    services.medicine_inventory
+                      ? "bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-300"
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Pill className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Medicine Inventory &amp; Orders</p>
+                      <p className="text-[11px] text-slate-500">Prescription ordering &amp; refills</p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                      services.medicine_inventory
+                        ? "bg-emerald-600 border-emerald-600 text-white"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {services.medicine_inventory && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* 4. Lab Reports */}
+                <div
+                  onClick={() => toggleService("lab_reports")}
+                  className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-colors ${
+                    services.lab_reports
+                      ? "bg-purple-50/50 border-purple-300 ring-1 ring-purple-300"
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Lab Reports Management</p>
+                      <p className="text-[11px] text-slate-500">Patient test report uploads</p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
+                      services.lab_reports
+                        ? "bg-purple-600 border-purple-600 text-white"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    {services.lab_reports && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Updates...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save &amp; Sync Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Workspace Identity Grid */}
@@ -203,32 +775,6 @@ export default function DashboardPage() {
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
               <span>Doctor ID:</span>
               <span className="font-mono text-[11px] text-slate-500 truncate max-w-[140px]">{doctor.id}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Phase Roadmap Information */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 shrink-0 mt-0.5">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-base font-semibold text-slate-900">
-                Phase 3 Vertical Slice Complete
-              </h2>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Doctor registration, Google authentication, unique tenant workspace provisioning, JWT security, and protected dashboard routing are fully operational. Full practice management metrics, patient appointments, and website configuration will be connected in future phases.
-              </p>
-              <div className="pt-2">
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
-                >
-                  <span>Return to Public Landing Page</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              </div>
             </div>
           </div>
         </div>

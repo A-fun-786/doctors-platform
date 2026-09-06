@@ -87,7 +87,11 @@ def get_me(
         id=current_doctor.id,
         full_name=current_doctor.full_name,
         email=current_doctor.email,
+        phone=current_doctor.phone,
         avatar_url=current_doctor.avatar_url,
+        speciality=current_doctor.speciality,
+        bio=current_doctor.bio,
+        onboarding_completed=current_doctor.onboarding_completed,
         auth_provider=current_doctor.auth_provider,
         tenant=TenantResponse.model_validate(current_doctor.tenant) if current_doctor.tenant else None,
     )

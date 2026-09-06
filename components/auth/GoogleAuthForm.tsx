@@ -38,8 +38,12 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
     try {
       setLoading(true);
       setError(null);
-      await authenticateWithGoogle(credential);
-      router.push("/dashboard");
+      const authData = await authenticateWithGoogle(credential);
+      if (authData?.doctor && !authData.doctor.onboarding_completed) {
+        router.push("/onboarding");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -83,6 +87,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
         document.body.removeChild(script);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleClientId, mode]);
 
   // Demo account quick sign-in helper

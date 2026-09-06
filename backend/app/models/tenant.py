@@ -1,6 +1,6 @@
 import uuid
-from typing import TYPE_CHECKING
-from sqlalchemy import ForeignKey, String, Uuid
+from typing import Optional, TYPE_CHECKING
+from sqlalchemy import Boolean, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -34,6 +34,36 @@ class Tenant(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(50),
         default="active",
+        nullable=False,
+    )
+    clinic_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    location: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    # Platform Services offered by Doctor
+    service_appointment: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    service_video_consultation: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    service_medicine_inventory: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    service_lab_reports: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False,
     )
 
