@@ -6,12 +6,14 @@
 
 ## 1. What This Project Is
 
-DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each doctor who registers gets their own branded website subdomain (e.g. `drsarahjohnson.platform.com`) and a patient-facing mobile application, all managed from a single dashboard.
+DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each doctor who registers gets their own branded website subdomain / slug route (e.g. `drsarahjohnson.platform.com` or `/dr-sarah-johnson`) and a patient-facing web application, all managed from a single dashboard.
 
 - **Phase 1 (Complete):** Foundation setup and public-facing marketing landing page with initial `/register` and `/login` routes.
 - **Phase 2 (Complete):** Backend foundation and database layer (FastAPI, SQLAlchemy 2.x, PostgreSQL, Alembic migrations, `Doctor` + `Tenant` multi-tenant identity boundary).
-- **Phase 3 (Complete):** Authentication and Doctor Registration (Email/Password registration & login, Google Sign-In (requires GCP OAuth credentials), extensible multi-provider model, PBKDF2-HMAC-SHA256 password hashing, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
-- **Upcoming Phases:** Phase 4 (Doctor Dashboard), Phase 5+ (Doctor Profile, Branding, Services, Dynamic Websites).
+- **Phase 3 (Complete):** Authentication and Doctor Registration (Email/Password registration & login, Google Sign-In with GCP OAuth / mock token support, PBKDF2-HMAC-SHA256 password hashing, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
+- **Phase 4 (Complete):** Doctor Onboarding & Live Practice Profile Management (3-step onboarding wizard at `/onboarding`, profile photo upload with default healthcare fallback, speciality selector, bio editor, 4-service feature toggles: Appointments, Video Consultation, Medicine Inventory, Lab Reports; in-dashboard profile editor at `/dashboard` with instant live synchronization to patient webpage).
+- **Phase 5 (Complete):** Public Patient-Facing Practice Portal Architecture (`/[slug]` and `/dr/[slug]`): Sticky service navigation tabs, Practice Home with doctor credentials, healthcare philosophy/bio, 4 clinical commitment pillars, services showcase cards, dedicated full-page service views (In-Clinic Booking, Telehealth Video Scheduling, Pharmacy Medicine Orders, Lab & Diagnostic Reports Upload), and public patient API endpoints with feature toggle enforcement.
+- **Upcoming Phases:** Phase 6 (Custom Branding & Subdomain Routing), Phase 7 (Patient Management & Clinical Records), Phase 8 (Payment Gateway Integration).
 
 ---
 
@@ -20,26 +22,23 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 ### Frontend
 | Technology | Why |
 | :--- | :--- |
-| **Next.js 14 (App Router)** | File-system routing, server components, static generation, ideal for future SSR subdomain pages |
-| **TypeScript** | Type safety enforced across all components. Strict mode enabled in `tsconfig.json` |
-| **Tailwind CSS** | Utility-first styling — no CSS files per component, single design token source via `tailwind.config.ts` |
-| **Lucide React** | Lightweight, tree-shakeable icon library; no SVG management overhead |
-| **Google Identity Services** | Official Google OAuth 2.0 / OpenID Connect frontend SDK integration for one-tap and button authentication (inactive until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is configured) |
-| **Client-Side Auth Utility (`lib/api.ts`)** | Lightweight native `fetch` client, localStorage JWT token management, email register/login and Google auth methods |
-| **System font stack** | Avoids external network dependency for fonts during build; uses `font-sans` |
+| **Next.js 14 (App Router)** | File-system routing, server components, dynamic route matching (`app/[slug]/page.tsx`), and client-side tab state management |
+| **TypeScript** | Strict type safety enforced across all components and API responses in `tsconfig.json` |
+| **Tailwind CSS** | Utility-first styling — consistent design tokens via `tailwind.config.ts`, medical-grade `brand` blue palette |
+| **Lucide React** | Lightweight, tree-shakeable healthcare icon set (`Stethoscope`, `Calendar`, `Video`, `Pill`, `FileText`, `ShieldCheck`, etc.) |
+| **Client-Side API Utility (`lib/api.ts`)** | Native `fetch` client with JWT storage, doctor profile CRUD, public tenant endpoints, patient submission handlers, and `DEFAULT_DOCTOR_AVATAR` SVG fallback |
+| **Base64 / Data URL Avatar Support** | `avatar_url` stored as `Text` allowing instant zero-dependency image previews and uploads without requiring S3/cloud storage setup during development |
 
 ### Backend & Database
 | Technology | Why |
 | :--- | :--- |
-| **Python 3.12+ / FastAPI** | High-performance async/sync modular REST API with automatic OpenAPI Swagger documentation |
+| **Python 3.12+ / FastAPI** | High-performance REST API with automatic OpenAPI Swagger documentation and modular routers (`auth`, `doctor`, `public`, `health`) |
 | **SQLAlchemy 2.x** | Modern Python ORM using declarative mapped columns, typed relationships, and explicit foreign keys |
-| **PostgreSQL 16** | Robust relational database for multi-tenant data isolation, ACID compliance, and relational integrity |
-| **psycopg3 (`psycopg[binary]`)** | Modern, officially supported PostgreSQL driver for synchronous database operations |
-| **PBKDF2-HMAC-SHA256 (`hashlib` + `secrets`)** | Stdlib-based password hashing with per-user cryptographic salt and timing-safe comparison — zero additional dependencies |
-| **google-auth** | Official Google authentication client library for secure Google ID token verification (used by Google provider; inactive until `GOOGLE_CLIENT_ID` is configured) |
-| **PyJWT** | High-performance, RFC 7519 compliant JSON Web Token encoding and decoding for platform sessions |
-| **Alembic** | Source-of-truth migration management for incremental database schema evolution |
-| **Pydantic v2 / Settings** | Type-safe environment variable parsing (`pydantic-settings`) and validation |
+| **PostgreSQL 16 & SQLite** | Multi-tenant relational isolation in production with transparent SQLite auto-column migration helper for local zero-friction testing |
+| **PBKDF2-HMAC-SHA256 (`hashlib` + `secrets`)** | Stdlib-based password hashing with per-user cryptographic salt and timing-safe comparison — zero external security dependencies |
+| **PyJWT** | RFC 7519 compliant JSON Web Token encoding and decoding for platform sessions |
+| **Alembic** | Source-of-truth migration management (`001_initial_foundation`, `002_add_auth_providers`, `003_add_doctor_onboarding_and_services`) |
+| **Pydantic v2 / Settings** | Type-safe environment variable parsing (`pydantic-settings`) and strict request/response validation schemas |
 | **Docker Compose** | Local PostgreSQL containerization without heavy container overhead on the backend |
 
 ---
@@ -49,37 +48,47 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 The project is structured as a modular frontend + backend workspace.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         FRONTEND: NEXT.JS CLIENT                            │
-│   Marketing landing page (/), Email Auth (/login, /register),               │
-│   Google Auth (inactive until configured), Protected Dashboard (/dashboard),│
-│   API Client (lib/api.ts)                                                   │
-│   (Port 3000)                                                               │
-└──────────────────────────────────┬──────────────────────────────────────────┘
-                                   │ HTTP / CORS (http://localhost:3000)
-                                   │ Bearer JWT Authorization
-┌──────────────────────────────────▼──────────────────────────────────────────┐
-│                      BACKEND: FASTAPI API SERVICE (backend/)                │
-│                                                                             │
-│  backend/app/main.py ─────────── Root health check, CORS middleware, docs   │
-│  ├── backend/app/core/ ───────── Settings (config.py), DB session (database.py),│
-│  │                               Security, JWT & Password Hashing (security.py)│
-│  ├── backend/app/api/ ────────── Auth routes (/api/v1/auth/register, /login,│
-│  │                               /google, /me), Health routes, deps.py      │
-│  ├── backend/app/services/ ───── auth_service.py (Email & Google auth,      │
-│  │                               Tenant slug + Provisioning)                │
-│  └── backend/app/models/ ─────── SQLAlchemy models (Base, Doctor, Tenant)   │
-│  (Port 8000)                                                                │
-└──────────────────────────────────┬──────────────────────────────────────────┘
-                                   │ SQLAlchemy 2.x / psycopg3
-┌──────────────────────────────────▼──────────────────────────────────────────┐
-│                      DATABASE: POSTGRESQL (docker-compose)                  │
-│                                                                             │
-│  doctors  → id (UUID PK), email (UK), full_name, phone, avatar_url,         │
-│             auth_provider, provider_id, hashed_password, is_active, created_at│
-│  tenants  → id (UUID PK), doctor_id (FK UK 1:1), slug (UK), status, created_at│
-│  (Port 5432)                                                                │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                               FRONTEND: NEXT.JS CLIENT                                  │
+│   • Marketing Landing Page (/)                                                          │
+│   • Auth Pages (/login, /register) ─── Auto-redirects to /onboarding if setup pending   │
+│   • Doctor Onboarding Wizard (/onboarding) ─── 3-step practice & services configuration  │
+│   • Protected Doctor Dashboard (/dashboard) ─── Real-time profile & service toggle sync │
+│   • Patient-Facing Portal (/[slug], /dr/[slug]) ─── Practice Home + Dedicated Services  │
+│   • Central API Client (lib/api.ts)                                                     │
+│   (Port 3000)                                                                           │
+└────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                         │ HTTP / CORS (http://localhost:3000)
+                                         │ Bearer JWT / Public API Requests
+┌────────────────────────────────────────▼────────────────────────────────────────────────┐
+│                            BACKEND: FASTAPI API SERVICE (backend/)                      │
+│                                                                                         │
+│  backend/app/main.py ───────────────── Root health check, CORS middleware, OpenAPI docs │
+│  ├── backend/app/core/ ─────────────── Settings (config.py), DB Session & auto-migrate  │
+│  │                                     (database.py), Security & JWT (security.py)      │
+│  ├── backend/app/api/ ──────────────── API Routers:                                     │
+│  │   ├── routes/auth.py ────────────── /api/v1/auth (register, login, google, me)       │
+│  │   ├── routes/doctor.py ──────────── /api/v1/doctor/profile (GET, PUT) [Protected]    │
+│  │   ├── routes/public.py ──────────── /api/v1/public/tenants/{slug}/* [Unauthenticated]│
+│  │   │                                 (GET tenant, POST appointments, reports, orders)│
+│  │   └── routes/health.py ──────────── /api/v1/health, /api/v1/health/database          │
+│  ├── backend/app/services/ ─────────── auth_service.py (provisioning & slug generation) │
+│  └── backend/app/models/ ───────────── SQLAlchemy models (Base, Doctor, Tenant)         │
+│  (Port 8000)                                                                            │
+└────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                         │ SQLAlchemy 2.x / PostgreSQL / SQLite
+┌────────────────────────────────────────▼────────────────────────────────────────────────┐
+│                             DATABASE: POSTGRESQL / SQLITE                               │
+│                                                                                         │
+│  doctors  → id (UUID PK), email (UK), full_name, phone, avatar_url (Text), speciality,  │
+│             bio (Text), onboarding_completed (Bool), auth_provider, provider_id,        │
+│             hashed_password, is_active, created_at, updated_at                          │
+│                                                                                         │
+│  tenants  → id (UUID PK), doctor_id (FK UK 1:1), slug (UK), status, clinic_name,        │
+│             location, service_appointment (Bool), service_video_consultation (Bool),   │
+│             service_medicine_inventory (Bool), service_lab_reports (Bool), timestamps   │
+│  (Port 5432)                                                                            │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -135,17 +144,40 @@ When a browser visits `/login` or `/register`:
 ```
 Browser → GET "/login" or "/register"
   └── Next.js App Router matches app/login/page.tsx or app/register/page.tsx
-        └── Renders components/auth/EmailAuthForm.tsx
+        └── Renders components/auth/EmailAuthForm.tsx (or GoogleAuthForm.tsx)
               ├── Displays email & password form fields (register or login mode)
-              ├── Shows inactive Google Sign-In button placeholder (until NEXT_PUBLIC_GOOGLE_CLIENT_ID configured)
-              └── On form submission:
-                    ├── Register mode → calls registerWithEmail(email, password) via lib/api.ts
-                    │     → POST /api/v1/auth/register
-                    ├── Login mode → calls loginWithEmail(email, password) via lib/api.ts
-                    │     → POST /api/v1/auth/login
-                    ├── Receives platform JWT access token + doctor & tenant data
+              ├── Shows Google Sign-In button (with demo accounts for instant local testing)
+              └── On authentication success:
+                    ├── Receives platform JWT access token + doctor & tenant payload
                     ├── Stores JWT in localStorage ("docspace_auth_token")
-                    └── Redirects to "/dashboard"
+                    └── Evaluates doctor.onboarding_completed:
+                          ├── If FALSE → router.push("/onboarding") (Force onboarding wizard)
+                          └── If TRUE  → router.push("/dashboard") (Direct to practice dashboard)
+```
+
+When a browser visits `/onboarding`:
+
+```
+Browser → GET "/onboarding"
+  └── Next.js App Router matches app/onboarding/page.tsx
+        ├── Verifies JWT session via getAuthToken() (redirects to /login if missing)
+        ├── Loads current profile via getDoctorProfile() (GET /api/v1/doctor/profile)
+        └── Renders 3-Step Guided Onboarding Wizard:
+              ├── Step 1 (Profile & Practice Details):
+              │     ├── Photo Upload (base64 data URL) + Default healthcare avatar fallback
+              │     ├── Full Name, Clinic Name, Location, Phone, Bio/Philosophy
+              │     └── Speciality quick-select suggestion pills (Cardiologist, Dermatologist, etc.)
+              ├── Step 2 (Services Selection):
+              │     ├── In-Clinic Appointments (Toggle)
+              │     ├── Video Consultation (Toggle)
+              │     ├── Medicine Inventory & Orders (Toggle)
+              │     └── Lab Reports Management (Toggle)
+              └── Step 3 (Launch & Publish):
+                    ├── Submits payload via updateDoctorProfile() (PUT /api/v1/doctor/profile)
+                    │     → Sets onboarding_completed: true atomically in backend
+                    ├── Displays personalized live patient URL (/[slug] and /dr/[slug])
+                    ├── 1-Click "Copy Public Webpage Link" with clipboard confirmation
+                    └── Action buttons: "Preview Patient Webpage" (/[slug]) or "Go to Dashboard" (/dashboard)
 ```
 
 When a browser visits `/dashboard`:
@@ -154,13 +186,52 @@ When a browser visits `/dashboard`:
 Browser → GET "/dashboard"
   └── Next.js App Router matches app/dashboard/page.tsx
         └── Client-side auth check:
-              ├── Reads token from localStorage via getAuthToken()
-              │     ├── Missing token → router.replace("/login")
-              │     └── Present token → calls getCurrentDoctor() (GET /api/v1/auth/me)
-              ├── If token valid (200 OK):
-              │     └── Renders doctor profile, avatar, email, workspace slug, and Logout button
-              └── If token invalid / expired (401 Unauthorized):
-                    └── Clears localStorage token → router.replace("/login")
+              ├── Reads token from localStorage via getAuthToken() (redirects to /login if missing)
+              ├── Fetches current doctor & practice via getDoctorProfile() (GET /api/v1/doctor/profile)
+              ├── If un-onboarded (onboarding_completed: false):
+              │     └── Shows prominent alert banner with "Complete Practice Setup" CTA → /onboarding
+              ├── Renders "Your Live Patient Webpage" Banner:
+              │     ├── Displays doctor slug URL (e.g. localhost:3000/dr-rajesh-kumar)
+              │     ├── "Copy Patient Link" button
+              │     └── "Visit Live Patient Webpage" external navigation link
+              ├── Renders "Practice Profile & Services Management" Real-Time Editor:
+              │     ├── Doctor photo upload, name, speciality, clinic, location, bio
+              │     ├── Real-time toggles for 4 services (Appointments, Video, Medicines, Reports)
+              │     └── "Save Profile Changes" button → PUT /api/v1/doctor/profile
+              │           └── Changes immediately reflect on the live patient webpage on reload
+              └── Logout button → clears localStorage JWT and redirects to /login
+```
+
+When a patient visits `/[slug]` or `/dr/[slug]`:
+
+```
+Patient Browser → GET "/[slug]" or "/dr/[slug]" (e.g. /dr-rajesh-kumar)
+  └── Next.js App Router matches app/[slug]/page.tsx (or alias app/dr/[slug]/page.tsx)
+        ├── Calls getPublicDoctorProfile(slug) → GET /api/v1/public/tenants/{slug}
+        │     ├── If tenant not found (404) → renders custom "Practice Not Found" card
+        │     └── If active tenant (200) → receives public doctor info + enabled services
+        ├── Renders Sticky Services Navigation Bar:
+        │     ├── "Practice Home" tab (always present)
+        │     └── Dynamic tabs for enabled services: "In-Clinic Appointments", "Video Consultation",
+        │         "Medicine Orders", "Lab Reports"
+        │
+        ├── VIEW A: Practice Home (activeTab === "home"):
+        │     ├── Hero Section: Doctor avatar (with healthcare fallback), verified badge,
+        │     │   credentials, clinic name, location, and quick CTA buttons
+        │     ├── Healthcare Philosophy & Bio: Doctor bio, credentials, and 4 clinical commitment
+        │     │   pillars (Verified Credentials, Patient-Centric Care, Prompt Scheduling, Integrated Care)
+        │     └── Care Offerings Grid: Responsive showcase cards for active services with
+        │         direct click-through triggers that switch activeTab to that service
+        │
+        └── VIEW B: Dedicated Detailed Service View (activeTab === [service]):
+              ├── Top navigation bar with "← Back to Practice Home" button and breadcrumbs
+              ├── Doctor context card reiterating doctor name, avatar, clinic, and safety badge
+              └── Isolated full-page interactive workflow:
+                    ├── appointments → Date picker, time slot selector, patient details, and instant reference ID
+                    ├── teleconsult  → Video consult date/time scheduler, symptoms notes, and HD room notice
+                    ├── medicines    → Clinic pharmacy medicine ordering, dosage notes, patient delivery address
+                    └── reports      → Diagnostic report uploader (PDF/scans), test category, clinical symptoms
+              └── Success state with booking reference ID, "Submit Another", and "Return to Practice Home"
 ```
 
 ### 4.3 Navigation linkages inside the app
@@ -168,7 +239,7 @@ Browser → GET "/dashboard"
 The Navbar links use two mechanisms:
 
 - **Anchor links** (`href="#features"`, `href="#how-it-works"`) → scroll the browser to `id="features"` on `Features.tsx` and `id="how-it-works"` on `HowItWorks.tsx`. These `id` attributes must remain in sync with Navbar.
-- **Route links** (`href="/login"`, `href="/register"`) → full Next.js page navigation to functional Google authentication flows.
+- **Route links** (`href="/login"`, `href="/register"`) → full Next.js page navigation to authentication flows.
 
 The Hero CTA "Explore Platform" uses `<a href="#features">` (plain anchor, not Next.js `<Link>`) intentionally — smooth scroll works without client-side navigation.
 
@@ -196,35 +267,28 @@ Component-level styles → Inline Tailwind classes in each .tsx file
 ```
 HTTP Client (Browser / Frontend / cURL)
   │
-  ├── GET /health ──────────── app/main.py (Root health check)
+  ├── GET /health ──────────────────── app/main.py (Root health check)
   │
-  ├── GET /api/v1/health ───── app/main.py → app/api/router.py → app/api/routes/health.py
-  │     ├── GET /api/v1/health          → {"status": "healthy", "service": "doctor-platform-api"}
-  │     └── GET /api/v1/health/database → app/core/database.py:get_db() (SELECT 1)
+  ├── GET /api/v1/health ───────────── app/main.py → app/api/router.py → app/api/routes/health.py
+  │     ├── GET /api/v1/health                  → {"status": "healthy", "service": "doctor-platform-api"}
+  │     └── GET /api/v1/health/database         → app/core/database.py:get_db() (SELECT 1)
   │
-  └── /api/v1/auth ─────────── app/main.py → app/api/router.py → app/api/routes/auth.py
-        │
-        ├── POST /api/v1/auth/register ── app/services/auth_service.py:register_email()
-        │                                   ├── Validate email & password (min 6 chars)
-        │                                   ├── Check for existing doctor by email
-        │                                   ├── Hash password (PBKDF2-HMAC-SHA256 via security.py)
-        │                                   ├── Derive doctor name from email if not provided
-        │                                   ├── Atomically create Doctor + Tenant (with unique slug)
-        │                                   └── Issue Platform JWT (HS256 access token)
-        │
-        ├── POST /api/v1/auth/login ───── app/services/auth_service.py:login_email()
-        │                                   ├── Find doctor by email
-        │                                   ├── Verify password hash (timing-safe comparison)
-        │                                   ├── Reject Google-provider accounts (no hashed_password)
-        │                                   └── Issue Platform JWT (HS256 access token)
-        │
-        ├── POST /api/v1/auth/google ── app/services/auth_service.py:authenticate_google()
-        │                                 ├── Verify Google token (app/core/security.py)
-        │                                 ├── Atomically create Doctor + Tenant (with unique slug)
-        │                                 └── Issue Platform JWT (HS256 access token)
-        │
-        └── GET /api/v1/auth/me ────── app/api/deps.py:get_current_doctor (Bearer JWT)
-                                          └── Returns authenticated doctor & tenant details
+  ├── /api/v1/auth ─────────────────── app/main.py → app/api/routes/auth.py
+  │     ├── POST /api/v1/auth/register          → registers doctor, auto-creates tenant with slug, returns JWT
+  │     ├── POST /api/v1/auth/login             → verifies password hash, returns JWT + onboarding_completed
+  │     ├── POST /api/v1/auth/google            → verifies Google token, provisions doctor+tenant, returns JWT
+  │     └── GET /api/v1/auth/me                 → returns current authenticated doctor profile
+  │
+  ├── /api/v1/doctor ───────────────── app/main.py → app/api/routes/doctor.py [Protected: Bearer JWT]
+  │     ├── GET /api/v1/doctor/profile          → returns doctor profile + tenant clinic & 4 service flags
+  │     └── PUT /api/v1/doctor/profile          → updates full_name, avatar_url, speciality, bio, clinic_name,
+  │                                               location, onboarding_completed, and 4 service flags
+  │
+  └── /api/v1/public ───────────────── app/main.py → app/api/routes/public.py [Unauthenticated]
+        ├── GET /api/v1/public/tenants/{slug}                   → returns public doctor profile & enabled services
+        ├── POST /api/v1/public/tenants/{slug}/appointments     → verifies service_appointment is true; returns booking ID
+        ├── POST /api/v1/public/tenants/{slug}/reports          → verifies service_lab_reports is true; returns tracking ID
+        └── POST /api/v1/public/tenants/{slug}/medicine-orders  → verifies service_medicine_inventory is true; returns order ID
 ```
 
 Database Model Linkage:
@@ -233,19 +297,29 @@ Doctor (app/models/doctor.py)
   └── id (UUID Primary Key)
   └── email (Unique Indexed)
   └── full_name (String)
-  └── avatar_url (String, Nullable)
+  └── phone (String, Nullable)
+  └── avatar_url (Text, Nullable — supports base64 & external URLs)
+  └── speciality (String, Nullable — e.g. "Cardiologist")
+  └── bio (Text, Nullable — doctor philosophy & care background)
+  └── onboarding_completed (Boolean, Default: False)
   └── auth_provider (String, Default: "google")
   └── provider_id (String Indexed, Nullable)
   └── hashed_password (String, Nullable)
-  └── is_active (Boolean)
+  └── is_active (Boolean, Default: True)
   └── tenant (1:1 Relationship via uselist=False, cascade="all, delete-orphan")
         │
         ▼
 Tenant (app/models/tenant.py)
   └── id (UUID Primary Key)
   └── doctor_id (UUID Foreign Key → doctors.id, Unique Indexed)
-  └── slug (Unique Indexed)
+  └── slug (Unique Indexed — e.g. "dr-rajesh-kumar")
   └── status (Default: 'active')
+  └── clinic_name (String, Nullable — e.g. "Kumar Heart & Health Clinic")
+  └── location (String, Nullable — e.g. "Bandra West, Mumbai")
+  └── service_appointment (Boolean, Default: True — in-clinic bookings)
+  └── service_video_consultation (Boolean, Default: True — telehealth video)
+  └── service_medicine_inventory (Boolean, Default: False — clinic pharmacy)
+  └── service_lab_reports (Boolean, Default: False — diagnostic reports)
   └── doctor (Relationship back_populates="tenant")
 ```
 
@@ -465,20 +539,78 @@ export default function Home() {
 
 ---
 
-#### [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS Code/Full stack/Doctors Platform/app/dashboard/page.tsx)
+#### [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx)
 
-**Purpose:** Protected doctor dashboard entry point (`/dashboard`).
+**Purpose:** 3-step doctor onboarding and initial practice setup wizard (`/onboarding`).
 
 **Key content:**
-- Client-side route protection: verifies presence of JWT in `localStorage` (`getAuthToken()`)
-- Calls `getCurrentDoctor()` (`GET /api/v1/auth/me`) to load authenticated doctor details
-- Displays doctor profile header, avatar, email, auth provider, workspace slug (`doctor.tenant.slug`), and system IDs
-- Provides session **Logout** button which clears localStorage and redirects to `/login`
-- Automatic redirection to `/login` if unauthenticated or if JWT has expired (401)
+- **Step 1 (Practice & Doctor Details):**
+  - Profile photo upload with instant browser FileReader preview and `DEFAULT_DOCTOR_AVATAR` SVG fallback.
+  - Doctor name, clinic name, location, contact phone, and clinical bio / philosophy.
+  - Interactive speciality suggestion pills (*Cardiologist*, *General Physician*, *Dermatologist*, *Pediatrician*, *Orthopedic*, *Gynecologist*, *Neurologist*, *Psychiatrist*, *Dentist*, *ENT Specialist*).
+- **Step 2 (Care Offerings / Services Selection):**
+  - 4 interactive service toggle cards: *In-Clinic Appointments*, *Video Consultation*, *Medicine Inventory & Orders*, and *Lab Reports Management* (Staff management explicitly excluded from patient offerings).
+- **Step 3 (Launch & Publish):**
+  - Submits profile and toggles via `updateDoctorProfile()` (`PUT /api/v1/doctor/profile`), setting `onboarding_completed: true`.
+  - Displays personalized public URL (e.g. `http://localhost:3000/dr-rajesh-kumar`).
+  - Copy-to-clipboard action with visual toast confirmation.
+  - Quick action buttons: **"Preview Patient Webpage"** (`/[slug]`) and **"Go to Dashboard"** (`/dashboard`).
+
+**Architectural Rationale:**
+- Separating onboarding into a dedicated wizard ensures doctors complete necessary clinical credentials and select their offered services before publishing their public patient link.
+- Doctors who log in or register with `onboarding_completed: false` are automatically redirected here to prevent unconfigured public profile pages.
+
+---
+
+#### [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS Code/Full stack/Doctors Platform/app/dashboard/page.tsx)
+
+**Purpose:** Protected doctor practice management dashboard (`/dashboard`) with real-time profile editing and service sync.
+
+**Key content:**
+- Client-side route protection: verifies presence of JWT in `localStorage` (`getAuthToken()`).
+- Calls `getDoctorProfile()` (`GET /api/v1/doctor/profile`) to load authenticated doctor details and tenant service flags.
+- Displays prominent setup banner if `onboarding_completed: false` with direct link to `/onboarding`.
+- **"Your Live Patient Webpage" Card:** Displays doctor slug URL, 1-click copy button, and direct link to open the public patient portal (`/[slug]`).
+- **"Practice Profile & Services Management" Editor:**
+  - In-place doctor photo upload, full name, speciality, clinic name, location, and bio editor.
+  - 4 one-click toggle switches for practice services (*In-Clinic Appointments*, *Video Consultation*, *Medicine Inventory*, *Lab Reports*).
+  - "Save Profile Changes" button calls `updateDoctorProfile()` (`PUT /api/v1/doctor/profile`) — any changes made here sync immediately to the live patient-facing website.
+- Session **Logout** button which clears localStorage and redirects to `/login`.
 
 **Linkage:**
-- Wrapped by `app/layout.tsx`
-- Consumes `lib/api.ts` (`getCurrentDoctor`, `removeAuthToken`)
+- Wrapped by `app/layout.tsx`.
+- Consumes `lib/api.ts` (`getDoctorProfile`, `updateDoctorProfile`, `removeAuthToken`).
+
+---
+
+#### [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) & [`app/dr/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dr/%5Bslug%5D/page.tsx)
+
+**Purpose:** Public-facing patient portal customized per doctor based on their URL slug (e.g. `/dr-rajesh-kumar` or `/dr/dr-rajesh-kumar`).
+
+**Key Architecture & State Design:**
+- **Dynamic Data Fetching:** On mount, queries `GET /api/v1/public/tenants/{slug}` via `getPublicDoctorProfile(slug)`. If the practice does not exist, displays a user-friendly "Practice Not Found" card.
+- **Sticky Top Tab Navigation Bar:**
+  - Always includes `Practice Home` tab.
+  - Dynamically renders tabs only for services enabled by the doctor (`In-Clinic Appointments`, `Video Consultation`, `Medicine Orders`, `Lab Reports`).
+  - Active tab highlighting (`bg-brand-600 text-white`) and smooth scroll to top on tab switch.
+- **Home View (`activeTab === "home"`):**
+  - **Doctor Hero Profile:** High-resolution doctor avatar (or default healthcare SVG fallback), verified practice badge, full name, clinical speciality, clinic name, location, and quick CTA buttons.
+  - **Doctor & Healthcare Philosophy:** Detailed clinical bio, practice introduction, and 4 healthcare commitment pillars (*Verified Credentials*, *Patient-Centric Care*, *Prompt Scheduling*, *Integrated Digital Care*).
+  - **Care Offerings Cards Grid:** Visual service cards highlighting features, capabilities, and direct click-through action buttons that switch `activeTab` to that specific service.
+- **Dedicated Detailed Service Views (`activeTab === [service]`):**
+  - Isolates the chosen service on its own full page, hiding other services to prevent visual clutter and cognitive overload.
+  - Top navigation bar with **"← Back to Practice Home"** button and breadcrumb path (`Home / [Service Name]`).
+  - Clinical reassurance card showing doctor credentials and privacy/encryption badges.
+  - **Full Interactive Workflows:**
+    - 📅 **In-Clinic Appointments:** Preferred date picker, interactive time slot selection (`09:00 AM`, `10:00 AM`, etc.), patient details, and confirmation reference ID with return-to-home actions.
+    - 📹 **Video Consultation:** Telehealth scheduling form, HD encrypted room notice, date/time slot picker, and consultation link dispatch notice.
+    - 💊 **Clinic Pharmacy & Medicine Orders:** Prescription medicine request form, medication name/dosage, delivery address, and pharmacy verification ticket.
+    - 🧪 **Lab & Diagnostic Reports:** Secure file uploader supporting PDFs and medical scans (`.pdf`, `image/*`), test category selector, symptoms notes, and tracking ID.
+- **Auto-Guard Synchronization:** If a doctor disables a service while a patient is viewing that tab, an active `useEffect` guard automatically redirects the view back to `"home"`.
+
+**Architectural Rationale:**
+- **Client-Side Tab Isolation vs. Multi-Page Routing:** Implementing single-route tab state (`activeTab`) within `/[slug]` provides instant, zero-latency transitions without full-page reloads, retains client-side form draft states if needed, and allows single-URL sharing for the doctor's entire practice.
+- **`app/dr/[slug]/page.tsx` Alias:** Re-exports `app/[slug]/page.tsx` directly, allowing doctors and patients to access practice portals via both `/dr-rajesh-kumar` and `/dr/dr-rajesh-kumar` interchangeably.
 
 ---
 
@@ -488,38 +620,50 @@ export default function Home() {
 
 #### [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts)
 
-**Purpose:** Centralized API client and authentication token manager for the frontend.
+**Purpose:** Centralized API client, type definitions, and authentication token manager for the frontend.
 
 **Key content:**
-- Token storage helpers: `getAuthToken()`, `setAuthToken(token)`, `removeAuthToken()`
-- TypeScript interfaces: `Doctor`, `Tenant`, `AuthResponse`, `DoctorMeResponse`
-- `authenticateWithGoogle(credential: string)`: sends Google ID token to `POST /api/v1/auth/google`, stores JWT, and returns auth response
-- `registerWithEmail(email, password, fullName?)`: sends email & password to `POST /api/v1/auth/register`, stores JWT, and returns auth response
-- `loginWithEmail(email, password)`: sends credentials to `POST /api/v1/auth/login`, stores JWT, and returns auth response
-- `getCurrentDoctor(token?: string)`: fetches authenticated profile from `GET /api/v1/auth/me` with `Authorization: Bearer` header
+- **Default Asset Constants:** `DEFAULT_DOCTOR_AVATAR` (embedded high-resolution medical doctor illustration SVG data URL for fallback).
+- **Token Storage Helpers:** `getAuthToken()`, `setAuthToken(token)`, `removeAuthToken()`.
+- **TypeScript Interfaces:**
+  - `Doctor`, `Tenant`, `ServicesConfig` (`appointment`, `video_consultation`, `medicine_inventory`, `lab_reports`).
+  - `DoctorProfileResponse`, `DoctorProfileUpdateRequest`.
+  - `PublicDoctorProfileResponse` (public tenant payload with doctor info and service toggles).
+  - `AppointmentBookingRequest`, `ReportUploadRequest`, `MedicineOrderRequest`.
+- **API Methods:**
+  - `registerWithEmail(email, password, fullName?)`
+  - `loginWithEmail(email, password)`
+  - `authenticateWithGoogle(credential)`
+  - `getCurrentDoctor()` (`GET /api/v1/auth/me`)
+  - `getDoctorProfile()` (`GET /api/v1/doctor/profile`) [Protected]
+  - `updateDoctorProfile(payload)` (`PUT /api/v1/doctor/profile`) [Protected]
+  - `getPublicDoctorProfile(slug)` (`GET /api/v1/public/tenants/{slug}`) [Public]
+  - `bookPublicAppointment(slug, payload)` (`POST /api/v1/public/tenants/{slug}/appointments`) [Public]
+  - `uploadPublicReport(slug, payload)` (`POST /api/v1/public/tenants/{slug}/reports`) [Public]
+  - `orderPublicMedicine(slug, payload)` (`POST /api/v1/public/tenants/{slug}/medicine-orders`) [Public]
 
 ---
 
 #### [`components/auth/EmailAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/EmailAuthForm.tsx)
 
-**Purpose:** Simple email and password authentication & registration form.
+**Purpose:** Email and password authentication & registration form with onboarding routing.
 
 **Key content:**
-- Supports `mode="login"` and `mode="register"`
-- Clean email & password inputs with client validation and loading states
-- Inactive Google Sign-In button placeholder (until Google OAuth credentials configured)
-- Automatic workspace provisioning and redirect to `/dashboard` upon authentication
+- Supports `mode="login"` and `mode="register"`.
+- Clean email & password inputs with client validation and loading states.
+- Inactive Google Sign-In button placeholder (until Google OAuth credentials configured).
+- Automatic routing: evaluates `doctor.onboarding_completed` upon authentication, directing to `/onboarding` if false or `/dashboard` if true.
 
 ---
 
 #### [`components/auth/GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/GoogleAuthForm.tsx)
 
-**Purpose:** Interactive Google Sign-In and practice registration form component (preserved for Google OAuth).
+**Purpose:** Interactive Google Sign-In and practice registration form component with demo account presets.
 
 **Key content:**
-- Supports official Google Identity Services SDK (`https://accounts.google.com/gsi/client`) when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set
-- Provides 1-Click Quick Demo accounts ("Dr. Ahmed Khan", "Dr. Sarah Connor") for immediate local evaluation without requiring cloud console configuration
-- Displays loading spinners, error alerts, security badges, and mode switching between register and login
+- Supports official Google Identity Services SDK (`https://accounts.google.com/gsi/client`) when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is configured.
+- Provides 1-Click Quick Demo accounts ("Dr. Ahmed Khan", "Dr. Sarah Connor") for immediate local evaluation without requiring GCP console setup.
+- Evaluates `doctor.onboarding_completed` upon successful authentication, directing to `/onboarding` if setup is incomplete.
 
 ### Landing Page Components (`components/landing/`)
 
@@ -750,87 +894,111 @@ const steps = [
 
 ---
 
-#### [`backend/app/models/base.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/base.py)
+#### [`backend/app/core/database.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/database.py)
 
-**Purpose:** Declarative base class (`Base`) and shared `TimestampMixin` providing server-default `created_at` and on-update `updated_at` timezone-aware timestamps.
+**Purpose:** SQLAlchemy 2.x database connectivity layer and transparent SQLite migration helper.
+- Configures engine with `pool_pre_ping=True`, `SessionLocal` factory, and `get_db()` dependency generator.
+- Includes `_run_sqlite_auto_migrations()` which automatically checks SQLite PRAGMA table info on startup and adds missing columns (`speciality`, `bio`, `onboarding_completed`, `clinic_name`, `location`, `service_*`), ensuring zero-friction local development even if local SQLite db files are used without running Alembic commands.
 
 ---
 
 #### [`backend/app/models/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/doctor.py)
 
-**Purpose:** `Doctor` model representing the platform user with multi-provider authentication support.
-- Fields: `id` (UUID PK), `email` (Unique Indexed), `full_name`, `phone`, `avatar_url` (Nullable), `auth_provider` (Default: `"google"`), `provider_id` (Indexed Nullable), `hashed_password` (Nullable), `is_active` (Boolean), `created_at`, `updated_at`.
-- Relationship: 1:1 with `Tenant` via `uselist=False, cascade="all, delete-orphan"`.
+**Purpose:** `Doctor` model representing the registered practitioner with profile and onboarding metadata.
+- **Fields:**
+  - `id` (UUID Primary Key)
+  - `email` (String 255, Unique Indexed, Nullable=False)
+  - `full_name` (String 255, Nullable=False)
+  - `phone` (String 50, Nullable=True)
+  - `avatar_url` (Text, Nullable=True) — stored as `Text` to allow base64 data URLs without 255-character truncation
+  - `speciality` (String 255, Nullable=True) — e.g. "Cardiologist", "General Physician"
+  - `bio` (Text, Nullable=True) — doctor background, healthcare philosophy, and credentials
+  - `onboarding_completed` (Boolean, Default: False, Nullable=False) — gates access to dashboard vs. onboarding wizard
+  - `auth_provider` (String 50, Default: "google")
+  - `provider_id` (String 255, Indexed Nullable)
+  - `hashed_password` (String 255, Nullable)
+  - `is_active` (Boolean, Default: True)
+  - Timestamps (`created_at`, `updated_at`)
+- **Relationship:** 1:1 with `Tenant` via `uselist=False, cascade="all, delete-orphan"`.
 
 ---
 
 #### [`backend/app/models/tenant.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/tenant.py)
 
-**Purpose:** `Tenant` model representing an isolated workspace.
-- Fields: `id` (UUID PK), `doctor_id` (UUID FK → `doctors.id`, Unique Indexed), `slug` (Unique Indexed), `status`, `created_at`, `updated_at`.
-- Relationship: 1:1 back-population to `Doctor`.
+**Purpose:** `Tenant` model representing the isolated practice workspace and enabled service catalog.
+- **Fields:**
+  - `id` (UUID Primary Key)
+  - `doctor_id` (UUID Foreign Key → `doctors.id`, Unique Indexed, `ondelete="CASCADE"`)
+  - `slug` (String 100, Unique Indexed) — URL identifier (e.g. `dr-rajesh-kumar`)
+  - `status` (String 50, Default: "active")
+  - `clinic_name` (String 255, Nullable=True) — e.g. "Kumar Heart & Health Clinic"
+  - `location` (String 500, Nullable=True) — e.g. "Bandra West, Mumbai"
+  - **4 Platform Service Toggles:**
+    - `service_appointment` (Boolean, Default: True) — In-clinic appointment booking
+    - `service_video_consultation` (Boolean, Default: True) — Telehealth video consultations
+    - `service_medicine_inventory` (Boolean, Default: False) — Clinic pharmacy & medicine orders
+    - `service_lab_reports` (Boolean, Default: False) — Lab & diagnostic reports upload
+  - Timestamps (`created_at`, `updated_at`)
+- **Relationship:** 1:1 back-population to `Doctor`.
 
 ---
 
-#### [`backend/app/models/__init__.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/__init__.py)
+#### [`backend/app/schemas/profile.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/profile.py)
 
-**Purpose:** Exports `Base`, `TimestampMixin`, `Doctor`, and `Tenant` so Alembic automatically discovers all models for metadata reflection.
-
----
-
-#### [`backend/app/schemas/auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/auth.py)
-
-**Purpose:** Pydantic validation schemas for authentication and user metadata.
-- `GoogleAuthRequest`: contains `credential` (Google ID Token string)
-- `EmailRegisterRequest`: contains `email`, `password` (required), `full_name` and `phone` (optional). Doctor name is auto-derived from email if omitted
-- `EmailLoginRequest`: contains `email` and `password` (both required)
-- `TenantResponse`, `DoctorResponse`, `AuthResponse`, `DoctorMeResponse`: response serialization schemas with `from_attributes=True` for ORM model compatibility
-
----
-
-#### [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py)
-
-**Purpose:** Business logic layer for authentication, registration, and workspace provisioning.
-- `slugify(text: str)`: transforms doctor names into URL-safe slugs
-- `generate_unique_tenant_slug(db, full_name)`: deterministic unique tenant slug generator with collision resolution (`dr-ahmed-khan`, `dr-ahmed-khan-2`)
-- `AuthService.authenticate_google(db, credential)`: handles single-transaction atomic creation of `Doctor` and `Tenant` via Google token, updates existing doctor metadata, and issues JWT access token
-- `AuthService.register_email(db, email, password, full_name?, phone?)`: validates inputs, checks for duplicate emails, hashes password with PBKDF2, auto-derives doctor name from email if not provided, atomically creates `Doctor` (with `auth_provider="email"`) and `Tenant`, and issues JWT access token
-- `AuthService.login_email(db, email, password)`: finds doctor by email, verifies stored password hash, rejects Google-provider accounts that lack a `hashed_password`, checks `is_active`, and issues JWT access token
+**Purpose:** Pydantic validation schemas for doctor profile management, service configurations, and public patient actions.
+- `ServicesConfig`: schema for 4 boolean toggles (`appointment`, `video_consultation`, `medicine_inventory`, `lab_reports`).
+- `DoctorProfileUpdateRequest`: schema for doctor settings updates (`full_name`, `phone`, `avatar_url`, `speciality`, `bio`, `clinic_name`, `location`, `onboarding_completed`, `services`).
+- `DoctorProfileResponse`: serialized authenticated profile for dashboard/onboarding.
+- `PublicDoctorInfo`: sanitized public practitioner metadata (`full_name`, `avatar_url`, `speciality`, `bio`, `clinic_name`, `location`, `slug`).
+- `PublicDoctorProfileResponse`: public tenant payload returning doctor info + active `services`.
+- **Patient Action Payload Schemas:**
+  - `AppointmentBookingRequest` (`patient_name`, `patient_email`, `patient_phone`, `appointment_date`, `appointment_time`, `appointment_type`, `notes`).
+  - `ReportUploadRequest` (`patient_name`, `patient_email`, `patient_phone`, `report_type`, `file_name`, `notes`).
+  - `MedicineOrderRequest` (`patient_name`, `patient_email`, `patient_phone`, `delivery_address`, `items`, `notes`).
 
 ---
 
-#### [`backend/app/api/deps.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/deps.py)
+#### [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py)
 
-**Purpose:** FastAPI dependency injection helpers for protected endpoints.
-- `get_current_doctor`: extracts HTTP Bearer JWT token from `Authorization` header, decodes doctor UUID, checks `is_active`, and returns active `Doctor` instance (with loaded `Tenant`).
+**Purpose:** Authenticated profile endpoints for the logged-in doctor.
+- `GET /api/v1/doctor/profile`: Returns the authenticated doctor's full profile and associated tenant's clinic information and service toggles.
+- `PUT /api/v1/doctor/profile`: Atomically updates doctor profile fields (`full_name`, `avatar_url`, `speciality`, `bio`, `onboarding_completed`) and tenant fields (`clinic_name`, `location`, and 4 service toggles).
 
 ---
 
-#### [`backend/app/api/router.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/router.py) & [`backend/app/api/routes/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/)
+#### [`backend/app/api/routes/public.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/public.py)
 
-**Purpose:** API routing structure.
-- `routes/health.py`: `GET /api/v1/health` and `GET /api/v1/health/database`
-- `routes/auth.py`:
-  - `POST /api/v1/auth/register` (email/password doctor registration — 201 Created)
-  - `POST /api/v1/auth/login` (email/password doctor authentication — 200 OK)
-  - `POST /api/v1/auth/google` (Google ID token authentication/registration — 200 OK)
-  - `GET /api/v1/auth/me` (protected current doctor endpoint with Bearer JWT)
+**Purpose:** Unauthenticated public endpoints for patient-facing web interactions.
+- `GET /api/v1/public/tenants/{slug}`: Looks up tenant by slug, ensures `status == "active"`, and returns public doctor profile and active service toggles. Returns 404 if not found.
+- `POST /api/v1/public/tenants/{slug}/appointments`: Validates that `service_appointment` is enabled for the practice; generates unique booking ID (`APT-...`). Returns HTTP 400 if service is disabled.
+- `POST /api/v1/public/tenants/{slug}/reports`: Validates that `service_lab_reports` is enabled for the practice; generates unique tracking ID (`REP-...`). Returns HTTP 400 if service is disabled.
+- `POST /api/v1/public/tenants/{slug}/medicine-orders`: Validates that `service_medicine_inventory` is enabled for the practice; generates unique order ticket (`MED-...`). Returns HTTP 400 if service is disabled.
 
 ---
 
 #### [`backend/alembic/versions/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/versions/)
 
-**Purpose:** Database migration system.
-- `001_initial_foundation.py`: creates `doctors` and `tenants` tables with explicit indexes and foreign key constraints.
-- `002_add_auth_providers.py`: adds `avatar_url`, `auth_provider`, `provider_id`, and `hashed_password` columns to `doctors` table.
+**Purpose:** Database migration manifests.
+- `001_initial_foundation.py`: Creates `doctors` and `tenants` tables with explicit indexes and foreign key constraints.
+- `002_add_auth_providers.py`: Adds `avatar_url`, `auth_provider`, `provider_id`, and `hashed_password` columns to `doctors` table.
+- `003_add_doctor_onboarding_and_services.py`:
+  - Upgrades `doctors.avatar_url` from `String(255)` to `Text` to support data URLs.
+  - Adds `speciality`, `bio`, and `onboarding_completed` columns to `doctors`.
+  - Adds `clinic_name`, `location`, and 4 service toggle columns (`service_appointment`, `service_video_consultation`, `service_medicine_inventory`, `service_lab_reports`) to `tenants`.
 
 ---
 
 #### [`backend/tests/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/)
 
 **Purpose:** Automated test suites using SQLite in-memory engine with `StaticPool`.
-- `test_health_and_models.py`: verifies root health, v1 health, database connectivity check, CORS headers, and OpenAPI schema routes.
-- `test_auth.py`: verifies Google registration, existing doctor login, slug collision handling, JWT generation, protected `/me` endpoint, invalid/missing tokens, inactive user rejection, **email registration (201), duplicate email prevention (400), wrong password rejection (401), correct password login (200), and JWT-protected `/me` access with email-issued tokens**.
+- `test_health_and_models.py`: Verifies root health, v1 health, database connectivity check, CORS headers, and OpenAPI schema routes.
+- `test_auth.py`: Verifies email and Google authentication, password hashing, JWT tokens, and slug collisions.
+- `test_profile_and_public.py`: Comprehensive test suite verifying:
+  - Doctor profile retrieval and update (`GET/PUT /api/v1/doctor/profile`).
+  - Live synchronization between doctor profile updates and public tenant responses (`GET /api/v1/public/tenants/{slug}`).
+  - Public booking, report upload, and medicine order endpoints.
+  - 404 handling for non-existent doctor slugs.
+  - Strict 400 rejection when patients attempt actions on disabled services.
 
 ---
 
@@ -841,51 +1009,32 @@ const steps = [
 | :--- | :--- | :--- |
 | **Brand primary color** | [`tailwind.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/tailwind.config.ts) | `theme.extend.colors.brand.600` (and neighboring shades) |
 | **Browser tab title / SEO description** | [`app/layout.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/layout.tsx) | `export const metadata` object |
-| **Body font or base text color** | [`app/layout.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/layout.tsx) | `className` on `<body>` |
-| **Smooth scroll on/off** | [`app/globals.css`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/globals.css) | `html { scroll-behavior }` |
-| **Navbar logo name or icon** | [`Navbar.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Navbar.tsx) | Logo `<Link>` block at top |
-| **Navbar links (add/remove/rename)** | [`Navbar.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Navbar.tsx) | Desktop nav `<Link>` items + mobile dropdown `<Link>` items (must update both) |
-| **Anchor scroll targets** | [`Navbar.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Navbar.tsx) + [`Features.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Features.tsx) + [`HowItWorks.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/HowItWorks.tsx) | `href="#x"` in Navbar must match `id="x"` in target section |
-| **Hero headline or copy** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Left column `<h1>` and `<p>` |
-| **Hero CTA buttons** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Primary `<Link href="/register">`, Secondary `<a href="#features">` |
-| **Hero small trust badges** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Three `<div>` elements in the bottom trust badge row |
-| **Hero browser mockup content** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Right column — "Website Mockup Card" JSX block |
-| **Hero phone mockup content** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Right column — "Mobile App Mockup Card" JSX block |
-| **Feature cards (content, icons)** | [`Features.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Features.tsx) | `features` array at the top of the file |
-| **Features section title/subtitle** | [`Features.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Features.tsx) | Section header div |
-| **How It Works steps** | [`HowItWorks.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/HowItWorks.tsx) | `steps` array at the top of the file |
-| **Sample doctor name/data in preview** | [`PreviewSection.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/PreviewSection.tsx) | Inline text strings in browser and phone mockup JSX |
-| **Mobile app service cards in preview** | [`PreviewSection.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/PreviewSection.tsx) | 2×2 grid inside the phone screen div |
-| **CTA section headline / trust copy** | [`CTA.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/CTA.tsx) | `<h2>`, `<p>`, trust badge `<span>` elements |
-| **Footer platform description** | [`Footer.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Footer.tsx) | `<p>` below the logo |
-| **Footer navigation links** | [`Footer.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Footer.tsx) | `<ul>` link items in each column |
-| **Order of landing page sections** | [`app/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/page.tsx) | Component order in `<main>` |
-| **Registration page copy / mode** | [`app/register/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/register/page.tsx) | Renders `EmailAuthForm mode="register"` |
-| **Login page copy / mode** | [`app/login/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/login/page.tsx) | Renders `EmailAuthForm mode="login"` |
-| **Email Auth form UI / validation** | [`EmailAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/EmailAuthForm.tsx) | Email & password fields, inactive Google button, form handlers |
-| **Google Auth UI / Demo accounts** | [`GoogleAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/GoogleAuthForm.tsx) | Button handlers, GIS integration, and demo account presets (preserved for Google OAuth) |
-| **Protected Dashboard page** | [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) | Profile banner, workspace cards, and logout logic |
-| **Frontend API client & tokens** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Fetch wrapper, JWT token storage, `registerWithEmail`, `loginWithEmail`, `authenticateWithGoogle`, and `getCurrentDoctor` methods |
+| **Navbar links or logo** | [`Navbar.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Navbar.tsx) | Nav links, logo, and mobile dropdown |
+| **Hero headline, copy, or mockups** | [`Hero.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/landing/Hero.tsx) | Left column text & right column device mockup JSX |
+| **Doctor Onboarding Wizard (Steps 1-3)** | [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx) | Step indicators, form fields, photo upload, service cards, and launch preview |
+| **Speciality suggestion pills** | [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx) | `SPECIALITY_SUGGESTIONS` array |
+| **Default healthcare avatar fallback** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | `DEFAULT_DOCTOR_AVATAR` SVG constant |
+| **Doctor Dashboard profile & service editor** | [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) | In-dashboard profile form, service switches, and live link card |
+| **Patient Webpage Layout & Navigation Tabs** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Sticky tab navigation bar, `activeTab` state, and view switching |
+| **Patient Webpage Home Section** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Hero profile, credentials, bio, 4 commitment pillars, and services showcase cards |
+| **In-Clinic Appointment Booking View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 1 section: date/slot picker, patient inputs, confirmation reference |
+| **Video Consultation Scheduling View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 2 section: telehealth date/time slots, symptoms notes, confirmation screen |
+| **Medicine Orders & Pharmacy View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 3 section: medicine inputs, delivery address, order submission |
+| **Lab Reports Upload View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 4 section: PDF/scan file uploader, report category, tracking receipt |
+| **Patient Route Alias (`/dr/[slug]`)** | [`app/dr/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dr/%5Bslug%5D/page.tsx) | Re-exports `app/[slug]/page.tsx` |
+| **Frontend API client & type interfaces** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Types (`ServicesConfig`, `PublicDoctorProfileResponse`), API request helpers |
 
 ### Backend & Database
 | I want to change... | Open this file | What to edit |
 | :--- | :--- | :--- |
-| **Database URL or connection string** | [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env) | `DATABASE_URL` variable |
-| **Allowed CORS origins** | [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env) | `CORS_ORIGINS` variable |
-| **Google OAuth Client ID** | [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env) | `GOOGLE_CLIENT_ID` variable |
-| **JWT Secret Key & Expiration** | [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env) | `JWT_SECRET_KEY` and `ACCESS_TOKEN_EXPIRE_MINUTES` |
-| **App configuration / settings** | [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py) | `Settings` class fields and validators |
+| **Database connection string** | [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env) | `DATABASE_URL` variable |
 | **Doctor database columns** | [`backend/app/models/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/doctor.py) | `Doctor` class mapped columns + Alembic migration |
-| **Tenant database columns** | [`backend/app/models/tenant.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/tenant.py) | `Tenant` class mapped columns + Alembic migration |
-| **Tenant slug generation / collision** | [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py) | `slugify` and `generate_unique_tenant_slug` functions |
-| **Password hashing / verification** | [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py) | `hash_password` and `verify_password` functions |
-| **Google auth verification logic** | [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py) | `verify_google_token` and `create_access_token` |
-| **Email registration / login logic** | [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py) | `AuthService.register_email` and `AuthService.login_email` methods |
-| **Current Doctor dependency** | [`backend/app/api/deps.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/deps.py) | `get_current_doctor` bearer token validation |
-| **Auth API endpoints** | [`backend/app/api/routes/auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/auth.py) | `email_register`, `email_login`, `google_auth`, `get_me` route handlers |
-| **New API routes** | [`backend/app/api/router.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/router.py) | Include new route modules in `api_router` |
-| **Health check logic** | [`backend/app/api/routes/health.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/health.py) | `health_check` and `database_health_check` handlers |
-| **PostgreSQL Docker credentials** | [`docker-compose.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docker-compose.yml) | `environment` variables under `postgres` service |
+| **Tenant database columns & services** | [`backend/app/models/tenant.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/tenant.py) | `Tenant` class mapped columns + service toggles |
+| **Profile validation schemas** | [`backend/app/schemas/profile.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/profile.py) | `DoctorProfileUpdateRequest`, `ServicesConfig`, patient action schemas |
+| **Doctor profile API endpoints** | [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py) | `get_doctor_profile`, `update_doctor_profile` route handlers |
+| **Public tenant & patient API endpoints** | [`backend/app/api/routes/public.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/public.py) | `get_public_tenant`, `book_appointment`, `upload_report`, `order_medicine` |
+| **Database Migrations** | [`backend/alembic/versions/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/versions/) | Add new migration version scripts |
+| **Automated backend tests** | [`backend/tests/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/) | `test_auth.py`, `test_profile_and_public.py` |
 
 ---
 
@@ -895,21 +1044,16 @@ These are implicit contracts between files. Breaking them causes silent visual, 
 
 | Rule | Files Involved | What breaks if violated |
 | :--- | :--- | :--- |
-| `href="#features"` must match `id="features"` | `Navbar.tsx`, `Hero.tsx` → `Features.tsx` | Clicking nav link or CTA scrolls to wrong position / nowhere |
-| `href="#how-it-works"` must match `id="how-it-works"` | `Navbar.tsx` → `HowItWorks.tsx` | How It Works nav link stops working |
-| All pages are wrapped by `app/layout.tsx` | All `page.tsx` files | If layout removed, all pages lose metadata and global styles |
-| `app/globals.css` must be imported in `layout.tsx` | `layout.tsx` → `globals.css` | Tailwind CSS stops working across entire app |
-| `tailwind.config.ts` content paths must include `app/**` and `components/**` | `tailwind.config.ts` | Brand colors and utility classes get purged from production build |
-| `@/*` alias must resolve correctly in `tsconfig.json` | All component imports | All `@/components/...` imports break with module not found errors |
-| All SQLAlchemy models must be imported in `app/models/__init__.py` | `app/models/*` → `alembic/env.py` | Alembic autogenerate will miss newly added tables / columns |
+| `onboarding_completed` flag must be checked on login/register | `EmailAuthForm.tsx`, `GoogleAuthForm.tsx` → `app/onboarding` | New doctors bypass onboarding and end up with unconfigured public webpages |
+| `avatar_url` must remain `Text` (not `String(255)`) | `app/models/doctor.py`, `alembic` migration 003 | Uploading base64 image data URLs crashes with SQL string length error |
+| 4 Service Toggle keys must match across models and schemas | `app/models/tenant.py` ↔ `schemas/profile.py` ↔ `lib/api.ts` | Service state fails to save or synchronize to the public patient page |
+| Disabled services must return HTTP 400 on public submission | `backend/app/api/routes/public.py` | Patients could book or order disabled services via direct API calls |
+| `app/dr/[slug]` must re-export `app/[slug]/page.tsx` | `app/dr/[slug]/page.tsx` → `app/[slug]/page.tsx` | `/dr/[slug]` patient links return 404 or diverge in styling |
+| `DEFAULT_DOCTOR_AVATAR` must be a valid self-contained SVG data URL | `lib/api.ts` → `app/[slug]/page.tsx`, `onboarding`, `dashboard` | Broken avatar images appear before a doctor uploads their photo |
 | `doctor_id` in `tenants` must remain `unique=True` | `app/models/tenant.py` | Breaks 1:1 doctor-tenant workspace isolation guarantee |
 | `CORS_ORIGINS` must include frontend port (`http://localhost:3000`) | `backend/.env` → `app/main.py` | Browser blocks frontend API requests with CORS errors |
 | `TOKEN_STORAGE_KEY` must match across auth helpers | `lib/api.ts` | Token persistence or logout fails to clear active JWT session |
-| `JWT_SECRET_KEY` must be at least 32 characters long | `backend/.env` → `security.py` | PyJWT generates security warnings or fails signature verification |
-| `EmailAuthForm` must import `registerWithEmail` and `loginWithEmail` from `lib/api.ts` | `EmailAuthForm.tsx` → `lib/api.ts` | Email registration/login form silently fails with undefined function errors |
 | `hash_password` salt format must be `hex$hex` | `security.py` `hash_password` ↔ `verify_password` | Password verification always fails, locking out all email-registered doctors |
-| `auth_provider` value must be `"email"` for email-registered doctors | `auth_service.py` → `security.py` | `login_email` rejects email accounts or allows cross-provider login |
-| `/api/v1/auth/register` and `/api/v1/auth/login` frontend URLs must match backend route prefixes | `lib/api.ts` → `routes/auth.py` | Registration/login API calls return 404 |
 
 ---
 
@@ -921,13 +1065,12 @@ When future phases are implemented, here are the exact extension points:
 | :--- | :--- | :--- |
 | **Foundation & Landing (Phase 1)** | **Complete** | Public marketing landing page, brand system, and responsive shell |
 | **Backend & DB Foundation (Phase 2)** | **Complete** | FastAPI, PostgreSQL, SQLAlchemy 2.x, Alembic, `Doctor` + `Tenant` models |
-| **Auth & Doctor Registration (Phase 3)** | **Complete** | Email/Password registration & login (`/auth/register`, `/auth/login`), Google Sign-In (`/auth/google` — inactive until configured), PBKDF2 password hashing, JWT tokens, auto-provisioning, `/dashboard` entry |
-| **Doctor Dashboard (Phase 4)** | Next | Extend `app/dashboard/` with metrics, overview cards; add `backend/app/api/routes/dashboard.py` |
-| **Doctor Profile Management (Phase 5)** | Planned | Add `app/models/doctor_profile.py`, migration `003_doctor_profile.py`, profile CRUD endpoints |
-| **Branding Configuration (Phase 6)** | Planned | Add `app/models/branding.py`, migration `004_branding.py`, branding endpoints |
-| **Services Management (Phase 7)** | Planned | Add `app/models/service.py`, migration `005_services.py`, service CRUD endpoints |
-| **Website Configuration (Phase 8)** | Planned | Add `app/models/website_config.py`, migration `006_website_config.py` |
-| **Doctor Subdomain Routing (Phase 9)** | Planned | Next.js `middleware.ts` host header inspection; dynamic tenant lookup via backend API |
+| **Auth & Doctor Registration (Phase 3)** | **Complete** | Email/Password & Google auth, PBKDF2 hashing, JWT tokens, auto-provisioning |
+| **Doctor Onboarding & Live Profile Sync (Phase 4)** | **Complete** | 3-step wizard (`/onboarding`), profile photo upload + fallback, 4-service toggles, `/dashboard` live sync editor |
+| **Patient-Facing Webpage Architecture (Phase 5)** | **Complete** | Sticky tabs, Practice Home (credentials, philosophy, commitment pillars, service cards), dedicated service views, public API endpoints with feature toggle enforcement |
+| **Custom Branding & Subdomain Routing (Phase 6)** | Next | Add `app/models/branding.py`, Next.js `middleware.ts` host header routing for `[subdomain].docspace.com` |
+| **Patient Management & Clinical Records (Phase 7)** | Planned | Add `app/models/patient.py`, `app/models/appointment.py`, doctor dashboard patient charts & EHR |
+| **Payment Gateway Integration (Phase 8)** | Planned | Stripe / Razorpay checkout integration for appointment fees and medicine orders |
 
 ---
 
@@ -939,10 +1082,12 @@ When future phases are implemented, here are the exact extension points:
 3. **Add `"use client"` only when the component uses `useState`, `useEffect`, or browser APIs** — keep components as server components by default
 4. **All styling via Tailwind classes** — no `style={{}}` props or separate `.module.css` files unless absolutely unavoidable
 5. **Use `brand-*` colors from `tailwind.config.ts`** — never hardcode hex values in component JSX
+6. **Use `DEFAULT_DOCTOR_AVATAR` from `lib/api.ts`** as the fallback for doctor profile images
 
 ### Backend Rules
-6. **Always write and run `pytest`** in `backend/` before declaring backend changes complete
-7. **Use Alembic migrations as source-of-truth** for all database schema evolution — do not use `create_all()` in production code
-8. **Always use UUID primary keys** and inherit `TimestampMixin` for relational models
-9. **Keep business logic modular** — implement only what the current phase requires; defer future tables/endpoints to their respective phases
-10. **Environment variables through `pydantic-settings`** — never access `os.environ` directly in application logic; use `get_settings()`
+7. **Always write and run tests** in `backend/` before declaring backend changes complete
+8. **Use Alembic migrations as source-of-truth** for all database schema evolution — maintain SQLite runtime helper in `database.py` for local dev
+9. **Always use UUID primary keys** and inherit `TimestampMixin` for relational models
+10. **Keep business logic modular** — implement only what the current phase requires; defer future tables/endpoints to their respective phases
+11. **Environment variables through `pydantic-settings`** — never access `os.environ` directly in application logic; use `get_settings()`
+

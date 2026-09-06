@@ -70,7 +70,7 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
     db_session.add(tenant)
     db_session.commit()
 
-    token = create_access_token({"sub": str(doctor.id)})
+    token = create_access_token(str(doctor.id))
     headers = {"Authorization": f"Bearer {token}"}
 
     # 2. GET /doctor/profile
