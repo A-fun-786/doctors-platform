@@ -28,6 +28,8 @@ try:
                     conn.execute(text("ALTER TABLE doctors ADD COLUMN speciality VARCHAR(255)"))
                 if "bio" not in doc_cols:
                     conn.execute(text("ALTER TABLE doctors ADD COLUMN bio TEXT"))
+                if "app_icon_url" not in doc_cols:
+                    conn.execute(text("ALTER TABLE doctors ADD COLUMN app_icon_url TEXT"))
                 if "onboarding_completed" not in doc_cols:
                     conn.execute(text("ALTER TABLE doctors ADD COLUMN onboarding_completed BOOLEAN DEFAULT 0 NOT NULL"))
 

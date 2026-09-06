@@ -53,3 +53,12 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+
+# Android & Build Artifacts
+.gradle/
+**/build/
+*.apk
+*.aab
+backend/builds/
+backend/uploads/
+

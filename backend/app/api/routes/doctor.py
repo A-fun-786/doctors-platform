@@ -28,6 +28,7 @@ def _build_profile_response(doctor: Doctor) -> DoctorProfileResponse:
         full_name=doctor.full_name,
         phone=doctor.phone,
         avatar_url=doctor.avatar_url,
+        app_icon_url=doctor.app_icon_url,
         speciality=doctor.speciality,
         bio=doctor.bio,
         onboarding_completed=doctor.onboarding_completed,
@@ -60,6 +61,8 @@ def update_doctor_profile(
         current_doctor.phone = payload.phone.strip()
     if payload.avatar_url is not None:
         current_doctor.avatar_url = payload.avatar_url.strip()
+    if payload.app_icon_url is not None:
+        current_doctor.app_icon_url = payload.app_icon_url.strip()
     if payload.speciality is not None:
         current_doctor.speciality = payload.speciality.strip()
     if payload.bio is not None:

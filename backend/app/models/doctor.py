@@ -36,6 +36,10 @@ class Doctor(Base, TimestampMixin):
         Text,
         nullable=True,
     )
+    app_icon_url: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
     speciality: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,

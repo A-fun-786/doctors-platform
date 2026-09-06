@@ -60,6 +60,7 @@ export interface DoctorProfileResponse {
   full_name: string;
   phone?: string | null;
   avatar_url?: string | null;
+  app_icon_url?: string | null;
   speciality?: string | null;
   bio?: string | null;
   onboarding_completed: boolean;
@@ -74,6 +75,7 @@ export interface DoctorProfileUpdateRequest {
   full_name?: string;
   phone?: string;
   avatar_url?: string;
+  app_icon_url?: string;
   speciality?: string;
   bio?: string;
   clinic_name?: string;
@@ -439,3 +441,157 @@ export async function orderPublicMedicine(
 
   return response.json();
 }
+
+export interface AppPreviewResponse {
+  app_name: string;
+  package_name: string;
+  has_custom_icon: boolean;
+  app_icon_url?: string | null;
+  latest_apk?: AppBuildStatusResponse | null;
+}
+
+export interface AppBuildStartResponse {
+  message: string;
+  task_id: string;
+  status: string;
+  app_name: string;
+  package_name: string;
+}
+
+export interface AppBuildStatusResponse {
+  task_id: string;
+  status: "preparing" | "compiling" | "completed" | "failed";
+  progress: number;
+  app_name: string;
+  package_name: string;
+  apk_filename?: string;
+  file_size?: number;
+  error?: string;
+}
+
+/**
+ * Fetch Android app branding preview (clinic name & package name).
+ */
+export async function getAppPreview(): Promise<AppPreviewResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/app/preview`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to load app preview");
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload a custom app launcher icon for the doctor's Android app.
+ */
+export async function uploadAppIcon(file: File): Promise<{ message: string; app_icon_url: string }> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/app/icon`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload app icon");
+  }
+
+  return response.json();
+}
+
+/**
+ * Trigger background build of doctor's native Android app APK.
+ */
+export async function triggerAppBuild(): Promise<AppBuildStartResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/app/build`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to start Android app build");
+  }
+
+  return response.json();
+}
+
+/**
+ * Check compilation and packaging status of doctor's Android app.
+ */
+export async function getAppBuildStatus(taskId: string): Promise<AppBuildStatusResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/app/build/${taskId}/status`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to retrieve build status");
+  }
+
+  return response.json();
+}
+
+/**
+ * Get direct download URL for the built Android APK.
+ */
+export function getAppDownloadUrl(taskId: string): string {
+  return `${API_URL}/api/v1/doctor/app/download/${taskId}`;
+}
+
+/**
+ * Fetch raw compilation logs for an APK build.
+ */
+export async function getAppBuildLogs(taskId: string): Promise<{ task_id: string; logs: string }> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/app/build/${taskId}/logs`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to retrieve build logs");
+  }
+
+  return response.json();
+}
+
+

@@ -20,6 +20,7 @@ class DoctorProfileResponse(BaseModel):
     full_name: str
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    app_icon_url: Optional[str] = None
     speciality: Optional[str] = None
     bio: Optional[str] = None
     onboarding_completed: bool = False
@@ -37,6 +38,7 @@ class DoctorProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    app_icon_url: Optional[str] = None
     speciality: Optional[str] = None
     bio: Optional[str] = None
     clinic_name: Optional[str] = None
