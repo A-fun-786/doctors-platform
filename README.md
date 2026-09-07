@@ -30,19 +30,8 @@ DocSpace transforms the way healthcare professionals establish their digital pre
 
 The striking hero section introduces doctors to DocSpace's core promise with compelling visual mockups of both web and mobile platforms side-by-side.
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│ 🔷 DocSpace  |       Multi-Tenant Healthcare Platform   │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━     │
-│                                                         │
-│   Your Digital Healthcare Presence, Built Around You.   │
-│                                                         │
-│     ✨ Personalized Website   |  📱 Branded Mobile App  │
-│     🎨 Complete Brand Control |  🚀 Instant Launch      │
-│                                                         │
-│   [Create Your Digital Presence →]   [Explore Platform] │
-└─────────────────────────────────────────────────────────┘
-```
+![Landing Page Hero Section](public/screenshots/1.jpeg)
+
 **Key Features Shown:**
 - Responsive navigation with Login & "Register as Doctor" CTA
 - Hero headline with animation effect
@@ -54,21 +43,8 @@ The striking hero section introduces doctors to DocSpace's core promise with com
 
 A crystal-clear 3-step journey that removes friction from the onboarding process.
 
-```text
-┌──────────────────┬──────────────────┬──────────────────┐
-│      STEP 01     │      STEP 02     │      STEP 03     │
-├──────────────────┼──────────────────┼──────────────────┤
-│                  │                  │                  │
-│   👤 Register    │  🎨 Customize &  │   🚀 Publish &   │
-│   Your Practice  │      Brand       │      Launch      │
-│                  │                  │                  │
-│ Sign up with     │ Configure clinic │ Go live with     │
-│ medical details  │ colors, bio,     │ dedicated web    │
-│ & credentials    │ services & fees  │ & mobile apps    │
-│                  │                  │                  │
-└──────────────────┴──────────────────┴──────────────────┘
-            ✓ One Unified Presence, Across Web & Mobile
-```
+![How It Works - The 3-Step Process](public/screenshots/2.jpeg)
+
 **Visual Elements:**
 - Progressive step indicator (33%, 66%, 100%)
 - Icon-based step visualization
@@ -81,27 +57,8 @@ A crystal-clear 3-step journey that removes friction from the onboarding process
 
 A comprehensive overview of all DocSpace capabilities organized in an intuitive grid layout.
 
-```text
-┌────────────────────────────────────────────────────┐
-│               PLATFORM CAPABILITIES                │
-│    Everything You Need to Own Your Digital Brand   │
-├────────────────────────────────────────────────────┤
-│                                                    │
-│  🌐 Personalized    📱 Branded      🎯 Complete    │
-│      Website          Mobile App       Brand Control │
-│  ─────────────────  ─────────────────  ─────────   │
-│  High-performance   Dedicated app      Configure   │
-│  responsive site    for bookings &     name, logo, │
-│  with your info     care management    colors      │
-│                                                    │
-│               ⚙️ One Central                       │
-│                   Platform                         │
-│               ─────────────────                    │
-│               Manage all touchpoints               │
-│               from unified dashboard               │
-│                                                    │
-└────────────────────────────────────────────────────┘
-```
+![Features Overview Page](public/screenshots/3.jpeg)
+
 **Sections Highlighted:**
 - Web Presence (Personalized Website)
 - Mobile Presence (Branded Mobile App)
@@ -115,33 +72,8 @@ A comprehensive overview of all DocSpace capabilities organized in an intuitive 
 
 A professional, security-first login experience with multiple authentication methods.
 
-```text
-┌─────────────────────────────────────────────────┐
-│                     🔷 DocSpace                   │
-│                                                 │
-│              Welcome Back, Doctor               │
-│      Sign in to access your practice dashboard. │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │ Email Address                           │    │
-│  │ doctor@example.com                      │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │ Password                                │    │
-│  │ ••••••••••                              │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│                 [Sign In]                       │
-│                                                 │
-│               OR CONTINUE WITH                  │
-│         [🔍 Google Sign-In (Inactive)]          │
-│                                                 │
-│   🔒 End-to-end encrypted session with          │
-│      JWT bearer tokens.                         │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
+![Doctor Login Portal](public/screenshots/4.jpeg)
+
 **Security Features:**
 - Email/Password authentication
 - Google OAuth integration (extensible)
@@ -156,40 +88,8 @@ A professional, security-first login experience with multiple authentication met
 
 The first guided step captures essential practice and doctor profile information with intuitive form fields.
 
-```text
-┌──────────────────────────────────────────────────┐
-│ Practice Onboarding                          33% │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                                  │
-│ Practice & Doctor Details                        │
-│ Enter your practice details. These will be       │
-│ highlighted on your patient-facing webpage.      │
-│                                                  │
-│ DOCTOR PROFILE PHOTO                             │
-│ ┌─────────────┐                                  │
-│ │   [Photo]   │  [Upload Photo]                  │
-│ │             │                                  │
-│ └─────────────┘ Using default healthcare         │
-│                 avatar. Upload custom photo      │
-│                 (PNG, JPG, WebP).                │
-│                                                  │
-│ DOCTOR FULL NAME *                               │
-│ ┌─────────────────────────────────────────┐      │
-│ │ Dr. Noah                                │      │
-│ └─────────────────────────────────────────┘      │
-│                                                  │
-│ CLINIC / HOSPITAL NAME *                         │
-│ ┌─────────────────────────────────────────┐      │
-│ │ ABC                                     │      │
-│ └─────────────────────────────────────────┘      │
-│                                                  │
-│ PRIMARY SPECIALITY *                             │
-│ [General Physician]  [Cardiologist]              │
-│ [Dermatologist]      [Pediatrician]              │
-│ [Gynecologist]       [Orthopedic Surgeon]        │
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
+![Step 1 - Practice & Doctor Details](public/screenshots/5.jpeg)
+
 **Form Elements:**
 - Profile photo upload with preview
 - Doctor's full name input
@@ -202,40 +102,8 @@ The first guided step captures essential practice and doctor profile information
 
 Doctors select which services they want to offer patients through the platform, with checkmarks indicating active services.
 
-```text
-┌──────────────────────────────────────────────────┐
-│ Select Platform Services                         │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                                  │
-│ Choose services to offer through your portal.    │
-│ Change anytime from your dashboard.              │
-│                                                  │
-│ ┌─────────────────────┬──────────────────────┐│  │
-│ │✓ In-Clinic          │✓ Video Consultation  ││  │
-│ │  Appointments       │  Telehealth          ││  │
-│ │                     │                      ││  │
-│ │ Enable calendar     │ Provide telehealth   ││  │
-│ │ slots & book        │ sessions with        ││  │
-│ │ in-person consults  │ scheduled booking    ││  │
-│ │                     │                      ││  │
-│ │ [Patient Booking]   │ [Telehealth]         ││  │
-│ └─────────────────────┴──────────────────────┘│  │
-│                                               │  │
-│ ┌─────────────────────┬──────────────────────┐│  │
-│ │  Medicine Inventory │✓ Lab Reports Mgmt    ││  │
-│ │  & Orders           │  Management          ││  │
-│ │                     │                      ││  │
-│ │ Manage pharmacy     │ Allow patients to    ││  │
-│ │ supplies & allow    │ upload diagnostic    ││  │
-│ │ medicine requests   │ & imaging reports    ││  │
-│ │                     │                      ││  │
-│ │ [Pharmacy Mgmt]     │ [Diagnostics]        ││  │
-│ └─────────────────────┴──────────────────────┘│  │
-│                                                  │
-│      [← Back]          [Publish & Launch Webpage →] │
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
+![Step 2 - Platform Services Selection](public/screenshots/6.jpeg)
+
 **Available Services:**
 - ✅ In-Clinic Appointments (Patient Booking)
 - ✅ Video Consultation (Telehealth)
@@ -247,28 +115,8 @@ Doctors select which services they want to offer patients through the platform, 
 
 The final confirmation screen showing the practice is live and ready, with direct links to patient portal and doctor dashboard.
 
-```text
-┌──────────────────────────────────────────────────┐
-│ Practice Ready                              100% │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                                  │
-│                ✓ (Checkmark Circle)              │
-│                                                  │
-│            Practice Webpage is Live!             │
-│ ─────────────────────────────────────────        │
-│ Congratulations, Dr. Noah! Your dedicated        │
-│ patient portal has been provisioned and is       │
-│ ready for appointments and inquiries.            │
-│                                                  │
-│ YOUR PUBLIC PATIENT LINK                         │
-│ ┌────────────────────────────────────────────┐│  │
-│ │ http://localhost:3000/dr-noah       [📋]   ││  │
-│ └────────────────────────────────────────────┘│  │
-│                                                  │
-│ [View Patient Webpage]   [Go to Doctor Dashboard]│
-│                                                  │
-└──────────────────────────────────────────────────┘
-```
+![Step 3 - Success & Go Live](public/screenshots/7.jpeg)
+
 **Key Information Provided:**
 - Success confirmation with progress at 100%
 - Practice is live and operational
@@ -283,41 +131,8 @@ The final confirmation screen showing the practice is live and ready, with direc
 
 The doctor's primary interface for managing their practice, with live APK compilation and app distribution.
 
-```text
-┌────────────────────────────────────────────────────┐
-│ 🔷 DocSpace | DOCTOR PORTAL             [Dr. Noah] │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━       │
-│                                                    │
-│ 📋 How Patients Install This App                   │
-│ ──────────────────────────────────────────────     │
-│ Share your download link or QR code with           │
-│ patients. Android prompts "install from            │
-│ unknown sources". Practice app installed.          │
-│                                                    │
-│ 🔨 Compile Release APK                             │
-│ ──────────────────────────────────────────────     │
-│ Builds your personalized Kotlin + Jetpack          │
-│ Compose Android package with your latest           │
-│ profile, services, and logo bundled inside.        │
-│                                                    │
-│                 [Rebuild Android App →]            │
-│                                                    │
-│ ✓ ABC APK is Ready!                                │
-│ ──────────────────────────────────────────────     │
-│ abc_bc52bdff.apk (10.5 MB)                         │
-│                                                    │
-│             [Download APK]   [Copy Link]           │
-│                                                    │
-│ 🖥️ Hide Live Build Console                         │
-│ ───────────────────────────────────────────────    │
-│ [Terminal Output - Build Logs]                     │
-│ DocSpace Build Engine v1.0                         │
-│ Target App: ABC                                    │
-│ Package: com.docspace.drnoak.abc                   │
-│ ...build in progress...                            │
-│                                                    │
-└────────────────────────────────────────────────────┘
-```
+![Doctor Control Panel & APK Management](public/screenshots/8.jpeg)
+
 **Dashboard Features:**
 - Live app installation guide
 - One-click APK compilation
@@ -333,45 +148,8 @@ The doctor's primary interface for managing their practice, with live APK compil
 
 The public-facing doctor profile that patients see—beautifully showcasing qualifications, services, and booking options.
 
-```text
-┌────────────────────────────────────────────────────┐
-│ 🔷 DocSpace | ABC               ✓ Verified  [Book] │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━       │
-│                                                    │
-│  [Home]  [In-Clinic]  [Video]  [Lab Reports]       │
-│                                                    │
-│ ┌─────────────┐                                    │
-│ │ Dr. Noah    │    Dr. Noah                        │
-│ │   [Photo]   │    ✓ General Physician             │
-│ └─────────────┘    📍 ABC                          │
-│                                                    │
-│         [Book In-Clinic]    [Video Consult]        │
-│                                                    │
-│ DOCTOR PROFILE & CARE PHILOSOPHY                   │
-│ ──────────────────────────────────────────────     │
-│ About Dr. Noah                                     │
-│ Welcome to ABC's digital healthcare portal.        │
-│ We deliver personalized, patient-centric care      │
-│ using modern diagnostic methods and holistic       │
-│ consultation.                                      │
-│                                                    │
-│ ┌──────────────┬──────────────┬──────────────┐     │
-│ │ ✓ Verified   │ 💚 Patient-  │ ⏰ Prompt    │     │
-│ │ Credentials  │    Centric   │    Scheduling│     │
-│ │              │    Care      │              │     │
-│ │ Licensed &   │ Tailored     │ Convenient   │     │
-│ │ specialized  │ treatment &  │ slot for     │     │
-│ │ provider.    │ preventive.  │ visits.      │     │
-│ └──────────────┴──────────────┴──────────────┘     │
-│                                                    │
-│ ┌──────────────────────────────────────────────┐   │
-│ │ 🔗 Integrated Digital Care                   │   │
-│ │ Direct access to records, prescriptions,     │   │
-│ │ medicine orders, and medical charts.         │   │
-│ └──────────────────────────────────────────────┘   │
-│                                                    │
-└────────────────────────────────────────────────────┘
-```
+![Doctor Public Profile Page](public/screenshots/9.jpeg)
+
 **Page Elements:**
 - Doctor name, photo, and credentials
 - Speciality and clinic information
@@ -388,46 +166,8 @@ The public-facing doctor profile that patients see—beautifully showcasing qual
 
 The mobile-optimized view showing doctor details with simplified navigation and prominent booking CTAs.
 
-```text
-┌─────────────────────────────────┐
-│ 3:28  🔋📡📶 25G                │
-├─────────────────────────────────┤
-│ 🔷 DocSpace  ABC     ✓ Verified │
-│                                 │
-│   👤 Doctor Profile │ 📅 Services │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                 │
-│ ┌─────────────────┐             │
-│ │   Dr. Noah      │             │
-│ │     [Photo]     │             │
-│ └─────────────────┘             │
-│                                 │
-│       Dr. Noah                  │
-│    🩺 General Physician         │
-│    📍 ABC                       │
-│                                 │
-│        [📧 Email]               │
-│                                 │
-│ AVAILABLE PRACTICE SERVICES     │
-│ ─────────────────────────────   │
-│                                 │
-│ • In-Clinic Consultations       │
-│   Face-to-face at ABC           │
-│                                 │
-│ • Telehealth Video Calls        │
-│   Secure remote from home       │
-│                                 │
-│ • Diagnostic & Lab Uploads      │
-│   Share test reports directly   │
-│                                 │
-│ [Go to Services & Booking →]    │
-│                                 │
-│      ABC • Powered by DocSpace  │
-│      📞 For emergencies call 911 │
-│                                 │
-│        [≡][○][◀]                │
-└─────────────────────────────────┘
-```
+![Mobile Doctor Profile Screen](public/screenshots/10.jpeg)
+
 **Mobile Features:**
 - Compact top bar with branding
 - Doctor profile with photo
@@ -442,54 +182,8 @@ The mobile-optimized view showing doctor details with simplified navigation and 
 
 Intuitive date and time selection with patient information capture for appointment confirmation.
 
-```text
-┌─────────────────────────────────┐
-│ 3:28  🔋📡📶 25G                │
-├─────────────────────────────────┤
-│ 🔷 DocSpace  ABC     ✓ Verified │
-│                                 │
-│   👤 Doctor Profile │ 📅 Services │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                 │
-│ 📅 Book In-Clinic Visit    ABC  │
-│                                 │
-│ Select preferred date & time    │
-│ for your in-person consultation │
-│                                 │
-│ PREFERRED DATE                  │
-│ ┌─────────────────────────────┐ │
-│ │ 📅 Tue, Sept 08, 2026       │ │
-│ └─────────────────────────────┘ │
-│                                 │
-│ AVAILABLE TIME SLOT             │
-│ ┌──────┬──────┬──────┐          │
-│ │09:00 │10:00 │11:30 │          │
-│ │  AM  │  AM  │  AM  │          │
-│ └──────┴──────┴──────┘          │
-│ ┌──────┬──────┬──────┐          │
-│ │02:00 │03:30 │04:45 │          │
-│ │  PM  │  PM  │  PM  │          │
-│ └──────┴──────┴──────┘          │
-│                                 │
-│ ┌─────────────────────────────┐ │
-│ │ 👤 Patient Full Name        │ │
-│ └─────────────────────────────┘ │
-│                                 │
-│ ┌─────────────────────────────┐ │
-│ │ 📞 Contact Phone            │ │
-│ └─────────────────────────────┘ │
-│                                 │
-│ ┌─────────────────────────────┐ │
-│ │ 📧 Email Address            │ │
-│ └─────────────────────────────┘ │
-│                                 │
-│ ┌─────────────────────────────┐ │
-│ │ Reason for Visit / Symptoms │ │
-│ └─────────────────────────────┘ │
-│                                 │
-│        [≡][○][◀]                │
-└─────────────────────────────────┘
-```
+![Mobile Appointment Booking](public/screenshots/11.jpeg)
+
 **Booking Elements:**
 - Date picker with formatted date
 - Time slot grid (6 options displayed)
@@ -504,42 +198,8 @@ Intuitive date and time selection with patient information capture for appointme
 
 Display of telehealth video consultation and lab report upload features with clear CTAs.
 
-```text
-┌─────────────────────────────────┐
-│ 3:29  🔋📡📶 25G                │
-├─────────────────────────────────┤
-│ 🔷 DocSpace  ABC     ✓ Verified │
-│                                 │
-│   👤 Doctor Profile │ 📅 Services │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━      │
-│                                 │
-│ 📹 Video Consultation Telehealth│
-│                                 │
-│ High-definition, secure video   │
-│ appointments from home. Meeting │
-│ links and dial-in tokens        │
-│ provided directly for verified  │
-│ patients.                       │
-│                                 │
-│     [Schedule Telehealth Call]  │
-│                                 │
-│ ─────────────────────────────── │
-│                                 │
-│ 📄 Lab Reports Portal Diagnostics │
-│ Upload diagnostic documents,    │
-│ blood work tests, and imaging   │
-│ records prior to appointment.   │
-│                                 │
-│   [Upload Diagnostic Records]   │
-│                                 │
-│ ─────────────────────────────── │
-│                                 │
-│      ABC • Powered by DocSpace  │
-│      📞 For emergencies call 911 │
-│                                 │
-│        [≡][○][◀]                │
-└─────────────────────────────────┘
-```
+![Mobile Telehealth & Lab Services](public/screenshots/12.jpeg)
+
 **Service Highlights:**
 - Video Consultation (Telehealth) HD secure video
 - Auto-generated meeting links
