@@ -2,6 +2,18 @@
 
 A modern B2B SaaS platform enabling doctors and healthcare specialists to create, brand, and manage their dedicated digital presence, personalized website, and patient mobile application from a single dashboard.
 
+## Screenshots
+
+### Web Platform Showcase
+
+| Landing Page (Hero) | Platform Capabilities |
+| :---: | :---: |
+| ![DocSpace Landing Page](public/screenshots/hero-landing.jpg) | ![DocSpace Platform Capabilities](public/screenshots/features.jpg) |
+
+| How It Works | Doctor Login |
+| :---: | :---: |
+| ![DocSpace How It Works](public/screenshots/how-it-works.jpg) | ![DocSpace Doctor Login](public/screenshots/login.jpg) |
+
 ## Tech Stack
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router)

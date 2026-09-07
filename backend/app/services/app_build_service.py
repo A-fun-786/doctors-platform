@@ -165,26 +165,70 @@ def run_gradle_build(build_id: str, workspace_path: Path, identity: Dict[str, st
         if gradlew.exists():
             os.chmod(gradlew, 0o755)
 
-        # Look for Android SDK & Java Home
+        # Look for Android SDK
         env = os.environ.copy()
-        candidate_sdk = Path.home() / "Library" / "Android" / "sdk"
-        if "ANDROID_HOME" not in env:
-            if candidate_sdk.exists():
-                env["ANDROID_HOME"] = str(candidate_sdk)
+        candidate_sdk = None
 
-        sdk_dir_val = env.get("ANDROID_HOME", str(candidate_sdk))
+        # Common Android SDK paths across platforms
+        sdk_candidates = [
+            Path(env.get("ANDROID_HOME", "")) if env.get("ANDROID_HOME") else None,
+            Path(env.get("ANDROID_SDK_ROOT", "")) if env.get("ANDROID_SDK_ROOT") else None,
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Android" / "Sdk" if os.name == "nt" else None,
+            Path.home() / "AppData" / "Local" / "Android" / "Sdk",
+            Path.home() / "Library" / "Android" / "sdk",
+            Path.home() / "Android" / "Sdk",
+        ]
+
+        for cand in sdk_candidates:
+            if cand and cand.exists():
+                candidate_sdk = cand
+                break
+
+        if candidate_sdk:
+            sdk_dir_val = str(candidate_sdk)
+            env["ANDROID_HOME"] = sdk_dir_val
+            env["ANDROID_SDK_ROOT"] = sdk_dir_val
+        else:
+            sdk_dir_val = env.get("ANDROID_HOME", str(Path.home() / "AppData" / "Local" / "Android" / "Sdk"))
+
+        # Write sdk.dir formatted properly for local.properties (escape backslashes on Windows)
         local_props = workspace_path / "local.properties"
-        local_props.write_text(f"sdk.dir={sdk_dir_val}\n", encoding="utf-8")
+        safe_sdk_dir = sdk_dir_val.replace("\\", "\\\\")
+        local_props.write_text(f"sdk.dir={safe_sdk_dir}\n", encoding="utf-8")
 
-        # Check Android Studio bundled Java if standard JAVA_HOME is not set
+        # Detect Java Home across platforms
         if "JAVA_HOME" not in env or not Path(env["JAVA_HOME"]).exists():
-            candidate_jbr = Path("/Applications/Android Studio.app/Contents/jbr/Contents/Home")
-            if candidate_jbr.exists():
-                env["JAVA_HOME"] = str(candidate_jbr)
-                env["PATH"] = f"{candidate_jbr}/bin:{env.get('PATH', '')}"
+            java_candidates = [
+                Path("C:/Program Files/Android/Android Studio/jbr"),
+                Path("C:/Program Files/Java"),
+                Path("/Applications/Android Studio.app/Contents/jbr/Contents/Home"),
+                Path.home() / ".jdks",
+            ]
+            for jcand in java_candidates:
+                if jcand.exists():
+                    if (jcand / "bin" / "java.exe").exists() or (jcand / "bin" / "java").exists():
+                        env["JAVA_HOME"] = str(jcand)
+                        bin_path = str(jcand / "bin")
+                        env["PATH"] = f"{bin_path};{env.get('PATH', '')}" if os.name == "nt" else f"{bin_path}:{env.get('PATH', '')}"
+                        break
+                    # If it's a directory containing sub-JDK folders (like C:/Program Files/Java)
+                    sub_jdks = [p for p in jcand.iterdir() if p.is_dir() and ((p / "bin" / "java.exe").exists() or (p / "bin" / "java").exists())]
+                    if sub_jdks:
+                        selected_jdk = sub_jdks[0]
+                        env["JAVA_HOME"] = str(selected_jdk)
+                        bin_path = str(selected_jdk / "bin")
+                        env["PATH"] = f"{bin_path};{env.get('PATH', '')}" if os.name == "nt" else f"{bin_path}:{env.get('PATH', '')}"
+                        break
 
-        # Execute build command streaming to log file
-        cmd = ["./gradlew", "assembleRelease", "--no-daemon", "--stacktrace"]
+        # Execute build command (gradlew.bat on Windows, ./gradlew on Unix)
+        is_windows = os.name == "nt"
+        if is_windows:
+            gradle_exec = str(workspace_path / "gradlew.bat")
+            cmd = [gradle_exec, "assembleRelease", "--no-daemon", "--stacktrace"]
+        else:
+            gradle_exec = str(workspace_path / "gradlew")
+            cmd = [gradle_exec, "assembleRelease", "--no-daemon", "--stacktrace"]
+
         with open(log_file_path, "w", encoding="utf-8") as log_f:
             log_f.write(f"=== DocSpace Build Engine v1.0 ===\n")
             log_f.write(f"Target App: {identity['app_name']}\n")
@@ -201,7 +245,8 @@ def run_gradle_build(build_id: str, workspace_path: Path, identity: Dict[str, st
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
                 text=True,
-                timeout=300,
+                timeout=600,
+                shell=is_windows,
             )
 
         expected_apk = workspace_path / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk"
