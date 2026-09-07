@@ -750,6 +750,69 @@ docspace-platform/
 
 ---
 
+## 🏗️ Technical Architecture & Workflow
+
+DocSpace is built with a modern, scalable architecture designed for high availability, security, and white-labeling capabilities.
+
+### 🔄 System Architecture
+
+```mermaid
+graph TD
+    subgraph Client [Client Applications]
+        A[Next.js Web App]
+        B[Native Android App]
+    end
+
+    subgraph API [API Gateway & Services]
+        C[Next.js API Routes / FastAPI]
+        D[Authentication Service]
+        E[APK Build Engine]
+    end
+
+    subgraph Data [Data Persistence & Storage]
+        F[(PostgreSQL)]
+        G[(Redis Cache)]
+        H[Cloud Storage / S3]
+    end
+
+    A <-->|REST / JSON| C
+    B <-->|REST / JSON| C
+    C <--> F
+    C <--> G
+    C <--> H
+    D <--> A
+    D <--> B
+    
+    E -.->|Compiles & Generates| B
+```
+
+### ⚙️ Platform Workflow
+
+1. **Tenant Provisioning:**
+   - A doctor registers and completes the onboarding process.
+   - The system provisions a unique tenant ID, establishing data isolation within the PostgreSQL database.
+2. **Dynamic Web Deployment:**
+   - The Next.js application utilizes App Router dynamic segments (`/[slug]`) to instantly render a personalized, SEO-optimized public portal.
+3. **Automated Mobile Build Pipeline:**
+   - The doctor triggers an app build from their centralized dashboard.
+   - The Build Engine injects the specific tenant's branding (logo, colors, name) and API endpoints into the Android template.
+   - Gradle executes an isolated build process, outputting a signed `.apk`.
+   - The APK is uploaded to Cloud Storage and distributed via a generated link or QR code.
+
+### 🛠️ Tech Stack Breakdown
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend (Web)** | Next.js 14, React, TypeScript | High-performance, SSR/SSG capable web framework for the dashboard and patient portals. |
+| **Styling** | Tailwind CSS 3, Lucide Icons | Utility-first styling for rapid, consistent UI development. |
+| **Mobile (Android)**| Kotlin, Jetpack Compose | Native, declarative UI development for the patient-facing mobile application. |
+| **Backend (API)** | FastAPI (Python) / Next.js API | Handles business logic, APK generation, and database interactions. |
+| **Database** | PostgreSQL | Robust relational data storage with multi-tenant schema design. |
+| **Authentication** | JWT, OAuth 2.0 | Secure session management and identity verification. |
+| **Build & Deploy** | Gradle, Docker, GitHub Actions| Automates Android compilation and containerized deployment. |
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
