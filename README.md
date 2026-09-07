@@ -4,15 +4,31 @@ A modern B2B SaaS platform enabling doctors and healthcare specialists to create
 
 ## Screenshots
 
-### Web Platform Showcase
+### 1. Homepage — Hero Section (`/`)
+The public marketing landing page featuring the "Your Digital Healthcare Presence, Built Around You" hero headline with live web profile and branded mobile app mockups.
 
-| Landing Page (Hero) | Platform Capabilities |
-| :---: | :---: |
-| ![DocSpace Landing Page](public/screenshots/hero-landing.jpg) | ![DocSpace Platform Capabilities](public/screenshots/features.jpg) |
+![Homepage Hero](public/screenshots/01-homepage-hero.jpg)
 
-| How It Works | Doctor Login |
-| :---: | :---: |
-| ![DocSpace How It Works](public/screenshots/how-it-works.jpg) | ![DocSpace Doctor Login](public/screenshots/login.jpg) |
+---
+
+### 2. How It Works — 3-Step Onboarding (`/#how-it-works`)
+The 3-step connected onboarding journey: **Register Your Practice → Customize & Brand → Publish & Launch**, followed by the "One Unified Presence, Across Web & Mobile" live product preview section.
+
+![How It Works](public/screenshots/02-how-it-works.jpg)
+
+---
+
+### 3. Doctor Login Portal (`/login`)
+The secure Doctor authentication page — "Welcome Back, Doctor" — supporting Email/Password sign-in with JWT session security and Google Sign-In integration.
+
+![Doctor Login](public/screenshots/03-doctor-login.jpg)
+
+---
+
+### 4. Doctor Onboarding Wizard (`/onboarding`)
+Step 1 of 3 of the guided practice setup: **Practice & Doctor Details** form — Profile photo upload, Doctor full name, Clinic/Hospital name, and Primary Speciality selector with multiple specialities.
+
+![Doctor Onboarding](public/screenshots/04-doctor-onboarding.jpg)
 
 ## Tech Stack
 
