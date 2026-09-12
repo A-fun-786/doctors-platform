@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const TOKEN_STORAGE_KEY = "docspace_auth_token";
 
 export const DEFAULT_DOCTOR_AVATAR =

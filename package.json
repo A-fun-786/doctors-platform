@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "servers:start": "./start-servers.sh",
+    "servers:start:bg": "./start-servers.sh --background",
+    "servers:stop": "./stop-servers.sh",
+    "servers:restart": "./stop-servers.sh && ./start-servers.sh",
+    "servers:logs": "tail -f logs/backend.log logs/frontend.log",
+    "tunnel": "npx localtunnel --port 3000 --local-host 127.0.0.1",
+    "tunnel:pinggy": "./start-tunnel.sh"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",

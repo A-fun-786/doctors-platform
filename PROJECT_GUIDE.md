@@ -13,7 +13,8 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 - **Phase 3 (Complete):** Authentication and Doctor Registration (Email/Password registration & login, Google Sign-In with GCP OAuth / mock token support, PBKDF2-HMAC-SHA256 password hashing, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
 - **Phase 4 (Complete):** Doctor Onboarding & Live Practice Profile Management (3-step onboarding wizard at `/onboarding`, profile photo upload with default healthcare fallback, speciality selector, bio editor, 4-service feature toggles: Appointments, Video Consultation, Medicine Inventory, Lab Reports; in-dashboard profile editor at `/dashboard` with instant live synchronization to patient webpage).
 - **Phase 5 (Complete):** Public Patient-Facing Practice Portal Architecture (`/[slug]` and `/dr/[slug]`): Sticky service navigation tabs, Practice Home with doctor credentials, healthcare philosophy/bio, 4 clinical commitment pillars, services showcase cards, dedicated full-page service views (In-Clinic Booking, Telehealth Video Scheduling, Pharmacy Medicine Orders, Lab & Diagnostic Reports Upload), and public patient API endpoints with feature toggle enforcement.
-- **Upcoming Phases:** Phase 6 (Custom Branding & Subdomain Routing), Phase 7 (Patient Management & Clinical Records), Phase 8 (Payment Gateway Integration).
+- **Phase 6 (Complete):** Native Android APK Builder & Doctor Dashboard App Management — Automated Jetpack Compose Android template (`android-template/`) with build-time doctor metadata injection (`DoctorConfig.kt`), headless Gradle `assembleRelease` background compilation via `AppBuildService`, custom launcher icon upload, real-time build status polling and live compilation log streaming in the Doctor Dashboard, unauthenticated APK download endpoint for patient sideloading, APK caching by clinic identity to avoid rebuilds, and `start-servers.sh` / `stop-servers.sh` operational scripts for unified platform startup.
+- **Upcoming Phases:** Phase 7 (Custom Branding & Subdomain Routing), Phase 8 (Patient Management & Clinical Records), Phase 9 (Payment Gateway Integration).
 
 ---
 
@@ -54,13 +55,14 @@ The project is structured as a modular frontend + backend workspace.
 │   • Auth Pages (/login, /register) ─── Auto-redirects to /onboarding if setup pending   │
 │   • Doctor Onboarding Wizard (/onboarding) ─── 3-step practice & services configuration  │
 │   • Protected Doctor Dashboard (/dashboard) ─── Real-time profile & service toggle sync │
+│   │   └── Android App Builder UI ─── Build trigger, live log console, APK download      │
 │   • Patient-Facing Portal (/[slug], /dr/[slug]) ─── Practice Home + Dedicated Services  │
 │   • Central API Client (lib/api.ts)                                                     │
 │   (Port 3000)                                                                           │
-└────────────────────────────────────────┬────────────────────────────────────────────────┘
-                                         │ HTTP / CORS (http://localhost:3000)
-                                         │ Bearer JWT / Public API Requests
-┌────────────────────────────────────────▼────────────────────────────────────────────────┐
+└────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                     │ HTTP / CORS (http://localhost:3000)
+                                     │ Bearer JWT / Public API Requests
+┌────────────────────────────────────▼────────────────────────────────────────────────────┐
 │                            BACKEND: FASTAPI API SERVICE (backend/)                      │
 │                                                                                         │
 │  backend/app/main.py ───────────────── Root health check, CORS middleware, OpenAPI docs │
@@ -69,25 +71,43 @@ The project is structured as a modular frontend + backend workspace.
 │  ├── backend/app/api/ ──────────────── API Routers:                                     │
 │  │   ├── routes/auth.py ────────────── /api/v1/auth (register, login, google, me)       │
 │  │   ├── routes/doctor.py ──────────── /api/v1/doctor/profile (GET, PUT) [Protected]    │
+│  │   ├── routes/app_build.py ───────── /api/v1/doctor/app/* (preview, build, download)  │
 │  │   ├── routes/public.py ──────────── /api/v1/public/tenants/{slug}/* [Unauthenticated]│
 │  │   │                                 (GET tenant, POST appointments, reports, orders)│
 │  │   └── routes/health.py ──────────── /api/v1/health, /api/v1/health/database          │
 │  ├── backend/app/services/ ─────────── auth_service.py (provisioning & slug generation) │
+│  │                                     app_build_service.py (Gradle workspace manager)  │
 │  └── backend/app/models/ ───────────── SQLAlchemy models (Base, Doctor, Tenant)         │
 │  (Port 8000)                                                                            │
-└────────────────────────────────────────┬────────────────────────────────────────────────┘
-                                         │ SQLAlchemy 2.x / PostgreSQL / SQLite
-┌────────────────────────────────────────▼────────────────────────────────────────────────┐
-│                             DATABASE: POSTGRESQL / SQLITE                               │
+└────────────────────┬──────────────────────────────┬────────────────────────────────────┘
+                     │ SQLAlchemy 2.x / PostgreSQL   │ Build-time injection
+                     │ / SQLite                      │ & Gradle compilation
+┌────────────────────▼───────────────────┐  ┌───────▼────────────────────────────────────┐
+│      DATABASE: POSTGRESQL / SQLITE     │  │   ANDROID BUILD ENGINE (android-template/) │
+│                                        │  │                                             │
+│ doctors → id, email, full_name, phone, │  │ 1. Template Clone → builds/workspaces/{id} │
+│   avatar_url, speciality, bio,         │  │ 2. DoctorConfig.kt placeholder injection   │
+│   onboarding_completed, auth_provider, │  │ 3. strings.xml app_name injection           │
+│   provider_id, hashed_password,        │  │ 4. build.gradle.kts package name injection  │
+│   app_icon_url, is_active, timestamps  │  │ 5. Custom launcher icon copy (if uploaded)  │
+│                                        │  │ 6. ./gradlew assembleRelease --no-daemon    │
+│ tenants → id, doctor_id (FK UK 1:1),   │  │ 7. APK → builds/apks/{clinic}_{id}.apk     │
+│   slug, status, clinic_name, location, │  │                                             │
+│   service_appointment,                 │  │ Template Stack:                             │
+│   service_video_consultation,          │  │ • Kotlin 2.0 + Jetpack Compose + Material3 │
+│   service_medicine_inventory,          │  │ • compileSdk 34 / minSdk 24 / targetSdk 34 │
+│   service_lab_reports, timestamps      │  │ • Java 17 (Android Studio JBR)              │
+│ (Port 5432)                            │  │ • Offline-first hardcoded DoctorConfig      │
+└────────────────────────────────────────┘  └─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                          OPERATIONAL SCRIPTS (Project Root)                              │
 │                                                                                         │
-│  doctors  → id (UUID PK), email (UK), full_name, phone, avatar_url (Text), speciality,  │
-│             bio (Text), onboarding_completed (Bool), auth_provider, provider_id,        │
-│             hashed_password, is_active, created_at, updated_at                          │
-│                                                                                         │
-│  tenants  → id (UUID PK), doctor_id (FK UK 1:1), slug (UK), status, clinic_name,        │
-│             location, service_appointment (Bool), service_video_consultation (Bool),   │
-│             service_medicine_inventory (Bool), service_lab_reports (Bool), timestamps   │
-│  (Port 5432)                                                                            │
+│  start-servers.sh ──── Launches Backend (uvicorn :8000) + Frontend (npm dev :3000)      │
+│  stop-servers.sh ───── Gracefully terminates both servers by port detection              │
+│  start-tunnel.sh ───── Opens Pinggy SSH tunnel for remote access to localhost:3000       │
+│  (Aliases: start.sh → start-servers.sh, stop.sh → stop-servers.sh)                      │
+│  (npm scripts: servers:start, servers:stop, servers:restart)                             │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -283,6 +303,15 @@ HTTP Client (Browser / Frontend / cURL)
   │     ├── GET /api/v1/doctor/profile          → returns doctor profile + tenant clinic & 4 service flags
   │     └── PUT /api/v1/doctor/profile          → updates full_name, avatar_url, speciality, bio, clinic_name,
   │                                               location, onboarding_completed, and 4 service flags
+  │
+  ├── /api/v1/doctor/app ─────────── app/main.py → app/api/routes/app_build.py [Protected: Bearer JWT]
+  │     ├── GET /api/v1/doctor/app/preview              → returns app branding preview + latest built APK info
+  │     ├── POST /api/v1/doctor/app/icon                → uploads custom 512×512 PNG launcher icon to backend
+  │     ├── POST /api/v1/doctor/app/build (202)         → triggers background Gradle assembleRelease thread
+  │     │     └── Calls: trigger_app_build() → prepare_project_workspace() → run_gradle_build() (daemon thread)
+  │     ├── GET /api/v1/doctor/app/build/{task_id}/status → polls compilation progress (preparing → compiling → completed | failed)
+  │     ├── GET /api/v1/doctor/app/build/{task_id}/logs → returns full Gradle stdout/stderr compilation output
+  │     └── GET /api/v1/doctor/app/download/{task_id}   → [UNAUTHENTICATED] direct .apk FileResponse download
   │
   └── /api/v1/public ───────────────── app/main.py → app/api/routes/public.py [Unauthenticated]
         ├── GET /api/v1/public/tenants/{slug}                   → returns public doctor profile & enabled services
@@ -917,6 +946,7 @@ const steps = [
   - `auth_provider` (String 50, Default: "google")
   - `provider_id` (String 255, Indexed Nullable)
   - `hashed_password` (String 255, Nullable)
+  - `app_icon_url` (String 500, Nullable) — file path to uploaded custom Android app launcher icon
   - `is_active` (Boolean, Default: True)
   - Timestamps (`created_at`, `updated_at`)
 - **Relationship:** 1:1 with `Tenant` via `uselist=False, cascade="all, delete-orphan"`.
@@ -1002,6 +1032,236 @@ const steps = [
 
 ---
 
+### Android Build Engine & APK Pipeline (`backend/app/services/` & `backend/app/api/routes/`)
+
+---
+
+#### [`backend/app/services/app_build_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/app_build_service.py)
+
+**Purpose:** Core Android APK compilation orchestrator. Manages template cloning, doctor metadata injection, headless Gradle build execution, and built APK caching.
+
+**Architectural Reasoning:** The build service operates entirely independently of the request lifecycle. When a doctor triggers a build from the Dashboard, the API endpoint creates a UUID `build_id`, clones the `android-template/` into an isolated workspace (`builds/workspaces/{build_id}/`), injects all doctor-specific configuration, then spawns a **daemon thread** to run `./gradlew assembleRelease --no-daemon`. This thread-based design means the HTTP request returns immediately (202 Accepted) while the 2–5 minute Gradle compilation runs in the background. The frontend polls `/build/{task_id}/status` to track progress.
+
+**Key Functions:**
+- `sanitize_package_segment(name, fallback)`: Cleans arbitrary strings into valid Android package name segments (lowercase alphanumeric, no leading digits).
+- `compute_app_identity(doctor, tenant)`: Derives unique `app_name` (from clinic name) and `package_name` (`com.docspace.{doctor}.{clinic}`) for APK identification.
+- `prepare_project_workspace(build_id, doctor, tenant, custom_icon_path)`: Clones `android-template/` into `builds/workspaces/{build_id}/`, then performs **5 injection steps**:
+  1. **`build.gradle.kts`**: Replaces `{{PACKAGE_NAME}}` with computed `applicationId`.
+  2. **`strings.xml`**: Replaces `{{APP_NAME}}` with XML-escaped clinic name.
+  3. **`DoctorConfig.kt`**: Replaces 14 `{{PLACEHOLDER}}` tokens with doctor metadata (name, speciality, bio, services, contact info).
+  4. **`local.properties`**: Writes `sdk.dir` pointing to Android SDK path.
+  5. **Custom icon**: Copies uploaded launcher icon to `res/drawable/custom_icon.png` if available.
+- `run_gradle_build(build_id, workspace_path, identity)`: Executes `./gradlew assembleRelease --no-daemon --stacktrace` in a background thread. Auto-detects Android SDK (`~/Library/Android/sdk`) and Java Home (Android Studio JBR). Streams stdout/stderr to `builds/logs/{build_id}.log`. On success, copies APK to `builds/apks/{clinic}_{build_id[:8]}.apk`. Falls back to debug APK if release variant is missing.
+- `trigger_app_build(doctor, tenant, custom_icon_path)`: Entry point called by the API route. Creates build_id, prepares workspace, spawns daemon thread, returns task info immediately.
+- `get_build_status(build_id)`: Checks in-memory `_BUILD_TASKS` cache or scans `builds/apks/` directory for matching files.
+- `get_build_logs(build_id)`: Returns full text content from `builds/logs/{build_id}.log`.
+- `get_latest_doctor_apk(doctor, tenant)`: Checks if a previously built APK matching the doctor's clinic segment exists in `builds/apks/`, enabling the dashboard to show a "Download" button without requiring a rebuild.
+
+**Thread Safety:** Uses `threading.Lock` (`_LOCK`) to guard the shared `_BUILD_TASKS` dictionary, which stores build status, progress (0–100%), APK path, and error messages.
+
+**Key Directories:**
+```
+backend/builds/
+├── apks/           ← Final compiled APK files (named: {clinic}_{build_id[:8]}.apk)
+├── workspaces/     ← Isolated per-build android-template clones (deleted after use)
+└── logs/           ← Full Gradle compilation output logs ({build_id}.log)
+```
+
+**Build Timeout:** 300 seconds (5 minutes). If Gradle doesn't complete, the build is marked as `failed` with a timeout error.
+
+**APK Caching Strategy:** After the first successful build, subsequent calls to `get_latest_doctor_apk()` immediately return the cached APK metadata without triggering a recompile. A doctor must explicitly press "Rebuild" in the dashboard to trigger a fresh compilation (e.g., after changing their profile photo or clinic name).
+
+---
+
+#### [`backend/app/api/routes/app_build.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/app_build.py)
+
+**Purpose:** REST API routes under `/api/v1/doctor/app/` for the Android APK builder feature.
+
+**Key endpoints:**
+- `GET /preview`: Returns app branding preview (computed app name, package name, custom icon status) and the latest built APK info if one exists. Used by the Dashboard to pre-populate the Android App section.
+- `POST /icon`: Accepts `multipart/form-data` image upload (PNG/JPG). Saves to `backend/uploads/icons/icon_{doctor_id}_{hex}.{ext}` and updates `doctor.app_icon_url` in the database.
+- `POST /build` (202): Triggers `trigger_app_build()` in background. Returns `task_id`, status, app_name, and package_name immediately.
+- `GET /build/{task_id}/status`: Returns current build progress (`preparing` → `compiling` → `completed` | `failed`), progress percentage, APK path, file size, and error message if failed.
+- `GET /build/{task_id}/logs`: Returns the full Gradle compilation output for debugging build failures.
+- `GET /download/{task_id}` **[UNAUTHENTICATED]**: Returns `FileResponse` with `application/vnd.android.package-archive` MIME type. Deliberately unauthenticated so doctors can share a direct download link or QR code with patients for APK sideloading.
+
+**Authentication Design Decision:** All endpoints except `download` require Bearer JWT authentication via `get_current_doctor` dependency. The download endpoint is intentionally unauthenticated because:
+1. Doctors share APK download links with patients who don't have platform accounts.
+2. QR codes printed on clinic materials need to work without login.
+3. The `task_id` (UUID) acts as an unguessable capability token.
+
+---
+
+### Native Android App Template (`android-template/`)
+
+---
+
+#### [`android-template/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/) — Overview
+
+**Purpose:** Fully decoupled, standalone Jetpack Compose Android project serving as the **compilation template** for per-doctor white-labeled native apps.
+
+**Architectural Reasoning:** Rather than building a single universal Android app that fetches data from an API (requiring internet connectivity and backend uptime), DocSpace takes a **template injection approach**. Each doctor gets a standalone APK with their profile, services, and branding compiled directly into the binary via `DoctorConfig.kt`. This means:
+- **Offline-first**: The app works without any network connection after installation.
+- **Zero backend dependency**: Patients don't need to register on DocSpace — the app is self-contained.
+- **White-label isolation**: Each doctor's APK has a unique `applicationId` (`com.docspace.{doctor}.{clinic}`), so multiple doctor apps can coexist on the same device.
+
+**Template Stack:**
+| Technology | Version | Purpose |
+| :--- | :--- | :--- |
+| Kotlin | 2.0+ | Primary language |
+| Jetpack Compose | BOM 2024.01.00 | Declarative UI framework |
+| Material3 | Latest | Design system (dynamic colors) |
+| Android SDK | compileSdk 34, minSdk 24, targetSdk 34 | API level targeting |
+| Java | 17 (Android Studio JBR) | Compilation toolchain |
+| Gradle Kotlin DSL | 8.x | Build system |
+
+---
+
+#### [`android-template/app/build.gradle.kts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/build.gradle.kts)
+
+**Purpose:** Gradle build configuration with injectable `applicationId` placeholder.
+
+**Key details:**
+- `namespace = "com.docspace.template"` — fixed namespace for R class resolution (never changes).
+- `applicationId = "{{PACKAGE_NAME}}"` — placeholder replaced by `prepare_project_workspace()` with `com.docspace.{doctor}.{clinic}`.
+- `compileSdk = 34`, `minSdk = 24`, `targetSdk = 34`.
+- Release build type uses debug signing config (no keystore required for sideloading).
+- `composeOptions.kotlinCompilerExtensionVersion = "1.5.8"`.
+
+---
+
+#### [`android-template/app/src/main/kotlin/com/docspace/template/config/DoctorConfig.kt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/src/main/kotlin/com/docspace/template/config/DoctorConfig.kt)
+
+**Purpose:** Template configuration object with 14 injectable placeholders. All values are `const` so they're inlined at compile time for maximum performance.
+
+**Injected fields:**
+| Placeholder | Kotlin Type | Source |
+| :--- | :--- | :--- |
+| `{{DOCTOR_NAME}}` | String | `doctor.full_name` |
+| `{{CLINIC_NAME}}` | String | `tenant.clinic_name` |
+| `{{SPECIALITY}}` | String | `doctor.speciality` or "Healthcare Practitioner" |
+| `{{BIO}}` | String (raw) | `doctor.bio` |
+| `{{LOCATION}}` | String | `tenant.location` |
+| `{{AVATAR_URL}}` | String | `doctor.avatar_url` |
+| `{{PHONE}}` | String | `doctor.phone` |
+| `{{EMAIL}}` | String | `doctor.email` |
+| `{{SLUG}}` | String | `tenant.slug` |
+| `{{SERVICE_APPOINTMENT}}` | Boolean | `tenant.service_appointment` |
+| `{{SERVICE_VIDEO_CONSULTATION}}` | Boolean | `tenant.service_video_consultation` |
+| `{{SERVICE_MEDICINE_INVENTORY}}` | Boolean | `tenant.service_medicine_inventory` |
+| `{{SERVICE_LAB_REPORTS}}` | Boolean | `tenant.service_lab_reports` |
+
+---
+
+#### Android Template UI Components
+
+**File tree:**
+```
+android-template/app/src/main/kotlin/com/docspace/template/
+├── MainActivity.kt              ← Entry Activity, sets Compose content
+├── config/DoctorConfig.kt       ← Injected doctor metadata (see above)
+├── ui/
+│   ├── screens/
+│   │   └── HomeScreen.kt        ← Main screen with tab navigation (Profile & Services)
+│   ├── components/
+│   │   ├── DoctorHeroProfile.kt ← Doctor avatar, name, speciality, verified badge
+│   │   ├── DocSpaceTopBar.kt    ← Material3 top app bar with clinic name
+│   │   ├── DocSpaceFooter.kt    ← App footer with branding
+│   │   ├── AppointmentBookingCard.kt  ← In-clinic appointment booking form
+│   │   ├── VideoConsultationCard.kt   ← Telehealth video scheduling form
+│   │   ├── MedicineDeliveryCard.kt    ← Pharmacy medicine ordering form
+│   │   └── LabDiagnosticsCard.kt      ← Lab report upload/viewing card
+│   └── theme/
+│       ├── Color.kt             ← DocSpace color palette (Slate, Brand, Emerald, Indigo)
+│       ├── Theme.kt             ← Material3 light/dark theme configuration
+│       └── Type.kt              ← Typography definitions
+```
+
+---
+
+### Operational Scripts (Project Root)
+
+---
+
+#### [`start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-servers.sh) (alias: [`start.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start.sh))
+
+**Purpose:** One-command launcher for the full DocSpace platform (Backend + Frontend).
+
+**Behavior:**
+1. Creates `.pids/` and `logs/` directories.
+2. Checks if port 8000 is already in use — if not, starts `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` via the backend `.venv`.
+3. Checks if port 3000 is already in use — if not, starts `npm run dev`.
+4. Records PIDs to `.pids/backend.pid` and `.pids/frontend.pid`.
+5. Streams server output to `logs/backend.log` and `logs/frontend.log`.
+
+**Usage:** `./start.sh` or `npm run servers:start`
+
+---
+
+#### [`stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop-servers.sh) (alias: [`stop.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop.sh))
+
+**Purpose:** Gracefully terminates both platform servers.
+
+**Behavior:**
+1. Reads PIDs from `.pids/` files and sends `SIGTERM`.
+2. Also scans ports 3000 and 8000 via `lsof` to catch any orphaned processes.
+3. Falls back to `SIGKILL` if processes don't terminate within 0.5 seconds.
+4. Verifies port release and reports success/failure.
+
+**Usage:** `./stop.sh` or `npm run servers:stop`
+
+---
+
+#### [`start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-tunnel.sh)
+
+**Purpose:** Opens a Pinggy SSH tunnel for remote access to the local Next.js frontend.
+
+**Behavior:** SSH to `a.pinggy.io` on port 443 with reverse tunnel to `localhost:3000`. Auto-reconnects on disconnect with 3-second backoff.
+
+**Usage:** `./start-tunnel.sh` or `npm run tunnel:pinggy`
+
+---
+
+### Updated Frontend API Client
+
+---
+
+#### [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) — Phase 6 Additions
+
+**New TypeScript Interfaces:**
+- `AppPreviewResponse`: `{ app_name, package_name, has_custom_icon, app_icon_url, latest_apk }`
+- `AppBuildStartResponse`: `{ message, task_id, status, app_name, package_name }`
+- `AppBuildStatusResponse`: `{ task_id, status, progress, app_name, package_name, apk_path, apk_filename, file_size, error }`
+
+**New API Methods:**
+- `getAppPreview()`: `GET /api/v1/doctor/app/preview` [Protected] — fetches app branding and cached APK.
+- `uploadAppIcon(file)`: `POST /api/v1/doctor/app/icon` [Protected] — uploads custom launcher icon.
+- `triggerAppBuild()`: `POST /api/v1/doctor/app/build` [Protected] — starts background Gradle compilation.
+- `getAppBuildStatus(taskId)`: `GET /api/v1/doctor/app/build/{taskId}/status` [Protected] — polls build progress.
+- `getAppBuildLogs(taskId)`: `GET /api/v1/doctor/app/build/{taskId}/logs` [Protected] — retrieves compilation log.
+- `getAppDownloadUrl(taskId)`: Returns `${API_URL}/api/v1/doctor/app/download/{taskId}` — direct URL for APK download.
+
+---
+
+### Dashboard Android App Builder UI
+
+---
+
+#### [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) — Phase 6 Additions
+
+**New UI Sections (appended to existing dashboard):**
+
+- **App Branding Preview Card:** Shows computed app name, package name, and custom icon upload button.
+- **Build & Compilation Controls:**
+  - "Build Android App" / "Rebuild Android App" button triggers `triggerAppBuild()`.
+  - Live progress bar animating from 0% → 100% during compilation.
+  - Package name and status label ("Compiling...", "Completed", "Failed").
+- **Terminal-Style Build Log Console:** Togglable dark terminal panel (`bg-slate-900 font-mono`) streaming real-time Gradle compilation output via `getAppBuildLogs()`. Auto-scrolls to bottom.
+- **APK Download Section:** On successful build, shows file size, APK filename, download button using `getAppDownloadUrl(taskId)`, and "Copy Download Link" clipboard action for sharing with patients.
+- **Build Polling:** `useEffect` with 3-second `setInterval` that polls `getAppBuildStatus(taskId)` until status is `completed` or `failed`. Automatically fetches latest logs when log console is visible.
+
+---
+
 ## 6. "What File Do I Open?" Quick Reference
 
 ### Frontend
@@ -1022,7 +1282,8 @@ const steps = [
 | **Medicine Orders & Pharmacy View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 3 section: medicine inputs, delivery address, order submission |
 | **Lab Reports Upload View** | [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx) | Service 4 section: PDF/scan file uploader, report category, tracking receipt |
 | **Patient Route Alias (`/dr/[slug]`)** | [`app/dr/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dr/%5Bslug%5D/page.tsx) | Re-exports `app/[slug]/page.tsx` |
-| **Frontend API client & type interfaces** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Types (`ServicesConfig`, `PublicDoctorProfileResponse`), API request helpers |
+| **Frontend API client & type interfaces** | [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) | Types (`ServicesConfig`, `PublicDoctorProfileResponse`, `AppBuildStatusResponse`), API request helpers |
+| **Dashboard APK Builder UI** | [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) | Build trigger button, progress bar, terminal log console, download section |
 
 ### Backend & Database
 | I want to change... | Open this file | What to edit |
@@ -1032,9 +1293,28 @@ const steps = [
 | **Tenant database columns & services** | [`backend/app/models/tenant.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/tenant.py) | `Tenant` class mapped columns + service toggles |
 | **Profile validation schemas** | [`backend/app/schemas/profile.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/profile.py) | `DoctorProfileUpdateRequest`, `ServicesConfig`, patient action schemas |
 | **Doctor profile API endpoints** | [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py) | `get_doctor_profile`, `update_doctor_profile` route handlers |
+| **Android APK build API endpoints** | [`backend/app/api/routes/app_build.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/app_build.py) | Preview, icon upload, build trigger, status poll, log fetch, download routes |
+| **APK compilation & template injection logic** | [`backend/app/services/app_build_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/app_build_service.py) | `prepare_project_workspace`, `run_gradle_build`, `trigger_app_build` |
 | **Public tenant & patient API endpoints** | [`backend/app/api/routes/public.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/public.py) | `get_public_tenant`, `book_appointment`, `upload_report`, `order_medicine` |
 | **Database Migrations** | [`backend/alembic/versions/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/versions/) | Add new migration version scripts |
 | **Automated backend tests** | [`backend/tests/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/) | `test_auth.py`, `test_profile_and_public.py` |
+
+### Android Template
+| I want to change... | Open this file | What to edit |
+| :--- | :--- | :--- |
+| **Injected doctor metadata placeholders** | [`DoctorConfig.kt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/src/main/kotlin/com/docspace/template/config/DoctorConfig.kt) | `{{PLACEHOLDER}}` tokens — must match `app_build_service.py` replacements |
+| **Android app UI (Profile & Services)** | [`HomeScreen.kt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/src/main/kotlin/com/docspace/template/ui/screens/HomeScreen.kt) | Main screen with tab navigation |
+| **Android app color theme** | [`Color.kt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/src/main/kotlin/com/docspace/template/ui/theme/Color.kt) | DocSpace palette (Slate, Brand, Emerald, Indigo) |
+| **Gradle build config (SDK, compose)** | [`build.gradle.kts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/build.gradle.kts) | compileSdk, minSdk, applicationId placeholder, compose version |
+| **Android manifest & permissions** | [`AndroidManifest.xml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/android-template/app/src/main/AndroidManifest.xml) | Internet permission, activity declarations, theme |
+
+### Operational Scripts
+| I want to change... | Open this file | What to edit |
+| :--- | :--- | :--- |
+| **Start both servers** | [`start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-servers.sh) | Port detection, uvicorn command, npm dev command |
+| **Stop both servers** | [`stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop-servers.sh) | Port scanning, PID cleanup, SIGTERM/SIGKILL logic |
+| **Remote tunnel access** | [`start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-tunnel.sh) | Pinggy SSH tunnel configuration |
+| **npm script aliases** | [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json) | `servers:start`, `servers:stop`, `servers:restart` |
 
 ---
 
@@ -1054,6 +1334,11 @@ These are implicit contracts between files. Breaking them causes silent visual, 
 | `CORS_ORIGINS` must include frontend port (`http://localhost:3000`) | `backend/.env` → `app/main.py` | Browser blocks frontend API requests with CORS errors |
 | `TOKEN_STORAGE_KEY` must match across auth helpers | `lib/api.ts` | Token persistence or logout fails to clear active JWT session |
 | `hash_password` salt format must be `hex$hex` | `security.py` `hash_password` ↔ `verify_password` | Password verification always fails, locking out all email-registered doctors |
+| `DoctorConfig.kt` placeholder tokens must match `app_build_service.py` replacements | `DoctorConfig.kt` ↔ `app_build_service.py` `prepare_project_workspace()` | Uninjected `{{PLACEHOLDER}}` tokens cause Kotlin compilation errors or show raw template strings in the app |
+| `namespace` in `build.gradle.kts` must stay `com.docspace.template` | `android-template/app/build.gradle.kts` | Changing namespace breaks R class imports across all UI components |
+| `android:name` in `AndroidManifest.xml` must be `com.docspace.template.MainActivity` | `AndroidManifest.xml` | App crashes with `ClassNotFoundException` on launch |
+| APK download endpoint (`/download/{task_id}`) must remain unauthenticated | `backend/app/api/routes/app_build.py` | Patients receive 401 Unauthorized when clicking shared download links |
+| `builds/apks/` naming pattern must be `{clinic}_{build_id[:8]}.apk` | `app_build_service.py` `run_gradle_build` ↔ `get_latest_doctor_apk` | APK caching breaks — dashboard can't find previously built APKs |
 
 ---
 
@@ -1068,9 +1353,10 @@ When future phases are implemented, here are the exact extension points:
 | **Auth & Doctor Registration (Phase 3)** | **Complete** | Email/Password & Google auth, PBKDF2 hashing, JWT tokens, auto-provisioning |
 | **Doctor Onboarding & Live Profile Sync (Phase 4)** | **Complete** | 3-step wizard (`/onboarding`), profile photo upload + fallback, 4-service toggles, `/dashboard` live sync editor |
 | **Patient-Facing Webpage Architecture (Phase 5)** | **Complete** | Sticky tabs, Practice Home (credentials, philosophy, commitment pillars, service cards), dedicated service views, public API endpoints with feature toggle enforcement |
-| **Custom Branding & Subdomain Routing (Phase 6)** | Next | Add `app/models/branding.py`, Next.js `middleware.ts` host header routing for `[subdomain].docspace.com` |
-| **Patient Management & Clinical Records (Phase 7)** | Planned | Add `app/models/patient.py`, `app/models/appointment.py`, doctor dashboard patient charts & EHR |
-| **Payment Gateway Integration (Phase 8)** | Planned | Stripe / Razorpay checkout integration for appointment fees and medicine orders |
+| **Native Android APK Builder (Phase 6)** | **Complete** | Jetpack Compose template, `AppBuildService`, Gradle headless compilation, dashboard build UI, APK caching, `start-servers.sh` / `stop-servers.sh` operational scripts |
+| **Custom Branding & Subdomain Routing (Phase 7)** | Next | Add `app/models/branding.py`, Next.js `middleware.ts` host header routing for `[subdomain].docspace.com` |
+| **Patient Management & Clinical Records (Phase 8)** | Planned | Add `app/models/patient.py`, `app/models/appointment.py`, doctor dashboard patient charts & EHR |
+| **Payment Gateway Integration (Phase 9)** | Planned | Stripe / Razorpay checkout integration for appointment fees and medicine orders |
 
 ---
 
@@ -1091,3 +1377,9 @@ When future phases are implemented, here are the exact extension points:
 10. **Keep business logic modular** — implement only what the current phase requires; defer future tables/endpoints to their respective phases
 11. **Environment variables through `pydantic-settings`** — never access `os.environ` directly in application logic; use `get_settings()`
 
+### Android Template Rules
+12. **Never change `namespace` in `build.gradle.kts`** — it must remain `com.docspace.template` for R class resolution; only `applicationId` is dynamic
+13. **All new DoctorConfig fields must use `{{PLACEHOLDER}}` format** and have matching replacements in `app_build_service.py` `prepare_project_workspace()`
+14. **Keep the template offline-first** — do not add network API calls; all doctor data comes from compiled `DoctorConfig.kt` constants
+15. **Use Material3 and DocSpace theme colors** from `Color.kt` — never hardcode hex values in Compose composables
+16. **Test template compilation** via `./gradlew assembleRelease` in `android-template/` after any template changes
