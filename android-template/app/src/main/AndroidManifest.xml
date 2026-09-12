@@ -15,7 +15,6 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         
         <activity
-            android:name=".MainActivity"
             android:name="com.docspace.template.MainActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
