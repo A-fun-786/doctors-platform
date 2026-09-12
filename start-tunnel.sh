@@ -19,6 +19,9 @@ echo "Web inspection dashboard will be available at: http://localhost:4300"
 echo "========================================================"
 echo ""
 
+export SSH_ASKPASS_REQUIRE=force
+export SSH_ASKPASS=/bin/echo
+
 while true; do
   ssh -o StrictHostKeyChecking=no \
       -o ServerAliveInterval=30 \
@@ -26,7 +29,7 @@ while true; do
       -p 443 \
       -R0:localhost:"$PORT" \
       -L4300:localhost:4300 \
-      a.pinggy.io 2>&1 | while IFS= read -r line; do
+      a.pinggy.io </dev/null 2>&1 | while IFS= read -r line; do
         if [[ "$line" =~ https://[a-zA-Z0-9.-]+\.pinggy\.(net|link) ]]; then
           URL=$(echo "$line" | grep -oE "https://[a-zA-Z0-9.-]+\.pinggy\.(net|link)" | head -n 1)
           echo ""
