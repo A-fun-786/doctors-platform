@@ -13,7 +13,7 @@ DocSpace is a **multi-tenant white-label SaaS platform** for doctors. Each docto
 - **Phase 3 (Complete):** Authentication and Doctor Registration (Email/Password registration & login, Google Sign-In with GCP OAuth / mock token support, PBKDF2-HMAC-SHA256 password hashing, auto-provisioning Doctor + Tenant with deterministic slug generation, stateless JWT access tokens, `/api/v1/auth/*` endpoints, and protected `/dashboard` entry point).
 - **Phase 4 (Complete):** Doctor Onboarding & Live Practice Profile Management (3-step onboarding wizard at `/onboarding`, profile photo upload with default healthcare fallback, speciality selector, bio editor, 4-service feature toggles: Appointments, Video Consultation, Medicine Inventory, Lab Reports; in-dashboard profile editor at `/dashboard` with instant live synchronization to patient webpage).
 - **Phase 5 (Complete):** Public Patient-Facing Practice Portal Architecture (`/[slug]` and `/dr/[slug]`): Sticky service navigation tabs, Practice Home with doctor credentials, healthcare philosophy/bio, 4 clinical commitment pillars, services showcase cards, dedicated full-page service views (In-Clinic Booking, Telehealth Video Scheduling, Pharmacy Medicine Orders, Lab & Diagnostic Reports Upload), and public patient API endpoints with feature toggle enforcement.
-- **Phase 6 (Complete):** Native Android APK Builder & Doctor Dashboard App Management — Automated Jetpack Compose Android template (`android-template/`) with build-time doctor metadata injection (`DoctorConfig.kt`), headless Gradle `assembleRelease` background compilation via `AppBuildService`, custom launcher icon upload, real-time build status polling and live compilation log streaming in the Doctor Dashboard, unauthenticated APK download endpoint for patient sideloading, APK caching by clinic identity to avoid rebuilds, and `start-servers.sh` / `stop-servers.sh` operational scripts for unified platform startup.
+- **Phase 6 (Complete):** Native Android APK Builder & Doctor Dashboard App Management — Automated Jetpack Compose Android template (`android-template/`) with build-time doctor metadata injection (`DoctorConfig.kt`), headless Gradle `assembleRelease` background compilation via `AppBuildService`, custom launcher icon upload, real-time build status polling and live compilation log streaming in the Doctor Dashboard, unauthenticated APK download endpoint for patient sideloading, APK caching by clinic identity to avoid rebuilds, and `scripts/start-servers.sh` / `scripts/stop-servers.sh` operational scripts for unified platform startup.
 - **Upcoming Phases:** Phase 7 (Custom Branding & Subdomain Routing), Phase 8 (Patient Management & Clinical Records), Phase 9 (Payment Gateway Integration).
 
 ---
@@ -101,13 +101,13 @@ The project is structured as a modular frontend + backend workspace.
 └────────────────────────────────────────┘  └─────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                          OPERATIONAL SCRIPTS (Project Root)                              │
+│                          OPERATIONAL SCRIPTS (scripts/ Directory)                       │
 │                                                                                         │
-│  start-servers.sh ──── Launches Backend (uvicorn :8000) + Frontend (npm dev :3000)      │
-│  stop-servers.sh ───── Gracefully terminates both servers by port detection              │
-│  start-tunnel.sh ───── Opens Pinggy SSH tunnel for remote access to localhost:3000       │
-│  (Aliases: start.sh → start-servers.sh, stop.sh → stop-servers.sh)                      │
-│  (npm scripts: servers:start, servers:stop, servers:restart)                             │
+│  scripts/start-servers.sh ── Launches Backend (uvicorn :8000) + Frontend (npm :3000)   │
+│  scripts/stop-servers.sh ─── Gracefully terminates both servers by port detection       │
+│  scripts/start-tunnel.sh ─── Opens Pinggy SSH tunnel for remote access to localhost:3000│
+│  (Aliases: scripts/start.sh, scripts/stop.sh, scripts/tunnel.sh)                        │
+│  (npm scripts: servers:start, servers:stop, servers:restart, tunnel:pinggy)            │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1179,26 +1179,26 @@ android-template/app/src/main/kotlin/com/docspace/template/
 
 ---
 
-### Operational Scripts (Project Root)
+### Operational Scripts (`scripts/` Directory)
 
 ---
 
-#### [`start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-servers.sh) (alias: [`start.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start.sh))
+#### [`scripts/start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/start-servers.sh) (alias: [`scripts/start.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/start.sh))
 
 **Purpose:** One-command launcher for the full DocSpace platform (Backend + Frontend).
 
 **Behavior:**
-1. Creates `.pids/` and `logs/` directories.
+1. Creates `.pids/` and `logs/` directories in the project root.
 2. Checks if port 8000 is already in use — if not, starts `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` via the backend `.venv`.
 3. Checks if port 3000 is already in use — if not, starts `npm run dev`.
 4. Records PIDs to `.pids/backend.pid` and `.pids/frontend.pid`.
 5. Streams server output to `logs/backend.log` and `logs/frontend.log`.
 
-**Usage:** `./start.sh` or `npm run servers:start`
+**Usage:** `./scripts/start.sh` or `npm run servers:start` (or `./scripts/start.sh --background`)
 
 ---
 
-#### [`stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop-servers.sh) (alias: [`stop.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop.sh))
+#### [`scripts/stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/stop-servers.sh) (alias: [`scripts/stop.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/stop.sh))
 
 **Purpose:** Gracefully terminates both platform servers.
 
@@ -1208,17 +1208,17 @@ android-template/app/src/main/kotlin/com/docspace/template/
 3. Falls back to `SIGKILL` if processes don't terminate within 0.5 seconds.
 4. Verifies port release and reports success/failure.
 
-**Usage:** `./stop.sh` or `npm run servers:stop`
+**Usage:** `./scripts/stop.sh` or `npm run servers:stop`
 
 ---
 
-#### [`start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-tunnel.sh)
+#### [`scripts/start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/start-tunnel.sh) (alias: [`scripts/tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/tunnel.sh))
 
-**Purpose:** Opens a Pinggy SSH tunnel for remote access to the local Next.js frontend.
+**Purpose:** Opens a Pinggy SSH tunnel for remote access to the local Next.js frontend (or custom port).
 
-**Behavior:** SSH to `a.pinggy.io` on port 443 with reverse tunnel to `localhost:3000`. Auto-reconnects on disconnect with 3-second backoff.
+**Behavior:** SSH to `a.pinggy.io` on port 443 with reverse tunnel to `localhost:3000`. Auto-reconnects on disconnect with 3-second backoff and records public URL in `TUNNEL_URL.txt` at the project root.
 
-**Usage:** `./start-tunnel.sh` or `npm run tunnel:pinggy`
+**Usage:** `./scripts/tunnel.sh` or `npm run tunnel:pinggy`
 
 ---
 
@@ -1311,10 +1311,10 @@ android-template/app/src/main/kotlin/com/docspace/template/
 ### Operational Scripts
 | I want to change... | Open this file | What to edit |
 | :--- | :--- | :--- |
-| **Start both servers** | [`start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-servers.sh) | Port detection, uvicorn command, npm dev command |
-| **Stop both servers** | [`stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/stop-servers.sh) | Port scanning, PID cleanup, SIGTERM/SIGKILL logic |
-| **Remote tunnel access** | [`start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/start-tunnel.sh) | Pinggy SSH tunnel configuration |
-| **npm script aliases** | [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json) | `servers:start`, `servers:stop`, `servers:restart` |
+| **Start both servers** | [`scripts/start-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/start-servers.sh) | Port detection, uvicorn command, npm dev command |
+| **Stop both servers** | [`scripts/stop-servers.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/stop-servers.sh) | Port scanning, PID cleanup, SIGTERM/SIGKILL logic |
+| **Remote tunnel access** | [`scripts/start-tunnel.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/start-tunnel.sh) | Pinggy SSH tunnel configuration |
+| **npm script aliases** | [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json) | `servers:start`, `servers:stop`, `servers:restart`, `tunnel:pinggy` |
 
 ---
 
@@ -1353,7 +1353,7 @@ When future phases are implemented, here are the exact extension points:
 | **Auth & Doctor Registration (Phase 3)** | **Complete** | Email/Password & Google auth, PBKDF2 hashing, JWT tokens, auto-provisioning |
 | **Doctor Onboarding & Live Profile Sync (Phase 4)** | **Complete** | 3-step wizard (`/onboarding`), profile photo upload + fallback, 4-service toggles, `/dashboard` live sync editor |
 | **Patient-Facing Webpage Architecture (Phase 5)** | **Complete** | Sticky tabs, Practice Home (credentials, philosophy, commitment pillars, service cards), dedicated service views, public API endpoints with feature toggle enforcement |
-| **Native Android APK Builder (Phase 6)** | **Complete** | Jetpack Compose template, `AppBuildService`, Gradle headless compilation, dashboard build UI, APK caching, `start-servers.sh` / `stop-servers.sh` operational scripts |
+| **Native Android APK Builder (Phase 6)** | **Complete** | Jetpack Compose template, `AppBuildService`, Gradle headless compilation, dashboard build UI, APK caching, `scripts/start-servers.sh` / `scripts/stop-servers.sh` operational scripts |
 | **Custom Branding & Subdomain Routing (Phase 7)** | Next | Add `app/models/branding.py`, Next.js `middleware.ts` host header routing for `[subdomain].docspace.com` |
 | **Patient Management & Clinical Records (Phase 8)** | Planned | Add `app/models/patient.py`, `app/models/appointment.py`, doctor dashboard patient charts & EHR |
 | **Payment Gateway Integration (Phase 9)** | Planned | Stripe / Razorpay checkout integration for appointment fees and medicine orders |

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
+# Pinggy Tunnel Script for DocSpace Platform
 PORT="${1:-3000}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+TUNNEL_FILE="$ROOT_DIR/TUNNEL_URL.txt"
 
 echo "========================================================"
 echo " Starting Pinggy Tunnel for http://localhost:$PORT"
@@ -9,7 +14,7 @@ echo "========================================================"
 # Check if target port is listening
 if ! lsof -iTCP:"$PORT" -sTCP:LISTEN -P -n > /dev/null 2>&1; then
   echo "⚠️  Notice: Nothing is listening on port $PORT yet."
-  echo "Make sure your server is running (e.g. npm run dev)."
+  echo "Make sure your server is running (e.g. npm run dev or npm run servers:start)."
   echo ""
 fi
 
@@ -38,7 +43,7 @@ while true; do
           echo "   LIVE LOGS : http://localhost:4300"
           echo "==========================================================="
           echo ""
-          echo "$URL" > TUNNEL_URL.txt
+          echo "$URL" > "$TUNNEL_FILE"
         else
           echo "$line"
         fi

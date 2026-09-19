@@ -3,7 +3,8 @@
 # DocSpace Servers Starter Script
 set -e
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PID_DIR="$ROOT_DIR/.pids"
 LOG_DIR="$ROOT_DIR/logs"
 
@@ -62,7 +63,7 @@ echo "=================================================="
 
 # If background mode flag is passed, exit here
 if [ "$1" = "--background" ] || [ "$1" = "-d" ] || [ "$1" = "--daemon" ]; then
-  echo "Running in background mode. Use ./stop.sh to terminate."
+  echo "Running in background mode. Use ./scripts/stop.sh (or npm run servers:stop) to terminate."
   exit 0
 fi
 
@@ -70,7 +71,7 @@ fi
 cleanup() {
   echo ""
   echo "Received shutdown signal. Stopping servers..."
-  "$ROOT_DIR/stop-servers.sh"
+  "$SCRIPT_DIR/stop-servers.sh"
   exit 0
 }
 trap cleanup SIGINT SIGTERM

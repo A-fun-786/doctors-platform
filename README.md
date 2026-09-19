@@ -740,6 +740,12 @@ docspace-platform/
 ├── 📂 middleware/
 │   └── auth.ts                      # Authentication middleware
 │
+├── 📂 scripts/
+│   ├── start-servers.sh             # Launch FastAPI & Next.js servers
+│   ├── stop-servers.sh              # Gracefully terminate platform servers
+│   ├── start-tunnel.sh              # Pinggy public SSH tunnel
+│   └── README.md                    # Operational scripts guide
+│
 ├── 📄 package.json                  # Dependencies & scripts
 ├── 📄 tsconfig.json                 # TypeScript configuration
 ├── 📄 tailwind.config.ts            # Tailwind customization
@@ -863,6 +869,19 @@ graph TD
 
 ### Running Locally
 
+**Option 1: Full Platform (Recommended)**
+Start both the FastAPI backend (`:8000`) and Next.js frontend (`:3000`) with unified logging:
+```bash
+npm run servers:start
+# or: ./scripts/start.sh
+```
+To terminate both servers:
+```bash
+npm run servers:stop
+# or: ./scripts/stop.sh
+```
+
+**Option 2: Frontend Only**
 ```bash
 npm run dev
 ```
