@@ -55,3 +55,4 @@ The objective of productionizing the Doctors Platform is to transform the applic
   - Documented `ALLOW_MOCK_AUTH` flag with clear warnings in `.env.example`.
   - Added unit test suite `test_production_settings_validation` verifying all validation failures (empty/insecure JWT key, mock auth enabled, empty Google Client ID, SQLite in prod) and ensuring valid production configs pass without error.
 - **Reasoning:** Prevents regressions and provides clear setup documentation for operations teams.
+
