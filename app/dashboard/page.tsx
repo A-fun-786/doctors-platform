@@ -55,6 +55,8 @@ import {
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
 
+const ENABLE_ANDROID_BUILD = process.env.NEXT_PUBLIC_ENABLE_ANDROID_BUILD === "true";
+
 export default function DashboardPage() {
   const router = useRouter();
   const [doctor, setDoctor] = useState<DoctorMeResponse | null>(null);
@@ -101,10 +103,10 @@ export default function DashboardPage() {
         const [meData, profileData, previewData] = await Promise.all([
           getCurrentDoctor(),
           getDoctorProfile().catch(() => null),
-          getAppPreview().catch(() => null),
+          ENABLE_ANDROID_BUILD ? getAppPreview().catch(() => null) : Promise.resolve(null),
         ]);
         setDoctor(meData);
-        if (previewData) {
+        if (ENABLE_ANDROID_BUILD && previewData) {
           setAppPreview(previewData);
           if (previewData.latest_apk) {
             setBuildStatus(previewData.latest_apk);
@@ -176,7 +178,7 @@ export default function DashboardPage() {
 
   // Poll for Android App build status
   useEffect(() => {
-    if (!buildTaskId || buildStatus?.status === "completed" || buildStatus?.status === "failed") {
+    if (!ENABLE_ANDROID_BUILD || !buildTaskId || buildStatus?.status === "completed" || buildStatus?.status === "failed") {
       return;
     }
     const interval = setInterval(async () => {
@@ -820,7 +822,8 @@ export default function DashboardPage() {
         </div>
 
         {/* SECTION: YOUR BRANDED ANDROID APP */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {ENABLE_ANDROID_BUILD && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md">
@@ -1107,6 +1110,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Workspace Identity Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

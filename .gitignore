@@ -67,3 +67,4 @@ logs/
 .pids/
 
 TUNNEL_URL.txt
+production_plan.md
