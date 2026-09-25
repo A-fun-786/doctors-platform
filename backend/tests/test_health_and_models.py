@@ -144,3 +144,63 @@ def test_doctor_tenant_relationship(db_session):
     assert tenant.id is not None
     assert tenant.doctor.full_name == "Dr. Jane Doe"
     assert doctor.tenant.slug == "dr-jane-doe"
+
+
+def test_production_settings_validation():
+    from app.core.config import Settings
+    from pydantic import ValidationError
+
+    # Default secret must fail in production
+    with pytest.raises(ValidationError, match="JWT_SECRET_KEY"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Mock auth must fail in production
+    with pytest.raises(ValidationError, match="ALLOW_MOCK_AUTH"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=True,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Empty Google Client ID must fail in production
+    with pytest.raises(ValidationError, match="GOOGLE_CLIENT_ID"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # SQLite must fail in production
+    with pytest.raises(ValidationError, match="SQLite is not supported"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="sqlite:///./prod.db",
+        )
+
+    # Valid production settings pass
+    prod = Settings(
+        _env_file=None,
+        ENVIRONMENT="production",
+        ALLOW_MOCK_AUTH=False,
+        JWT_SECRET_KEY="a" * 32,
+        GOOGLE_CLIENT_ID="valid-id",
+        DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+    )
+    assert prod.ENVIRONMENT == "production"
+

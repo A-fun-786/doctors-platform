@@ -43,10 +43,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def verify_google_token(credential: str) -> Dict[str, Any]:
     """
     Verify a Google ID Token (credential) and return user payload.
-    Supports development/test tokens when in development mode or testing.
+    Supports mock tokens only when ALLOW_MOCK_AUTH is enabled.
     """
-    # Development/Test mock token support
-    if settings.ENVIRONMENT == "development" and credential.startswith("mock-google-token:"):
+    # Mock token support strictly controlled by explicit flag
+    if settings.ALLOW_MOCK_AUTH and credential.startswith("mock-google-token:"):
         # Format: mock-google-token:email:name:provider_id:avatar_url
         parts = credential.split(":", 4)
         email = parts[1] if len(parts) > 1 else "doctor@example.com"
