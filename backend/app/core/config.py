@@ -26,6 +26,18 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    # Rate Limiting (SlowAPI)
+    RATE_LIMIT_GLOBAL: str = "100/minute"
+    RATE_LIMIT_AUTH: str = "5/minute"
+    RATE_LIMIT_AUTH_GOOGLE: str = "10/minute"
+
+    # Observability & Monitoring (Sentry & Structlog)
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    SENTRY_PROFILES_SAMPLE_RATE: float = 0.1
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"  # "json" for structured production logs, "console" for dev
+
     @field_validator("CORS_ORIGINS", mode="after")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:

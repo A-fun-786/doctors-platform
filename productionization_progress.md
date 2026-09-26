@@ -16,7 +16,7 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Security & Configuration Hardening | ✅ Completed | Items 1, 4, 5, 6 |
 | **Phase 2** | Database & Migration Architecture | ✅ Completed | Items 2, 3, 13 |
-| **Phase 3** | Rate Limiting, Logging & Monitoring | ⏳ Pending | Items 8, 9 |
+| **Phase 3** | Rate Limiting, Logging & Monitoring | ✅ Completed | Items 8, 9 |
 | **Phase 4** | Containerization & Cloud Storage | ⏳ Pending | Items 10, 11 |
 | **Phase 5** | Production Routing & TLS / Reverse Proxy | ⏳ Pending | Item 7 |
 | **Phase 6** | CI/CD & Automated Verification | ⏳ Pending | Item 15 |
@@ -88,5 +88,76 @@ The objective of productionizing the Doctors Platform is to transform the applic
   - Added comprehensive documentation in `.env.example` covering driver (`psycopg` v3), production managed database services (Supabase, Neon, RDS), migration execution instructions (`alembic upgrade head`), and optional local SQLite overrides.
   - Updated `SettingsConfigDict` in `config.py` to support `env_file=(".env", "backend/.env")` so test runs and tooling resolve configurations consistently regardless of execution working directory.
 - **Reasoning:** Establishes PostgreSQL as the primary production-grade database standard across the codebase, while keeping configuration paths resilient.
+
+---
+
+### Phase 3: Rate Limiting, Logging & Monitoring
+
+#### 1. Brute-Force Rate Limiting Architecture (SlowAPI)
+- **Files:** [`backend/app/core/rate_limit.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/rate_limit.py), [`backend/app/api/routes/auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/auth.py), [`backend/app/main.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/main.py)
+- **Detail:**
+  - Configured `slowapi.Limiter` keyed on client IP address with a global baseline rate limit (`RATE_LIMIT_GLOBAL=100/minute`).
+  - Added strict, targeted limits to sensitive authentication endpoints:
+    - `POST /api/v1/auth/login`: `5/minute`
+    - `POST /api/v1/auth/register`: `5/minute`
+    - `POST /api/v1/auth/google`: `10/minute`
+  - Integrated `SlowAPIMiddleware` and custom `rate_limit_exceeded_handler` that injects rate limit headers (`Retry-After`) and emits security warning logs with client IP, path, and method upon breach.
+- **Reasoning:** Protects tenant credentials and user accounts against automated credential stuffing, password guessing, and denial-of-service (DoS) attacks.
+
+#### 2. Structured JSON Logging & Appropriate Level Separation
+- **Files:** [`backend/app/core/logging.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/logging.py), [`backend/app/main.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/main.py)
+- **Detail:**
+  - Implemented `structlog` configuration with ISO 8601 timestamps, log level, caller, stack trace, and JSON rendering for production (`LOG_FORMAT=json`), plus colored console rendering for local development.
+  - Attached standard library logging processor formatter to intercept and format logs from `uvicorn`, `fastapi`, and third-party libraries uniformly.
+  - Added request lifecycle middleware that tracks request duration in milliseconds and logs with clear level separation:
+    - **`INFO`**: Successful HTTP 2xx/3xx requests and application lifecycle events.
+    - **`WARNING`**: Client errors (HTTP 4xx), failed authentication attempts, rate limit violations, or missing non-critical configs.
+    - **`ERROR`**: Server errors (HTTP 5xx), unhandled exceptions with full stack traces, and database connectivity failures.
+- **Reasoning:** Production environments require structured, parseable log streams compatible with log aggregation systems (Datadog, Loki, CloudWatch) without noisy unstructured stdout dumps.
+
+#### 3. Sentry Crash Reporting & APM Integration
+- **Files:** [`backend/app/core/sentry.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/sentry.py), [`backend/app/main.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/main.py)
+- **Detail:**
+  - Implemented fail-safe `init_sentry()` that initializes Sentry with FastAPI and SQLAlchemy integrations when `SENTRY_DSN` is provided. If omitted, cleanly logs an informational notice without crashing startup.
+  - Configured HIPAA-conscious security defaults (`send_default_pii=False`) to avoid capturing personal health information (PHI) or sensitive headers.
+- **Reasoning:** Enables real-time exception alerts, stack trace capture, and latency profiling in production without exposing sensitive healthcare data.
+
+#### 4. Enhanced Health Check with Observability Status
+- **File:** [`backend/app/api/routes/health.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/health.py)
+- **Detail:**
+  - Updated `/api/v1/health` endpoint to return service metadata, active environment, `sentry_enabled` status, and `rate_limiting_enabled` flag.
+  - Added structured error logging to the database health check endpoint (`/api/v1/health/database`).
+- **Reasoning:** Provides container orchestrators (Kubernetes, ECS, Cloud Run) and external monitoring probes with immediate visibility into application health and observability subsystems.
+
+#### 5. Dependency Management & Configuration Extension
+- **Files:** [`backend/requirements.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements.txt), [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py), [`backend/.env.example`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env.example), [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env)
+- **Detail:**
+  - Added pinned production dependencies: `slowapi>=0.1.9,<1.0.0`, `sentry-sdk[fastapi]>=2.0.0,<3.0.0`, and `structlog>=24.1.0,<25.0.0`.
+  - Extended Pydantic `Settings` model with environment-configurable fields:
+    - `RATE_LIMIT_GLOBAL` (default: `"100/minute"`)
+    - `RATE_LIMIT_AUTH` (default: `"5/minute"`)
+    - `RATE_LIMIT_AUTH_GOOGLE` (default: `"10/minute"`)
+    - `SENTRY_DSN` (default: `""`, disables Sentry when empty)
+    - `SENTRY_TRACES_SAMPLE_RATE` (default: `0.1`)
+    - `SENTRY_PROFILES_SAMPLE_RATE` (default: `0.1`)
+    - `LOG_LEVEL` (default: `"INFO"`)
+    - `LOG_FORMAT` (default: `"json"`)
+  - Documented all new configuration variables with security recommendations in `.env.example` and set local development defaults in `.env`.
+- **Reasoning:** 12-factor application design ensuring all rate limiting and observability behaviors are declaratively configurable per deployment environment without code modifications.
+
+#### 6. Automated Verification & Test Suite Expansion
+- **Files:** [`backend/tests/test_rate_limit_and_logging.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_rate_limit_and_logging.py), [`backend/tests/test_health_and_models.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_health_and_models.py)
+- **Detail:**
+  - Added dedicated test suite (`test_rate_limit_and_logging.py`) covering:
+    - Multi-request brute-force triggering HTTP 429 response on 6th attempt with `Rate limit exceeded` payload.
+    - Observability metadata payload validation on `/api/v1/health`.
+    - Resilient Sentry bootstrap with empty DSN returning clean `False` status.
+    - Bound structlog logging and level handling without stdout corruption.
+  - Synchronized existing `test_health_and_models.py` to validate new health check payload structure.
+  - Ran full test suite verifying **28 of 28 tests passing** with 0 regressions.
+  - Conducted live agentic verification confirming structured JSON logs emission (`duration_ms`, `client_ip`, `status_code`, appropriate level mapping).
+- **Reasoning:** Prevents regressions, validates rate limiting enforcement, and ensures production log aggregation compatibility.
+
+
 
 

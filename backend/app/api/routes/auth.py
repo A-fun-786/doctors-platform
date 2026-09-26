@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor
+from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.models.doctor import Doctor
 from app.schemas.auth import (
     GoogleAuthRequest,
@@ -15,6 +18,8 @@ from app.schemas.auth import (
 from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+settings = get_settings()
+logger = get_logger("auth")
 
 
 @router.post(
@@ -24,7 +29,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     summary="Google Sign-In / Registration",
     description="Authenticate a doctor with a Google ID token. Auto-registers new doctors with an isolated tenant workspace.",
 )
+@limiter.limit(settings.RATE_LIMIT_AUTH_GOOGLE)
 def google_auth(
+    request: Request,
     payload: GoogleAuthRequest,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -39,7 +46,9 @@ def google_auth(
     summary="Doctor Email Registration",
     description="Register a new doctor account with email and password. Automatically creates isolated tenant workspace.",
 )
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 def email_register(
+    request: Request,
     payload: EmailRegisterRequest,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -60,7 +69,9 @@ def email_register(
     summary="Doctor Email Login",
     description="Authenticate an existing doctor with email and password.",
 )
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 def email_login(
+    request: Request,
     payload: EmailLoginRequest,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -70,6 +81,7 @@ def email_login(
         email=payload.email,
         password=payload.password,
     )
+
 
 
 @router.get(

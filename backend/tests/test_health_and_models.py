@@ -55,10 +55,13 @@ def test_root_health(client):
 def test_api_v1_health(client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "healthy",
-        "service": "doctor-platform-api",
-    }
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "doctor-platform-api"
+    assert "environment" in data
+    assert "sentry_enabled" in data
+    assert data["rate_limiting_enabled"] is True
+    assert "version" in data
 
 
 def test_api_v1_health_database_connected(client):
