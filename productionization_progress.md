@@ -18,7 +18,7 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | **Phase 2** | Database & Migration Architecture | ✅ Completed | Items 2, 3, 13 |
 | **Phase 3** | Rate Limiting, Logging & Monitoring | ✅ Completed | Items 8, 9 |
 | **Phase 4** | Containerization & Cloud Storage | ✅ Completed | Items 10, 11 |
-| **Phase 5** | Production Routing & TLS / Reverse Proxy | ⏳ Pending | Item 7 |
+| **Phase 5** | Production Routing & TLS / Reverse Proxy | ✅ Completed | Items 5, 7, 16 |
 | **Phase 6** | CI/CD & Automated Verification | ⏳ Pending | Item 15 |
 
 ---
@@ -201,6 +201,64 @@ The objective of productionizing the Doctors Platform is to transform the applic
   - Added storage configurations and validation in `Settings`.
   - Created comprehensive test suite verifying CRUD operations, path traversal protections, mocked S3/R2 upload and presigned URL generation, custom CDN domains, and static uploads serving.
   - Verified **35 of 35 tests passing** (100% pass rate).
+
+---
+
+### Phase 5: Production Routing, TLS & Reverse Proxy
+
+#### 1. Production Reverse Proxy Infrastructure (Nginx & Caddy)
+- **Files:** [`nginx/nginx.conf`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/nginx.conf), [`nginx/conf.d/default.conf`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/conf.d/default.conf), [`nginx/conf.d/dev-proxy.conf.example`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/conf.d/dev-proxy.conf.example), [`nginx/certs/generate-dev-certs.sh`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/certs/generate-dev-certs.sh), [`proxy/Caddyfile`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/proxy/Caddyfile)
+- **Detail:**
+  - Configured high-performance Nginx reverse proxy with gzip compression, buffer tuning, and 50MB `client_max_body_size` for large doctor file/APK uploads.
+  - Established HTTP-to-HTTPS permanent redirection (Port 80 to 443) with ACME challenge support for automated Let's Encrypt / Certbot renewals.
+  - Enforced modern Mozilla TLS cipher suites and TLSv1.2/TLSv1.3 protocols.
+  - Implemented immutable caching for Next.js static chunks (`/_next/static/`) with `Cache-Control: public, max-age=31536000, immutable`.
+  - Configured reverse proxying for `/api/` and `/uploads/` to FastAPI and `/` to Next.js with WebSocket upgrade support.
+  - Provided automated dev certificate generation script and drop-in Caddyfile alternative.
+- **Reasoning:** Offloads TLS encryption and static file serving from application runtimes, prevents slow client DOS attacks, and provides a unified single-domain entrypoint.
+
+#### 2. Defense-in-Depth Security Headers
+- **Files:** [`nginx/conf.d/default.conf`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/conf.d/default.conf), [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs), [`proxy/Caddyfile`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/proxy/Caddyfile)
+- **Detail:**
+  - Enforced `Strict-Transport-Security` (HSTS: 2 years with subdomains and preload).
+  - Configured `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` (anti-clickjacking).
+  - Configured `Referrer-Policy: strict-origin-when-cross-origin` and restrictive `Permissions-Policy`.
+  - Built comprehensive Content Security Policy (CSP) tailored for Google Identity Services (`accounts.google.com`), Sentry reporting, and external doctor profile image CDNs.
+- **Reasoning:** Defense-in-depth ensures protection at both the edge reverse proxy and within Next.js runtime headers.
+
+#### 3. Backend Trusted Proxy Forwarding & Production CORS Lockdown
+- **Files:** [`backend/Dockerfile`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/Dockerfile), [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py), [`backend/app/core/rate_limit.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/rate_limit.py), [`backend/app/main.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/main.py)
+- **Detail:**
+  - Enabled `--proxy-headers` and `--forwarded-allow-ips=*` in Uvicorn container command.
+  - Implemented `get_client_ip()` extracting client IPs from `X-Forwarded-For` and `X-Real-IP` chains.
+  - Connected `get_client_ip` to SlowAPI rate limiter and HTTP structured request logging.
+  - Added strict production validation on `CORS_ORIGINS` in `Settings` (rejecting wildcards `*` and invalid URL schemes).
+- **Reasoning:** Solves reverse proxy client IP masking so that rate limiting and security logs track individual clients rather than blocking the reverse proxy container IP for all users.
+
+#### 4. Container Orchestration & Port Hardening
+- **File:** [`docker-compose.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docker-compose.yml)
+- **Detail:**
+  - Added `proxy` service running `nginx:1.27-alpine` listening on external ports `80` and `443` with container health check.
+  - Restricted `backend` (8000), `frontend` (3000), and `postgres` (5432) to loopback `127.0.0.1` bindings to eliminate accidental external exposure.
+- **Reasoning:** Enforces least-privilege edge networking where only the reverse proxy is directly accessible from the public internet.
+
+#### 5. Automated Verification Suite
+- **File:** [`backend/tests/test_proxy_and_security_headers.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_proxy_and_security_headers.py)
+- **Detail:**
+  - Added tests for production CORS origin validation, wildcard rejection, and domain parsing.
+  - Added tests for multi-hop proxy IP resolution, real IP fallbacks, and loopback defaults.
+  - Added tests for CORS preflight options headers and unauthorized origin isolation.
+  - Added tests for proxy configuration files, certificates, and Nginx directive validation.
+  - Verified **39 of 39 tests passing** across the entire project test suite.
+
+#### 6. Manual Verification & Live Testing
+- **Detail:**
+  - **Next.js Production Build (`npm run build`):** Verified successful standalone compilation across all 8 routes with 0 errors.
+  - **Compiled Header Manifest:** Inspected `.next/routes-manifest.json` and validated that all 7 security headers (`HSTS`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy`, `X-DNS-Prefetch-Control`) match `/:path*`.
+  - **Live Frontend Header Probe (`curl -I http://127.0.0.1:3001`):** Verified real Next.js production server serves all security headers directly on port 3001.
+  - **Reverse Proxy Header Forwarding:** Tested live FastAPI server with `X-Forwarded-For: 203.0.113.195`; confirmed server log recorded `client_ip=203.0.113.195` instead of proxy loopback.
+  - **CORS Preflight Isolation:** Verified `http://localhost:3000` is granted `200 OK` with credentials and allowed headers, while unauthorized origin `https://evil.com` is rejected with `400 Bad Request` (`Disallowed CORS origin`).
+
 
 
 

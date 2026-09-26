@@ -68,3 +68,9 @@ logs/
 
 TUNNEL_URL.txt
 production_plan.md
+
+# SSL / TLS certificates
+nginx/certs/*.pem
+nginx/certs/*.key
+!nginx/certs/.gitkeep
+

@@ -10,7 +10,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
-from app.core.rate_limit import limiter, rate_limit_exceeded_handler
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler, get_client_ip
 from app.core.sentry import init_sentry
 
 # Initialize structured logging and Sentry prior to app bootstrap
@@ -59,7 +59,7 @@ async def request_logging_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
         duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
 
         log_data = {
             "method": request.method,
@@ -79,7 +79,7 @@ async def request_logging_middleware(request: Request, call_next):
         return response
     except Exception as exc:
         duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
         logger.error(
             "http_request_unhandled_exception",
             method=request.method,

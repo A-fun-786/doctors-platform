@@ -72,6 +72,13 @@ class Settings(BaseSettings):
                 raise ValueError("GOOGLE_CLIENT_ID must be set in production.")
             if self.DATABASE_URL.startswith("sqlite"):
                 raise ValueError("SQLite is not supported in production. Use PostgreSQL DATABASE_URL.")
+            if not self.CORS_ORIGINS:
+                raise ValueError("CORS_ORIGINS must not be empty in production.")
+            if "*" in self.CORS_ORIGINS:
+                raise ValueError("CORS_ORIGINS cannot contain wildcard '*' in production.")
+            for origin in self.CORS_ORIGINS:
+                if not (origin.startswith("http://") or origin.startswith("https://")):
+                    raise ValueError(f"Invalid CORS origin '{origin}'. Origins must start with http:// or https://")
 
         if self.STORAGE_BACKEND.lower() == "s3":
             if not self.S3_BUCKET_NAME or not self.S3_BUCKET_NAME.strip():
