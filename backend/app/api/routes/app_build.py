@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor
 from app.core.database import get_db
+from app.core.storage import get_storage
 from app.models.doctor import Doctor
 from app.services.app_build_service import (
     trigger_app_build,
@@ -53,24 +54,29 @@ def upload_app_icon(
             detail="Uploaded file must be a valid image (PNG or JPG).",
         )
 
-    UPLOAD_ICONS_DIR.mkdir(parents=True, exist_ok=True)
+    storage = get_storage()
     ext = Path(file.filename or "icon.png").suffix or ".png"
     filename = f"icon_{current_doctor.id}_{uuid.uuid4().hex[:6]}{ext}"
-    icon_path = UPLOAD_ICONS_DIR / filename
+    storage_path = f"icons/{filename}"
 
-    with open(icon_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    storage.save_file(
+        file.file,
+        destination_path=storage_path,
+        content_type=file.content_type,
+    )
+    file_url = storage.get_url(storage_path)
 
     # Update doctor record
-    current_doctor.app_icon_url = str(icon_path)
+    current_doctor.app_icon_url = file_url
     db.commit()
     db.refresh(current_doctor)
 
     return {
         "message": "Custom app icon successfully uploaded.",
         "icon_filename": filename,
-        "app_icon_url": str(icon_path),
+        "app_icon_url": file_url,
     }
+
 
 
 @router.post("/build", status_code=status.HTTP_202_ACCEPTED)

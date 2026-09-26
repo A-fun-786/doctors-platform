@@ -38,7 +38,18 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"  # "json" for structured production logs, "console" for dev
 
+    # Cloud Storage (Cloudflare R2 / S3-compatible / Local fallback)
+    STORAGE_BACKEND: str = "local"  # "local" or "s3"
+    STORAGE_LOCAL_DIR: str = "uploads"
+    S3_BUCKET_NAME: str = ""
+    S3_ENDPOINT_URL: str = ""  # e.g. https://<account_id>.r2.cloudflarestorage.com
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION_NAME: str = "auto"
+    S3_PUBLIC_CUSTOM_DOMAIN: str = ""  # e.g. https://uploads.yourdomain.com
+
     @field_validator("CORS_ORIGINS", mode="after")
+
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str):
@@ -61,7 +72,15 @@ class Settings(BaseSettings):
                 raise ValueError("GOOGLE_CLIENT_ID must be set in production.")
             if self.DATABASE_URL.startswith("sqlite"):
                 raise ValueError("SQLite is not supported in production. Use PostgreSQL DATABASE_URL.")
+
+        if self.STORAGE_BACKEND.lower() == "s3":
+            if not self.S3_BUCKET_NAME or not self.S3_BUCKET_NAME.strip():
+                raise ValueError("S3_BUCKET_NAME must be set when STORAGE_BACKEND is 's3'.")
+            if not self.S3_ACCESS_KEY_ID or not self.S3_SECRET_ACCESS_KEY:
+                raise ValueError("S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be set when STORAGE_BACKEND is 's3'.")
+
         return self
+
 
 
 @lru_cache

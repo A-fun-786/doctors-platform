@@ -17,7 +17,7 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | **Phase 1** | Security & Configuration Hardening | ✅ Completed | Items 1, 4, 5, 6 |
 | **Phase 2** | Database & Migration Architecture | ✅ Completed | Items 2, 3, 13 |
 | **Phase 3** | Rate Limiting, Logging & Monitoring | ✅ Completed | Items 8, 9 |
-| **Phase 4** | Containerization & Cloud Storage | ⏳ Pending | Items 10, 11 |
+| **Phase 4** | Containerization & Cloud Storage | ✅ Completed | Items 10, 11 |
 | **Phase 5** | Production Routing & TLS / Reverse Proxy | ⏳ Pending | Item 7 |
 | **Phase 6** | CI/CD & Automated Verification | ⏳ Pending | Item 15 |
 
@@ -157,6 +157,51 @@ The objective of productionizing the Doctors Platform is to transform the applic
   - Ran full test suite verifying **28 of 28 tests passing** with 0 regressions.
   - Conducted live agentic verification confirming structured JSON logs emission (`duration_ms`, `client_ip`, `status_code`, appropriate level mapping).
 - **Reasoning:** Prevents regressions, validates rate limiting enforcement, and ensures production log aggregation compatibility.
+
+---
+
+### Phase 4: Containerization & Cloud Storage
+
+#### 1. Storage Abstraction Layer (Cloudflare R2 / S3 / Local Fallback)
+- **File:** [`backend/app/core/storage.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/storage.py)
+- **Detail:**
+  - Implemented abstract `BaseStorage` interface with `save_file`, `get_file`, `delete_file`, and `get_url`.
+  - Built `LocalStorage` with path traversal protections (`ValueError` on `../`), auto directory creation, and mime-type detection.
+  - Built `S3Storage` compatible with Cloudflare R2 (zero egress fees), AWS S3, and MinIO via `boto3`. Supports both presigned URLs and custom public CDN domains.
+  - Implemented singleton factory `get_storage()` switching dynamically based on `STORAGE_BACKEND` setting.
+- **Reasoning:** Eliminates reliance on container-ephemeral local filesystems for clinical assets while maintaining local developer ergonomics.
+
+#### 2. Route & Service Integration
+- **Files:** [`backend/app/api/routes/app_build.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/app_build.py), [`backend/app/services/app_build_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/app_build_service.py), [`backend/app/main.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/main.py)
+- **Detail:**
+  - Refactored `upload_app_icon` endpoint to persist assets using `get_storage()`.
+  - Updated Android build workspace preparation to seamlessly resolve custom app icons from either local paths, relative `/uploads/` URLs, or storage keys.
+  - Mounted `/uploads` static files handler in `main.py` for serving files during local development.
+- **Reasoning:** Decouples file persistence from local disk structure and avoids hardcoded local path assumptions.
+
+#### 3. Containerization (Backend & Frontend)
+- **Files:** [`backend/Dockerfile`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/Dockerfile), [`backend/.dockerignore`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.dockerignore), [`Dockerfile.frontend`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/Dockerfile.frontend), [`.dockerignore`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/.dockerignore), [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs)
+- **Detail:**
+  - Created multi-stage `backend/Dockerfile` with non-root `appuser`, isolated virtualenv, health checks, and lean runtime layer.
+  - Created multi-stage `Dockerfile.frontend` using Next.js standalone output mode with non-root user `nextjs`.
+  - Configured dynamic `API_URL` rewrites in `next.config.mjs` for internal container-to-container routing and static assets.
+- **Reasoning:** Delivers repeatable, self-contained, and security-hardened container images ready for Railway, Render, Cloud Run, or Kubernetes deployments.
+
+#### 4. Full Stack Docker Compose Orchestration
+- **File:** [`docker-compose.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docker-compose.yml)
+- **Detail:**
+  - Expanded compose spec to orchestrate `postgres` (with healthcheck), `backend` (FastAPI), and `frontend` (Next.js standalone).
+  - Configured shared networks and persistent named volumes (`postgres_data`, `backend_uploads`).
+- **Reasoning:** Allows single-command local full-stack replication (`docker compose up`).
+
+#### 5. Configuration & Automated Verification
+- **Files:** [`backend/requirements.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements.txt), [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py), [`backend/.env.example`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env.example), [`backend/.env`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/.env), [`backend/tests/test_storage_and_containers.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_storage_and_containers.py)
+- **Detail:**
+  - Added `boto3` to dependencies.
+  - Added storage configurations and validation in `Settings`.
+  - Created comprehensive test suite verifying CRUD operations, path traversal protections, mocked S3/R2 upload and presigned URL generation, custom CDN domains, and static uploads serving.
+  - Verified **35 of 35 tests passing** (100% pass rate).
+
 
 
 

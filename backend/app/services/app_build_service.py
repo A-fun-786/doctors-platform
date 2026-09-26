@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+from app.core.storage import get_storage
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 
@@ -137,11 +138,19 @@ def prepare_project_workspace(
 
     # 5. Handle Custom App Icon if available
     icon_to_use = custom_icon_path or doctor.app_icon_url
-    if icon_to_use and Path(icon_to_use).exists():
+    if icon_to_use:
         try:
-            # Copy to drawable or replace mipmaps
             dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
-            shutil.copy2(icon_to_use, dest_icon)
+            dest_icon.parent.mkdir(parents=True, exist_ok=True)
+            if Path(icon_to_use).exists():
+                shutil.copy2(icon_to_use, dest_icon)
+            else:
+                # Resolve via storage abstraction (stripping /uploads/ prefix if present)
+                clean_key = icon_to_use.split("?")[0].replace("/uploads/", "").lstrip("/")
+                storage = get_storage()
+                data, _ = storage.get_file(clean_key)
+                with open(dest_icon, "wb") as f:
+                    f.write(data)
         except Exception as e:
             print(f"Warning: Could not copy custom icon: {e}")
 
