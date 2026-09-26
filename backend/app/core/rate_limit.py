@@ -2,7 +2,6 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.core.config import get_settings
 from app.core.logging import get_logger

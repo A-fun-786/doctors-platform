@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import get_settings
 
 from app.models.base import Base
-import app.models  # Ensure all models are registered
+import app.models  # noqa: F401 — Ensure all models are registered
 
 settings = get_settings()
 

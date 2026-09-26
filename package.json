@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint",
     "servers:start": "./scripts/start-servers.sh",
     "servers:start:bg": "./scripts/start-servers.sh --background",
     "servers:stop": "./scripts/stop-servers.sh",

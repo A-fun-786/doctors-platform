@@ -5,7 +5,6 @@ from app.services.app_build_service import (
     sanitize_package_segment,
     compute_app_identity,
     prepare_project_workspace,
-    WORKSPACES_DIR,
 )
 
 

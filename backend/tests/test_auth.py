@@ -1,5 +1,4 @@
 import pytest
-import uuid
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
@@ -261,3 +260,75 @@ def test_email_registration_and_login_flow(client, db_session):
     )
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "dr.smith@example.com"
+
+
+def test_bcrypt_hashing_and_verification():
+    from app.core.security import hash_password, verify_password, needs_rehash
+
+    raw_pw = "DoctorSecurePass2026!"
+    hashed = hash_password(raw_pw)
+
+    # Standard bcrypt prefix is $2b$
+    assert hashed.startswith("$2b$")
+    assert verify_password(raw_pw, hashed) is True
+    assert verify_password("IncorrectPassword", hashed) is False
+    assert needs_rehash(hashed) is False
+
+
+def test_legacy_pbkdf2_compatibility_and_transparent_rehash(client, db_session):
+    import hashlib
+    import secrets
+    from app.core.security import verify_password, needs_rehash
+    from app.models.doctor import Doctor
+
+    # 1. Synthesize legacy PBKDF2 hash (format: <hex_salt>$<hex_key>)
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac(
+        "sha256",
+        "LegacyPass123!".encode("utf-8"),
+        bytes.fromhex(salt),
+        100000,
+    )
+    legacy_hash = f"{salt}${key.hex()}"
+
+    assert verify_password("LegacyPass123!", legacy_hash) is True
+    assert verify_password("WrongPassword", legacy_hash) is False
+    assert needs_rehash(legacy_hash) is True
+
+    # 2. Insert doctor with legacy hash into database
+    legacy_doc = Doctor(
+        email="dr.legacy@example.com",
+        full_name="Dr. Legacy Doctor",
+        auth_provider="email",
+        hashed_password=legacy_hash,
+        is_active=True,
+    )
+    db_session.add(legacy_doc)
+    db_session.commit()
+    db_session.refresh(legacy_doc)
+
+    # 3. Log in with legacy doctor credentials
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "dr.legacy@example.com",
+            "password": "LegacyPass123!",
+        },
+    )
+    assert login_resp.status_code == 200
+
+    # 4. Verify password was transparently upgraded to bcrypt in the DB
+    db_session.refresh(legacy_doc)
+    assert legacy_doc.hashed_password.startswith("$2b$")
+    assert needs_rehash(legacy_doc.hashed_password) is False
+
+    # 5. Subsequent login with new bcrypt hash still succeeds
+    subsequent_resp = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "dr.legacy@example.com",
+            "password": "LegacyPass123!",
+        },
+    )
+    assert subsequent_resp.status_code == 200
+

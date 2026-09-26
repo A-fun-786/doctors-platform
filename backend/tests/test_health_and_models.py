@@ -8,7 +8,6 @@ from app.core.database import get_db
 from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
-import uuid
 
 
 # In-memory SQLite engine for fast testing

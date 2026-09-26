@@ -19,7 +19,8 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | **Phase 3** | Rate Limiting, Logging & Monitoring | ✅ Completed | Items 8, 9 |
 | **Phase 4** | Containerization & Cloud Storage | ✅ Completed | Items 10, 11 |
 | **Phase 5** | Production Routing & TLS / Reverse Proxy | ✅ Completed | Items 5, 7, 16 |
-| **Phase 6** | CI/CD & Automated Verification | ⏳ Pending | Item 15 |
+| **Phase 6** | Password Hashing Migration & CI/CD Pipeline | ✅ Completed | Items 12, 15 |
+
 
 ---
 
@@ -258,6 +259,51 @@ The objective of productionizing the Doctors Platform is to transform the applic
   - **Live Frontend Header Probe (`curl -I http://127.0.0.1:3001`):** Verified real Next.js production server serves all security headers directly on port 3001.
   - **Reverse Proxy Header Forwarding:** Tested live FastAPI server with `X-Forwarded-For: 203.0.113.195`; confirmed server log recorded `client_ip=203.0.113.195` instead of proxy loopback.
   - **CORS Preflight Isolation:** Verified `http://localhost:3000` is granted `200 OK` with credentials and allowed headers, while unauthorized origin `https://evil.com` is rejected with `400 Bad Request` (`Disallowed CORS origin`).
+
+### Phase 6: Password Hashing Migration & CI/CD Pipeline
+
+#### 1. Industry-Standard Password Hashing Migration (Item 12)
+- **Files:**
+  - [`backend/requirements.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements.txt)
+  - [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py)
+  - [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py)
+- **Detail:**
+  - Replaced custom `hashlib.pbkdf2_hmac` hashing logic with `passlib[bcrypt]` and `bcrypt` (`CryptContext(schemes=["bcrypt"], deprecated="auto")`).
+  - Implemented `_is_bcrypt_hash()` detection supporting `$2b$` and `$2a$` prefixes.
+  - Implemented `_verify_legacy_pbkdf2()` backward compatibility helper to verify existing passwords stored under the `<hex_salt>$<hex_key>` format.
+  - Implemented `needs_rehash()` detector.
+  - Integrated transparent zero-downtime auto-rehash into `auth_service.py`: when a legacy user signs in with their existing password, their hash is seamlessly upgraded in-place to bcrypt without requiring database maintenance scripts or downtime.
+- **Reasoning:** PBKDF2 with custom HMAC had no automatic cost upgrades or standard timing defense. Bcrypt via Passlib provides community-vetted key derivation and automatic future-proofing.
+
+#### 2. Code Quality & Fast Linting Infrastructure (Ruff)
+- **Files:**
+  - [`backend/requirements-dev.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements-dev.txt)
+  - [`backend/pyproject.toml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/pyproject.toml)
+  - [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json)
+- **Detail:**
+  - Added dedicated `backend/requirements-dev.txt` for development and CI dependencies (`ruff>=0.5.0,<1.0.0`).
+  - Added `backend/pyproject.toml` with standard Ruff configurations (Python 3.12 target, 120 char line length, `["E", "F", "W"]` rules, ignoring cosmetic whitespace `W291`/`W293` and line length `E501`).
+  - Cleaned up 21 lint errors across the backend codebase (eliminated unused imports `uuid`, `io`, `os`, resolved duplicate route definitions in `router.py`, preserved `app.models` registration in `database.py` with `# noqa: F401`).
+  - Added `"lint": "next lint"` to root `package.json` for frontend ESLint parity in local development and automated workflows.
+- **Reasoning:** Ensures fast, deterministic static analysis that catches runtime regressions, syntax errors, and orphaned imports before tests run.
+
+#### 3. Production CI/CD Pipeline & GHCR Packaging (Item 15)
+- **File:** [`.github/workflows/ci.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/.github/workflows/ci.yml)
+- **Detail:**
+  - Implemented a unified GitHub Actions pipeline triggered on all pulls and merges against `main` with concurrency group cancellation (`cancel-in-progress: true`).
+  - **Job 1 (`backend-checks`):** Runs on `ubuntu-latest` with Python 3.12, pip dependency caching, `ruff check backend/`, and full pytest execution against a clean test environment.
+  - **Job 2 (`frontend-checks`):** Runs on `ubuntu-latest` with Node.js 20, npm caching, `npm run lint` (ESLint), and full production `next build` validation.
+  - **Job 3 (`docker-build-push`):** Runs on `ubuntu-latest`, gated on successful completion of both backend and frontend jobs. Sets up Docker Buildx, authenticates to GitHub Container Registry (`ghcr.io`) using `GITHUB_TOKEN`, normalizes repository owner/name to lowercase for standard Docker tags, tags images (`sha-<commit>` and `latest` on `main`), and utilizes GitHub Actions layer cache (`type=gha,mode=max`) for accelerated multi-stage Docker builds. Pushes to GHCR only on merges to `main`.
+- **Reasoning:** Replaces manual deployment checks with automated, reproducible build verification and container image artifact generation.
+
+#### 4. Automated Verification Suite Expansion
+- **File:** [`backend/tests/test_auth.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_auth.py)
+- **Detail:**
+  - Added `test_bcrypt_hashing_and_verification`: asserts bcrypt prefix `$2b$`, verifies plaintext vs. hashed password, and tests negative match rejection.
+  - Added `test_legacy_pbkdf2_compatibility_and_transparent_rehash`: synthesizes legacy `<hex_salt>$<hex_key>` user account, verifies login succeeds, confirms in-place DB hash update to `$2b$`, and verifies subsequent logins work with new bcrypt hash.
+  - Executed full test suite: **41 of 41 tests passing** (expanded from 39).
+  - Executed `npm run lint`: **0 warnings, 0 errors**.
+  - Executed `npm run build`: verified clean compilation and static generation for all 8 Next.js routes.
 
 
 

@@ -195,7 +195,7 @@ def run_gradle_build(build_id: str, workspace_path: Path, identity: Dict[str, st
         # Execute build command streaming to log file
         cmd = ["./gradlew", "assembleRelease", "--no-daemon", "--stacktrace"]
         with open(log_file_path, "w", encoding="utf-8") as log_f:
-            log_f.write(f"=== DocSpace Build Engine v1.0 ===\n")
+            log_f.write("=== DocSpace Build Engine v1.0 ===\n")
             log_f.write(f"Target App: {identity['app_name']}\n")
             log_f.write(f"Package: {identity['package_name']}\n")
             log_f.write(f"JAVA_HOME: {env.get('JAVA_HOME', 'default')}\n")

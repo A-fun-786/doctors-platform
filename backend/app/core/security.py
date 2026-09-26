@@ -1,32 +1,26 @@
 import hashlib
-import os
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 import jwt
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from passlib.context import CryptContext
 from app.core.config import get_settings
 
 settings = get_settings()
 
+# Bcrypt context for all new password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password using PBKDF2-HMAC-SHA256 with a secure salt."""
-    salt = secrets.token_hex(16)
-    key = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt),
-        100000,
-    )
-    return f"{salt}${key.hex()}"
+    """Hash a plaintext password using bcrypt."""
+    return pwd_context.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plaintext password against its stored hash."""
-    if not hashed_password or "$" not in hashed_password:
-        return False
+def _verify_legacy_pbkdf2(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a legacy PBKDF2-HMAC-SHA256 hash (format: <hex_salt>$<hex_hash>)."""
     try:
         salt, stored_hash = hashed_password.split("$", 1)
         key = hashlib.pbkdf2_hmac(
@@ -38,6 +32,32 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return secrets.compare_digest(key.hex(), stored_hash)
     except Exception:
         return False
+
+
+def _is_bcrypt_hash(hashed_password: str) -> bool:
+    """Check if a hash is a bcrypt hash (starts with $2b$ or $2a$)."""
+    return hashed_password.startswith(("$2b$", "$2a$"))
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plaintext password against its stored hash (bcrypt or legacy PBKDF2)."""
+    if not hashed_password:
+        return False
+    if _is_bcrypt_hash(hashed_password):
+        return pwd_context.verify(plain_password, hashed_password)
+    # Fall back to legacy PBKDF2 for pre-migration hashes
+    if "$" in hashed_password:
+        return _verify_legacy_pbkdf2(plain_password, hashed_password)
+    return False
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """Return True if the stored hash should be re-hashed to bcrypt (i.e. it's a legacy PBKDF2 hash)."""
+    if not hashed_password:
+        return False
+    if not _is_bcrypt_hash(hashed_password):
+        return True
+    return pwd_context.needs_update(hashed_password)
 
 
 def verify_google_token(credential: str) -> Dict[str, Any]:
