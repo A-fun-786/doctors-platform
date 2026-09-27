@@ -74,3 +74,6 @@ nginx/certs/*.pem
 nginx/certs/*.key
 !nginx/certs/.gitkeep
 
+deployment_guide.md
+.vercel
+.env*
