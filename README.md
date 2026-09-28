@@ -1,16 +1,24 @@
+<div align="center">
+
 # 🏥 DocSpace — Multi-Tenant White-Label Healthcare Platform
 
 > **Your Digital Healthcare Presence, Built Around You.**
 >
 > A modern, comprehensive B2B SaaS platform empowering doctors, clinics, and healthcare specialists to establish, brand, and manage their complete digital identity—from personalized websites to native mobile applications—all from a single unified dashboard.
 
-<div align="center">
+[![Production Frontend](https://img.shields.io/badge/Frontend-Live%20on%20Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://doctors-platform-eight.vercel.app)
+[![Production Backend](https://img.shields.io/badge/Backend-Live%20on%20Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://backend-production-b26c.up.railway.app/api/v1/health)
+[![Database](https://img.shields.io/badge/Database-Neon%20Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-![Platform Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-
-[Live Demo](#-live-demo) • [Screenshots](#-complete-user-journey) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started)
+<p align="center">
+  <a href="https://doctors-platform-eight.vercel.app"><b>🚀 Visit Live Platform</b></a> •
+  <a href="https://backend-production-b26c.up.railway.app/api/v1/health"><b>🩺 API Health Check</b></a> •
+  <a href="./deployment.md"><b>📖 Deployment Guide</b></a> •
+  <a href="#-complete-user-journey"><b>📸 Screenshots</b></a> •
+  <a href="#-getting-started"><b>⚡ Quickstart</b></a>
+</p>
 
 </div>
 
@@ -832,40 +840,29 @@ graph TD
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/docspace-platform.git
-   cd docspace-platform
+   git clone https://github.com/A-fun-786/doctors-platform.git
+   cd doctors-platform
    ```
 
 2. **Install dependencies:**
    ```bash
+   # Frontend dependencies
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
+
+   # Backend Python virtual environment
+   cd backend
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   cd ..
    ```
 
 3. **Set up environment variables:**
    ```bash
    cp .env.example .env.local
+   cp backend/.env.example backend/.env
    ```
-   Edit `.env.local` with your configuration:
-   ```env
-   # Database
-   DATABASE_URL=postgresql://user:password@localhost:5432/docspace
-   
-   # JWT & Auth
-   JWT_SECRET=your_jwt_secret_key_here
-   GOOGLE_CLIENT_ID=your_google_oauth_client_id
-   GOOGLE_CLIENT_SECRET=your_google_oauth_secret
-   
-   # API
-   NEXT_PUBLIC_API_URL=http://localhost:3000
-   
-   # Features
-   NEXT_PUBLIC_ENABLE_TELEHEALTH=true
-   NEXT_PUBLIC_ENABLE_LAB_UPLOAD=true
-   ```
+   For production deployment and cloud setup, refer to the full **[Deployment Playbook](./deployment.md)**.
 
 ### Running Locally
 
@@ -1067,6 +1064,6 @@ This project is licensed under the **MIT License** - see [`LICENSE`](./LICENSE) 
 
 **Built with ❤️ for Healthcare Professionals**
 
-[Live Demo](https://docspace.com) • [Documentation](https://docs.docspace.com) • [Report Issue](https://github.com/docspace/platform/issues)
+[Live Platform](https://doctors-platform-eight.vercel.app) • [Backend API Health](https://backend-production-b26c.up.railway.app/api/v1/health) • [Deployment Playbook](./deployment.md) • [Report Issue](https://github.com/A-fun-786/doctors-platform/issues)
 
 </div>
