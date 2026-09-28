@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends
+import uuid
+from pathlib import Path
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor
 from app.core.database import get_db
+from app.core.storage import get_storage
 from app.models.doctor import Doctor
 from app.schemas.profile import (
     DoctorProfileResponse,
@@ -95,3 +98,39 @@ def update_doctor_profile(
         db.refresh(tenant)
 
     return _build_profile_response(current_doctor)
+
+
+@router.post("/avatar")
+def upload_doctor_avatar(
+    file: UploadFile = File(...),
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """Upload a custom avatar image for the authenticated doctor."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a valid image (PNG, JPG, or WebP).",
+        )
+
+    storage = get_storage()
+    ext = Path(file.filename or "avatar.png").suffix or ".png"
+    filename = f"avatar_{current_doctor.id}_{uuid.uuid4().hex[:6]}{ext}"
+    storage_path = f"avatars/{filename}"
+
+    storage.save_file(
+        file.file,
+        destination_path=storage_path,
+        content_type=file.content_type,
+    )
+    file_url = storage.get_url(storage_path)
+
+    current_doctor.avatar_url = file_url
+    db.commit()
+    db.refresh(current_doctor)
+
+    return {
+        "message": "Avatar successfully uploaded.",
+        "avatar_url": file_url,
+    }
+

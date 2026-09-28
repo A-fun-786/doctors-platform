@@ -519,6 +519,32 @@ export async function uploadAppIcon(file: File): Promise<{ message: string; app_
 }
 
 /**
+ * Upload a custom profile avatar image for the doctor.
+ */
+export async function uploadDoctorAvatar(file: File): Promise<{ message: string; avatar_url: string }> {
+  const authToken = getAuthToken();
+  if (!authToken) throw new Error("No authentication token found");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/avatar`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload avatar");
+  }
+
+  return response.json();
+}
+
+/**
  * Trigger background build of doctor's native Android app APK.
  */
 export async function triggerAppBuild(): Promise<AppBuildStartResponse> {

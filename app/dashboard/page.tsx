@@ -43,6 +43,7 @@ import {
   removeAuthToken,
   getAppPreview,
   uploadAppIcon,
+  uploadDoctorAvatar,
   triggerAppBuild,
   getAppBuildStatus,
   getAppBuildLogs,
@@ -156,7 +157,7 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -167,13 +168,19 @@ export default function DashboardPage() {
       setSaveError("Image file size should be less than 2MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAvatarUrl(reader.result);
+    try {
+      setSaveError(null);
+      const res = await uploadDoctorAvatar(file);
+      setAvatarUrl(res.avatar_url);
+      setDoctor((prev) => (prev ? { ...prev, avatar_url: res.avatar_url } : prev));
+      setSaveSuccess("Avatar photo uploaded successfully.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setSaveError(err.message);
+      } else {
+        setSaveError("Failed to upload avatar photo.");
       }
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Poll for Android App build status

@@ -29,6 +29,7 @@ import {
 import {
   getDoctorProfile,
   updateDoctorProfile,
+  uploadDoctorAvatar,
   DoctorProfileResponse,
   ServicesConfig,
   DEFAULT_DOCTOR_AVATAR,
@@ -109,7 +110,7 @@ export default function OnboardingPage() {
     loadData();
   }, [router]);
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -120,13 +121,17 @@ export default function OnboardingPage() {
       setError("Image file size should be less than 2MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAvatarUrl(reader.result);
+    try {
+      setError(null);
+      const res = await uploadDoctorAvatar(file);
+      setAvatarUrl(res.avatar_url);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to upload avatar photo.");
       }
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const toggleService = (key: keyof ServicesConfig) => {

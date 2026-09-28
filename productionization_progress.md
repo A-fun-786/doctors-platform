@@ -21,6 +21,7 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | **Phase 5** | Production Routing & TLS / Reverse Proxy | ✅ Completed | Items 5, 7, 16 |
 | **Phase 6** | Password Hashing Migration & CI/CD Pipeline | ✅ Completed | Items 12, 15 |
 | **Phase 7** | Live OAuth Provisioning & Production Sync | ✅ Completed | Google Cloud, Railway, Vercel |
+| **Phase 8** | Production Audit Hardening & Asset Proxies | ✅ Completed | Vercel rewrites, avatar upload API |
 
 
 ---
@@ -329,6 +330,24 @@ The objective of productionizing the Doctors Platform is to transform the applic
 #### 3. Verification & Live Status
 - Validated live backend health endpoint (`/api/v1/health` returning `200 OK`).
 - Verified Google Identity Services integration in production frontend.
+
+---
+
+### Phase 8: Production Audit Hardening & Asset Rewrite Resolution
+
+#### 1. Vercel Rewrite Proxy Resolution
+- **Issue:** [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs) relied on server-side `API_URL` to define `/uploads/:path*` proxy destinations. Because Vercel only had `NEXT_PUBLIC_API_URL` populated, `/uploads/*` requests fell back to `http://127.0.0.1:8000` (404 Not Found).
+- **Resolution:** Updated `apiUrl` resolution in `next.config.mjs` to prioritize `NEXT_PUBLIC_API_URL || API_URL`, and provisioned `API_URL` explicitly on Vercel production.
+- **Verification:** Live static upload proxy confirmed passing (`curl https://doctors-platform-eight.vercel.app/uploads/...` returns `200 OK`).
+
+#### 2. Dedicated Avatar Upload Endpoint & Database Bloat Mitigation
+- **Issue:** User avatars were encoded into base64 data URIs on the client and saved directly to the database `avatar_url` text column, causing unnecessary database payload bloat.
+- **Resolution:**
+  - Added dedicated `@router.post("/avatar")` endpoint in [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py) using the configured [`get_storage()`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/storage.py) provider.
+  - Added client helper [`uploadDoctorAvatar()`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) to multipart-upload avatar images.
+  - Refactored [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) and [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx) to upload avatar images directly to storage upon selection and store only clean storage paths/URLs.
+- **Verification:** Verified end-to-end authenticated upload returning clean `/uploads/avatars/...` URL, accessible across both Railway and Vercel edge.
+
 
 
 
