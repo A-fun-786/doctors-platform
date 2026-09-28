@@ -21,7 +21,7 @@ The objective of productionizing the Doctors Platform is to transform the applic
 | **Phase 5** | Production Routing & TLS / Reverse Proxy | ✅ Completed | Items 5, 7, 16 |
 | **Phase 6** | Password Hashing Migration & CI/CD Pipeline | ✅ Completed | Items 12, 15 |
 | **Phase 7** | Live OAuth Provisioning & Production Sync | ✅ Completed | Google Cloud, Railway, Vercel |
-| **Phase 8** | Production Audit Hardening & Asset Proxies | ✅ Completed | Vercel rewrites, avatar upload API |
+| **Phase 8** | Post-Deployment Bug Fixes & Operational Hardening | ✅ Completed | CSP, OAuth GSI, Rewrites, Avatar API |
 
 
 ---
@@ -333,20 +333,45 @@ The objective of productionizing the Doctors Platform is to transform the applic
 
 ---
 
-### Phase 8: Production Audit Hardening & Asset Rewrite Resolution
+### Phase 8: Post-Deployment Bug Fixes & Operational Hardening
 
-#### 1. Vercel Rewrite Proxy Resolution
-- **Issue:** [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs) relied on server-side `API_URL` to define `/uploads/:path*` proxy destinations. Because Vercel only had `NEXT_PUBLIC_API_URL` populated, `/uploads/*` requests fell back to `http://127.0.0.1:8000` (404 Not Found).
-- **Resolution:** Updated `apiUrl` resolution in `next.config.mjs` to prioritize `NEXT_PUBLIC_API_URL || API_URL`, and provisioned `API_URL` explicitly on Vercel production.
-- **Verification:** Live static upload proxy confirmed passing (`curl https://doctors-platform-eight.vercel.app/uploads/...` returns `200 OK`).
+#### 1. Content Security Policy (CSP) Cross-Origin Unblocking ("Failed to Fetch")
+- **Files:** [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs), [`nginx/conf.d/default.conf`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/nginx/conf.d/default.conf)
+- **Symptom:** Authentication requests (registration and login) in the browser threw `TypeError: Failed to fetch`.
+- **Root Cause & Reason:** Phase 5 defense-in-depth headers strictly whitelisted `'self'`, Google, and Sentry under `connect-src`. Because the frontend is deployed to Vercel (`doctors-platform-eight.vercel.app`) while the backend container runs on Railway (`backend-production-b26c.up.railway.app`), the browser classified API calls as unauthorized cross-origin requests and blocked outgoing fetch promises.
+- **Measures Taken:**
+  - Expanded `connect-src` in both Next.js and Nginx configs to include `https://backend-production-b26c.up.railway.app`, `https://*.railway.app`, and local development ports (`http://127.0.0.1:8000`, `http://localhost:8000`).
+  - Added `https://apis.google.com` to `script-src` and `https://*.googleusercontent.com` to `img-src`.
+- **Verification:** Verified CORS preflight returns `200 OK` with valid `Access-Control-Allow-Origin`, and confirmed successful account creation on the live deployment.
 
-#### 2. Dedicated Avatar Upload Endpoint & Database Bloat Mitigation
-- **Issue:** User avatars were encoded into base64 data URIs on the client and saved directly to the database `avatar_url` text column, causing unnecessary database payload bloat.
-- **Resolution:**
-  - Added dedicated `@router.post("/avatar")` endpoint in [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py) using the configured [`get_storage()`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/storage.py) provider.
-  - Added client helper [`uploadDoctorAvatar()`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts) to multipart-upload avatar images.
-  - Refactored [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx) and [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx) to upload avatar images directly to storage upon selection and store only clean storage paths/URLs.
-- **Verification:** Verified end-to-end authenticated upload returning clean `/uploads/avatars/...` URL, accessible across both Railway and Vercel edge.
+#### 2. Live Google Identity Services (GSI) Integration on Primary Auth Forms
+- **Files:** [`components/auth/EmailAuthForm.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/auth/EmailAuthForm.tsx), [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs)
+- **Symptom:** Primary `/login` and `/register` views displayed a disabled placeholder button labeled `Google Sign-In (Inactive)`.
+- **Root Cause & Reason:** Early scaffolding separated Google auth into an unused `GoogleAuthForm.tsx` component while rendering `EmailAuthForm.tsx` on public auth routes with a disabled placeholder. Provisioning credentials in Phase 7 did not activate the button on user-facing routes.
+- **Measures Taken:**
+  - Embedded Google Identity Services (`window.google.accounts.id`) directly into `EmailAuthForm.tsx`.
+  - Replaced the disabled button with the live Google One-Tap/Sign-In container (`googleButtonRef`).
+  - Connected the credential callback to `authenticateWithGoogle()` in [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts), seamlessly exchanging JWT credentials with `@router.post("/google")` and routing to onboarding or dashboard.
+- **Verification:** Live frontend verified rendering the active Google OAuth button and completing token exchange.
+
+#### 3. Edge Asset Rewrite Proxy Resolution (`/uploads/*`)
+- **Files:** [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs), Vercel Production Environment
+- **Symptom:** Uploaded custom clinic launcher icons and doctor avatars returned `404 Not Found` when accessed via `https://doctors-platform-eight.vercel.app/uploads/...`.
+- **Root Cause & Reason:** Next.js rewrites in `next.config.mjs` resolved `apiUrl` via `process.env.API_URL || "http://127.0.0.1:8000"`. On Vercel, only `NEXT_PUBLIC_API_URL` was defined, causing edge proxy rewrites to fall back to `127.0.0.1:8000` (which does not exist on Vercel's serverless edge).
+- **Measures Taken:**
+  - Updated `apiUrl` resolution in `next.config.mjs` to prioritize `process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:8000"`.
+  - Explicitly injected `API_URL=https://backend-production-b26c.up.railway.app` into Vercel production environment variables.
+- **Verification:** Verified live proxy rewrite (`curl https://doctors-platform-eight.vercel.app/uploads/...` returning `200 OK`).
+
+#### 4. Dedicated Avatar Upload Endpoint & Database Payload Bloat Mitigation
+- **Files:** [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py), [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts), [`app/dashboard/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/dashboard/page.tsx), [`app/onboarding/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/onboarding/page.tsx)
+- **Symptom:** Doctor profile records stored large base64 data URIs (up to 2MB) directly in the PostgreSQL `doctors.avatar_url` column.
+- **Root Cause & Reason:** The backend lacked a dedicated avatar upload endpoint. `dashboard/page.tsx` and `onboarding/page.tsx` converted file inputs via `FileReader.readAsDataURL()` and submitted raw base64 payloads to `PUT /api/v1/doctor/profile`.
+- **Measures Taken:**
+  - Implemented `@router.post("/avatar")` in `backend/app/api/routes/doctor.py` using the configured [`get_storage()`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/storage.py) provider.
+  - Added `uploadDoctorAvatar(file: File)` client helper to multipart-upload avatar images.
+  - Updated `dashboard/page.tsx` and `onboarding/page.tsx` to upload image files to storage upon selection and persist only clean storage URLs (`/uploads/avatars/...`).
+- **Verification:** Executed live multipart upload to Railway origin returning clean `/uploads/avatars/...` URL, and verified retrieval through Vercel edge proxy.
 
 
 
