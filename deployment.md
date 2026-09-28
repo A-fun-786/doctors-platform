@@ -182,7 +182,8 @@ flowchart LR
 | `STORAGE_BACKEND` | `local` | Upload storage provider (`local` / `s3`) |
 | `PORT` | `8000` | Internal container listener port |
 | `CORS_ORIGINS` | `["https://doctors-platform-eight.vercel.app"]` | Strict CORS whitelist |
-| `GOOGLE_CLIENT_ID` | `placeholder-for-oauth.apps.googleusercontent.com` | Google OAuth client ID |
+| `GOOGLE_CLIENT_ID` | `644948532553-g01hlshcmkoaft84l6b06oc9nklm9j1u.apps.googleusercontent.com` | Google OAuth client ID |
+| `SENTRY_DSN` | `https://eecc704912c2...@o4512165357486080.ingest.us.sentry.io/...` | Sentry crash reporting & performance monitoring |
 
 ### Frontend (Vercel)
 | Variable | Value | Purpose |
