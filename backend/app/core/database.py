@@ -13,6 +13,9 @@ connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith(
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
+    pool_size=3,
+    max_overflow=5,
+    pool_recycle=300,
     connect_args=connect_args,
 )
 
