@@ -277,8 +277,10 @@ Implemented the full doctor appointment lifecycle including creation, cancellati
 ### 5.9 Manual Steps Pending
 - None.
 
-### 5.10 Known Issues & Follow-ups
-- Neon production database currently at migration `006`. Before Phase 8 production deployment or when updating Neon, run `python3 -m alembic upgrade head` (or Railway release command) so that migration `007` lands on the live PostgreSQL instance.
+### 5.10 Production Neon Migration Verification
+- **Executed**: `railway run --service backend alembic upgrade head` applied cleanly to production Neon DB with transactional DDL.
+- **Verified**: `railway run --service backend alembic current` reports `007_appointment_active_slot_unique_index (head)`.
+- **Health**: Production backend `GET /api/v1/health` verified healthy (`status: healthy`). Zero downtime experienced.
 
 ### 5.11 Rollback Plan
 - Revert Git commit.
