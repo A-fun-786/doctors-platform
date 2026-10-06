@@ -45,3 +45,12 @@ class AvailableSlotResponse(BaseModel):
     """30-minute bookable slot representation."""
     start: str
     end: str
+
+
+class ScheduleListResponse(BaseModel):
+    """Paginated list of schedule entries."""
+    items: List[ScheduleResponse]
+    page: int
+    page_size: int
+    total: int
+
