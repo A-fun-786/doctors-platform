@@ -121,6 +121,127 @@ export interface MedicineOrderPayload {
   prescription_note?: string;
 }
 
+// ==========================================
+// Schedule & Appointment System Types (Phase 5)
+// ==========================================
+
+// Schedule types
+export type ScheduleType = "AVAILABLE" | "LEAVE" | "HOLIDAY" | "BLOCKED";
+
+export interface ScheduleEntry {
+  id: string;
+  doctor_id?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  type: ScheduleType;
+  reason?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ScheduleCreatePayload {
+  date: string;
+  start_time: string;
+  end_time: string;
+  type: ScheduleType;
+  reason?: string;
+}
+
+export interface ScheduleBulkCreatePayload {
+  entries: ScheduleCreatePayload[];
+}
+
+export interface ScheduleFilterParams {
+  from?: string;
+  to?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface ScheduleListResponse {
+  items: ScheduleEntry[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface AvailableSlot {
+  start: string;
+  end: string;
+}
+
+// Appointment types
+export type AppointmentStatus = "BOOKED" | "COMPLETED" | "CANCELLED";
+
+export interface AppointmentEntry {
+  id: string;
+  doctor_id?: string;
+  patient_id?: string;
+  request_id?: string;
+  patient_name: string;
+  patient_contact?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  reason?: string;
+  notes?: string;
+  status: AppointmentStatus;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AppointmentCreatePayload {
+  patient_name: string;
+  patient_contact?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  reason?: string;
+  notes?: string;
+}
+
+export interface AppointmentReschedulePayload {
+  date: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface AppointmentFilterParams {
+  status?: AppointmentStatus | string;
+  from?: string;
+  to?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface AppointmentListResponse {
+  items: AppointmentEntry[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+// Calendar types
+export interface CalendarEvent {
+  type: ScheduleType | "APPOINTMENT";
+  start: string;
+  end: string;
+  reason?: string;
+  patient_name?: string;
+  status?: AppointmentStatus;
+  appointment_id?: string;
+}
+
+export interface CalendarDay {
+  date: string;
+  events: CalendarEvent[];
+}
+
+export interface DoctorCalendarResponse {
+  dates: CalendarDay[];
+}
+
 /**
  * Retrieve saved JWT access token from localStorage (client-side only).
  */
@@ -438,6 +559,418 @@ export async function orderPublicMedicine(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || "Failed to submit medicine request");
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// Schedule Management API (Phase 5)
+// ==========================================
+
+/**
+ * Create one or more schedule entries (working hours, leave, holiday, block) for the authenticated doctor.
+ */
+export async function createDoctorSchedule(
+  payload: ScheduleCreatePayload
+): Promise<ScheduleEntry>;
+export async function createDoctorSchedule(
+  payload: ScheduleCreatePayload[]
+): Promise<ScheduleEntry[]>;
+export async function createDoctorSchedule(
+  payload: ScheduleCreatePayload | ScheduleCreatePayload[]
+): Promise<ScheduleEntry | ScheduleEntry[]> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/schedule`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to create schedule entries");
+  }
+
+  return response.json();
+}
+
+/**
+ * Retrieve paginated schedule entries for the authenticated doctor.
+ * Supports date range filtering (from, to) and pagination.
+ */
+export async function getDoctorSchedule(
+  fromOrFilters?: string | ScheduleFilterParams,
+  to?: string,
+  page?: number,
+  pageSize?: number
+): Promise<ScheduleListResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const params = new URLSearchParams();
+  if (typeof fromOrFilters === "object" && fromOrFilters !== null) {
+    if (fromOrFilters.from) params.set("from", fromOrFilters.from);
+    if (fromOrFilters.to) params.set("to", fromOrFilters.to);
+    if (fromOrFilters.page) params.set("page", String(fromOrFilters.page));
+    if (fromOrFilters.page_size) params.set("page_size", String(fromOrFilters.page_size));
+  } else {
+    if (fromOrFilters) params.set("from", fromOrFilters);
+    if (to) params.set("to", to);
+    if (page) params.set("page", String(page));
+    if (pageSize) params.set("page_size", String(pageSize));
+  }
+
+  const queryStr = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_URL}/api/v1/doctor/schedule${queryStr}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load doctor schedule");
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a specific schedule entry by ID for the authenticated doctor.
+ */
+export async function deleteDoctorSchedule(id: string): Promise<void> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/schedule/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to delete schedule entry");
+  }
+}
+
+/**
+ * Generate available 30-minute booking slots for the authenticated doctor on a specific date.
+ */
+export async function getDoctorAvailableSlots(date: string): Promise<AvailableSlot[]> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/available-slots?date=${encodeURIComponent(date)}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to fetch available slots");
+  }
+
+  return response.json();
+}
+
+/**
+ * Retrieve public available booking slots for a tenant practice by slug on a specific date.
+ */
+export async function getPublicAvailableSlots(
+  slug: string,
+  date: string
+): Promise<AvailableSlot[]> {
+  const response = await fetch(
+    `${API_URL}/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Doctor practice not found");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load public available slots");
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// Appointment Management API (Phase 5)
+// ==========================================
+
+/**
+ * Create a new appointment for the authenticated doctor.
+ */
+export async function createAppointment(
+  payload: AppointmentCreatePayload
+): Promise<AppointmentEntry> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to create appointment");
+  }
+
+  return response.json();
+}
+
+/**
+ * List appointments for the authenticated doctor with pagination and optional filters.
+ */
+export async function getDoctorAppointments(
+  filters?: AppointmentFilterParams
+): Promise<AppointmentListResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.from) params.set("from", filters.from);
+  if (filters?.to) params.set("to", filters.to);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.page_size) params.set("page_size", String(filters.page_size));
+
+  const queryStr = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments${queryStr}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load appointments");
+  }
+
+  return response.json();
+}
+
+/**
+ * Retrieve a single appointment by ID for the authenticated doctor.
+ */
+export async function getAppointment(id: string): Promise<AppointmentEntry> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load appointment");
+  }
+
+  return response.json();
+}
+
+/**
+ * Cancel an existing BOOKED appointment.
+ */
+export async function cancelAppointment(id: string): Promise<AppointmentEntry> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to cancel appointment");
+  }
+
+  return response.json();
+}
+
+/**
+ * Complete an existing BOOKED appointment.
+ */
+export async function completeAppointment(id: string): Promise<AppointmentEntry> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}/complete`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to complete appointment");
+  }
+
+  return response.json();
+}
+
+/**
+ * Reschedule an existing BOOKED appointment to a new date and time slot.
+ */
+export async function rescheduleAppointment(
+  id: string,
+  payload: AppointmentReschedulePayload
+): Promise<AppointmentEntry> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to reschedule appointment");
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// Calendar Aggregator API (Phase 5)
+// ==========================================
+
+/**
+ * Retrieve unified operational calendar for the authenticated doctor,
+ * aggregating working hours, available slots, bookings, leave, holidays, and blocks.
+ */
+export async function getDoctorCalendar(
+  from: string,
+  to: string
+): Promise<DoctorCalendarResponse> {
+  const authToken = getAuthToken();
+  if (!authToken) {
+    throw new Error("No authentication token found");
+  }
+
+  const params = new URLSearchParams({
+    from,
+    to,
+  });
+
+  const response = await fetch(`${API_URL}/api/v1/doctor/calendar?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${authToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      removeAuthToken();
+      throw new Error("Session expired. Please log in again.");
+    }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to load doctor calendar");
   }
 
   return response.json();
