@@ -34,6 +34,8 @@ import {
   bookPublicAppointment,
   uploadPublicReport,
   orderPublicMedicine,
+  getPublicAvailableSlots,
+  AvailableSlot,
   PublicDoctorProfileResponse,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
@@ -69,6 +71,9 @@ export default function PatientDoctorPage() {
   // In-Clinic Appointment form
   const [inClinicDate, setInClinicDate] = useState("");
   const [inClinicSlot, setInClinicSlot] = useState(TIME_SLOTS[0]);
+  const [inClinicSlots, setInClinicSlots] = useState<AvailableSlot[]>([]);
+  const [inClinicSlotsLoading, setInClinicSlotsLoading] = useState(false);
+  const [inClinicSlotsFetched, setInClinicSlotsFetched] = useState(false);
   const [inClinicName, setInClinicName] = useState("");
   const [inClinicEmail, setInClinicEmail] = useState("");
   const [inClinicPhone, setInClinicPhone] = useState("");
@@ -79,6 +84,9 @@ export default function PatientDoctorPage() {
   // Video Consultation form
   const [videoDate, setVideoDate] = useState("");
   const [videoSlot, setVideoSlot] = useState(TIME_SLOTS[1]);
+  const [videoSlots, setVideoSlots] = useState<AvailableSlot[]>([]);
+  const [videoSlotsLoading, setVideoSlotsLoading] = useState(false);
+  const [videoSlotsFetched, setVideoSlotsFetched] = useState(false);
   const [videoName, setVideoName] = useState("");
   const [videoEmail, setVideoEmail] = useState("");
   const [videoPhone, setVideoPhone] = useState("");
@@ -143,6 +151,72 @@ export default function PatientDoctorPage() {
       if (activeTab === "reports" && !s.lab_reports) setActiveTab("home");
     }
   }, [activeTab, doctor]);
+
+  // Fetch real available slots for In-Clinic appointment date (Test 6.6)
+  useEffect(() => {
+    if (!slug || !inClinicDate) {
+      setInClinicSlots([]);
+      setInClinicSlotsFetched(false);
+      return;
+    }
+    let isMounted = true;
+    setInClinicSlotsLoading(true);
+    getPublicAvailableSlots(slug, inClinicDate)
+      .then((slots) => {
+        if (!isMounted) return;
+        setInClinicSlots(slots || []);
+        setInClinicSlotsFetched(true);
+        if (slots && slots.length > 0) {
+          setInClinicSlot(slots[0].start);
+        } else {
+          setInClinicSlot("");
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setInClinicSlots([]);
+        setInClinicSlotsFetched(true);
+      })
+      .finally(() => {
+        if (isMounted) setInClinicSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, inClinicDate]);
+
+  // Fetch real available slots for Video Consultation date
+  useEffect(() => {
+    if (!slug || !videoDate) {
+      setVideoSlots([]);
+      setVideoSlotsFetched(false);
+      return;
+    }
+    let isMounted = true;
+    setVideoSlotsLoading(true);
+    getPublicAvailableSlots(slug, videoDate)
+      .then((slots) => {
+        if (!isMounted) return;
+        setVideoSlots(slots || []);
+        setVideoSlotsFetched(true);
+        if (slots && slots.length > 0) {
+          setVideoSlot(slots[0].start);
+        } else {
+          setVideoSlot("");
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setVideoSlots([]);
+        setVideoSlotsFetched(true);
+      })
+      .finally(() => {
+        if (isMounted) setVideoSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, videoDate]);
 
   // Handle In-Clinic Appointment
   const handleInClinicSubmit = async (e: React.FormEvent) => {
@@ -819,27 +893,42 @@ export default function PatientDoctorPage() {
                       />
                     </div>
 
-                    {/* Time Slot Picker */}
+                    {/* Time Slot Picker (Spec 6.6 & Test 6.6) */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                         Available Time Slot <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {TIME_SLOTS.map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setInClinicSlot(slot)}
-                            className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                              inClinicSlot === slot
-                                ? "bg-brand-600 text-white border-brand-600 shadow-sm"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
+                      {inClinicSlotsLoading ? (
+                        <div className="py-4 flex items-center justify-center text-xs text-slate-500 gap-2 border border-slate-200 rounded-lg">
+                          <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : !inClinicDate ? (
+                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                          Please select a preferred date above to view available time slots.
+                        </div>
+                      ) : inClinicSlots.length === 0 && inClinicSlotsFetched ? (
+                        <div className="py-3 px-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please select another date.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {(inClinicSlots.length > 0 ? inClinicSlots.map((s) => s.start) : TIME_SLOTS).map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => setInClinicSlot(slot)}
+                              className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                inClinicSlot === slot
+                                  ? "bg-brand-600 text-white border-brand-600 shadow-sm"
+                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1060,22 +1149,37 @@ export default function PatientDoctorPage() {
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                         Consultation Time Slot <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {TIME_SLOTS.map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setVideoSlot(slot)}
-                            className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                              videoSlot === slot
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
+                      {videoSlotsLoading ? (
+                        <div className="py-4 flex items-center justify-center text-xs text-slate-500 gap-2 border border-slate-200 rounded-lg">
+                          <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : !videoDate ? (
+                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                          Please select a consultation date above to view available time slots.
+                        </div>
+                      ) : videoSlots.length === 0 && videoSlotsFetched ? (
+                        <div className="py-3 px-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please select another date.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {(videoSlots.length > 0 ? videoSlots.map((s) => s.start) : TIME_SLOTS).map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => setVideoSlot(slot)}
+                              className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                videoSlot === slot
+                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                              }`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
