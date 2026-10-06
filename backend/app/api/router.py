@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import health, auth, doctor, public, schedule, appointment, app_build
+from app.api.routes import health, auth, doctor, public, schedule, appointment, app_build, calendar
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -10,4 +10,5 @@ api_router.include_router(public.router)
 api_router.include_router(schedule.router)
 api_router.include_router(appointment.router)
 api_router.include_router(app_build.router)
+api_router.include_router(calendar.router)
 
