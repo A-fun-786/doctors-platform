@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Date, ForeignKey, Index, String, Text, Time, UniqueConstraint, Uuid
+from sqlalchemy import Date, ForeignKey, Index, String, Text, Time, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -68,7 +68,15 @@ class Appointment(Base, TimestampMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint("doctor_id", "date", "start_time", name="uq_doctor_appointment_slot"),
+        Index(
+            "uq_doctor_active_appointment_slot",
+            "doctor_id",
+            "date",
+            "start_time",
+            unique=True,
+            postgresql_where=text("status != 'CANCELLED'"),
+            sqlite_where=text("status != 'CANCELLED'"),
+        ),
         Index("ix_appointments_doctor_date", "doctor_id", "date"),
         Index("ix_appointments_doctor_status", "doctor_id", "status"),
     )

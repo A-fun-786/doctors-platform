@@ -374,6 +374,7 @@ export async function getPublicDoctorProfile(
 }
 
 /**
+ * @deprecated Legacy appointment stub endpoint. Replaced by real appointment scheduling in Phase 5.
  * Submit an appointment request on the patient page.
  */
 export async function bookPublicAppointment(

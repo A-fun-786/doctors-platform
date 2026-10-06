@@ -120,7 +120,7 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
     assert pub_data["services"]["medicine_inventory"] is True
     assert pub_data["services"]["lab_reports"] is True
 
-    # 5. Patient Books Appointment
+    # 5. Old Appointment Stub Removed (Phase 3)
     apt_res = client.post(
         "/api/v1/public/tenants/dr-ahmed-khan/appointments",
         json={
@@ -133,10 +133,7 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
             "notes": "Routine cardiovascular screening",
         },
     )
-    assert apt_res.status_code == 201
-    apt_data = apt_res.json()
-    assert apt_data["status"] == "confirmed"
-    assert apt_data["booking_id"].startswith("APT-")
+    assert apt_res.status_code == 404
 
     # 6. Patient Orders Medicine
     med_res = client.post(

@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "5/minute"
     RATE_LIMIT_AUTH_GOOGLE: str = "10/minute"
     RATE_LIMIT_SCHEDULE: str = "30/minute"
+    RATE_LIMIT_APPOINTMENT: str = "20/minute"
 
     # Observability & Monitoring (Sentry & Structlog)
     SENTRY_DSN: str = ""
