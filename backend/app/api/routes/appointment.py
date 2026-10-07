@@ -1,10 +1,11 @@
 import uuid
 from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor
+from app.core.cache import get_idempotency_result, set_idempotency_result, invalidate_slot_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -32,19 +33,32 @@ router = APIRouter(tags=["appointment"])
 def create_appointment(
     request: Request,
     payload: AppointmentCreateRequest,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
     current_doctor: Doctor = Depends(get_current_doctor),
     db: Session = Depends(get_db),
 ):
     """
     Create a new appointment for the authenticated doctor.
     Verifies slot falls within AVAILABLE schedule and does not overlap exclusions or existing bookings.
+    Supports optional Idempotency-Key header to prevent duplicate booking on network retries.
     """
+    cache_key = None
+    if idempotency_key:
+        cache_key = f"idempotency:{current_doctor.id}:{idempotency_key}"
+        cached = get_idempotency_result(cache_key)
+        if cached is not None:
+            return cached
+
     appointment = appointment_service.create_appointment(
         doctor_id=current_doctor.id,
         payload=payload,
         db=db,
     )
-    return AppointmentResponse.model_validate(appointment)
+    invalidate_slot_cache(current_doctor.id)
+    response_data = AppointmentResponse.model_validate(appointment)
+    if cache_key:
+        set_idempotency_result(cache_key, response_data)
+    return response_data
 
 
 @router.get(
@@ -126,6 +140,7 @@ def cancel_appointment(
         appointment_id=id,
         db=db,
     )
+    invalidate_slot_cache(current_doctor.id)
     return AppointmentResponse.model_validate(appointment)
 
 
@@ -176,4 +191,5 @@ def reschedule_appointment(
         payload=payload,
         db=db,
     )
+    invalidate_slot_cache(current_doctor.id)
     return AppointmentResponse.model_validate(appointment)

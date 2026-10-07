@@ -18,6 +18,7 @@ from app.schemas.schedule import (
     AvailableSlotResponse,
 )
 from app.services import schedule_service
+from app.core.cache import get_cached_slots, set_cached_slots, invalidate_slot_cache
 
 settings = get_settings()
 
@@ -47,6 +48,7 @@ def create_schedule(
             entries=payload.entries,
             db=db,
         )
+        invalidate_slot_cache(current_doctor.id)
         return [ScheduleResponse.model_validate(item) for item in created]
     elif isinstance(payload, list):
         created = schedule_service.create_schedule_entries(
@@ -54,6 +56,7 @@ def create_schedule(
             entries=payload,
             db=db,
         )
+        invalidate_slot_cache(current_doctor.id)
         return [ScheduleResponse.model_validate(item) for item in created]
     else:
         created = schedule_service.create_schedule_entries(
@@ -61,6 +64,7 @@ def create_schedule(
             entries=[payload],
             db=db,
         )
+        invalidate_slot_cache(current_doctor.id)
         return ScheduleResponse.model_validate(created[0])
 
 
@@ -116,6 +120,7 @@ def delete_doctor_schedule(
         schedule_id=schedule_id,
         db=db,
     )
+    invalidate_slot_cache(current_doctor.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -156,6 +161,7 @@ def get_public_available_slots(
 ):
     """
     Public, rate-limited endpoint returning available 30-minute slots for a tenant practice.
+    Employs an in-memory TTL cache to alleviate high-frequency database reads.
     """
     tenant = (
         db.query(Tenant)
@@ -168,9 +174,14 @@ def get_public_available_slots(
             detail=f"Doctor practice with link '{slug}' was not found.",
         )
 
+    cached_slots = get_cached_slots(tenant.doctor.id, date)
+    if cached_slots is not None:
+        return [AvailableSlotResponse(**slot) for slot in cached_slots]
+
     slots = schedule_service.generate_available_slots(
         doctor_id=tenant.doctor.id,
         query_date=date,
         db=db,
     )
+    set_cached_slots(tenant.doctor.id, date, slots)
     return [AvailableSlotResponse(**slot) for slot in slots]

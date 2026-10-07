@@ -19,6 +19,7 @@ def setup_logging() -> structlog.stdlib.BoundLogger:
 
     # Pre-chain for log records originating from external standard library loggers
     foreign_pre_chain = [
+        structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),

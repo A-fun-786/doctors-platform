@@ -78,5 +78,21 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+const sentryWebpackPluginOptions = {
+  silent: true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+};
+
+let exportedConfig = nextConfig;
+try {
+  const { withSentryConfig } = await import("@sentry/nextjs");
+  exportedConfig = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+} catch {
+  // Graceful fallback if Sentry package is not available
+  exportedConfig = nextConfig;
+}
+
+export default exportedConfig;
 
