@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, time
 import pytest
 from fastapi.testclient import TestClient
@@ -128,7 +127,7 @@ def test_4_1_calendar_mixed_event_types(client, db_session, doctor_a, headers_a)
     db_session.add(apt)
     db_session.commit()
 
-    res = client.get(f"/api/v1/doctor/calendar?from=2026-10-12&to=2026-10-12", headers=headers_a)
+    res = client.get("/api/v1/doctor/calendar?from=2026-10-12&to=2026-10-12", headers=headers_a)
     assert res.status_code == 200
     data = res.json()
     assert "dates" in data

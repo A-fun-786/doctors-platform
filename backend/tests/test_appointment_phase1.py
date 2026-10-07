@@ -1,5 +1,6 @@
 import uuid
-from datetime import date, time, timedelta
+from datetime import date, time
+from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -13,8 +14,8 @@ from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
-from app.schemas.schedule import ScheduleCreateRequest, ScheduleResponse
-from app.schemas.appointment import AppointmentCreateRequest, AppointmentResponse
+from app.schemas.schedule import ScheduleCreateRequest
+from app.schemas.appointment import AppointmentCreateRequest
 from app.core.database import engine as app_engine
 
 
@@ -165,7 +166,9 @@ def test_migration_006_upgrade_downgrade(tmp_path):
     db_file = tmp_path / "test_mig.db"
     db_url = f"sqlite:///{db_file}"
 
-    alembic_cfg = Config("alembic.ini")
+    ini_path = Path(__file__).resolve().parent.parent / "alembic.ini"
+    alembic_cfg = Config(str(ini_path))
+    alembic_cfg.set_main_option("script_location", str(ini_path.parent / "alembic"))
     alembic_cfg.set_main_option("sqlalchemy.url", db_url)
 
     # Upgrade to head (006)

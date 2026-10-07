@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -12,8 +12,6 @@ from app.core.security import create_access_token
 from app.main import app
 from app.models.base import Base
 from app.models.doctor import Doctor
-from app.models.schedule import Schedule
-from app.models.tenant import Tenant
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
