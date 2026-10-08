@@ -71,5 +71,5 @@ Documents production hardening across all 8 pillars: Starlette lifecycle middlew
 ---
 
 ## 🔗 Architecture & Specification References
-- **Architecture Specification**: [`docs/APPOINTMENT_SYSTEM.md`](../../docs/APPOINTMENT_SYSTEM.md)
-- **Productionization Blueprint**: [`feature/appointment_system_productionization_giude.md`](../appointment_system_productionization_giude.md)
+- **Architecture Specification**: [`docs/APPOINTMENT_SYSTEM.md`](../../APPOINTMENT_SYSTEM.md)
+- **Productionization Blueprint**: [`appointment_system_productionization_giude.md`](./appointment_system_productionization_giude.md)

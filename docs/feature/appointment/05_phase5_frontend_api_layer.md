@@ -15,7 +15,7 @@ Phase 5 implements the complete TypeScript type system and API client layer in `
 
 ### 7.3 Changes
 - [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts): Added domain type definitions (`ScheduleType`, `ScheduleEntry`, `ScheduleCreatePayload`, `ScheduleBulkCreatePayload`, `ScheduleFilterParams`, `ScheduleListResponse`, `AvailableSlot`, `AppointmentStatus`, `AppointmentEntry`, `AppointmentCreatePayload`, `AppointmentReschedulePayload`, `AppointmentFilterParams`, `AppointmentListResponse`, `CalendarEvent`, `CalendarDay`, `DoctorCalendarResponse`) and client functions (`createDoctorSchedule`, `getDoctorSchedule`, `deleteDoctorSchedule`, `getDoctorAvailableSlots`, `getPublicAvailableSlots`, `createAppointment`, `getDoctorAppointments`, `getAppointment`, `cancelAppointment`, `completeAppointment`, `rescheduleAppointment`, `getDoctorCalendar`). Maintained `@deprecated` annotation on legacy stub `bookPublicAppointment` to preserve current page build compatibility until Phase 6 UI overhaul.
-- [`feature/appointment_system_progress.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/feature/appointment_system_progress.md): Recorded execution record, verification test matrix, and updated status roadmap.
+- [`docs/feature/appointment/05_phase5_frontend_api_layer.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/05_phase5_frontend_api_layer.md): Recorded execution record, verification test matrix, and updated status roadmap.
 
 ### 7.4 Key Decisions & Reasoning
 1. **Function Overloading for `createDoctorSchedule`**:

@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://doctors-platform-eight.vercel.app"><b>🚀 Visit Live Platform</b></a> •
   <a href="https://backend-production-b26c.up.railway.app/api/v1/health"><b>🩺 API Health Check</b></a> •
-  <a href="./deployment.md"><b>📖 Deployment Guide</b></a> •
+  <a href="./docs/deployment.md"><b>📖 Deployment Guide</b></a> •
   <a href="#-complete-user-journey"><b>📸 Screenshots</b></a> •
   <a href="#-getting-started"><b>⚡ Quickstart</b></a>
 </p>
@@ -862,7 +862,7 @@ graph TD
    cp .env.example .env.local
    cp backend/.env.example backend/.env
    ```
-   For production deployment and cloud setup, refer to the full **[Deployment Playbook](./deployment.md)**.
+   For production deployment and cloud setup, refer to the full **[Deployment Playbook](./docs/deployment.md)**.
 
 ### Running Locally
 
@@ -1064,6 +1064,6 @@ This project is licensed under the **MIT License** - see [`LICENSE`](./LICENSE) 
 
 **Built with ❤️ for Healthcare Professionals**
 
-[Live Platform](https://doctors-platform-eight.vercel.app) • [Backend API Health](https://backend-production-b26c.up.railway.app/api/v1/health) • [Deployment Playbook](./deployment.md) • [Report Issue](https://github.com/A-fun-786/doctors-platform/issues)
+[Live Platform](https://doctors-platform-eight.vercel.app) • [Backend API Health](https://backend-production-b26c.up.railway.app/api/v1/health) • [Deployment Playbook](./docs/deployment.md) • [Report Issue](https://github.com/A-fun-786/doctors-platform/issues)
 
 </div>

@@ -44,7 +44,7 @@ Phase 4 implements the unified Doctor Operational Calendar Aggregator as specifi
 - [`backend/app/api/routes/__init__.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/__init__.py): Exported `calendar` route module.
 - [`backend/app/api/router.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/router.py): Mounted `calendar.router` under `/api/v1`.
 - [`backend/tests/test_calendar.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_calendar.py): Added 14 unit and integration tests covering all Phase 4 specifications.
-- [`feature/appointment_system_progress.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/feature/appointment_system_progress.md): Recorded execution record and verification results.
+- [`docs/feature/appointment/04_phase4_calendar_aggregator.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/04_phase4_calendar_aggregator.md): Recorded execution record and verification results.
 
 ### 6.4 Key Decisions & Reasoning
 - **Decision**: Implemented dedicated `calendar_service.py` and `routes/calendar.py` instead of appending to `schedule.py`.

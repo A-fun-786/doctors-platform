@@ -5,7 +5,7 @@
 ---
 
 ## Overview & Context
-This document tracks the end-to-end design, implementation, and verification of the doctor appointment system based on the architectural specification in [`docs/APPOINTMENT_SYSTEM.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/APPOINTMENT_SYSTEM.md).
+This document tracks the end-to-end design, implementation, and verification of the doctor appointment system based on the architectural specification in [`docs/APPOINTMENT_SYSTEM.md`](../../APPOINTMENT_SYSTEM.md).
 
 All work in this initial milestone covers **Phase 1: Database Models, Alembic Migration, Connection Pool Hardening, and Pydantic Schemas**.
 

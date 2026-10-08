@@ -7,14 +7,14 @@
 ## Architecture & Productionization Record
 
 ### 12.1 Summary
-Phase 8 implements the complete productionization and operational hardening across all 8 pillars defined in `feature/appointment_system_productionization_giude.md`.
+Phase 8 implements the complete productionization and operational hardening across all 8 pillars defined in [`appointment_system_productionization_giude.md`](./appointment_system_productionization_giude.md).
 Security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy`, and production `Strict-Transport-Security`) and `X-Request-Id` correlation propagation were integrated into a unified FastAPI lifecycle middleware with Structlog context binding and Sentry error tracking tags.
 Reliability is hardened with a modern FastAPI lifespan shutdown handler that safely drains the database pool and flushes Sentry telemetry, while `tenacity` exponential backoff retries safeguard database session acquisition against transient connection errors.
 Scalability and idempotency are established via an in-memory TTL caching tier for public available slot queries with automatic invalidation on schedule mutations, alongside `Idempotency-Key` header deduplication for appointment bookings.
 The frontend is fortified with `@sentry/nextjs` client/server error tracking, pre-commit hygiene with `.pre-commit-config.yaml`, post-deployment automated smoke tests (`scripts/smoke-test.sh`), load testing suites (`scripts/load-test.js`, `scripts/locustfile.py`), and CI workflow hardening with PostgreSQL service containers, pip/npm security vulnerability audits, and test coverage gates (88% achieved).
 
 ### 12.2 Plan Reference
-- **Plan**: `feature/appointment_system_productionization_giude.md`
+- **Plan**: [`appointment_system_productionization_giude.md`](./appointment_system_productionization_giude.md)
 - **Base Commit SHA**: `cc41af8c1bcdad101c8504eab7fe506d445fdcc5`
 
 ### 12.3 Changes
