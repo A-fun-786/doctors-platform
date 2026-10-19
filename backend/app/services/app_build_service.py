@@ -68,8 +68,12 @@ def prepare_project_workspace(
     if target_workspace.exists():
         shutil.rmtree(target_workspace)
 
-    # 1. Copy android-template into isolated build workspace
-    shutil.copytree(TEMPLATE_DIR, target_workspace)
+    # 1. Copy android-template into isolated build workspace (excluding build caches & temp files)
+    shutil.copytree(
+        TEMPLATE_DIR,
+        target_workspace,
+        ignore=shutil.ignore_patterns(".gradle", ".idea", ".kotlin", "build", "*.dex", "*.class"),
+    )
 
     # 2. Inject values into app/build.gradle.kts
     app_gradle_file = target_workspace / "app" / "build.gradle.kts"

@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const TOKEN_STORAGE_KEY = "docspace_auth_token";
 
@@ -119,6 +121,21 @@ export interface MedicineOrderPayload {
   delivery_address: string;
   medicines: string;
   prescription_note?: string;
+}
+
+export interface PublicAppointmentResponse {
+  message: string;
+  booking_id: string;
+}
+
+export interface PublicReportResponse {
+  message: string;
+  report_id: string;
+}
+
+export interface PublicMedicineOrderResponse {
+  message: string;
+  order_id: string;
 }
 
 // ==========================================
@@ -266,34 +283,138 @@ export function removeAuthToken(): void {
   localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
+export interface ApiFetchOptions extends Omit<RequestInit, "headers"> {
+  headers?: Record<string, string>;
+  requireAuth?: boolean;
+  token?: string;
+}
+
+/**
+ * Production-ready instrumented HTTP client that automatically tracks latency,
+ * correlation IDs, response status codes, sanitized error details, and Sentry breadcrumbs.
+ */
+export async function apiFetch<T = unknown>(
+  endpoint: string,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  const { requireAuth = false, token, headers = {}, ...customInit } = options;
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const method = (customInit.method || "GET").toUpperCase();
+  const url = endpoint.startsWith("http") ? endpoint : `${API_URL}${endpoint}`;
+
+  const requestHeaders: Record<string, string> = {
+    "X-Request-ID": requestId,
+    "X-Session-ID": logger.getSessionId(),
+    ...headers,
+  };
+
+  if (requireAuth) {
+    const authToken = token || getAuthToken();
+    if (!authToken) {
+      logger.warn("ApiClient", `Protected request attempted without token: ${method} ${endpoint}`, { requestId });
+      throw new Error("No authentication token found");
+    }
+    requestHeaders["Authorization"] = `Bearer ${authToken}`;
+  }
+
+  let body = customInit.body;
+  if (
+    body &&
+    typeof body === "object" &&
+    !(body instanceof FormData)
+  ) {
+    body = JSON.stringify(body);
+  }
+
+  if (body && !(body instanceof FormData) && !requestHeaders["Content-Type"]) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
+
+  const startTime = performance.now();
+  logger.api("ApiClient", `Outgoing ${method} ${endpoint}`, {
+    method,
+    url: endpoint,
+    requestId,
+  });
+
+  try {
+    const response = await fetch(url, {
+      ...customInit,
+      body,
+      headers: requestHeaders,
+    });
+
+    const durationMs = performance.now() - startTime;
+
+    if (!response.ok) {
+      if (requireAuth && (response.status === 401 || response.status === 403)) {
+        removeAuthToken();
+        logger.warn("ApiClient", `Session expired (${response.status}) on ${method} ${endpoint}`, {
+          status: response.status,
+          durationMs,
+          requestId,
+        });
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      let errorDetail = `Request failed with status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.detail) {
+          errorDetail =
+            typeof errorData.detail === "string"
+              ? errorData.detail
+              : JSON.stringify(errorData.detail);
+        }
+      } catch {
+        // Fallback to generic message
+      }
+
+      logger.api(
+        "ApiClient",
+        `API Error ${response.status} ${method} ${endpoint}: ${errorDetail}`,
+        { method, url: endpoint, status: response.status, durationMs, requestId, errorDetail },
+        new Error(errorDetail)
+      );
+
+      throw new Error(errorDetail);
+    }
+
+    logger.api("ApiClient", `Response ${response.status} ${method} ${endpoint}`, {
+      method,
+      url: endpoint,
+      status: response.status,
+      durationMs,
+      requestId,
+    });
+
+    if (response.status === 204) {
+      return undefined as unknown as T;
+    }
+
+    return (await response.json()) as T;
+  } catch (err: unknown) {
+    const durationMs = performance.now() - startTime;
+    if (err instanceof Error && !err.message.includes("Session expired")) {
+      logger.error(
+        "ApiClient",
+        `Fetch failure for ${method} ${endpoint}: ${err.message}`,
+        err,
+        { method, url: endpoint, durationMs, requestId }
+      );
+    }
+    throw err;
+  }
+}
+
 /**
  * Authenticate or register a doctor using a Google ID token.
  */
 export async function authenticateWithGoogle(credential: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/google`, {
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/google", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ credential }),
   });
-
-  if (!response.ok) {
-    let errorMessage = "Authentication failed. Please try again.";
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = typeof errorData.detail === "string" 
-          ? errorData.detail 
-          : JSON.stringify(errorData.detail);
-      }
-    } catch {
-      // Fallback to generic message if JSON parsing fails
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data: AuthResponse = await response.json();
   setAuthToken(data.access_token);
   return data;
 }
@@ -306,35 +427,14 @@ export async function registerWithEmail(
   password: string,
   fullName?: string
 ): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/register", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       email,
       password,
       full_name: fullName,
     }),
   });
-
-  if (!response.ok) {
-    let errorMessage = "Registration failed. Please try again.";
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage =
-          typeof errorData.detail === "string"
-            ? errorData.detail
-            : JSON.stringify(errorData.detail);
-      }
-    } catch {
-      // Fallback
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data: AuthResponse = await response.json();
   setAuthToken(data.access_token);
   return data;
 }
@@ -346,31 +446,10 @@ export async function loginWithEmail(
   email: string,
   password: string
 ): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/login", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ email, password }),
   });
-
-  if (!response.ok) {
-    let errorMessage = "Invalid email or password.";
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage =
-          typeof errorData.detail === "string"
-            ? errorData.detail
-            : JSON.stringify(errorData.detail);
-      }
-    } catch {
-      // Fallback
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data: AuthResponse = await response.json();
   setAuthToken(data.access_token);
   return data;
 }
@@ -379,66 +458,21 @@ export async function loginWithEmail(
  * Fetch the currently authenticated doctor profile and tenant workspace.
  */
 export async function getCurrentDoctor(token?: string): Promise<DoctorMeResponse> {
-  const authToken = token || getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+  return apiFetch<DoctorMeResponse>("/api/v1/auth/me", {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
+    token,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    let errorMessage = "Failed to fetch doctor profile";
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail);
-      }
-    } catch {
-      // Fallback
-    }
-    throw new Error(errorMessage);
-  }
-
-  return response.json();
 }
 
 /**
  * Fetch detailed doctor profile with services settings.
  */
 export async function getDoctorProfile(): Promise<DoctorProfileResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/profile`, {
+  return apiFetch<DoctorProfileResponse>("/api/v1/doctor/profile", {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load practice profile");
-  }
-
-  return response.json();
 }
 
 /**
@@ -447,26 +481,11 @@ export async function getDoctorProfile(): Promise<DoctorProfileResponse> {
 export async function updateDoctorProfile(
   payload: DoctorProfileUpdateRequest
 ): Promise<DoctorProfileResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/profile`, {
+  return apiFetch<DoctorProfileResponse>("/api/v1/doctor/profile", {
     method: "PUT",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to update profile settings");
-  }
-
-  return response.json();
 }
 
 /**
@@ -475,23 +494,10 @@ export async function updateDoctorProfile(
 export async function getPublicDoctorProfile(
   slug: string
 ): Promise<PublicDoctorProfileResponse> {
-  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}`, {
+  return apiFetch<PublicDoctorProfileResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}`, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
     cache: "no-store",
   });
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error("Doctor practice not found");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load doctor profile");
-  }
-
-  return response.json();
 }
 
 /**
@@ -501,21 +507,11 @@ export async function getPublicDoctorProfile(
 export async function bookPublicAppointment(
   slug: string,
   payload: AppointmentBookingPayload
-) {
-  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/appointments`, {
+): Promise<PublicAppointmentResponse> {
+  return apiFetch<PublicAppointmentResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}/appointments`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to book appointment");
-  }
-
-  return response.json();
 }
 
 /**
@@ -524,21 +520,11 @@ export async function bookPublicAppointment(
 export async function uploadPublicReport(
   slug: string,
   payload: ReportUploadPayload
-) {
-  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/reports`, {
+): Promise<PublicReportResponse> {
+  return apiFetch<PublicReportResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}/reports`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to upload report");
-  }
-
-  return response.json();
 }
 
 /**
@@ -547,21 +533,11 @@ export async function uploadPublicReport(
 export async function orderPublicMedicine(
   slug: string,
   payload: MedicineOrderPayload
-) {
-  const response = await fetch(`${API_URL}/api/v1/public/tenants/${slug}/medicine-orders`, {
+): Promise<PublicMedicineOrderResponse> {
+  return apiFetch<PublicMedicineOrderResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}/medicine-orders`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to submit medicine request");
-  }
-
-  return response.json();
 }
 
 // ==========================================
@@ -580,30 +556,11 @@ export async function createDoctorSchedule(
 export async function createDoctorSchedule(
   payload: ScheduleCreatePayload | ScheduleCreatePayload[]
 ): Promise<ScheduleEntry | ScheduleEntry[]> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/schedule`, {
+  return apiFetch<ScheduleEntry | ScheduleEntry[]>("/api/v1/doctor/schedule", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to create schedule entries");
-  }
-
-  return response.json();
 }
 
 /**
@@ -616,11 +573,6 @@ export async function getDoctorSchedule(
   page?: number,
   pageSize?: number
 ): Promise<ScheduleListResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
   const params = new URLSearchParams();
   if (typeof fromOrFilters === "object" && fromOrFilters !== null) {
     if (fromOrFilters.from) params.set("from", fromOrFilters.from);
@@ -635,80 +587,30 @@ export async function getDoctorSchedule(
   }
 
   const queryStr = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${API_URL}/api/v1/doctor/schedule${queryStr}`, {
+  return apiFetch<ScheduleListResponse>(`/api/v1/doctor/schedule${queryStr}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load doctor schedule");
-  }
-
-  return response.json();
 }
 
 /**
  * Delete a specific schedule entry by ID for the authenticated doctor.
  */
 export async function deleteDoctorSchedule(id: string): Promise<void> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/schedule/${encodeURIComponent(id)}`, {
+  return apiFetch<void>(`/api/v1/doctor/schedule/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to delete schedule entry");
-  }
 }
 
 /**
  * Generate available 30-minute booking slots for the authenticated doctor on a specific date.
  */
 export async function getDoctorAvailableSlots(date: string): Promise<AvailableSlot[]> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/available-slots?date=${encodeURIComponent(date)}`, {
+  return apiFetch<AvailableSlot[]>(`/api/v1/doctor/available-slots?date=${encodeURIComponent(date)}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to fetch available slots");
-  }
-
-  return response.json();
 }
 
 /**
@@ -718,25 +620,12 @@ export async function getPublicAvailableSlots(
   slug: string,
   date: string
 ): Promise<AvailableSlot[]> {
-  const response = await fetch(
-    `${API_URL}/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
+  return apiFetch<AvailableSlot[]>(
+    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
     }
   );
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error("Doctor practice not found");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load public available slots");
-  }
-
-  return response.json();
 }
 
 // ==========================================
@@ -749,30 +638,11 @@ export async function getPublicAvailableSlots(
 export async function createAppointment(
   payload: AppointmentCreatePayload
 ): Promise<AppointmentEntry> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments`, {
+  return apiFetch<AppointmentEntry>("/api/v1/doctor/appointments", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to create appointment");
-  }
-
-  return response.json();
 }
 
 /**
@@ -781,11 +651,6 @@ export async function createAppointment(
 export async function getDoctorAppointments(
   filters?: AppointmentFilterParams
 ): Promise<AppointmentListResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
   if (filters?.from) params.set("from", filters.from);
@@ -794,111 +659,40 @@ export async function getDoctorAppointments(
   if (filters?.page_size) params.set("page_size", String(filters.page_size));
 
   const queryStr = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments${queryStr}`, {
+  return apiFetch<AppointmentListResponse>(`/api/v1/doctor/appointments${queryStr}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load appointments");
-  }
-
-  return response.json();
 }
 
 /**
  * Retrieve a single appointment by ID for the authenticated doctor.
  */
 export async function getAppointment(id: string): Promise<AppointmentEntry> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
+  return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load appointment");
-  }
-
-  return response.json();
 }
 
 /**
  * Cancel an existing BOOKED appointment.
  */
 export async function cancelAppointment(id: string): Promise<AppointmentEntry> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}/cancel`, {
+  return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}/cancel`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to cancel appointment");
-  }
-
-  return response.json();
 }
 
 /**
  * Complete an existing BOOKED appointment.
  */
 export async function completeAppointment(id: string): Promise<AppointmentEntry> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}/complete`, {
+  return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}/complete`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to complete appointment");
-  }
-
-  return response.json();
 }
 
 /**
@@ -908,30 +702,11 @@ export async function rescheduleAppointment(
   id: string,
   payload: AppointmentReschedulePayload
 ): Promise<AppointmentEntry> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
+  return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
     body: JSON.stringify(payload),
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to reschedule appointment");
-  }
-
-  return response.json();
 }
 
 // ==========================================
@@ -946,34 +721,15 @@ export async function getDoctorCalendar(
   from: string,
   to: string
 ): Promise<DoctorCalendarResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) {
-    throw new Error("No authentication token found");
-  }
-
   const params = new URLSearchParams({
     from,
     to,
   });
 
-  const response = await fetch(`${API_URL}/api/v1/doctor/calendar?${params.toString()}`, {
+  return apiFetch<DoctorCalendarResponse>(`/api/v1/doctor/calendar?${params.toString()}`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      removeAuthToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to load doctor calendar");
-  }
-
-  return response.json();
 }
 
 export interface AppPreviewResponse {
@@ -1007,151 +763,75 @@ export interface AppBuildStatusResponse {
  * Fetch Android app branding preview (clinic name & package name).
  */
 export async function getAppPreview(): Promise<AppPreviewResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/app/preview`, {
+  return apiFetch<AppPreviewResponse>("/api/v1/doctor/app/preview", {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to load app preview");
-  }
-
-  return response.json();
 }
 
 /**
  * Upload a custom app launcher icon for the doctor's Android app.
  */
 export async function uploadAppIcon(file: File): Promise<{ message: string; app_icon_url: string }> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_URL}/api/v1/doctor/app/icon`, {
+  return apiFetch<{ message: string; app_icon_url: string }>("/api/v1/doctor/app/icon", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-    },
+    requireAuth: true,
     body: formData,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to upload app icon");
-  }
-
-  return response.json();
 }
 
 /**
  * Upload a custom profile avatar image for the doctor.
  */
 export async function uploadDoctorAvatar(file: File): Promise<{ message: string; avatar_url: string }> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_URL}/api/v1/doctor/avatar`, {
+  return apiFetch<{ message: string; avatar_url: string }>("/api/v1/doctor/avatar", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-    },
+    requireAuth: true,
     body: formData,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to upload avatar");
-  }
-
-  return response.json();
 }
 
 /**
  * Trigger background build of doctor's native Android app APK.
  */
 export async function triggerAppBuild(): Promise<AppBuildStartResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/app/build`, {
+  return apiFetch<AppBuildStartResponse>("/api/v1/doctor/app/build", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to start Android app build");
-  }
-
-  return response.json();
 }
 
 /**
  * Check compilation and packaging status of doctor's Android app.
  */
 export async function getAppBuildStatus(taskId: string): Promise<AppBuildStatusResponse> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/app/build/${taskId}/status`, {
+  return apiFetch<AppBuildStatusResponse>(`/api/v1/doctor/app/build/${encodeURIComponent(taskId)}/status`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to retrieve build status");
-  }
-
-  return response.json();
 }
 
 /**
  * Get direct download URL for the built Android APK.
  */
 export function getAppDownloadUrl(taskId: string): string {
-  return `${API_URL}/api/v1/doctor/app/download/${taskId}`;
+  return `${API_URL}/api/v1/doctor/app/download/${encodeURIComponent(taskId)}`;
 }
 
 /**
  * Fetch raw compilation logs for an APK build.
  */
 export async function getAppBuildLogs(taskId: string): Promise<{ task_id: string; logs: string }> {
-  const authToken = getAuthToken();
-  if (!authToken) throw new Error("No authentication token found");
-
-  const response = await fetch(`${API_URL}/api/v1/doctor/app/build/${taskId}/logs`, {
+  return apiFetch<{ task_id: string; logs: string }>(`/api/v1/doctor/app/build/${encodeURIComponent(taskId)}/logs`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${authToken}`,
-      "Content-Type": "application/json",
-    },
+    requireAuth: true,
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to retrieve build logs");
-  }
-
-  return response.json();
 }
 
 

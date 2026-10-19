@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Activity, AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
 import { authenticateWithGoogle } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 declare global {
   interface Window {
@@ -35,21 +36,26 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
 
   // Handle Google Token Authentication
   const handleAuth = async (credential: string) => {
+    logger.action("Auth", `User initiated Google OAuth (${mode})`);
     try {
       setLoading(true);
       setError(null);
       const authData = await authenticateWithGoogle(credential);
+      logger.info("Auth", `Google OAuth successful (${mode})`, {
+        doctorId: authData?.doctor?.id,
+        email: authData?.doctor?.email,
+        onboardingCompleted: authData?.doctor?.onboarding_completed,
+      });
+
       if (authData?.doctor && !authData.doctor.onboarding_completed) {
         router.push("/onboarding");
       } else {
         router.push("/dashboard");
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Authentication failed. Please try again.");
-      }
+      const errMsg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      logger.error(`Google authentication failure (${mode})`, err, { mode }, "Auth");
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -59,11 +65,10 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
   useEffect(() => {
     if (!googleClientId) return;
 
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
+    let isMounted = true;
+
+    const renderGoogleButton = () => {
+      if (!isMounted) return;
       setIsGsiLoaded(true);
       if (window.google && googleButtonRef.current) {
         window.google.accounts.id.initialize({
@@ -80,12 +85,34 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
         });
       }
     };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]'
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", renderGoogleButton);
+      return () => {
+        isMounted = false;
+        existingScript.removeEventListener("load", renderGoogleButton);
+      };
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
     document.body.appendChild(script);
 
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleClientId, mode]);

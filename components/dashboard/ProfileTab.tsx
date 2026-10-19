@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Camera,
-  Upload,
   RotateCcw,
   Calendar,
   Video,

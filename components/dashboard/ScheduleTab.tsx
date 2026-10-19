@@ -12,12 +12,10 @@ import {
   AlertTriangle,
   Coffee,
   CalendarDays,
-  ShieldAlert,
 } from "lucide-react";
 import {
   DoctorMeResponse,
   ScheduleEntry,
-  ScheduleType,
   getDoctorSchedule,
   createDoctorSchedule,
   deleteDoctorSchedule,
@@ -27,7 +25,7 @@ interface ScheduleTabProps {
   doctor: DoctorMeResponse;
 }
 
-export default function ScheduleTab({ doctor }: ScheduleTabProps) {
+export default function ScheduleTab({ doctor: _doctor }: ScheduleTabProps) {
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

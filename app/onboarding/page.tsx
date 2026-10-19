@@ -22,7 +22,6 @@ import {
   Sparkles,
   Loader2,
   ShieldCheck,
-  Camera,
   Upload,
   RotateCcw,
 } from "lucide-react";
@@ -30,7 +29,6 @@ import {
   getDoctorProfile,
   updateDoctorProfile,
   uploadDoctorAvatar,
-  DoctorProfileResponse,
   ServicesConfig,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";

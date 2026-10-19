@@ -19,7 +19,6 @@ import {
   AppointmentEntry,
   getDoctorAppointments,
   getDoctorCalendar,
-  DoctorCalendarResponse,
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
 
@@ -31,7 +30,7 @@ interface OverviewTabProps {
 
 export default function OverviewTab({
   doctor,
-  profile,
+  profile: _profile,
   onNavigateTab,
 }: OverviewTabProps) {
   const [loading, setLoading] = useState(true);

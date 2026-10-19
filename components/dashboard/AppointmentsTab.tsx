@@ -9,10 +9,8 @@ import {
   Clock,
   User,
   Search,
-  Filter,
   AlertCircle,
   Loader2,
-  Calendar,
   RotateCcw,
 } from "lucide-react";
 import {
@@ -32,7 +30,7 @@ interface AppointmentsTabProps {
   doctor: DoctorMeResponse;
 }
 
-export default function AppointmentsTab({ doctor }: AppointmentsTabProps) {
+export default function AppointmentsTab({ doctor: _doctor }: AppointmentsTabProps) {
   const [appointments, setAppointments] = useState<AppointmentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -414,7 +412,6 @@ export default function AppointmentsTab({ doctor }: AppointmentsTabProps) {
                 {filteredAppointments.map((appt) => {
                   const isBooked = appt.status === "BOOKED";
                   const isCompleted = appt.status === "COMPLETED";
-                  const isCancelled = appt.status === "CANCELLED";
 
                   return (
                     <tr key={appt.id} className="hover:bg-slate-50/60 transition-colors">

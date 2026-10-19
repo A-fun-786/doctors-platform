@@ -14,8 +14,10 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Terminal,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export type DashboardTabId =
   | "overview"
@@ -31,6 +33,7 @@ interface DashboardShellProps {
   activeTab: DashboardTabId;
   onTabChange: (tab: DashboardTabId) => void;
   onLogout: () => void;
+  onOpenDiagnostics?: () => void;
   enableAndroidBuild: boolean;
   children: React.ReactNode;
 }
@@ -41,6 +44,7 @@ export default function DashboardShell({
   activeTab,
   onTabChange,
   onLogout,
+  onOpenDiagnostics,
   enableAndroidBuild,
   children,
 }: DashboardShellProps) {
@@ -63,6 +67,9 @@ export default function DashboardShell({
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     navigator.clipboard.writeText(`${origin}/${doctor.tenant.slug}`);
     setCopied(true);
+    logger.action("DashboardShell", "Doctor copied public practice profile URL", {
+      slug: doctor.tenant.slug,
+    });
     setTimeout(() => setCopied(false), 2500);
   };
 
@@ -115,6 +122,18 @@ export default function DashboardShell({
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>
+            )}
+
+            {onOpenDiagnostics && (
+              <button
+                type="button"
+                onClick={onOpenDiagnostics}
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-colors"
+                title="Open System Diagnostics & Logs (Ctrl+Shift+D)"
+              >
+                <Terminal className="w-3.5 h-3.5 text-slate-500" />
+                <span>Logs</span>
+              </button>
             )}
 
             <div className="flex items-center space-x-3 pl-2 sm:border-l sm:border-slate-200">

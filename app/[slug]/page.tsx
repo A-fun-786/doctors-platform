@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Activity,
@@ -20,7 +19,6 @@ import {
   Loader2,
   UploadCloud,
   ChevronRight,
-  Send,
   User,
   Mail,
   Home,
