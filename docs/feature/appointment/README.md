@@ -18,6 +18,7 @@ Welcome to the modular documentation for the **Doctor Appointment System** on th
 | **[`07_phase7_verification_and_hardening.md`](./07_phase7_verification_and_hardening.md)** | Phase 7: Verification Record | Pre-production hardening sign-off, Ruff lint cleanup, portable Alembic configuration, migration reversibility, and 24-step live integration test matrix. | Completed ✅ |
 | **[`08_phase7_testing_deep_dive.md`](./08_phase7_testing_deep_dive.md)** | Phase 7: Testing Deep Dive | Exhaustive testing philosophy, test design decisions, live HTTP test architecture, scenario proofs (LIVE-1.x through LIVE-11.x), bug root causes, and coverage gap analysis. | Completed ✅ |
 | **[`09_phase8_productionization.md`](./09_phase8_productionization.md)** | Phase 8: Productionization | Operational hardening across all 8 pillars: security headers, request ID correlation, lifespan graceful pool drain, tenacity DB retries, TTL slot caching, Sentry tracking, and CI/CD. | Completed ✅ |
+| **[`10_appointment_management_ui_refinement.md`](./10_appointment_management_ui_refinement.md)** | Phase 9: UI Refinement & Hardening | Modular component architecture, WCAG keyboard accessibility, dead code pruning, automated test suite, and production verification. | Completed ✅ |
 
 ---
 
@@ -53,6 +54,9 @@ A comprehensive deep dive into the testing methodology, philosophy, and justific
 ### [09. Phase 8 — Productionization & Operational Hardening](./09_phase8_productionization.md)
 Documents production hardening across all 8 pillars: Starlette lifecycle middleware injecting security headers and `X-Request-Id` correlation, FastAPI lifespan shutdown handlers, tenacity exponential backoff DB connection retries, in-memory TTL caching tier with automatic invalidation, `Idempotency-Key` deduplication, Sentry client/server telemetry, GitHub Actions CI workflow with PostgreSQL service containers, and live deployment verification on Railway and Vercel.
 
+### [10. Phase 9 — Appointment Management UI Hardening](./10_appointment_management_ui_refinement.md)
+Documents the complete component architecture under `components/dashboard/appointments/`, accessibility audit (WCAG keyboard navigation, ARIA semantics, focus rings), dead code removal, automated unit & integration testing harness (`scripts/verify_appointments_ui.mjs`), and Next.js 14 production compilation verification.
+
 ---
 
 ## 📊 Feature Phase Status
@@ -67,6 +71,7 @@ Documents production hardening across all 8 pillars: Starlette lifecycle middlew
 | **Phase 6** | Doctor Dashboard UI Expansion | `components/dashboard/*`, dynamic public booking | **Verified** ✅ |
 | **Phase 7** | Verification & Hardening | `scripts/verify_phase7_live.mjs`, 24 live tests, Ruff 0 errors | **Verified** ✅ |
 | **Phase 8** | Productionization & Hardening | Security headers, lifespan, TTL cache, tenacity, Sentry, CI | **Verified** ✅ |
+| **Phase 9** | Appointment UI Refinement & Testing | `components/dashboard/appointments/*`, WCAG a11y, build verify | **Verified** ✅ |
 
 ---
 
