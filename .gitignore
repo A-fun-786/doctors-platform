@@ -77,3 +77,6 @@ nginx/certs/*.key
 deployment_guide.md
 .vercel
 .env*
+!.env.example
+!.env.development
+!backend/.env.example
