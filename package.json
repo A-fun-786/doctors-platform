@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node scripts/test_appointments_comprehensive.mjs",
+    "test:live": "node scripts/verify_phase7_live.mjs",
     "servers:start": "./scripts/start-servers.sh",
     "servers:start:bg": "./scripts/start-servers.sh --background",
     "servers:stop": "./scripts/stop-servers.sh",
