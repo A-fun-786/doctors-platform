@@ -155,8 +155,6 @@ export default function CalendarTab({ doctor, onNavigateTab }: CalendarTabProps)
           onOpenGoogleModal={openGoogleModal}
           onAddAppointment={() => openAddAppointment(selectedDate)}
           onBlockTime={() => openBlockModal(selectedDate)}
-          onSyncGoogle={handleSyncGoogle}
-          syncingGoogle={syncingGoogle}
         />
       </div>
 

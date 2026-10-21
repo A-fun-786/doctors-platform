@@ -3,9 +3,6 @@
 import React from "react";
 import MiniCalendar from "./MiniCalendar";
 import WorkingHoursCard from "./WorkingHoursCard";
-import GoogleCalendarCard from "./GoogleCalendarCard";
-import QuickActionsCard from "./QuickActionsCard";
-import SyncNotificationBanner from "./SyncNotificationBanner";
 import { MiniCalDayItem } from "../types";
 import { DashboardTabId } from "../../DashboardShell";
 
@@ -18,8 +15,6 @@ interface CalendarSidebarProps {
   onOpenGoogleModal: () => void;
   onAddAppointment: () => void;
   onBlockTime: () => void;
-  onSyncGoogle: () => void;
-  syncingGoogle: boolean;
 }
 
 export default function CalendarSidebar({
@@ -31,8 +26,6 @@ export default function CalendarSidebar({
   onOpenGoogleModal,
   onAddAppointment,
   onBlockTime,
-  onSyncGoogle,
-  syncingGoogle,
 }: CalendarSidebarProps) {
   return (
     <div className="xl:col-span-3 space-y-5">
@@ -45,17 +38,7 @@ export default function CalendarSidebar({
 
       <WorkingHoursCard onNavigateTab={onNavigateTab} />
 
-      <GoogleCalendarCard onManage={onOpenGoogleModal} />
 
-      <QuickActionsCard
-        onAddAppointment={onAddAppointment}
-        onBlockTime={onBlockTime}
-        onNavigateTab={onNavigateTab}
-        onSyncGoogle={onSyncGoogle}
-        syncingGoogle={syncingGoogle}
-      />
-
-      <SyncNotificationBanner />
     </div>
   );
 }
