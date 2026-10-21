@@ -211,7 +211,7 @@ export default function OverviewTab({
           </div>
           <button
             type="button"
-            onClick={() => onNavigateTab("calendar")}
+            onClick={() => onNavigateTab("appointment")}
             className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
           >
             <span>View All</span>
@@ -234,7 +234,7 @@ export default function OverviewTab({
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => onNavigateTab("calendar")}
+                onClick={() => onNavigateTab("appointment")}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
               >
                 <span>View Calendar</span>
@@ -287,7 +287,7 @@ export default function OverviewTab({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           type="button"
-          onClick={() => onNavigateTab("calendar")}
+          onClick={() => onNavigateTab("appointment")}
           className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
         >
           <div className="space-y-1">

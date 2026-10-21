@@ -6,6 +6,7 @@
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
 2. **Google Calendar Sync Removal (Phase 2)**: Executed `google_calendar_removal_plan.md`. Completely removed obsolete Google Calendar sync UI scaffolding, buttons, modals, and hooks while strictly preserving Google OAuth Sign-In for doctor authentication and backend calendar scheduling APIs.
 3. **Calendar Module Enhancement & Hardening (Phase 3)**: Executed `phase3-verification-plan.md`. Standardized 30-minute slot granularity, implemented Option A Hard-Block conflict enforcement across all calendar modal submit handlers, auto-advanced end times (+30m parity), clamped `minutesToTime24` boundary conditions (00:00–23:59), pruned dead code (`getSlotHourKey`), and added comprehensive automated unit and acceptance suites (56 unit tests + 8 QA acceptance scenarios).
+4. **Dashboard Navigation Tab Rebranding (Phase 4)**: Renamed the doctor dashboard tab from `calendar` to `appointment` (`id: "calendar"` → `id: "appointment"`, `label: "Calendar"` → `label: "Appointment"`). Updated `DashboardShell.tsx`, `page.tsx`, and `OverviewTab.tsx`, along with the automated navigation test suite in `scripts/test_dashboard_shell.mjs`.
 
 ## 2. Key Changes (Google Calendar Removal)
 - **Component Deletions**:
@@ -61,27 +62,42 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 - Added `scripts/verify_calendar_qa_scenarios.mjs`: 8 automated acceptance scenarios covering C1–C7 and D2.
 - Updated `package.json`: Chained `node scripts/test_calendar_utils.mjs` into `npm test` and added `test:calendar`.
 
-## 4. Decisions & Deviations
+## 4. Key Changes (Dashboard Tab Rename: `calendar` → `appointment`)
+- **Navigation & Dashboard Shell Updates**:
+  - `components/dashboard/DashboardShell.tsx`:
+    - Updated `DashboardTabId` type union: `"calendar"` → `"appointment"`.
+    - Updated navigation definition: `{ id: "calendar", label: "Calendar", icon: Calendar }` → `{ id: "appointment", label: "Appointment", icon: Calendar }`.
+  - `app/dashboard/page.tsx`:
+    - Updated conditional mounting: `{activeTab === "appointment" && <CalendarTab ... />}`.
+  - `components/dashboard/OverviewTab.tsx`:
+    - Updated navigation actions: replaced `onNavigateTab("calendar")` with `onNavigateTab("appointment")` across Today's Appointments table and Operational Calendar quick actions.
+- **Automated Test Suite Updates**:
+  - `scripts/test_dashboard_shell.mjs`:
+    - Updated Suite 3 ("Navigation & Tab State Logic Simulation") base tabs mock: `{ id: "calendar", label: "Calendar" }` → `{ id: "appointment", label: "Appointment" }`.
+    - Updated tab ID assertions: `["overview", "appointment", "schedule", "appointments", "profile"]`.
+
+## 5. Decisions & Deviations
 - **Conflict Enforcement Policy (Option A — Hard Block)**: Approved by user. Submit handlers reject conflicting slots with informative toasts, and modal submit buttons are disabled when conflicts exist.
 - **Midnight Clamping**: `minutesToTime24` clamps values >= 1440 at `23:59` to prevent silent rollover to 00:xx of the same day.
 - **Dead Code Purge**: `getSlotHourKey` removed from `calendarUtils.ts` (0 usages in codebase).
 - **Working Tree Isolation**: `.agents/agents/` changes (`plan-executor.md`) were kept untouched and deliberately excluded from feature commits per approval.
 - **Deviations**: None.
 
-## 5. Verification Scorecard
+## 6. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
 | **TypeScript Typecheck** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Validation** | `npm run lint` | 🟢 PASS | 0 warnings, 0 errors |
 | **Production Build** | `npm run build` | 🟢 PASS | 8/8 routes compiled |
+| **Dashboard Shell Unit Suite** | `node scripts/test_dashboard_shell.mjs` | 🟢 PASS | 19/19 passed |
 | **Appointments Unit Suite** | `node scripts/test_appointments_comprehensive.mjs` | 🟢 PASS | 30/30 passed |
 | **Calendar Utils Unit Suite** | `node scripts/test_calendar_utils.mjs` | 🟢 PASS | 26/26 passed |
 | **Combined Test Suite** | `npm test` | 🟢 PASS | 56/56 passed |
 | **Acceptance Scenarios (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
 | **Live UI & Backend Connectivity** | `http://localhost:3000/dashboard`, `http://127.0.0.1:8000/docs` | 🟢 PASS | HTTP 200 OK |
 
-## 6. Follow-ups & Rollback
+## 7. Follow-ups & Rollback
 - **Follow-ups (Priority P3)**:
   - Wire live API data from `/api/v1/doctor/calendar` to replace mock `DOCTOR_SCHEDULE` in `constants.ts`.
 - **Rollback**: Clean revert via `git revert` (frontend-only changes; zero DB schema or migration impact).
