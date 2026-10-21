@@ -6,7 +6,12 @@ import Modal from "@/components/ui/Modal";
 import { BlockType } from "../types";
 import { CalendarEvent } from "@/lib/api";
 import { TIME_OPTIONS_30M } from "../constants";
-import { format12Hour, timeToMinutes, isIntervalOverlapping } from "../calendarUtils";
+import {
+  format12Hour,
+  timeToMinutes,
+  addMinutesToTime,
+  isIntervalOverlapping,
+} from "../calendarUtils";
 
 interface BlockTimeModalProps {
   isOpen: boolean;
@@ -44,6 +49,14 @@ export default function BlockTimeModal({
   existingEvents = [],
 }: BlockTimeModalProps) {
   const [isAllDay, setIsAllDay] = useState(false);
+
+  // When start time changes, ensure end time is at least start + 30m
+  const handleStartTimeChange = (newStart: string) => {
+    setStartTime(newStart);
+    if (timeToMinutes(endTime) <= timeToMinutes(newStart)) {
+      setEndTime(addMinutesToTime(newStart, 30));
+    }
+  };
 
   // Toggle All Day
   const handleAllDayToggle = (checked: boolean) => {
@@ -141,7 +154,7 @@ export default function BlockTimeModal({
                 </label>
                 <select
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                   className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   required
                 >
@@ -232,7 +245,7 @@ export default function BlockTimeModal({
           </button>
           <button
             type="submit"
-            disabled={submitting || isInvalidRange}
+            disabled={submitting || isInvalidRange || conflictingAppointments.length > 0}
             className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

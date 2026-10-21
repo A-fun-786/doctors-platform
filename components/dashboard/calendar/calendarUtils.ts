@@ -31,9 +31,9 @@ export function timeToMinutes(time24: string): number {
  * Convert minutes from midnight to 24-hour "HH:MM"
  */
 export function minutesToTime24(minutes: number): string {
-  const normalized = Math.max(0, minutes) % (24 * 60);
-  const h = Math.floor(normalized / 60);
-  const m = normalized % 60;
+  const clamped = Math.min(23 * 60 + 59, Math.max(0, minutes));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
@@ -113,18 +113,6 @@ export function findConflictingEvents(
   });
 }
 
-/**
- * Legacy hour key matcher for backwards compatibility
- */
-export function getSlotHourKey(time24: string): string {
-  if (!time24) return "";
-  const [hStr] = time24.split(":");
-  let h = parseInt(hStr, 10);
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12;
-  if (h === 0) h = 12;
-  return `${h}:00 ${ampm}`;
-}
 
 /**
  * Compute the Monday of the given date (Monday starts the operational week)

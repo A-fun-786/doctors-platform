@@ -160,7 +160,12 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         submitting={modalSubmitting}
         existingEvents={getEventsForDate(modalDate)}
         onSubmit={(e) =>
-          handleAddAvailabilitySubmit(e, refreshCurrentWeek, showToast)
+          handleAddAvailabilitySubmit(
+            e,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
         }
       />
 
@@ -183,7 +188,12 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         submitting={modalSubmitting}
         existingEvents={getEventsForDate(modalDate)}
         onSubmit={(e) =>
-          handleAddAppointmentSubmit(e, refreshCurrentWeek, showToast)
+          handleAddAppointmentSubmit(
+            e,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
         }
       />
 
@@ -203,7 +213,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         setReason={setBlockReason}
         submitting={modalSubmitting}
         existingEvents={getEventsForDate(modalDate)}
-        onSubmit={(e) => handleBlockSubmit(e, refreshCurrentWeek, showToast)}
+        onSubmit={(e) =>
+          handleBlockSubmit(
+            e,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
       />
 
       {/* MODAL: Event Details */}

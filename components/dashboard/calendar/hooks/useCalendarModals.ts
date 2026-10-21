@@ -7,6 +7,7 @@ import {
   CalendarEvent,
 } from "@/lib/api";
 import { BlockType, SelectedEventState } from "../types";
+import { findConflictingEvents, isIntervalOverlapping } from "../calendarUtils";
 
 export function useCalendarModals() {
   // Modal visibility states
@@ -72,7 +73,8 @@ export function useCalendarModals() {
     async (
       e: React.FormEvent,
       onSuccess: () => void,
-      showToast: (msg: string) => void
+      showToast: (msg: string) => void,
+      existingEvents: CalendarEvent[] = []
     ) => {
       e.preventDefault();
       const startParts = modalStartTime.split(":").map(Number);
@@ -86,6 +88,14 @@ export function useCalendarModals() {
       }
       if (endM - startM < 30) {
         showToast("Invalid duration: Minimum availability interval is 30 minutes.");
+        return;
+      }
+
+      const leaveConflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents).filter(
+        (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
+      );
+      if (leaveConflicts.length > 0) {
+        showToast("Cannot add availability: Overlaps with scheduled doctor leave or clinic holiday.");
         return;
       }
 
@@ -113,7 +123,8 @@ export function useCalendarModals() {
     async (
       e: React.FormEvent,
       onSuccess: () => void,
-      showToast: (msg: string) => void
+      showToast: (msg: string) => void,
+      existingEvents: CalendarEvent[] = []
     ) => {
       e.preventDefault();
       const startParts = modalStartTime.split(":").map(Number);
@@ -123,6 +134,14 @@ export function useCalendarModals() {
 
       if (endM <= startM) {
         showToast("Invalid time selection: End time must be after start time.");
+        return;
+      }
+
+      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents);
+      if (conflicts.length > 0) {
+        const first = conflicts[0];
+        const conflictLabel = first.patient_name || first.reason || first.type;
+        showToast(`Cannot book appointment: Time slot conflicts with ${conflictLabel}.`);
         return;
       }
 
@@ -162,7 +181,8 @@ export function useCalendarModals() {
     async (
       e: React.FormEvent,
       onSuccess: () => void,
-      showToast: (msg: string) => void
+      showToast: (msg: string) => void,
+      existingEvents: CalendarEvent[] = []
     ) => {
       e.preventDefault();
       const startParts = modalStartTime.split(":").map(Number);
@@ -172,6 +192,15 @@ export function useCalendarModals() {
 
       if (modalEndTime !== "23:59" && endM <= startM) {
         showToast("Invalid time selection: End time must be after start time.");
+        return;
+      }
+
+      const conflictingAppointments = existingEvents.filter((ev) => {
+        if (ev.type !== "APPOINTMENT" || ev.status === "CANCELLED") return false;
+        return isIntervalOverlapping(modalStartTime, modalEndTime, ev.start, ev.end);
+      });
+      if (conflictingAppointments.length > 0) {
+        showToast(`Cannot block time: ${conflictingAppointments.length} appointment(s) already booked during this time.`);
         return;
       }
 

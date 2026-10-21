@@ -8,6 +8,7 @@ import { TIME_OPTIONS_30M } from "../constants";
 import {
   format12Hour,
   timeToMinutes,
+  addMinutesToTime,
   findConflictingEvents,
 } from "../calendarUtils";
 
@@ -38,6 +39,13 @@ export default function AddAvailabilityModal({
   onSubmit,
   existingEvents = [],
 }: AddAvailabilityModalProps) {
+  // When start time changes, ensure end time is at least start + 30m
+  const handleStartTimeChange = (newStart: string) => {
+    setStartTime(newStart);
+    if (timeToMinutes(endTime) <= timeToMinutes(newStart)) {
+      setEndTime(addMinutesToTime(newStart, 30));
+    }
+  };
   // Compute duration and number of 30-minute slots created
   const { durationMinutes, numSlots, isInvalidRange } = useMemo(() => {
     const startM = timeToMinutes(startTime);
@@ -94,7 +102,7 @@ export default function AddAvailabilityModal({
               </label>
               <select
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
                 className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                 required
               >
@@ -170,7 +178,7 @@ export default function AddAvailabilityModal({
           </button>
           <button
             type="submit"
-            disabled={submitting || isInvalidRange || numSlots === 0}
+            disabled={submitting || isInvalidRange || numSlots === 0 || leaveConflicts.length > 0}
             className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
