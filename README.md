@@ -723,15 +723,12 @@ docspace-platform/
 │   │       │   ├── CalendarSidebar.tsx        # Right-hand panel orchestrator
 │   │       │   ├── MiniCalendar.tsx           # Compact date-picker with active day highlights
 │   │       │   ├── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
-│   │       │   ├── GoogleCalendarCard.tsx     # Google Calendar 2-way sync status
-│   │       │   ├── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
-│   │       │   └── SyncNotificationBanner.tsx # Live sync status alerts
+│   │       │   └── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
 │   │       └── 🪟 modals/
 │   │           ├── AddAppointmentModal.tsx    # Patient consultation booking dialog
 │   │           ├── AddAvailabilityModal.tsx   # Custom availability slot creator
 │   │           ├── BlockTimeModal.tsx         # Leave/holiday time-block dialog
-│   │           ├── EventDetailsModal.tsx      # Detailed event inspection card
-│   │           └── GoogleCalendarModal.tsx    # Google Calendar OAuth & sync configuration
+│   │           └── EventDetailsModal.tsx      # Detailed event inspection card
 │   └── 🧩 ui/
 │       ├── Badge.tsx                # Status badge chip with 6 color variants
 │       ├── Modal.tsx                # Accessible backdrop modal dialog with Esc handler

@@ -1,20 +1,30 @@
-# Progress: Appointments & Schedule Tabs Removal (Phase 1)
+# Progress: Calendar UI Enhancements & Cleanups
 
-**Plan**: `removal-plan.md` | **Base SHA**: `5236fda7a1` | **Branch**: `calendar-ui` | **Status**: Verified ✅
+**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md` | **Base SHA**: `d5f30929a0` | **Branch**: `calendar-ui` | **Status**: Verified ✅
 
 ## 1. Summary & Scope
-Executed Phase 1 (Frontend UI removal) from `removal-plan.md`. Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files). Updated `OverviewTab`, `QuickActionsCard`, and `WorkingHoursCard` to remove broken links, redirecting appointment flows to the unified `CalendarTab`.
+1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
+2. **Google Calendar Sync Removal**: Executed `google_calendar_removal_plan.md`. Completely removed obsolete Google Calendar sync UI scaffolding, buttons, modals, and hooks while strictly preserving Google OAuth Sign-In for doctor authentication and backend calendar scheduling APIs.
 
-## 2. Key Changes
-- **Nav & Routing**: Pruned `schedule` & `appointments` from `DashboardTabId`, `navItems`, and `page.tsx` conditional rendering.
-- **Cross-References**: Redirected `OverviewTab` appointment links to `"calendar"`; converted `OverviewTab` quick actions into a balanced 2-column grid.
-- **Calendar Sidebar**: Stripped dead "Manage Availability" button from `QuickActionsCard`; converted `WorkingHoursCard` into a clean static shift summary without dead click handlers.
-- **Deletions**: Removed `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and all 14 files in `components/dashboard/appointments/`.
+## 2. Key Changes (Google Calendar Removal)
+- **Component Deletions**:
+  - `components/dashboard/calendar/sidebar/GoogleCalendarCard.tsx` (sidebar sync status widget)
+  - `components/dashboard/calendar/modals/GoogleCalendarModal.tsx` (mock settings & sync modal)
+  - `components/dashboard/calendar/sidebar/SyncNotificationBanner.tsx` (static sync notification banner)
+- **Component & Hook Updates**:
+  - `QuickActionsCard.tsx`: Removed `onSyncGoogle`, `syncingGoogle` props, `RotateCw` icon, and the "Sync with Google Calendar" action button.
+  - `CalendarSidebar.tsx`: Pruned deleted card imports and unused props (`onOpenGoogleModal`, `onSyncGoogle`, `syncingGoogle`).
+  - `useCalendarData.ts`: Removed `syncingGoogle` state and `handleSyncGoogle()` callback.
+  - `useCalendarModals.ts`: Removed `showGoogleModal` state and `openGoogleModal()` callback.
+  - `CalendarTab.tsx`: Removed `GoogleCalendarModal` import/rendering and pruned Google sync props/destructuring.
+- **Documentation**:
+  - Updated `CALENDAR_UI_DOCUMENTATION.md` (removed Section 10 & 12.5, updated Quick Actions, and renumbered sections).
+  - Updated `README.md` calendar component hierarchy tree.
 
 ## 3. Decisions & Deviations
-- **Redirect vs Delete**: Pointed Overview appointment links to Calendar instead of removing them, maintaining easy access to bookings.
-- **Static Working Hours**: Kept shift hours visible on the sidebar as static info rather than deleting the entire card.
-- **Unused Icons**: Cleaned up unused Lucide imports (`Clock`, `ClipboardList`) to adhere to strict ESLint zero-warning policy.
+- **Google OAuth Login Preserved**: Google OAuth authentication endpoints (`/api/v1/auth/google`, `GoogleAuthForm.tsx`) remain untouched.
+- **Doctor Calendar Backend Preserved**: `backend/app/services/calendar_service.py` and `/api/v1/doctor/calendar` remain operational for direct clinical scheduling.
+- **ESLint & TypeScript Zero-Tolerance**: All unused imports, variables, and props cleanly purged with 0 warnings/errors.
 - **Deviations**: None.
 
 ## 4. Verification Scorecard
@@ -24,12 +34,10 @@ Executed Phase 1 (Frontend UI removal) from `removal-plan.md`. Removed obsolete 
 | **TypeScript Typecheck** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Validation** | `npm run lint` | 🟢 PASS | 0 warnings, 0 errors |
 | **Production Build** | `npm run build` | 🟢 PASS | 8/8 routes compiled |
-| **Backend Suite** | `pytest backend/tests` | 🟢 PASS | 124 passed |
 | **UI & Logic Tests** | `npm test` | 🟢 PASS | 30/30 passed |
-| **Live Server E2E** | `npm run test:live` | 🟢 PASS | 24/24 passed |
-| **Manual Flow Verification** | Local HTTP (Ports 8000 & 3000) | 🟢 PASS | Auth, Calendar events, Public booking |
+| **Live UI & Bundle Check** | `http://localhost:3001/dashboard` | 🟢 PASS | Google Calendar elements absent; Quick Actions verified |
 
 ## 5. Follow-ups & Rollback
-- **Follow-ups**: Phase 2 (lib/api.ts cleanup) and Phase 3 (backend routes/models cleanup) are optional.
-- **Rollback**: `git revert HEAD` (no DB schema changes; zero data impact).
+- **Follow-ups**: None.
+- **Rollback**: Clean revert via `git revert` (frontend-only changes; zero DB schema or migration impact).
 

@@ -15,7 +15,6 @@ export function useCalendarData() {
   const [selectedDate, setSelectedDate] = useState<string>("2026-10-19");
   const [viewMode, setViewMode] = useState<CalendarViewMode>("week");
   const [loading, setLoading] = useState(false);
-  const [syncingGoogle, setSyncingGoogle] = useState(false);
   const [apiCalendarData, setApiCalendarData] = useState<Record<string, CalendarEvent[]>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -100,22 +99,6 @@ export function useCalendarData() {
     setSelectedDate(newDate);
   }, [selectedDate]);
 
-  // Google Calendar Manual Sync trigger
-  const handleSyncGoogle = useCallback(async () => {
-    logger.action("Calendar", "Doctor clicked 'Sync Google Calendar'");
-    setSyncingGoogle(true);
-    try {
-      if (currentWeekDays.length > 0) {
-        await fetchCalendar(currentWeekDays[0].dateStr, currentWeekDays[6].dateStr);
-      }
-      showToast("Google Calendar synced successfully! Events are up to date.");
-      logger.info("Calendar", "Google Calendar manual sync completed successfully");
-    } catch (err: unknown) {
-      logger.error("Failed to sync Google Calendar", err, undefined, "Calendar");
-    } finally {
-      setSyncingGoogle(false);
-    }
-  }, [currentWeekDays, fetchCalendar, showToast]);
 
   // Merge backend events with visual demo schedule
   const getEventsForDate = useCallback(
@@ -141,7 +124,6 @@ export function useCalendarData() {
     viewMode,
     setViewMode,
     loading,
-    syncingGoogle,
     toastMessage,
     showToast,
     miniCalMonth,
@@ -151,7 +133,6 @@ export function useCalendarData() {
     miniCalDays,
     handlePrevWeek,
     handleNextWeek,
-    handleSyncGoogle,
     getEventsForDate,
     refreshCurrentWeek,
   };

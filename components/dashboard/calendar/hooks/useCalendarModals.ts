@@ -13,7 +13,6 @@ export function useCalendarModals() {
   const [showAddAvailabilityModal, setShowAddAvailabilityModal] = useState(false);
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventState | null>(null);
 
   // Common Form states
@@ -63,10 +62,6 @@ export function useCalendarModals() {
     },
     []
   );
-
-  const openGoogleModal = useCallback(() => {
-    setShowGoogleModal(true);
-  }, []);
 
   const openEventDetails = useCallback((event: CalendarEvent, date: string) => {
     setSelectedEvent({ event, date });
@@ -210,8 +205,6 @@ export function useCalendarModals() {
     setShowAddAppointmentModal,
     showBlockModal,
     setShowBlockModal,
-    showGoogleModal,
-    setShowGoogleModal,
     selectedEvent,
     setSelectedEvent,
 
@@ -238,7 +231,6 @@ export function useCalendarModals() {
     openAddAvailability,
     openAddAppointment,
     openBlockModal,
-    openGoogleModal,
     openEventDetails,
     handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,

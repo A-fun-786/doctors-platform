@@ -17,15 +17,14 @@
 7. [Event Cards — Appointment, Available, Blocked / Follow-up](#7-event-cards)
 8. [Working Hours Panel](#8-working-hours-panel)
 9. [Mini Calendar (Right Sidebar)](#9-mini-calendar-right-sidebar)
-10. [Google Calendar Integration Card](#10-google-calendar-integration-card)
-11. [Quick Actions Panel](#11-quick-actions-panel)
-12. [Modals — Full Workflow](#12-modals)
-13. [Demo Data and API Fallback Strategy](#13-demo-data-and-api-fallback-strategy)
-14. [API Layer Used by CalendarTab](#14-api-layer-used-by-calendartab)
-15. [Navigation and Tab Integration](#15-navigation-and-tab-integration)
-16. [Toast Notification System](#16-toast-notification-system)
-17. [Responsive Layout](#17-responsive-layout)
-18. [Existing Functionality Affected by Changes](#18-existing-functionality-affected-by-changes)
+10. [Quick Actions Panel](#10-quick-actions-panel)
+11. [Modals — Full Workflow](#11-modals)
+12. [Demo Data and API Fallback Strategy](#12-demo-data-and-api-fallback-strategy)
+13. [API Layer Used by CalendarTab](#13-api-layer-used-by-calendartab)
+14. [Navigation and Tab Integration](#14-navigation-and-tab-integration)
+15. [Toast Notification System](#15-toast-notification-system)
+16. [Responsive Layout](#16-responsive-layout)
+17. [Existing Functionality Affected by Changes](#17-existing-functionality-affected-by-changes)
 
 ---
 
@@ -45,7 +44,6 @@ The **Calendar Tab** is the primary scheduling dashboard for the doctor portal. 
 | **Appointment booking** | Doctor can book patient appointments directly from the calendar |
 | **Blocking** | Doctor can mark time as BLOCKED, LEAVE, or HOLIDAY |
 | **Mini calendar** | Sidebar mini calendar for month navigation and date jumping |
-| **Google Calendar** | Status card and management modal for Google Calendar sync |
 | **Quick actions** | Sidebar panel with fast shortcuts to common actions |
 | **Toast notifications** | Bottom-right toast feedback for all create/sync operations |
 
@@ -72,14 +70,11 @@ The Calendar system was refactored from a monolithic 2,000+ line component into 
 | `components/dashboard/calendar/sidebar/CalendarSidebar.tsx` | Sidebar Container | Orchestrates all contextual widgets in the right-hand panel |
 | `components/dashboard/calendar/sidebar/MiniCalendar.tsx` | Sidebar Widget | Compact month calendar date-picker with active day highlights and event markers |
 | `components/dashboard/calendar/sidebar/WorkingHoursCard.tsx` | Sidebar Widget | Active clinical hours summary with one-click routing to `/schedule` |
-| `components/dashboard/calendar/sidebar/GoogleCalendarCard.tsx` | Sidebar Widget | External Google Calendar sync status, last-sync indicator, and sync modal trigger |
 | `components/dashboard/calendar/sidebar/QuickActionsCard.tsx` | Sidebar Widget | Fast shortcuts to add availability, block time, or jump to appointments |
-| `components/dashboard/calendar/sidebar/SyncNotificationBanner.tsx` | Sidebar Widget | Alert banner notifying doctor of background sync status and updates |
 | `components/dashboard/calendar/modals/AddAppointmentModal.tsx` | Modal Dialog | Doctor booking modal for creating patient consultations directly on the calendar |
 | `components/dashboard/calendar/modals/AddAvailabilityModal.tsx` | Modal Dialog | Modal dialog to configure custom available clinical time blocks |
 | `components/dashboard/calendar/modals/BlockTimeModal.tsx` | Modal Dialog | Modal dialog for blocking personal time, leaves, or clinical holidays |
 | `components/dashboard/calendar/modals/EventDetailsModal.tsx` | Modal Dialog | Read/action card displaying full appointment details, patient phone, and status |
-| `components/dashboard/calendar/modals/GoogleCalendarModal.tsx` | Modal Dialog | Configuration modal for managing 2-way Google Calendar integration |
 
 ### Shared UI System Components (`components/ui/`)
 
@@ -127,7 +122,7 @@ app/dashboard/page.tsx
                 │   └── fetchCalendar(), navigateDate(), setViewMode()
                 │
                 ├── [Hook] useCalendarModals(doctor.id, calendarData, onRefresh)
-                │   ├── modal states: addAppt, addAvail, blockTime, googleSync, eventDetails
+                │   ├── modal states: addAppt, addAvail, blockTime, eventDetails
                 │   └── handlers: submitAppointment(), submitAvailability(), submitBlock()
                 │
                 ├── Toast (message, type)
@@ -135,7 +130,7 @@ app/dashboard/page.tsx
                 ├── CalendarHeader
                 │   ├── Date range navigation (Prev, Next, Today)
                 │   ├── View mode toggles (Day, Week, Month)
-                │   └── Primary action buttons ("+ Slot", "+ Appointment", "Sync")
+                │   └── Primary action buttons ("+ Slot", "+ Appointment")
                 │
                 ├── Main 2-Column Responsive Layout (xl:grid-cols-12)
                 │   │
@@ -146,18 +141,15 @@ app/dashboard/page.tsx
                 │   │
                 │   └── Right Column (xl:col-span-3) — Sidebar Panel
                 │       └── CalendarSidebar
-                │           ├── SyncNotificationBanner
                 │           ├── MiniCalendar (month picker with active day highlight)
                 │           ├── WorkingHoursCard (quick jump to /schedule)
-                │           ├── GoogleCalendarCard (sync status and modal trigger)
                 │           └── QuickActionsCard (instant modal launchers)
                 │
                 └── Modals Layer (Rendered conditionally via useCalendarModals)
                     ├── AddAppointmentModal
                     ├── AddAvailabilityModal
                     ├── BlockTimeModal
-                    ├── EventDetailsModal
-                    └── GoogleCalendarModal
+                    └── EventDetailsModal
 ```
 
 ### Data Flow Summary
@@ -202,7 +194,6 @@ All state lives in the single `CalendarTab` component. No custom hooks or contex
 | State | Type | Default | Purpose |
 |---|---|---|---|
 | `loading` | `boolean` | `false` | Tracks API calendar fetch in progress |
-| `syncingGoogle` | `boolean` | `false` | Tracks Google sync in progress (spins the RotateCw icon) |
 | `apiCalendarData` | `Record<string, CalendarEvent[]>` | `{}` | Live events indexed by ISO date string |
 | `error` | `string \| null` | `null` | API error (currently console.warn only, not shown in UI) |
 | `toastMessage` | `string \| null` | `null` | Controls bottom-right toast; auto-clears after 4 000 ms |
@@ -214,7 +205,6 @@ All state lives in the single `CalendarTab` component. No custom hooks or contex
 | `showAddAvailabilityModal` | `boolean` | `false` | Add Availability modal |
 | `showAddAppointmentModal` | `boolean` | `false` | Book Patient Appointment modal |
 | `showBlockModal` | `boolean` | `false` | Block Time / Leave modal |
-| `showGoogleModal` | `boolean` | `false` | Google Calendar Settings modal |
 | `selectedEvent` | `{event: CalendarEvent; date: string} \| null` | `null` | Holds selected event for Event Detail modal |
 
 ### Shared Modal Form State
@@ -404,37 +394,18 @@ Clicking any day sets `selectedDate` to that ISO date string. The week view re-d
 
 ---
 
-## 10. Google Calendar Integration Card
+## 10. Quick Actions Panel
 
-Located in the right sidebar as card #3.
-
-Shows the official Google "G" logo (inlined 4-colour SVG paths — no external image dependency), the text "Google Calendar", and a green dot with "Connected" status.
-
-A **"Manage"** button opens the Google Calendar Settings modal.
-
-> The connected status is always shown as "Connected". There is no runtime check for whether Google Calendar is actually linked. This is a UI placeholder for a future OAuth integration.
-
----
-
-## 11. Quick Actions Panel
-
-Located in the right sidebar as card #4. Four action buttons:
+Located in the right sidebar. Action buttons:
 
 | Label | Icon | Action Triggered |
 |---|---|---|
 | Add Appointment | `<CalendarDays />` | Sets `modalDate = selectedDate`, opens Appointment modal |
 | Block Time / Leave | `<Ban />` | Sets `modalDate = selectedDate`, opens Block modal |
-| Manage Availability | `<Clock />` | Calls `onNavigateTab("schedule")` |
-| Sync with Google Calendar | `<RotateCw />` | Calls `handleSyncGoogle()` — icon animates with `animate-spin` while syncing |
-
-Below the panel, a static **Sync Notification Banner** (emerald) reads:
-> "Your schedule is synced with Google Calendar. Changes will be reflected in both calendars."
-
-This is a static message. It does not reflect actual sync state.
 
 ---
 
-## 12. Modals
+## 11. Modals
 
 All modals share the same base style:
 - `fixed inset-0 z-50` full-screen overlay with `bg-slate-900/40 backdrop-blur-xs`
@@ -521,25 +492,7 @@ All modals share the same base style:
 
 ---
 
-### 12.5 Google Calendar Settings Modal
-
-**Trigger:** "Manage" button in the Google Calendar card  
-**No API call for settings persistence.**
-
-**Sections:**
-- Connected Account block — shows `doctor.email` in monospace font; "Active" emerald badge
-- Two-way Sync toggle — checkbox (defaultChecked), not wired to backend
-- Push Notifications toggle — checkbox (defaultChecked), not wired to backend
-
-**Actions:**
-- "Done" — closes modal
-- "Sync Now" — calls `handleSyncGoogle()` (re-fetches calendar and shows toast), then closes modal
-
-> The toggle checkboxes are UI scaffolding only. Settings are not persisted. This modal is prepared for a future Google Calendar OAuth + settings API.
-
----
-
-## 13. Demo Data and API Fallback Strategy
+## 12. Demo Data and API Fallback Strategy
 
 `CalendarTab` implements a **graceful degradation** pattern for the live API:
 
@@ -567,7 +520,7 @@ This means:
 
 ---
 
-## 14. API Layer Used by CalendarTab
+## 13. API Layer Used by CalendarTab
 
 All imports are from `lib/api.ts`.
 
@@ -575,7 +528,7 @@ All imports are from `lib/api.ts`.
 
 | Type | Shape | Used For |
 |---|---|---|
-| `DoctorMeResponse` | `{ id, full_name, email, phone?, avatar_url?, speciality?, bio?, onboarding_completed, auth_provider, tenant? }` | Prop; `doctor.email` shown in Google Settings modal |
+| `DoctorMeResponse` | `{ id, full_name, email, phone?, avatar_url?, speciality?, bio?, onboarding_completed, auth_provider, tenant? }` | Prop; doctor profile details |
 | `CalendarEvent` | `{ type: ScheduleType \| "APPOINTMENT", start, end, reason?, patient_name?, status?, appointment_id? }` | Single event block in any time slot |
 | `CalendarDay` | `{ date: string, events: CalendarEvent[] }` | One day from calendar API response |
 | `DoctorCalendarResponse` | `{ dates: CalendarDay[] }` | Full response from `getDoctorCalendar` |
@@ -585,14 +538,14 @@ All imports are from `lib/api.ts`.
 
 | Function | Endpoint | When Called in CalendarTab |
 |---|---|---|
-| `getDoctorCalendar(from, to)` | `GET /api/v1/doctor/calendar?from=&to=` | Mount, week navigation, after any create action, on Google sync |
+| `getDoctorCalendar(from, to)` | `GET /api/v1/doctor/calendar?from=&to=` | Mount, week navigation, after any create action |
 | `createDoctorSchedule(payload)` | `POST /api/v1/doctor/schedule` | Add Availability modal submit; Block Time modal submit |
 | `createAppointment(payload)` | `POST /api/v1/doctor/appointments` | Book Patient Appointment modal submit |
 | `deleteDoctorSchedule` | `DELETE /api/v1/doctor/schedule/:id` | Imported but **not used** in CalendarTab (used by ScheduleTab) |
 
 ---
 
-## 15. Navigation and Tab Integration
+## 14. Navigation and Tab Integration
 
 ### How CalendarTab is Mounted
 
@@ -625,7 +578,7 @@ export type DashboardTabId =
 
 ---
 
-## 16. Toast Notification System
+## 15. Toast Notification System
 
 CalendarTab implements its own lightweight toast (no external dependency):
 
@@ -644,12 +597,11 @@ const showToast = (msg: string) => {
 - Add Availability success: `"Availability added successfully!"`
 - Book Appointment success: `"Appointment booked for {name}!"`
 - Block submit success: `"{blockType} added successfully!"`
-- Google sync complete: `"Google Calendar synced successfully! Events are up to date."`
 - Any API error: the `.message` from the caught Error
 
 ---
 
-## 17. Responsive Layout
+## 16. Responsive Layout
 
 | Breakpoint | Behaviour |
 |---|---|
@@ -660,7 +612,7 @@ const showToast = (msg: string) => {
 
 ---
 
-## 18. Existing Functionality Affected by Changes
+## 17. Existing Functionality Affected by Changes
 
 ### `ScheduleTab.tsx` — Navigation Target
 CalendarTab does not modify `ScheduleTab.tsx`, but it now navigates to it via `onNavigateTab("schedule")`. The Schedule tab remains the authoritative UI for creating and deleting real working hours entries. The Working Hours card in CalendarTab is a static display shortcut only.
@@ -679,7 +631,7 @@ Appointments created through CalendarTab's Book Appointment modal create real `A
 
 ---
 
-## 19. Telemetry & Production In-Memory Ring-Buffer Logging
+## 18. Telemetry & Production In-Memory Ring-Buffer Logging
 
 The platform features a zero-dependency, high-performance in-memory logging system located in [`lib/logger.ts`](file:///c:/Users/alam292/OneDrive/Desktop/doctors-platform-main/lib/logger.ts).
 

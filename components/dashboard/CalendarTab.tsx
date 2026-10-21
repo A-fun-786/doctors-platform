@@ -14,7 +14,6 @@ import AddAvailabilityModal from "./calendar/modals/AddAvailabilityModal";
 import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
 import BlockTimeModal from "./calendar/modals/BlockTimeModal";
 import EventDetailsModal from "./calendar/modals/EventDetailsModal";
-import GoogleCalendarModal from "./calendar/modals/GoogleCalendarModal";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
@@ -23,7 +22,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setSelectedDate,
     viewMode,
     setViewMode,
-    syncingGoogle,
     toastMessage,
     showToast,
     miniCalMonth,
@@ -33,7 +31,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     miniCalDays,
     handlePrevWeek,
     handleNextWeek,
-    handleSyncGoogle,
     getEventsForDate,
     refreshCurrentWeek,
   } = useCalendarData();
@@ -46,8 +43,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setShowAddAppointmentModal,
     showBlockModal,
     setShowBlockModal,
-    showGoogleModal,
-    setShowGoogleModal,
     selectedEvent,
     setSelectedEvent,
     modalDate,
@@ -70,7 +65,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     openAddAvailability,
     openAddAppointment,
     openBlockModal,
-    openGoogleModal,
     openEventDetails,
     handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,
@@ -142,13 +136,12 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           )}
         </div>
 
-        {/* Right Column: Mini Calendar, Working Hours, Google Calendar, Quick Actions */}
+        {/* Right Column: Mini Calendar, Working Hours, Quick Actions */}
         <CalendarSidebar
           miniCalMonth={miniCalMonth}
           setMiniCalMonth={setMiniCalMonth}
           miniCalDays={miniCalDays}
           onSelectDate={setSelectedDate}
-          onOpenGoogleModal={openGoogleModal}
           onAddAppointment={() => openAddAppointment(selectedDate)}
           onBlockTime={() => openBlockModal(selectedDate)}
         />
@@ -217,14 +210,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
       <EventDetailsModal
         selectedEvent={selectedEvent}
         onClose={() => setSelectedEvent(null)}
-      />
-
-      {/* MODAL: Google Calendar Management */}
-      <GoogleCalendarModal
-        isOpen={showGoogleModal}
-        onClose={() => setShowGoogleModal(false)}
-        doctorEmail={doctor.email}
-        onSync={handleSyncGoogle}
       />
     </div>
   );
