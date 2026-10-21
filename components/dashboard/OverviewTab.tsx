@@ -211,7 +211,7 @@ export default function OverviewTab({
           </div>
           <button
             type="button"
-            onClick={() => onNavigateTab("appointments")}
+            onClick={() => onNavigateTab("calendar")}
             className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
           >
             <span>View All</span>
@@ -234,10 +234,10 @@ export default function OverviewTab({
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => onNavigateTab("appointments")}
+                onClick={() => onNavigateTab("calendar")}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
               >
-                <span>+ Create Appointment</span>
+                <span>View Calendar</span>
               </button>
             </div>
           </div>
@@ -284,7 +284,7 @@ export default function OverviewTab({
       </div>
 
       {/* Quick Actions Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           type="button"
           onClick={() => onNavigateTab("calendar")}
@@ -300,24 +300,6 @@ export default function OverviewTab({
           </div>
           <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
             <Calendar className="w-4 h-4" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateTab("schedule")}
-          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
-        >
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Manage Working Hours
-            </h3>
-            <p className="text-xs text-slate-500">
-              Define daily consultation windows and configure leaves, holidays, or blocked slots.
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4" />
           </div>
         </button>
 

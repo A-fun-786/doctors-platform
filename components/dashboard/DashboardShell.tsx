@@ -6,8 +6,6 @@ import {
   Activity,
   LayoutDashboard,
   Calendar,
-  Clock,
-  ClipboardList,
   User,
   Smartphone,
   LogOut,
@@ -17,8 +15,6 @@ import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "
 export type DashboardTabId =
   | "overview"
   | "calendar"
-  | "schedule"
-  | "appointments"
   | "profile"
   | "android";
 
@@ -45,8 +41,6 @@ export default function DashboardShell({
   const navItems: { id: DashboardTabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "calendar", label: "Calendar", icon: Calendar },
-    { id: "schedule", label: "Schedule", icon: Clock },
-    { id: "appointments", label: "Appointments", icon: ClipboardList },
     { id: "profile", label: "Profile", icon: User },
   ];
 
