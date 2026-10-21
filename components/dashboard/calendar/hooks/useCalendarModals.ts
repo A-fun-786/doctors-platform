@@ -80,6 +80,20 @@ export function useCalendarModals() {
       showToast: (msg: string) => void
     ) => {
       e.preventDefault();
+      const startParts = modalStartTime.split(":").map(Number);
+      const endParts = modalEndTime.split(":").map(Number);
+      const startM = (startParts[0] || 0) * 60 + (startParts[1] || 0);
+      const endM = (endParts[0] || 0) * 60 + (endParts[1] || 0);
+
+      if (endM <= startM) {
+        showToast("Invalid time selection: End time must be after start time.");
+        return;
+      }
+      if (endM - startM < 30) {
+        showToast("Invalid duration: Minimum availability interval is 30 minutes.");
+        return;
+      }
+
       setModalSubmitting(true);
       try {
         await createDoctorSchedule({
@@ -107,6 +121,16 @@ export function useCalendarModals() {
       showToast: (msg: string) => void
     ) => {
       e.preventDefault();
+      const startParts = modalStartTime.split(":").map(Number);
+      const endParts = modalEndTime.split(":").map(Number);
+      const startM = (startParts[0] || 0) * 60 + (startParts[1] || 0);
+      const endM = (endParts[0] || 0) * 60 + (endParts[1] || 0);
+
+      if (endM <= startM) {
+        showToast("Invalid time selection: End time must be after start time.");
+        return;
+      }
+
       setModalSubmitting(true);
       try {
         await createAppointment({
@@ -117,7 +141,7 @@ export function useCalendarModals() {
           end_time: modalEndTime,
           reason: newApptReason || undefined,
         });
-        showToast(`Appointment booked for ${newPatientName}!`);
+        showToast(`Appointment booked for ${newPatientName} (${modalStartTime} – ${modalEndTime})!`);
         setShowAddAppointmentModal(false);
         setNewPatientName("");
         setNewPatientContact("");
@@ -146,6 +170,16 @@ export function useCalendarModals() {
       showToast: (msg: string) => void
     ) => {
       e.preventDefault();
+      const startParts = modalStartTime.split(":").map(Number);
+      const endParts = modalEndTime.split(":").map(Number);
+      const startM = (startParts[0] || 0) * 60 + (startParts[1] || 0);
+      const endM = (endParts[0] || 0) * 60 + (endParts[1] || 0);
+
+      if (modalEndTime !== "23:59" && endM <= startM) {
+        showToast("Invalid time selection: End time must be after start time.");
+        return;
+      }
+
       setModalSubmitting(true);
       try {
         await createDoctorSchedule({
@@ -155,7 +189,7 @@ export function useCalendarModals() {
           type: blockType,
           reason: blockReason || undefined,
         });
-        showToast(`${blockType} added successfully!`);
+        showToast(`${blockType} recorded successfully for ${modalDate}!`);
         setShowBlockModal(false);
         setBlockReason("");
         onSuccess();

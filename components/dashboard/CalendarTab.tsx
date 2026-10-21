@@ -79,11 +79,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
 
   // Quick slot create on hover in WeekView
   const handleQuickAddSlot = useCallback(
-    (dateStr: string, timeRow: string) => {
-      const hourNum = parseInt(timeRow.split(":")[0], 10);
-      const isPM = timeRow.includes("PM") && hourNum !== 12;
-      const startH = (isPM ? hourNum + 12 : hourNum).toString().padStart(2, "0");
-      openAddAvailability(dateStr, `${startH}:00`, `${startH}:30`);
+    (dateStr: string, start: string, end: string) => {
+      openAddAvailability(dateStr, start, end);
     },
     [openAddAvailability]
   );
@@ -168,6 +165,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         endTime={modalEndTime}
         setEndTime={setModalEndTime}
         submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
         onSubmit={(e) =>
           handleAddAvailabilitySubmit(e, refreshCurrentWeek, showToast)
         }
@@ -190,6 +188,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         reason={newApptReason}
         setReason={setNewApptReason}
         submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
         onSubmit={(e) =>
           handleAddAppointmentSubmit(e, refreshCurrentWeek, showToast)
         }
@@ -210,6 +209,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         reason={blockReason}
         setReason={setBlockReason}
         submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
         onSubmit={(e) => handleBlockSubmit(e, refreshCurrentWeek, showToast)}
       />
 

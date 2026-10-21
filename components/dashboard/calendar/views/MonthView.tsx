@@ -28,6 +28,9 @@ export default function MonthView({
           const evs = getEventsForDate(cell.dateStr);
           const appts = evs.filter((e) => e.type === "APPOINTMENT").length;
           const avails = evs.filter((e) => e.type === "AVAILABLE").length;
+          const leaves = evs.filter(
+            (e) => e.type === "LEAVE" || e.type === "HOLIDAY" || e.type === "BLOCKED"
+          ).length;
 
           return (
             <div
@@ -43,9 +46,14 @@ export default function MonthView({
             >
               <div className="text-xs font-bold text-slate-800 mb-1">{cell.dayNum}</div>
               <div className="space-y-1">
+                {leaves > 0 && (
+                  <div className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-medium truncate">
+                    {leaves} Leave/Block
+                  </div>
+                )}
                 {appts > 0 && (
                   <div className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-medium truncate">
-                    {appts} Booked
+                    {appts} Booked (30m)
                   </div>
                 )}
                 {avails > 0 && (

@@ -18,6 +18,8 @@ export default function EventDetailsModal({
   if (!selectedEvent) return null;
 
   const { event, date } = selectedEvent;
+  const isLeave = event.type === "LEAVE" || event.type === "HOLIDAY";
+  const isBlocked = event.type === "BLOCKED";
 
   return (
     <Modal
@@ -25,8 +27,16 @@ export default function EventDetailsModal({
       onClose={onClose}
       maxWidth="sm"
       title={
-        <span className="text-xs uppercase tracking-wider font-bold text-blue-600">
-          {event.type}
+        <span
+          className={`text-xs uppercase tracking-wider font-bold ${
+            isLeave
+              ? "text-amber-600"
+              : isBlocked
+              ? "text-purple-600"
+              : "text-blue-600"
+          }`}
+        >
+          {event.type === "LEAVE" ? "Doctor Leave" : event.type === "HOLIDAY" ? "Clinic Holiday" : event.type}
         </span>
       }
     >

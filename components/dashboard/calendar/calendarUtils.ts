@@ -1,3 +1,4 @@
+import { CalendarEvent } from "@/lib/api";
 import { WeekDayItem, MiniCalDayItem, DayStatusInfo } from "./types";
 import { DAY_NAMES } from "./constants";
 
@@ -16,7 +17,104 @@ export function format12Hour(time24: string): string {
 }
 
 /**
- * Match a slot start time (e.g. "10:00") to the time row hourly label (e.g. "10:00 AM")
+ * Convert 24-hour time "HH:MM" to minutes from midnight
+ */
+export function timeToMinutes(time24: string): number {
+  if (!time24) return 0;
+  const [hStr, mStr] = time24.split(":");
+  const h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+  return h * 60 + m;
+}
+
+/**
+ * Convert minutes from midnight to 24-hour "HH:MM"
+ */
+export function minutesToTime24(minutes: number): string {
+  const normalized = Math.max(0, minutes) % (24 * 60);
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Add minutes (default 30) to a 24-hour "HH:MM" string
+ */
+export function addMinutesToTime(time24: string, mins: number = 30): string {
+  return minutesToTime24(timeToMinutes(time24) + mins);
+}
+
+/**
+ * Match a slot start time (e.g. "10:30") to a 30-minute row label (e.g. "10:30 AM")
+ */
+export function getSlot30MinKey(time24: string): string {
+  if (!time24) return "";
+  return format12Hour(time24);
+}
+
+/**
+ * Given a time row label (e.g. "9:30 AM"), return its 24-hour start and end bounds
+ */
+export function getTimeRowRange(timeRow: string): { start: string; end: string } {
+  const [timePart, ampm] = timeRow.split(" ");
+  const [hStr, mStr] = (timePart || "9:00").split(":");
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr || "0", 10);
+  if (ampm === "PM" && h !== 12) h += 12;
+  if (ampm === "AM" && h === 12) h = 0;
+  const start = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  const end = addMinutesToTime(start, 30);
+  return { start, end };
+}
+
+/**
+ * Check if two time intervals [startA, endA) and [startB, endB) overlap
+ */
+export function isIntervalOverlapping(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string
+): boolean {
+  const a1 = timeToMinutes(startA);
+  let a2 = timeToMinutes(endA);
+  if (a2 <= a1) a2 = 24 * 60; // handles full day or midnight
+  const b1 = timeToMinutes(startB);
+  let b2 = timeToMinutes(endB);
+  if (b2 <= b1) b2 = 24 * 60;
+  return a1 < b2 && a2 > b1;
+}
+
+/**
+ * Check if a calendar event overlaps with a given 30-minute slot window
+ */
+export function doesEventOverlapSlot(
+  event: CalendarEvent,
+  slotStart: string,
+  slotEnd: string
+): boolean {
+  return isIntervalOverlapping(event.start, event.end, slotStart, slotEnd);
+}
+
+/**
+ * Find conflicting booked appointments or doctor leaves that collide with a target window
+ */
+export function findConflictingEvents(
+  start: string,
+  end: string,
+  events: CalendarEvent[]
+): CalendarEvent[] {
+  return events.filter((ev) => {
+    if (ev.status === "CANCELLED") return false;
+    // AVAILABLE slots are not conflicts for new appointments/availability;
+    // APPOINTMENT, LEAVE, HOLIDAY, BLOCKED are blocking conflicts.
+    if (ev.type === "AVAILABLE") return false;
+    return isIntervalOverlapping(start, end, ev.start, ev.end);
+  });
+}
+
+/**
+ * Legacy hour key matcher for backwards compatibility
  */
 export function getSlotHourKey(time24: string): string {
   if (!time24) return "";
