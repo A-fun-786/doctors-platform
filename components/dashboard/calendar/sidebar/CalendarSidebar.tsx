@@ -7,14 +7,12 @@ import GoogleCalendarCard from "./GoogleCalendarCard";
 import QuickActionsCard from "./QuickActionsCard";
 import SyncNotificationBanner from "./SyncNotificationBanner";
 import { MiniCalDayItem } from "../types";
-import { DashboardTabId } from "../../DashboardShell";
 
 interface CalendarSidebarProps {
   miniCalMonth: Date;
   setMiniCalMonth: React.Dispatch<React.SetStateAction<Date>>;
   miniCalDays: MiniCalDayItem[];
   onSelectDate: (dateStr: string) => void;
-  onNavigateTab?: (tab: DashboardTabId) => void;
   onOpenGoogleModal: () => void;
   onAddAppointment: () => void;
   onBlockTime: () => void;
@@ -27,7 +25,6 @@ export default function CalendarSidebar({
   setMiniCalMonth,
   miniCalDays,
   onSelectDate,
-  onNavigateTab,
   onOpenGoogleModal,
   onAddAppointment,
   onBlockTime,
@@ -43,14 +40,13 @@ export default function CalendarSidebar({
         onSelectDate={onSelectDate}
       />
 
-      <WorkingHoursCard onNavigateTab={onNavigateTab} />
+      <WorkingHoursCard />
 
       <GoogleCalendarCard onManage={onOpenGoogleModal} />
 
       <QuickActionsCard
         onAddAppointment={onAddAppointment}
         onBlockTime={onBlockTime}
-        onNavigateTab={onNavigateTab}
         onSyncGoogle={onSyncGoogle}
         syncingGoogle={syncingGoogle}
       />

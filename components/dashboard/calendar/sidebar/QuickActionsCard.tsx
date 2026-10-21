@@ -1,13 +1,11 @@
 "use client";
 
 import React from "react";
-import { CalendarDays, Ban, Clock, RotateCw } from "lucide-react";
-import { DashboardTabId } from "../../DashboardShell";
+import { CalendarDays, Ban, RotateCw } from "lucide-react";
 
 interface QuickActionsCardProps {
   onAddAppointment: () => void;
   onBlockTime: () => void;
-  onNavigateTab?: (tab: DashboardTabId) => void;
   onSyncGoogle: () => void;
   syncingGoogle: boolean;
 }
@@ -15,7 +13,6 @@ interface QuickActionsCardProps {
 export default function QuickActionsCard({
   onAddAppointment,
   onBlockTime,
-  onNavigateTab,
   onSyncGoogle,
   syncingGoogle,
 }: QuickActionsCardProps) {
@@ -39,15 +36,6 @@ export default function QuickActionsCard({
       >
         <Ban className="w-4 h-4 text-slate-500 group-hover:text-amber-600" />
         <span>Block Time / Leave</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onNavigateTab?.("schedule")}
-        className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-all group"
-      >
-        <Clock className="w-4 h-4 text-slate-500 group-hover:text-emerald-600" />
-        <span>Manage Availability</span>
       </button>
 
       <button

@@ -16,7 +16,7 @@ import BlockTimeModal from "./calendar/modals/BlockTimeModal";
 import EventDetailsModal from "./calendar/modals/EventDetailsModal";
 import GoogleCalendarModal from "./calendar/modals/GoogleCalendarModal";
 
-export default function CalendarTab({ doctor, onNavigateTab }: CalendarTabProps) {
+export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
   const {
     selectedDate,
@@ -151,7 +151,6 @@ export default function CalendarTab({ doctor, onNavigateTab }: CalendarTabProps)
           setMiniCalMonth={setMiniCalMonth}
           miniCalDays={miniCalDays}
           onSelectDate={setSelectedDate}
-          onNavigateTab={onNavigateTab}
           onOpenGoogleModal={openGoogleModal}
           onAddAppointment={() => openAddAppointment(selectedDate)}
           onBlockTime={() => openBlockModal(selectedDate)}
