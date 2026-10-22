@@ -54,6 +54,7 @@ export const TIME_OPTIONS_30M: TimeOption30M[] = (() => {
 })();
 
 export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const MINI_CAL_DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 
 export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
   "2026-10-19": [

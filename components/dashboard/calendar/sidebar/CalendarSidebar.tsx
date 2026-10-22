@@ -16,6 +16,8 @@ interface CalendarSidebarProps {
   onBlockTime: () => void;
   workingHoursConfig?: WorkingHoursConfig;
   onEditWorkingHours?: () => void;
+  selectedDate?: string;
+  onToday?: () => void;
 }
 
 export default function CalendarSidebar({
@@ -29,7 +31,8 @@ export default function CalendarSidebar({
   onEditWorkingHours,
 }: CalendarSidebarProps) {
   return (
-    <div className="xl:col-span-3 space-y-5">
+    <div className="xl:col-span-3 space-y-5 select-none">
+      {/* Real Google Calendar Mini-Calendar */}
       <MiniCalendar
         miniCalMonth={miniCalMonth}
         setMiniCalMonth={setMiniCalMonth}
@@ -37,11 +40,13 @@ export default function CalendarSidebar({
         onSelectDate={onSelectDate}
       />
 
+      {/* Working Hours Schedule */}
       <WorkingHoursCard
         config={workingHoursConfig}
         onEditHours={onEditWorkingHours}
       />
 
+      {/* Quick Actions */}
       <QuickActionsCard
         onAddAppointment={onAddAppointment}
         onBlockTime={onBlockTime}
@@ -49,3 +54,5 @@ export default function CalendarSidebar({
     </div>
   );
 }
+
+

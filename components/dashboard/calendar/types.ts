@@ -15,6 +15,7 @@ export interface WeekDayItem {
   dayName: string;
   dayNum: number;
   isSelected: boolean;
+  isToday?: boolean;
 }
 
 export interface MiniCalDayItem {
@@ -22,6 +23,9 @@ export interface MiniCalDayItem {
   dateStr: string;
   isCurrentMonth: boolean;
   isSelected: boolean;
+  isToday?: boolean;
+  hasEvents?: boolean;
+  isInCurrentWeek?: boolean;
 }
 
 export interface SelectedEventState {

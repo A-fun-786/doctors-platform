@@ -37,6 +37,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     miniCalDays,
     handlePrevWeek,
     handleNextWeek,
+    handleGoToToday,
     getEventsForDate,
     refreshCurrentWeek,
   } = useCalendarData();

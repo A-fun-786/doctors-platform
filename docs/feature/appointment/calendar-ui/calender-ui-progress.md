@@ -10,6 +10,7 @@
 5. **Empty Slot Popup, Editable Working Hours & Dedicated Patient Schema (Phase 5)**: Executed `calendar_empty_slot_plan.md`. Created dedicated database columns for patient vitals (`patient_gender`, `patient_age`, `patient_height`, `patient_weight`, `patient_blood_group`, `patient_address`) with safe Alembic migration `008_add_patient_details_to_appointments.py`. Implemented dynamic, editable doctor working hours (Morning and Evening shifts) with slot recalculation, live daily capacity preview, and interactive WeekView empty-slot cues. Developed modern, responsive dual-tab `SlotActionModal` with 5 strictly mandatory validated fields for booking (Name, Mobile, Gender, Age, Reason) and streamlined single-field Doctor Leave form.
 6. **Calendar Slot Details & Rescheduling Drawer with Full Patient Vitals & Leave Management (Phase 6)**: Executed `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`. Built a high-performance, accessible right-side slide-in drawer (`CalendarDrawer.tsx`) triggered on appointment and leave slot clicks without leaving the calendar view or disrupting scroll/view state. Displays full patient demographics and clinical vitals captured during booking (Height, Weight, Blood Group, Age, Gender, Address, Notes, Reason, Contact) with 1-click copy buttons for Patient ID, Doctor ID, and Appointment ID. Integrates an inline appointment rescheduling sub-panel (`AppointmentRescheduleForm.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx`) with conflict checking against working hours, and a dedicated doctor leave management panel (`LeaveDetailsPanel.tsx`) with prominent Leave ID and immediate slot restoration.
 7. **Week Calendar UI Enhancements, Bold Slot Typography & Top Legend Bar (Phase 7)**: Executed week calendar UI refinements. Replaced horizontal scrolling layout with a responsive, full-width CSS grid (`w-full grid-cols-[68px_repeat(7,minmax(0,1fr))]`), ensuring all 7 days and 24 time rows render simultaneously without any horizontal scrollbar. Standardized bold monospace typography across all hourly and half-hourly time labels as well as all event chip time intervals. Removed all `Plus` icons from empty slot cues in favor of streamlined hover cues (`Book / Leave` within shifts, `Add Slot` outside shifts). Removed hardcoded Sunday closure overlays to enable full 7-day slot visibility, and repositioned the operational color-coded legend bar to the top of the calendar view for immediate visual orientation.
+8. **Real Calendar Date Synchronization & Google Calendar Mini-Calendar Alignment (Phase 8)**: Fixed a critical timezone-offset bug in calendar date calculation where `.toISOString().split("T")[0]` on local midnight dates shifted dates backwards by 1 day in positive UTC timezones. Replaced with robust, timezone-immune `formatDateToYYYYMMDD` and `parseYYYYMMDD` utilities. Redesigned `MiniCalendar.tsx` to authentically replicate Google Calendar: single-letter day-of-week headers (`M`, `T`, `W`, `T`, `F`, `S`, `S`), circular day badges, prominent real-time date highlight without text clutter, soft selection circle for non-current days, active week row tinting, and appointment dot indicators. Streamlined `CalendarSidebar.tsx` by removing the redundant `+ New Appointment` / `+ Create` button and strictly omitting the textual word "Today" from banners, headers, and buttons, maintaining an uncluttered, distraction-free operational sidebar.
 
 ---
 
@@ -230,7 +231,48 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 8. Decisions, Deviations & Assumptions
+## 8. Key Changes (Phase 8 — Real Calendar Date Synchronization & Google Calendar Mini-Calendar Alignment)
+
+### 8a. Timezone-Safe Date Mathematics (`calendarUtils.ts`, `useCalendarData.ts`)
+- **UTC Offset Bug Remediation**: Previously, `new Date(year, month, i).toISOString().split("T")[0]` converted local midnight to UTC. In any positive UTC offset (e.g. UTC+05:30 in India), local midnight (00:00:00) converted to 18:30:00Z on the previous calendar day, shifting all mini-calendar date strings backward by 1 day (e.g. Day 1 resolved to `"2026-09-30"` instead of `"2026-10-01"`, and Day 23 resolved to `"2026-10-22"`).
+- **Dedicated Local Date Helpers**: Introduced `formatDateToYYYYMMDD(d: Date): string` and `parseYYYYMMDD(dateStr: string): Date` to perform strict local date formatting and parsing without UTC drift across any timezone globally.
+- **Enhanced `generateMiniCalDays`**:
+  - Dynamically computes local `isToday` (`dateStr === todayStr`), `isInCurrentWeek` (bounds checking against active week start/end), and `hasEvents` (populating event indicator dots).
+  - Pads cells to clean 35 or 42 cells (5 or 6 full weeks) to maintain a rock-solid, jitter-free grid layout across all months.
+- **Enhanced `useCalendarData`**:
+  - Initialized `selectedDate` dynamically to `formatDateToYYYYMMDD(new Date())` (today's real date) instead of a hardcoded date.
+  - Initialized `miniCalMonth` to `new Date(now.getFullYear(), now.getMonth(), 1)`.
+  - Added bi-directional month synchronization: navigating weeks across month boundaries (`handlePrevWeek`, `handleNextWeek`) automatically updates the mini-calendar's visible month.
+  - Clicking trailing/leading dates in adjacent months automatically transitions the mini-calendar month.
+
+### 8b. Google Calendar Mini-Calendar Alignment (`MiniCalendar.tsx`, `constants.ts`)
+- **Single-Letter Day Column Headers**: Exported `MINI_CAL_DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const` in `constants.ts`, providing Google Calendar's minimalist single-letter headers instead of cramped 3-letter abbreviations.
+- **Google Calendar Circular Badges**:
+  - **Real Current Date (Active/Selected)**: Distinctive solid Google blue circular badge with white text (`bg-blue-600 text-white font-bold shadow-xs scale-105`).
+  - **Real Current Date (Unselected)**: Distinctive blue ring and tinted background (`border-2 border-blue-600 text-blue-600 font-extrabold bg-blue-50/50 shadow-2xs`).
+  - **Selected Date (Not Current Date)**: Google Calendar's soft blue selection circle (`bg-blue-100 text-blue-800 font-bold hover:bg-blue-200/80 shadow-2xs`).
+  - **Out-of-Month Days**: Muted gray font (`text-slate-400 hover:bg-slate-100 hover:text-slate-600`).
+- **Appointment Dot Indicators**: Days with scheduled appointments render a subtle indicator dot beneath the date number (`w-1 h-1 rounded-full absolute bottom-0.5`).
+- **Active Week Shading**: The 7 cells of the currently viewed week receive soft row shading (`bg-slate-50/60 first:rounded-l-full last:rounded-r-full`).
+
+### 8c. Elimination of the "+ New Appointment" Create Button (`CalendarSidebar.tsx`)
+- Completely removed the top floating `+ New Appointment` / `+ Create` button from `CalendarSidebar.tsx`.
+- Prevents UI redundancy: doctors can book appointments directly by clicking any empty 30-minute operational slot in the calendar grid (`WeekView` / `SlotActionModal`) or via the existing Quick Actions card (`QuickActionsCard`), preserving a clean, uncluttered sidebar layout.
+
+### 8d. Strict Omission of the Textual Word "Today" (`CalendarSidebar.tsx`, `MiniCalendar.tsx`, `MonthView.tsx`)
+- Strictly removed all instances of the textual word "Today" from sidebar banners, headers, and buttons.
+- Eliminated the verbose "Today / Real Date" text banner from `CalendarSidebar.tsx`.
+- Removed textual "Today" jump buttons in the `MiniCalendar.tsx` header.
+- Avoided textual "Today" labels in `MonthView.tsx` day cells, relying exclusively on Google Calendar's visual blue circular badge indicator to signify the current calendar day without text pollution.
+
+### 8e. Clean Vertical Hierarchy & View Integration (`CalendarSidebar.tsx`, `MonthView.tsx`)
+- Retained clean, focused vertical hierarchy: Google Calendar `MiniCalendar`, `WorkingHoursCard`, and `QuickActionsCard`.
+- In `MonthView.tsx`, the real current date is highlighted with a circular blue badge (`w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs`).
+- Maintained zero-scroll full-width responsive grid parity across Week, Day, and Month views.
+
+---
+
+## 9. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -240,12 +282,16 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
   - *Reasoning*: High-volume clinic workflows require quickly pasting IDs into pharmacy, lab, and billing software.
 - **Decision (Top-Mounted Operational Legend & Zero-Scroll Grid)**: Placed the color-coded legend at the top of WeekView and eliminated horizontal overflow.
   - *Reasoning*: Provides immediate visual semantics before the doctor scans the schedule, and removes disruptive horizontal scrollbars across all screen widths.
+- **Decision (Google Calendar Mini-Calendar Aesthetics & Timezone Immunity)**: Adopted local date mathematics and single-letter headers (`M`, `T`, `W`, `T`, `F`, `S`, `S`) with clean circular day badges and no superfluous text labels.
+  - *Reasoning*: Guarantees real date parity with zero timezone skew and gives doctors an intuitive, industry-standard calendar navigation experience.
+- **Decision (Removal of Sidebar "+ New Appointment" Create Button)**: The sidebar header `+ New Appointment` button was removed to prevent UI redundancy and streamline focus to the mini-calendar navigation and operational schedule. Booking is natively supported on the calendar grid via shift slot clicking (`SlotActionModal`) and via `QuickActionsCard`.
+- **Decision (Strict Omission of the Word "Today")**: Textual labels like "Today", "Today's Date", or "Go to Today" were omitted from the sidebar and mini-calendar. Instead, Google Calendar's visual badge conventions (solid blue circle or prominent blue ring) immediately signify the current day without unnecessary text clutter.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 9. Verification Scorecard
+## 10. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -259,11 +305,12 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 | **Calendar Acceptance QA Suite (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
 | **Empty Slot Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
+| **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
 
 ---
 
-## 10. Manual Verification Guide & Acceptance
+## 11. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -296,23 +343,35 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
    - Verify time column: All time rows (9:00 AM – 8:30 PM, hourly and half-hourly) are bold monospace text.
    - Verify horizontal layout: Entire week calendar (7 days + time column) fits within container with no horizontal scrollbar.
    - Inspect empty slots: No plus icons present; hover reveals smooth `Book / Leave` (within shift) or `Add Slot` (outside shift) cue.
+7. **Google Calendar Mini-Calendar & Real Date Parity (Phase 8)**:
+   - **Single-Letter Headers**: Verify column headers show `M`, `T`, `W`, `T`, `F`, `S`, `S`.
+   - **Real Date Calculation**: Verify day numbers accurately correspond to their local calendar dates without any 1-day offset skew (e.g. Day 23 resolves to `2026-10-23` in UTC+05:30).
+   - **Google Calendar Badges**: Real current date renders a circular badge (solid blue when active, blue border/ring when unselected). Other selected days render soft blue background.
+   - **No Superfluous Create Button**: Confirm that no `+ New Appointment` / `+ Create` button is present in `CalendarSidebar.tsx`.
+   - **Zero "Today" Text Mentions**: Confirm that the textual word "Today" is not displayed anywhere in `CalendarSidebar.tsx` or `MiniCalendar.tsx` (visual circle indicator only).
+   - **Cross-Month Navigation**: Click a trailing or leading date from adjacent months; verify selected date updates and mini-calendar navigates month smoothly.
 
 ---
 
-## 11. Known Issues & Follow-ups
+## 12. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
+- **Commitments & Constraints**:
+  - Keep `CalendarSidebar.tsx` free of redundant create buttons (`+ New Appointment`).
+  - Do not introduce the textual word "Today" in sidebar widgets or mini-calendar header; retain pure visual circular affordance.
+  - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
 - **Follow-ups**:
   - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
 
 ---
 
-## 12. Rollback & Migration Instructions
+## 13. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6 or 7. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: No database schema migrations were added in Phase 6, 7, or 8. Reverting safely restores previous UI layouts without altering database records.
+
 
