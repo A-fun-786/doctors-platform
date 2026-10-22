@@ -198,6 +198,12 @@ export interface AppointmentEntry {
   request_id?: string;
   patient_name: string;
   patient_contact?: string;
+  patient_gender?: string;
+  patient_age?: number;
+  patient_height?: string;
+  patient_weight?: string;
+  patient_blood_group?: string;
+  patient_address?: string;
   date: string;
   start_time: string;
   end_time: string;
@@ -211,6 +217,12 @@ export interface AppointmentEntry {
 export interface AppointmentCreatePayload {
   patient_name: string;
   patient_contact?: string;
+  patient_gender?: string;
+  patient_age?: number;
+  patient_height?: string;
+  patient_weight?: string;
+  patient_blood_group?: string;
+  patient_address?: string;
   date: string;
   start_time: string;
   end_time: string;
@@ -246,6 +258,14 @@ export interface CalendarEvent {
   end: string;
   reason?: string;
   patient_name?: string;
+  patient_contact?: string;
+  patient_gender?: string;
+  patient_age?: number;
+  patient_height?: string;
+  patient_weight?: string;
+  patient_blood_group?: string;
+  patient_address?: string;
+  notes?: string;
   status?: AppointmentStatus;
   appointment_id?: string;
 }

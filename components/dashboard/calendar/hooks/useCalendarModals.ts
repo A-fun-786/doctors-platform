@@ -7,14 +7,30 @@ import {
   CalendarEvent,
 } from "@/lib/api";
 import { BlockType, SelectedEventState } from "../types";
-import { findConflictingEvents, isIntervalOverlapping } from "../calendarUtils";
+import {
+  findConflictingEvents,
+  isIntervalOverlapping,
+  WorkingHoursConfig,
+  getDoctorWorkingHours,
+  saveDoctorWorkingHours,
+} from "../calendarUtils";
+import {
+  SlotBookingFormData,
+  SlotLeaveFormData,
+} from "../modals/SlotActionModal";
 
 export function useCalendarModals() {
   // Modal visibility states
   const [showAddAvailabilityModal, setShowAddAvailabilityModal] = useState(false);
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showSlotActionModal, setShowSlotActionModal] = useState(false);
+  const [slotActionInitialTab, setSlotActionInitialTab] = useState<"booking" | "leave">("booking");
+  const [showEditWorkingHoursModal, setShowEditWorkingHoursModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventState | null>(null);
+
+  // Working Hours Config
+  const [workingHoursConfig, setWorkingHoursConfig] = useState<WorkingHoursConfig>(getDoctorWorkingHours);
 
   // Common Form states
   const [modalDate, setModalDate] = useState("2026-10-19");
@@ -60,6 +76,32 @@ export function useCalendarModals() {
       setBlockType("BLOCKED");
       setBlockReason("");
       setShowBlockModal(true);
+    },
+    []
+  );
+
+  const openSlotActionModal = useCallback(
+    (date: string, start: string, end: string, initialTab: "booking" | "leave" = "booking") => {
+      setModalDate(date);
+      setModalStartTime(start);
+      setModalEndTime(end);
+      setSlotActionInitialTab(initialTab);
+      setShowSlotActionModal(true);
+    },
+    []
+  );
+
+  const openEditWorkingHours = useCallback(() => {
+    setShowEditWorkingHoursModal(true);
+  }, []);
+
+  const handleSaveWorkingHours = useCallback(
+    (newConfig: WorkingHoursConfig, showToast?: (msg: string) => void) => {
+      setWorkingHoursConfig(newConfig);
+      saveDoctorWorkingHours(newConfig);
+      if (showToast) {
+        showToast("Working hours updated successfully!");
+      }
     },
     []
   );
@@ -226,6 +268,87 @@ export function useCalendarModals() {
     [modalDate, modalStartTime, modalEndTime, blockType, blockReason]
   );
 
+  const handleSlotBookingSubmit = useCallback(
+    async (
+      data: SlotBookingFormData,
+      onSuccess: () => void,
+      showToast: (msg: string) => void,
+      existingEvents: CalendarEvent[] = []
+    ) => {
+      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents);
+      if (conflicts.length > 0) {
+        const first = conflicts[0];
+        const conflictLabel = first.patient_name || first.reason || first.type;
+        showToast(`Cannot book appointment: Time slot conflicts with ${conflictLabel}.`);
+        return;
+      }
+
+      setModalSubmitting(true);
+      try {
+        await createAppointment({
+          patient_name: data.patientName,
+          patient_contact: data.patientContact,
+          patient_gender: data.patientGender,
+          patient_age: Number(data.patientAge),
+          patient_height: data.patientHeight,
+          patient_weight: data.patientWeight,
+          patient_blood_group: data.patientBloodGroup,
+          patient_address: data.patientAddress,
+          date: modalDate,
+          start_time: modalStartTime,
+          end_time: modalEndTime,
+          reason: data.reason,
+          notes: data.notes,
+        });
+        showToast(`Appointment booked for ${data.patientName} (${modalStartTime} – ${modalEndTime})!`);
+        setShowSlotActionModal(false);
+        onSuccess();
+      } catch (err: unknown) {
+        showToast(err instanceof Error ? err.message : "Failed to book appointment");
+      } finally {
+        setModalSubmitting(false);
+      }
+    },
+    [modalDate, modalStartTime, modalEndTime]
+  );
+
+  const handleSlotLeaveSubmit = useCallback(
+    async (
+      data: SlotLeaveFormData,
+      onSuccess: () => void,
+      showToast: (msg: string) => void,
+      existingEvents: CalendarEvent[] = []
+    ) => {
+      const conflictingAppointments = existingEvents.filter((ev) => {
+        if (ev.type !== "APPOINTMENT" || ev.status === "CANCELLED") return false;
+        return isIntervalOverlapping(modalStartTime, modalEndTime, ev.start, ev.end);
+      });
+      if (conflictingAppointments.length > 0) {
+        showToast(`Cannot mark leave: ${conflictingAppointments.length} appointment(s) already booked during this time.`);
+        return;
+      }
+
+      setModalSubmitting(true);
+      try {
+        await createDoctorSchedule({
+          date: modalDate,
+          start_time: modalStartTime,
+          end_time: modalEndTime,
+          type: "LEAVE",
+          reason: data.reason,
+        });
+        showToast(`Doctor leave recorded for ${modalDate} (${modalStartTime} – ${modalEndTime})!`);
+        setShowSlotActionModal(false);
+        onSuccess();
+      } catch (err: unknown) {
+        showToast(err instanceof Error ? err.message : "Failed to mark leave");
+      } finally {
+        setModalSubmitting(false);
+      }
+    },
+    [modalDate, modalStartTime, modalEndTime]
+  );
+
   return {
     // Visibility
     showAddAvailabilityModal,
@@ -234,8 +357,20 @@ export function useCalendarModals() {
     setShowAddAppointmentModal,
     showBlockModal,
     setShowBlockModal,
+    showSlotActionModal,
+    setShowSlotActionModal,
+    slotActionInitialTab,
+    setSlotActionInitialTab,
+    showEditWorkingHoursModal,
+    setShowEditWorkingHoursModal,
     selectedEvent,
     setSelectedEvent,
+
+    // Working Hours
+    workingHoursConfig,
+    setWorkingHoursConfig,
+    openEditWorkingHours,
+    handleSaveWorkingHours,
 
     // Form fields
     modalDate,
@@ -260,9 +395,12 @@ export function useCalendarModals() {
     openAddAvailability,
     openAddAppointment,
     openBlockModal,
+    openSlotActionModal,
     openEventDetails,
     handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,
     handleBlockSubmit,
+    handleSlotBookingSubmit,
+    handleSlotLeaveSubmit,
   };
 }

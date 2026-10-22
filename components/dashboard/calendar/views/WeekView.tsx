@@ -10,6 +10,8 @@ import {
   getTimeRowRange,
   doesEventOverlapSlot,
   getDayStatus,
+  isSlotWithinWorkingHours,
+  WorkingHoursConfig,
 } from "../calendarUtils";
 
 interface WeekViewProps {
@@ -19,6 +21,8 @@ interface WeekViewProps {
   onEventClick: (event: CalendarEvent, date: string) => void;
   onAvailableSlotClick: (date: string, start: string, end: string) => void;
   onQuickAddSlot: (date: string, start: string, end: string) => void;
+  onEmptySlotClick?: (date: string, start: string, end: string) => void;
+  workingHoursConfig?: WorkingHoursConfig;
 }
 
 export default function WeekView({
@@ -28,6 +32,8 @@ export default function WeekView({
   onEventClick,
   onAvailableSlotClick,
   onQuickAddSlot,
+  onEmptySlotClick,
+  workingHoursConfig,
 }: WeekViewProps) {
   return (
     <div className="overflow-x-auto">
@@ -252,17 +258,46 @@ export default function WeekView({
                             return null;
                           })}
                         </div>
-                      ) : (
-                        // Quick slot creation on hover for empty 30-min slot
-                        <button
-                          type="button"
-                          onClick={() => onQuickAddSlot(day.dateStr, slotStart, slotEnd)}
-                          className="w-full h-full min-h-[40px] opacity-0 group-hover:opacity-100 flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50/40 rounded transition-all"
-                          title={`Add available slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      ) : (() => {
+                        const isWorkingHour = isSlotWithinWorkingHours(
+                          day.dateStr,
+                          slotStart,
+                          slotEnd,
+                          workingHoursConfig
+                        );
+
+                        if (isWorkingHour) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onEmptySlotClick) {
+                                  onEmptySlotClick(day.dateStr, slotStart, slotEnd);
+                                } else {
+                                  onQuickAddSlot(day.dateStr, slotStart, slotEnd);
+                                }
+                              }}
+                              className="w-full h-full min-h-[42px] border border-dashed border-blue-200/60 hover:border-blue-400 bg-blue-50/20 hover:bg-blue-50/70 rounded-lg flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 transition-all cursor-pointer group/slot"
+                              title={`Click to book patient or mark leave (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
+                            >
+                              <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                Book / Leave
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => onQuickAddSlot(day.dateStr, slotStart, slotEnd)}
+                            className="w-full h-full min-h-[40px] opacity-0 group-hover:opacity-100 flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50/40 rounded transition-all cursor-pointer"
+                            title={`Add available slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        );
+                      })()}
                     </div>
                   );
                 })}

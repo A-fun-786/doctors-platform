@@ -106,8 +106,24 @@ def get_doctor_calendar(
                 "status": a.status,
                 "appointment_id": str(a.id),
             }
+            if a.patient_contact:
+                ev["patient_contact"] = a.patient_contact
+            if a.patient_gender:
+                ev["patient_gender"] = a.patient_gender
+            if a.patient_age is not None:
+                ev["patient_age"] = a.patient_age
+            if a.patient_height:
+                ev["patient_height"] = a.patient_height
+            if a.patient_weight:
+                ev["patient_weight"] = a.patient_weight
+            if a.patient_blood_group:
+                ev["patient_blood_group"] = a.patient_blood_group
+            if a.patient_address:
+                ev["patient_address"] = a.patient_address
             if a.reason:
                 ev["reason"] = a.reason
+            if a.notes:
+                ev["notes"] = a.notes
             events.append(ev)
 
         # Step D: Sort chronologically by start time, then end time

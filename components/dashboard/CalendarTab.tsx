@@ -14,6 +14,8 @@ import AddAvailabilityModal from "./calendar/modals/AddAvailabilityModal";
 import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
 import BlockTimeModal from "./calendar/modals/BlockTimeModal";
 import EventDetailsModal from "./calendar/modals/EventDetailsModal";
+import SlotActionModal from "./calendar/modals/SlotActionModal";
+import EditWorkingHoursModal from "./calendar/modals/EditWorkingHoursModal";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
@@ -43,6 +45,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setShowAddAppointmentModal,
     showBlockModal,
     setShowBlockModal,
+    showSlotActionModal,
+    setShowSlotActionModal,
+    slotActionInitialTab,
+    showEditWorkingHoursModal,
+    setShowEditWorkingHoursModal,
+    workingHoursConfig,
+    openEditWorkingHours,
+    handleSaveWorkingHours,
     selectedEvent,
     setSelectedEvent,
     modalDate,
@@ -65,10 +75,13 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     openAddAvailability,
     openAddAppointment,
     openBlockModal,
+    openSlotActionModal,
     openEventDetails,
     handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,
     handleBlockSubmit,
+    handleSlotBookingSubmit,
+    handleSlotLeaveSubmit,
   } = useCalendarModals();
 
   // Quick slot create on hover in WeekView
@@ -115,6 +128,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onEventClick={openEventDetails}
               onAvailableSlotClick={openAddAppointment}
               onQuickAddSlot={handleQuickAddSlot}
+              onEmptySlotClick={openSlotActionModal}
+              workingHoursConfig={workingHoursConfig}
             />
           )}
 
@@ -122,7 +137,9 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             <DayView
               selectedDate={selectedDate}
               events={getEventsForDate(selectedDate)}
-              onBookPatient={() => openAddAppointment(selectedDate)}
+              onBookPatient={() =>
+                openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
+              }
               onEventClick={openEventDetails}
             />
           )}
@@ -144,8 +161,46 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           onSelectDate={setSelectedDate}
           onAddAppointment={() => openAddAppointment(selectedDate)}
           onBlockTime={() => openBlockModal(selectedDate)}
+          workingHoursConfig={workingHoursConfig}
+          onEditWorkingHours={openEditWorkingHours}
         />
       </div>
+
+      {/* MODAL: Slot Action (Empty slot click -> Book Patient or Doctor Leave) */}
+      <SlotActionModal
+        isOpen={showSlotActionModal}
+        onClose={() => setShowSlotActionModal(false)}
+        date={modalDate}
+        startTime={modalStartTime}
+        endTime={modalEndTime}
+        initialTab={slotActionInitialTab}
+        submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
+        onBookPatient={(formData) =>
+          handleSlotBookingSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+        onMarkLeave={(formData) =>
+          handleSlotLeaveSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+      />
+
+      {/* MODAL: Edit Working Hours */}
+      <EditWorkingHoursModal
+        isOpen={showEditWorkingHoursModal}
+        onClose={() => setShowEditWorkingHoursModal(false)}
+        config={workingHoursConfig}
+        onSave={(newCfg) => handleSaveWorkingHours(newCfg, showToast)}
+      />
 
       {/* MODAL: Add Availability */}
       <AddAvailabilityModal

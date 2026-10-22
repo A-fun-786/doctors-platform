@@ -239,3 +239,138 @@ export function generateMiniCalDays(
 
   return days;
 }
+
+export interface WorkingHoursShift {
+  id: string;
+  label: string;
+  start: string; // e.g. "10:00"
+  end: string;   // e.g. "13:00"
+  enabled: boolean;
+}
+
+export interface WorkingHoursConfig {
+  shifts: WorkingHoursShift[];
+}
+
+export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
+  shifts: [
+    {
+      id: "morning",
+      label: "Morning Shift",
+      start: "10:00",
+      end: "13:00",
+      enabled: true,
+    },
+    {
+      id: "evening",
+      label: "Evening Shift",
+      start: "16:00",
+      end: "20:00",
+      enabled: true,
+    },
+  ],
+};
+
+export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
+
+/**
+ * Calculate total 30-minute slot count for a given time window.
+ */
+export function calculateShiftSlotCount(start: string, end: string, stepMinutes = 30): number {
+  const startM = timeToMinutes(start);
+  const endM = timeToMinutes(end);
+  if (endM <= startM) return 0;
+  return Math.floor((endM - startM) / stepMinutes);
+}
+
+/**
+ * Retrieve doctor working hours from localStorage or fallback to default.
+ */
+export function getDoctorWorkingHours(): WorkingHoursConfig {
+  if (typeof window === "undefined") return DEFAULT_WORKING_HOURS;
+  try {
+    const raw = localStorage.getItem(WORKING_HOURS_STORAGE_KEY);
+    if (!raw) return DEFAULT_WORKING_HOURS;
+    const parsed = JSON.parse(raw) as WorkingHoursConfig;
+    if (parsed && Array.isArray(parsed.shifts) && parsed.shifts.length > 0) {
+      return parsed;
+    }
+  } catch (err) {
+    console.error("Error loading working hours:", err);
+  }
+  return DEFAULT_WORKING_HOURS;
+}
+
+/**
+ * Persist doctor customized working hours to localStorage.
+ */
+export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WORKING_HOURS_STORAGE_KEY, JSON.stringify(config));
+  } catch (err) {
+    console.error("Error saving working hours:", err);
+  }
+}
+
+/**
+ * Check if a time slot (start, end) falls within doctor's configured working hours.
+ * Closed on Sundays.
+ */
+export function isSlotWithinWorkingHours(
+  dateStr: string,
+  slotStart: string,
+  slotEnd: string,
+  config?: WorkingHoursConfig
+): boolean {
+  if (!dateStr || !slotStart || !slotEnd) return false;
+  const d = new Date(dateStr);
+  if (d.getDay() === 0) return false; // Sunday closed
+
+  const startM = timeToMinutes(slotStart);
+  const endM = timeToMinutes(slotEnd);
+
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+  return activeConfig.shifts.some((shift) => {
+    if (!shift.enabled) return false;
+    const shiftStartM = timeToMinutes(shift.start);
+    const shiftEndM = timeToMinutes(shift.end);
+    return startM >= shiftStartM && endM <= shiftEndM;
+  });
+}
+
+export interface PatientVitalsData {
+  gender?: string;
+  age?: string | number;
+  height?: string;
+  weight?: string;
+  bloodGroup?: string;
+  address?: string;
+  shortNotes?: string;
+}
+
+/**
+ * Format patient details (vitals, address, notes) into structured clinical notes string.
+ */
+export function formatPatientClinicalNotes(data: PatientVitalsData): string {
+  const vitals: string[] = [];
+  if (data.gender) vitals.push(`Gender: ${data.gender}`);
+  if (data.age) vitals.push(`Age: ${data.age}`);
+  if (data.bloodGroup) vitals.push(`Blood Group: ${data.bloodGroup}`);
+  if (data.height) vitals.push(`Height: ${data.height}`);
+  if (data.weight) vitals.push(`Weight: ${data.weight}`);
+
+  const sections: string[] = [];
+  if (vitals.length > 0) {
+    sections.push(`[Patient Vitals] ${vitals.join(" | ")}`);
+  }
+  if (data.address?.trim()) {
+    sections.push(`[Address] ${data.address.trim()}`);
+  }
+  if (data.shortNotes?.trim()) {
+    sections.push(`[Notes] ${data.shortNotes.trim()}`);
+  }
+
+  return sections.join("\n");
+}
+
