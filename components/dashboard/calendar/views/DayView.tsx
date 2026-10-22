@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { User, Coffee, Lock, Plus } from "lucide-react";
+import { User, Coffee, Lock } from "lucide-react";
 import { CalendarEvent } from "@/lib/api";
 import { format12Hour } from "../calendarUtils";
 import Badge from "@/components/ui/Badge";
@@ -9,7 +9,7 @@ import Badge from "@/components/ui/Badge";
 interface DayViewProps {
   selectedDate: string;
   events: CalendarEvent[];
-  onBookPatient: () => void;
+  onBookPatient?: () => void;
   onEventClick: (event: CalendarEvent, date: string) => void;
   onEmptySlotClick?: (date: string, start: string, end: string) => void;
 }
@@ -26,10 +26,35 @@ export default function DayView({
   const leaveCount = events.filter((e) => e.type === "LEAVE" || e.type === "HOLIDAY").length;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-        <div>
+    <div className="w-full select-none">
+      {/* Calendar Legend Bar on Top */}
+      <div className="p-2.5 border-b border-slate-200 bg-slate-50/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700 shrink-0" />
+            <span className="font-semibold text-slate-700 text-[11px]">Appointment (Patient)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-xs border border-dashed border-slate-300 bg-white shrink-0" />
+            <span className="font-semibold text-slate-700 text-[11px]">Empty Slot (Click to Book)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 border border-amber-600 shrink-0" />
+            <span className="font-semibold text-slate-700 text-[11px]">Doctor Leave</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-xs bg-purple-500 border border-purple-600 shrink-0" />
+            <span className="font-semibold text-slate-700 text-[11px]">Blocked Period</span>
+          </div>
+        </div>
+        <div className="text-[11px] font-medium text-slate-500">
+          30-Minute Operating Intervals
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        {/* Header */}
+        <div className="pb-4 border-b border-slate-100">
           <h3 className="text-base font-bold text-slate-900">
             Day Schedule — {selectedDate}
           </h3>
@@ -37,18 +62,6 @@ export default function DayView({
             Operational 30-minute stream for appointments, availability, and doctor leave.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBookPatient}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Book Patient
-          </button>
-        </div>
-      </div>
 
       {/* Summary Badges */}
       <div className="grid grid-cols-3 gap-3">
@@ -85,7 +98,7 @@ export default function DayView({
                 onClick={() => {
                   if (isAvail && onEmptySlotClick) {
                     onEmptySlotClick(selectedDate, event.start, event.end);
-                  } else if (isAvail) {
+                  } else if (isAvail && onBookPatient) {
                     onBookPatient();
                   } else {
                     onEventClick(event, selectedDate);
@@ -161,5 +174,6 @@ export default function DayView({
         )}
       </div>
     </div>
+  </div>
   );
 }

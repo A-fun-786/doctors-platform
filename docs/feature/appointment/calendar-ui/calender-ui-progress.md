@@ -1,6 +1,6 @@
 # Progress: Calendar UI Enhancements & Cleanups
 
-**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md` | **Base SHA**: `e4dd560` | **Branch**: `calendar-ui` | **Status**: Verified ✅
+**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`, `dayview_legend_bar_plan.md` | **Base SHA**: `e4dd560` | **Branch**: `calendar-ui` | **Status**: Verified ✅
 
 ## 1. Summary & Scope
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
@@ -11,6 +11,8 @@
 6. **Calendar Slot Details & Rescheduling Drawer with Full Patient Vitals & Leave Management (Phase 6)**: Executed `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`. Built a high-performance, accessible right-side slide-in drawer (`CalendarDrawer.tsx`) triggered on appointment and leave slot clicks without leaving the calendar view or disrupting scroll/view state. Displays full patient demographics and clinical vitals captured during booking (Height, Weight, Blood Group, Age, Gender, Address, Notes, Reason, Contact) with 1-click copy buttons for Patient ID, Doctor ID, and Appointment ID. Integrates an inline appointment rescheduling sub-panel (`AppointmentRescheduleForm.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx`) with conflict checking against working hours, and a dedicated doctor leave management panel (`LeaveDetailsPanel.tsx`) with prominent Leave ID and immediate slot restoration.
 7. **Week Calendar UI Enhancements, Bold Slot Typography & Top Legend Bar (Phase 7)**: Executed week calendar UI refinements. Replaced horizontal scrolling layout with a responsive, full-width CSS grid (`w-full grid-cols-[68px_repeat(7,minmax(0,1fr))]`), ensuring all 7 days and 24 time rows render simultaneously without any horizontal scrollbar. Standardized bold monospace typography across all hourly and half-hourly time labels as well as all event chip time intervals. Removed all `Plus` icons from empty slot cues in favor of streamlined hover cues (`Book / Leave` within shifts, `Add Slot` outside shifts). Removed hardcoded Sunday closure overlays to enable full 7-day slot visibility, and repositioned the operational color-coded legend bar to the top of the calendar view for immediate visual orientation.
 8. **Real Calendar Date Synchronization & Google Calendar Mini-Calendar Alignment (Phase 8)**: Fixed a critical timezone-offset bug in calendar date calculation where `.toISOString().split("T")[0]` on local midnight dates shifted dates backwards by 1 day in positive UTC timezones. Replaced with robust, timezone-immune `formatDateToYYYYMMDD` and `parseYYYYMMDD` utilities. Redesigned `MiniCalendar.tsx` to authentically replicate Google Calendar: single-letter day-of-week headers (`M`, `T`, `W`, `T`, `F`, `S`, `S`), circular day badges, prominent real-time date highlight without text clutter, soft selection circle for non-current days, active week row tinting, and appointment dot indicators. Streamlined `CalendarSidebar.tsx` by removing the redundant `+ New Appointment` / `+ Create` button and strictly omitting the textual word "Today" from banners, headers, and buttons, maintaining an uncluttered, distraction-free operational sidebar.
+9. **Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention (Phase 9)**: Executed clean calendar slots refinements. Inside booked appointment slots in WeekView, stripped out all secondary time ranges and visit reasons to prevent vertical clipping, displaying solely the patient's name in bold high-contrast typography. Streamlined unbooked intervals to render as uniform empty slots with 1-click booking affordance. Completely eliminated all "Break" / "Break Time" / "Lunch Break" banners to maintain an uninterrupted schedule view. In DayView, rendered appointment cards with prominent patient name and visit reason alongside clean empty slot triggers.
+10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 
 ---
 
@@ -291,7 +293,32 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 10. Decisions, Deviations & Assumptions
+## 10. Key Changes (Phase 10 — DayView Top Legend Bar Integration & Header "Book Patient" Button Removal)
+
+### 10a. Edge-to-Edge Top Operational Legend Bar (`DayView.tsx`)
+- Re-structured `DayView.tsx` with an outer full-width wrapper (`<div className="w-full select-none">`), hosting the operational legend bar as the topmost child directly inside the parent calendar card.
+- Mounted edge-to-edge with `border-b border-slate-200 bg-slate-50/80 p-2.5`, creating pixel-perfect layout and style parity with `WeekView.tsx`.
+- The existing Day Schedule header, summary count badges (Appointments, Empty Slots, Leaves), and 30-minute event stream cards are cleanly housed within the inner `p-6 space-y-5` container.
+
+### 10b. Semantic Indicator & Design Token Parity (`DayView.tsx`, `WeekView.tsx`)
+- **Appointment (Patient)**: Solid Google Blue indicator (`bg-blue-600 border border-blue-700`).
+- **Empty Slot (Click to Book)**: Dashed border with white background (`border border-dashed border-slate-300 bg-white`).
+- **Doctor Leave**: Warm amber indicator (`bg-amber-500 border border-amber-600`).
+- **Blocked Period**: Sleek purple indicator (`bg-purple-500 border border-purple-600`).
+- **Operating Interval Badge**: `30-Minute Operating Intervals` (`text-[11px] font-medium text-slate-500`).
+
+### 10c. Removal of Redundant "Book Patient" Header Button (`DayView.tsx`)
+- Removed the top-right `Book Patient` button and `Plus` icon from the Day Schedule header in `DayView.tsx`.
+- Prevents UI redundancy: doctors book appointments by clicking directly on any 30-minute empty slot card in the Day Schedule stream (triggering `SlotActionModal`), or via the Quick Actions card in the sidebar, matching the clean Google Calendar workflow in WeekView.
+- Streamlined the Day Schedule header to focus exclusively on the selected date and operational stream context.
+
+### 10d. Automated Verification & Regression Guard (`verify_phase9_clean_slots.mjs`)
+- Added check `V6: DayView renders operational legend bar on top` validating that all 4 semantic indicators and the interval label are present, and asserting that the legend bar is mounted prior to the Day Schedule header.
+- Added check `V7: DayView eliminates redundant 'Book Patient' header button` ensuring no redundant booking button is rendered in the header.
+
+---
+
+## 11. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -306,12 +333,16 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 - **Decision (Removal of Sidebar "+ New Appointment" Create Button)**: The sidebar header `+ New Appointment` button was removed to prevent UI redundancy and streamline focus to the mini-calendar navigation and operational schedule. Booking is natively supported on the calendar grid via shift slot clicking (`SlotActionModal`) and via `QuickActionsCard`.
 - **Decision (Strict Omission of the Word "Today")**: Textual labels like "Today", "Today's Date", or "Go to Today" were omitted from the sidebar and mini-calendar. Instead, Google Calendar's visual badge conventions (solid blue circle or prominent blue ring) immediately signify the current day without unnecessary text clutter.
 - **Decision (Only Patient Name in Filled Slots & Break Omission)**: In Phase 9, crowded text inside calendar slot boxes was stripped away in favor of displaying only the patient name. Open slots were simplified into clean empty slots, and break time labels were completely removed to present a clean, uninterrupted schedule.
+- **Decision (DayView Top-Mounted Operational Legend Bar)**: In Phase 10, added the exact operational legend bar from `WeekView.tsx` to the top of `DayView.tsx` edge-to-edge.
+  - *Reasoning*: When switching between Day and Week views, doctors maintain a consistent, recognizable color-code guide without layout jump or missing context.
+- **Decision (Removal of DayView "Book Patient" Header Button)**: In Phase 10, removed the redundant "Book Patient" button from the `DayView.tsx` header.
+  - *Reasoning*: Unbooked slots already provide an interactive, 1-click booking affordance directly on the exact 30-minute window desired. A generic header button defaults to an arbitrary time (e.g. 10:00 AM) and causes layout imbalance in the header.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 11. Verification Scorecard
+## 12. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -326,12 +357,12 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 | **Empty Slot Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
-| **Phase 9 Clean Slots & DayView Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 5/5 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions |
+| **Phase 9 & 10 Clean Slots, DayView Legend Bar & Header Cleanup Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 7/7 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions, DayView top legend bar, no redundant Book Patient button |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
 
 ---
 
-## 12. Manual Verification Guide & Acceptance
+## 13. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -375,10 +406,16 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
    - **Clean Empty Slots**: Confirm that all other slots without appointments are clean, empty slots without green "Available" badges or default text clutter.
    - **Zero Break Mentions**: Confirm that no slot mentions "Break", "Lunch Break", or "Break Time". Afternoon intervals display as clean uniform empty slots.
    - **Click-to-Book**: Click on any empty slot and verify the `SlotActionModal` opens smoothly to book an appointment or mark leave.
+9. **DayView Top Legend Bar & Header Cleanup (Phase 10)**:
+   - In doctor dashboard, switch view mode to **Day**.
+   - Verify that the operational legend bar is rendered at the very top of the day view card (above the Day Schedule header).
+   - Confirm all 4 indicators are present: Appointment (Patient), Empty Slot (Click to Book), Doctor Leave, and Blocked Period, alongside "30-Minute Operating Intervals".
+   - Confirm the Day Schedule header displays only the title and subtitle without any redundant "Book Patient" button.
+   - Click any empty slot card in the day stream and verify the `SlotActionModal` opens with accurate 30-minute bounds.
 
 ---
 
-## 13. Known Issues & Commitments
+## 14. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
@@ -386,18 +423,19 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
   - Do not introduce the textual word "Today" in sidebar widgets or mini-calendar header; retain pure visual circular affordance.
   - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
   - Maintain filled calendar slots showing only the patient name, with unbooked slots remaining clean and empty without break time slot mentions.
+  - Maintain operational legend bar on top across both WeekView and DayView for UI parity.
 - **Follow-ups**:
   - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
 
 ---
 
-## 14. Rollback & Migration Instructions
+## 15. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, or 9. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, or 10. Reverting safely restores previous UI layouts without altering database records.
 
 

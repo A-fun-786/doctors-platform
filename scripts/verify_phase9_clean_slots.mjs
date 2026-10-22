@@ -144,6 +144,41 @@ runCheck("V5: DayView otherwise renders clean empty slot with booking trigger", 
   );
 });
 
+// Check 6: DayView top legend bar renders on top with full semantic color indicators
+runCheck("V6: DayView renders operational legend bar on top", () => {
+  assert.ok(
+    dayViewContent.includes("Calendar Legend Bar on Top"),
+    "DayView must include top calendar legend bar comment/block"
+  );
+  assert.ok(
+    dayViewContent.includes("Appointment (Patient)") &&
+      dayViewContent.includes("Empty Slot (Click to Book)") &&
+      dayViewContent.includes("Doctor Leave") &&
+      dayViewContent.includes("Blocked Period") &&
+      dayViewContent.includes("30-Minute Operating Intervals"),
+    "DayView legend bar must include all 4 slot categories and 30-min interval label"
+  );
+  const legendIndex = dayViewContent.indexOf("Calendar Legend Bar on Top");
+  const headerIndex = dayViewContent.indexOf("Day Schedule — {selectedDate}");
+  assert.ok(
+    legendIndex > 0 && legendIndex < headerIndex,
+    "Legend bar must appear at the top of DayView before the day schedule header"
+  );
+});
+
+// Check 7: Elimination of redundant "Book Patient" button from Day Schedule header
+runCheck("V7: DayView eliminates redundant 'Book Patient' header button", () => {
+  assert.ok(
+    !dayViewContent.includes("Book Patient") ||
+      !dayViewContent.includes("<Plus className="),
+    "DayView must not render redundant 'Book Patient' header button"
+  );
+  assert.ok(
+    !dayViewContent.includes("onClick={onBookPatient}"),
+    "DayView header must not have onClick={onBookPatient} button"
+  );
+});
+
 console.log("\n------------------------------------------------------------");
 console.log(`Results: ${passed}/${total} checks passed (${Math.round((passed / total) * 100)}%)`);
 console.log("------------------------------------------------------------\n");
