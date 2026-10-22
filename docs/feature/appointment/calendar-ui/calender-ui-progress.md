@@ -9,6 +9,7 @@
 4. **Dashboard Navigation Tab Rebranding (Phase 4)**: Renamed the doctor dashboard tab from `calendar` to `appointment` (`id: "calendar"` → `id: "appointment"`, `label: "Calendar"` → `label: "Appointment"`). Updated `DashboardShell.tsx`, `page.tsx`, and `OverviewTab.tsx`, along with the automated navigation test suite in `scripts/test_dashboard_shell.mjs`.
 5. **Empty Slot Popup, Editable Working Hours & Dedicated Patient Schema (Phase 5)**: Executed `calendar_empty_slot_plan.md`. Created dedicated database columns for patient vitals (`patient_gender`, `patient_age`, `patient_height`, `patient_weight`, `patient_blood_group`, `patient_address`) with safe Alembic migration `008_add_patient_details_to_appointments.py`. Implemented dynamic, editable doctor working hours (Morning and Evening shifts) with slot recalculation, live daily capacity preview, and interactive WeekView empty-slot cues. Developed modern, responsive dual-tab `SlotActionModal` with 5 strictly mandatory validated fields for booking (Name, Mobile, Gender, Age, Reason) and streamlined single-field Doctor Leave form.
 6. **Calendar Slot Details & Rescheduling Drawer with Full Patient Vitals & Leave Management (Phase 6)**: Executed `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`. Built a high-performance, accessible right-side slide-in drawer (`CalendarDrawer.tsx`) triggered on appointment and leave slot clicks without leaving the calendar view or disrupting scroll/view state. Displays full patient demographics and clinical vitals captured during booking (Height, Weight, Blood Group, Age, Gender, Address, Notes, Reason, Contact) with 1-click copy buttons for Patient ID, Doctor ID, and Appointment ID. Integrates an inline appointment rescheduling sub-panel (`AppointmentRescheduleForm.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx`) with conflict checking against working hours, and a dedicated doctor leave management panel (`LeaveDetailsPanel.tsx`) with prominent Leave ID and immediate slot restoration.
+7. **Week Calendar UI Enhancements, Bold Slot Typography & Top Legend Bar (Phase 7)**: Executed week calendar UI refinements. Replaced horizontal scrolling layout with a responsive, full-width CSS grid (`w-full grid-cols-[68px_repeat(7,minmax(0,1fr))]`), ensuring all 7 days and 24 time rows render simultaneously without any horizontal scrollbar. Standardized bold monospace typography across all hourly and half-hourly time labels as well as all event chip time intervals. Removed all `Plus` icons from empty slot cues in favor of streamlined hover cues (`Book / Leave` within shifts, `Add Slot` outside shifts). Removed hardcoded Sunday closure overlays to enable full 7-day slot visibility, and repositioned the operational color-coded legend bar to the top of the calendar view for immediate visual orientation.
 
 ---
 
@@ -204,7 +205,32 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 7. Decisions, Deviations & Assumptions
+## 7. Key Changes (Phase 7 — Week Calendar UI Enhancements, Bold Slot Typography & Top Legend Bar)
+
+### 7a. Bold Time Slot Typography (`WeekView.tsx`)
+- Standardized all 24 time rows (9:00 AM – 8:30 PM) with bold monospace font (`font-mono font-bold tracking-tight text-[11px]`), ensuring half-hour (`:30`) slots are bold and clearly legible alongside full-hour (`:00`) slots.
+- Formatted all event cards (Appointments, Available slots, Doctor Leaves, and Blocked periods) with bold start and end time intervals (`font-mono font-bold text-[9px]`).
+
+### 7b. Zero-Scroll Responsive Full-Width Layout (`WeekView.tsx`)
+- Removed `overflow-x-auto` and fixed `min-w-[920px]`.
+- Implemented responsive full-width CSS grid: `w-full grid-cols-[68px_repeat(7,minmax(0,1fr))]`.
+- The 68px time column and all 7 day columns (Monday through Sunday) now fit 100% within the calendar container without generating any horizontal scrollbar on any desktop resolution.
+
+### 7c. Plus Icon Removal & Clean Empty Slot Affordance (`WeekView.tsx`)
+- Removed all `<Plus />` icons across within-working-hours and outside-working-hours empty slot buttons.
+- During active shifts, empty slots render a clean, dashed interactive container revealing `Book / Leave` on hover. Outside active shifts, empty cells reveal `Add Slot` on hover.
+
+### 7d. Full 7-Day Grid Slot Visibility (`WeekView.tsx`)
+- Removed the hardcoded `isSunday ? "Closed"` overlay from `WeekView.tsx`.
+- Sunday now displays its standard 30-minute operational time rows and appointments alongside all other days.
+
+### 7e. Top-Mounted Operational Legend Bar (`WeekView.tsx`)
+- Repositioned the color-coded operational legend bar from the bottom of the grid to the top (placed right above the sticky Day Header row).
+- Provides instant reference for Appointment (blue), Available Slot (emerald), Doctor Leave (amber), Blocked Period (purple), and Bookable Shift Slot (dashed blue), with the 30-minute interval indicator.
+
+---
+
+## 8. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -212,12 +238,14 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
   - *Reasoning*: Modals obscure the entire calendar grid and break context. The drawer allows doctors to inspect full clinical details and slot alternatives while keeping the operational calendar visible in the background.
 - **Decision (1-Click Clipboard Copying)**: Added copy buttons for Patient ID, Doctor ID, Appointment ID, Leave ID, Phone, and Email.
   - *Reasoning*: High-volume clinic workflows require quickly pasting IDs into pharmacy, lab, and billing software.
+- **Decision (Top-Mounted Operational Legend & Zero-Scroll Grid)**: Placed the color-coded legend at the top of WeekView and eliminated horizontal overflow.
+  - *Reasoning*: Provides immediate visual semantics before the doctor scans the schedule, and removes disruptive horizontal scrollbars across all screen widths.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 8. Verification Scorecard
+## 9. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -235,7 +263,7 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 9. Manual Verification Guide & Acceptance
+## 10. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -263,10 +291,15 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
    - Press the `Escape` key on the keyboard. Verify drawer slides closed.
    - Reopen drawer and click the darkened backdrop overlay. Verify drawer closes.
    - Reopen drawer and click the top-right `X` button. Verify drawer closes.
+6. **Week Calendar UI, Bold Slots & Top Legend Bar**:
+   - Inspect top of WeekView: Verify color legend bar appears at the top above the day header row.
+   - Verify time column: All time rows (9:00 AM – 8:30 PM, hourly and half-hourly) are bold monospace text.
+   - Verify horizontal layout: Entire week calendar (7 days + time column) fits within container with no horizontal scrollbar.
+   - Inspect empty slots: No plus icons present; hover reveals smooth `Book / Leave` (within shift) or `Add Slot` (outside shift) cue.
 
 ---
 
-## 10. Known Issues & Follow-ups
+## 11. Known Issues & Follow-ups
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Follow-ups**:
@@ -274,12 +307,12 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 11. Rollback & Migration Instructions
+## 12. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6 (all columns were provisioned in migration 008). Reverting Phase 6 code safely removes drawer rendering and restores default modal displays without altering any appointment or schedule database records.
+- **Data Implications**: No database schema migrations were added in Phase 6 or 7. Reverting safely restores previous UI layouts without altering database records.
 
