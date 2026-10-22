@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { User, RotateCw, Coffee, Lock, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { CalendarEvent } from "@/lib/api";
 import { WeekDayItem } from "../types";
 import { TIME_ROWS } from "../constants";
@@ -10,7 +10,6 @@ import {
   getTimeRowRange,
   doesEventOverlapSlot,
   getDayStatus,
-  isSlotWithinWorkingHours,
   WorkingHoursConfig,
 } from "../calendarUtils";
 
@@ -55,11 +54,11 @@ export default function WeekView({
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700 shrink-0" />
-              <span className="font-semibold text-slate-700 text-[11px]">Appointment</span>
+              <span className="font-semibold text-slate-700 text-[11px]">Appointment (Patient)</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 border border-emerald-600 shrink-0" />
-              <span className="font-semibold text-slate-700 text-[11px]">Available Slot</span>
+              <span className="w-2.5 h-2.5 rounded-xs border border-dashed border-slate-300 bg-white shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">Empty Slot (Click to Book)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 border border-amber-600 shrink-0" />
@@ -68,10 +67,6 @@ export default function WeekView({
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-xs bg-purple-500 border border-purple-600 shrink-0" />
               <span className="font-semibold text-slate-700 text-[11px]">Blocked Period</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs border border-dashed border-blue-400 bg-blue-50 shrink-0" />
-              <span className="font-semibold text-slate-700 text-[11px]">Bookable Shift Slot</span>
             </div>
           </div>
           <div className="text-[11px] font-medium text-slate-500">
@@ -206,6 +201,13 @@ export default function WeekView({
                     doesEventOverlapSlot(ev, slotStart, slotEnd)
                   );
 
+                  // Extract specific event types
+                  const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
+                  const leaveEvent = cellEvents.find(
+                    (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
+                  );
+                  const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+
                   return (
                     <div
                       key={`${day.dateStr}-${timeRow}`}
@@ -213,155 +215,60 @@ export default function WeekView({
                         day.isSelected ? "bg-blue-50/15" : "hover:bg-slate-50/60"
                       }`}
                     >
-                      {cellEvents.length > 0 ? (
-                        <div className="space-y-1">
-                          {cellEvents.map((event, idx) => {
-                            const isAppointment = event.type === "APPOINTMENT";
-                            const isAvailable = event.type === "AVAILABLE";
-                            const isLeave = event.type === "LEAVE" || event.type === "HOLIDAY";
-                            const isBlocked = event.type === "BLOCKED";
-
-                            // DOCTOR LEAVE / CLINIC HOLIDAY
-                            if (isLeave) {
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() => onEventClick(event, day.dateStr)}
-                                  className="p-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none"
-                                  title={`${event.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(event.start)} - ${format12Hour(event.end)}${event.reason ? ` (${event.reason})` : ""}`}
-                                >
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <Coffee className="w-3 h-3 text-amber-700 shrink-0" />
-                                    <span className="text-[10px] font-bold text-amber-950 truncate">
-                                      {event.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}
-                                    </span>
-                                  </div>
-                                  <div className="text-[9px] text-amber-800 font-bold mt-0.5 font-mono tracking-tight truncate">
-                                    {format12Hour(event.start)} – {format12Hour(event.end)}
-                                    {event.reason && ` • ${event.reason}`}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            // BLOCKED TIME
-                            if (isBlocked) {
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() => onEventClick(event, day.dateStr)}
-                                  className="p-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none"
-                                  title={`Blocked: ${format12Hour(event.start)} - ${format12Hour(event.end)}${event.reason ? ` (${event.reason})` : ""}`}
-                                >
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <Lock className="w-3 h-3 text-purple-600 shrink-0" />
-                                    <span className="text-[10px] font-bold text-purple-950 truncate">
-                                      {event.reason || "Blocked Period"}
-                                    </span>
-                                  </div>
-                                  <div className="text-[9px] text-purple-700 font-bold mt-0.5 font-mono tracking-tight truncate">
-                                    {format12Hour(event.start)} – {format12Hour(event.end)}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            // BOOKED APPOINTMENT
-                            if (isAppointment) {
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() => onEventClick(event, day.dateStr)}
-                                  className="p-1 rounded-md bg-blue-50/90 border border-blue-200 border-l-[3px] border-l-blue-600 text-blue-950 hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer select-none group/appt"
-                                  title={`Appointment: ${event.patient_name} (${format12Hour(event.start)} - ${format12Hour(event.end)})`}
-                                >
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <User className="w-3 h-3 text-blue-600 shrink-0" />
-                                    <span className="text-[10px] font-bold text-blue-950 truncate">
-                                      {event.patient_name || "Patient"}
-                                    </span>
-                                  </div>
-                                  <div className="text-[9px] text-blue-700 font-bold mt-0.5 flex items-center justify-between">
-                                    <span className="font-mono tracking-tight truncate">
-                                      {format12Hour(event.start)} – {format12Hour(event.end)}
-                                    </span>
-                                    {event.reason && (
-                                      <span className="text-slate-500 truncate max-w-[40px] text-[8px] font-normal group-hover/appt:text-slate-700">
-                                        {event.reason}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            // AVAILABLE SLOT
-                            if (isAvailable) {
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() =>
-                                    onAvailableSlotClick(day.dateStr, event.start, event.end)
-                                  }
-                                  className="p-1 rounded-md bg-emerald-50/90 border border-emerald-200 border-l-[3px] border-l-emerald-600 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100/70 hover:shadow-xs transition-all cursor-pointer select-none"
-                                  title={`Click to book appointment (${format12Hour(event.start)} - ${format12Hour(event.end)})`}
-                                >
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <RotateCw className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span className="text-[10px] font-bold text-emerald-950 truncate">
-                                      Available
-                                    </span>
-                                  </div>
-                                  <div className="text-[9px] text-emerald-700 font-bold mt-0.5 font-mono tracking-tight truncate">
-                                    {format12Hour(event.start)} – {format12Hour(event.end)}
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return null;
-                          })}
+                      {apptEvent ? (
+                        /* FILLED CALENDAR SLOT: ONLY PATIENT NAME SHOWN */
+                        <div
+                          onClick={() => onEventClick(apptEvent, day.dateStr)}
+                          className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-blue-50/95 border border-blue-200 border-l-[3px] border-l-blue-600 text-blue-950 hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt"
+                          title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
+                        >
+                          <span className="text-[11px] font-bold text-blue-950 truncate w-full">
+                            {apptEvent.patient_name || "Patient"}
+                          </span>
                         </div>
-                      ) : (() => {
-                        const isWorkingHour = isSlotWithinWorkingHours(
-                          day.dateStr,
-                          slotStart,
-                          slotEnd,
-                          workingHoursConfig
-                        );
-
-                        if (isWorkingHour) {
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (onEmptySlotClick) {
-                                  onEmptySlotClick(day.dateStr, slotStart, slotEnd);
-                                } else {
-                                  onQuickAddSlot(day.dateStr, slotStart, slotEnd);
-                                }
-                              }}
-                              className="w-full h-full min-h-[38px] border border-dashed border-blue-200/80 hover:border-blue-500 bg-blue-50/15 hover:bg-blue-50/60 rounded-md flex items-center justify-center text-[10px] font-bold text-blue-600 transition-all cursor-pointer group/slot shadow-2xs hover:shadow-xs px-1"
-                              title={`Click to book patient or mark leave (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
-                            >
-                              <span className="opacity-0 group-hover/slot:opacity-100 transition-opacity font-bold truncate">
-                                Book / Leave
-                              </span>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => onQuickAddSlot(day.dateStr, slotStart, slotEnd)}
-                            className="w-full h-full min-h-[38px] opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-semibold text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 rounded-md transition-all cursor-pointer px-1"
-                            title={`Add available slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
-                          >
-                            <span className="truncate">Add Slot</span>
-                          </button>
-                        );
-                      })()}
+                      ) : leaveEvent ? (
+                        /* DOCTOR LEAVE / CLINIC HOLIDAY */
+                        <div
+                          onClick={() => onEventClick(leaveEvent, day.dateStr)}
+                          className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                          title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
+                        >
+                          <span className="text-[11px] font-bold text-amber-950 truncate w-full">
+                            {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
+                          </span>
+                        </div>
+                      ) : blockedEvent ? (
+                        /* BLOCKED PERIOD */
+                        <div
+                          onClick={() => onEventClick(blockedEvent, day.dateStr)}
+                          className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                          title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
+                        >
+                          <span className="text-[11px] font-bold text-purple-950 truncate w-full">
+                            {blockedEvent.reason || "Blocked Period"}
+                          </span>
+                        </div>
+                      ) : (
+                        /* OTHERWISE UNBOOKED / EMPTY SLOT */
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onEmptySlotClick) {
+                              onEmptySlotClick(day.dateStr, slotStart, slotEnd);
+                            } else if (onAvailableSlotClick) {
+                              onAvailableSlotClick(day.dateStr, slotStart, slotEnd);
+                            } else {
+                              onQuickAddSlot(day.dateStr, slotStart, slotEnd);
+                            }
+                          }}
+                          className="w-full h-full min-h-[38px] rounded-md transition-all cursor-pointer hover:bg-blue-50/50 hover:border hover:border-dashed hover:border-blue-300 flex items-center justify-center group/slot"
+                          title={`Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`}
+                        >
+                          <span className="opacity-0 group-hover/slot:opacity-100 text-[10px] font-semibold text-blue-500 transition-opacity">
+                            +
+                          </span>
+                        </button>
+                      )}
                     </div>
                   );
                 })}

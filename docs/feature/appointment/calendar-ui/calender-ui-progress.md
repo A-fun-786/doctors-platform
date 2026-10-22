@@ -272,7 +272,26 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 9. Decisions, Deviations & Assumptions
+## 9. Key Changes (Phase 9 — Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention)
+
+### 9a. Pure Patient Name Display in WeekView & Patient Name with Visit Reason in DayView
+- **WeekView Filled Slot De-cluttering**: Inside booked appointment slot containers in `WeekView.tsx`, secondary lines containing start-end time ranges (`10:00 AM – 10:30 AM`) and visit reasons (`General Consultation`) were removed to prevent vertical text clipping in compact 30-minute cells. Only the patient's name (`event.patient_name || "Patient"`) is rendered inside the slot in high-contrast bold typography (`font-bold text-[11px] text-blue-950`). Full details remain accessible via hover tooltip and 1-click drawer.
+- **DayView Patient Name with Visit Reason**: In `DayView.tsx`, appointment cards display the patient's name prominently alongside their visit reason (`{event.patient_name || "Patient"} • {event.reason || "General Visit"}`) in an expanded horizontal stream card with accurate 12-hour start and end bounds (`format12Hour(event.start) – format12Hour(event.end)`).
+- **DayView Otherwise Empty Slots**: All unbooked operational intervals in `DayView.tsx` render as uniform empty slots (`border-dashed bg-slate-50/60`, title "Empty Slot — Click to book", and badge "EMPTY SLOT") with 1-click direct booking modal integration via `onEmptySlotClick`.
+
+### 9b. Uniform Empty Slots Across All Unbooked Intervals (`WeekView.tsx`)
+- **Elimination of Visual Noise**: Removed bulky green `AVAILABLE` badges, "Available" text labels, and distracting green borders from open calendar slots.
+- **Clean Google Calendar Empty Slot Affordance**: All unbooked 30-minute intervals render as clean, spacious empty slots without default text clutter.
+- **Interactive Hover & 1-Click Booking**: On hover, empty slots smoothly reveal a soft blue highlight (`hover:bg-blue-50/50`) and a subtle `+` affordance, with 1-click access to open the `SlotActionModal` or quick booking modal.
+
+### 9c. Complete Omission of Break Time Slot Mentions (`WeekView.tsx`)
+- **Zero Break Text/Badges**: Strictly ensured that no slot displays "Break", "Lunch Break", "Shift Break", or "Break Time".
+- **Grid Continuity**: Operational gaps (such as between morning and evening shifts) render as standard, uniform empty slots without break banners, giving doctors an uninterrupted, clean visual view of the entire schedule.
+- **Streamlined Top Legend Bar**: Updated the operational legend at the top of `WeekView.tsx` to highlight Appointment (Patient), Empty Slot (Click to Book), Doctor Leave, and Blocked Period, completely omitting any break time references.
+
+---
+
+## 10. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -286,12 +305,13 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
   - *Reasoning*: Guarantees real date parity with zero timezone skew and gives doctors an intuitive, industry-standard calendar navigation experience.
 - **Decision (Removal of Sidebar "+ New Appointment" Create Button)**: The sidebar header `+ New Appointment` button was removed to prevent UI redundancy and streamline focus to the mini-calendar navigation and operational schedule. Booking is natively supported on the calendar grid via shift slot clicking (`SlotActionModal`) and via `QuickActionsCard`.
 - **Decision (Strict Omission of the Word "Today")**: Textual labels like "Today", "Today's Date", or "Go to Today" were omitted from the sidebar and mini-calendar. Instead, Google Calendar's visual badge conventions (solid blue circle or prominent blue ring) immediately signify the current day without unnecessary text clutter.
+- **Decision (Only Patient Name in Filled Slots & Break Omission)**: In Phase 9, crowded text inside calendar slot boxes was stripped away in favor of displaying only the patient name. Open slots were simplified into clean empty slots, and break time labels were completely removed to present a clean, uninterrupted schedule.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 10. Verification Scorecard
+## 11. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -306,11 +326,12 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 | **Empty Slot Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
+| **Phase 9 Clean Slots & DayView Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 5/5 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
 
 ---
 
-## 11. Manual Verification Guide & Acceptance
+## 12. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -342,7 +363,6 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
    - Inspect top of WeekView: Verify color legend bar appears at the top above the day header row.
    - Verify time column: All time rows (9:00 AM – 8:30 PM, hourly and half-hourly) are bold monospace text.
    - Verify horizontal layout: Entire week calendar (7 days + time column) fits within container with no horizontal scrollbar.
-   - Inspect empty slots: No plus icons present; hover reveals smooth `Book / Leave` (within shift) or `Add Slot` (outside shift) cue.
 7. **Google Calendar Mini-Calendar & Real Date Parity (Phase 8)**:
    - **Single-Letter Headers**: Verify column headers show `M`, `T`, `W`, `T`, `F`, `S`, `S`.
    - **Real Date Calculation**: Verify day numbers accurately correspond to their local calendar dates without any 1-day offset skew (e.g. Day 23 resolves to `2026-10-23` in UTC+05:30).
@@ -350,28 +370,34 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
    - **No Superfluous Create Button**: Confirm that no `+ New Appointment` / `+ Create` button is present in `CalendarSidebar.tsx`.
    - **Zero "Today" Text Mentions**: Confirm that the textual word "Today" is not displayed anywhere in `CalendarSidebar.tsx` or `MiniCalendar.tsx` (visual circle indicator only).
    - **Cross-Month Navigation**: Click a trailing or leading date from adjacent months; verify selected date updates and mini-calendar navigates month smoothly.
+8. **Clean Slots & Break Omission Verification (Phase 9)**:
+   - **Only Patient Name**: Look at any filled slot (e.g., "Neha Verma", "Suresh Yadav"). Confirm that only the patient name is displayed in bold text inside the slot box (no time range or reason subtitles).
+   - **Clean Empty Slots**: Confirm that all other slots without appointments are clean, empty slots without green "Available" badges or default text clutter.
+   - **Zero Break Mentions**: Confirm that no slot mentions "Break", "Lunch Break", or "Break Time". Afternoon intervals display as clean uniform empty slots.
+   - **Click-to-Book**: Click on any empty slot and verify the `SlotActionModal` opens smoothly to book an appointment or mark leave.
 
 ---
 
-## 12. Known Issues & Commitments
+## 13. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
   - Keep `CalendarSidebar.tsx` free of redundant create buttons (`+ New Appointment`).
   - Do not introduce the textual word "Today" in sidebar widgets or mini-calendar header; retain pure visual circular affordance.
   - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
+  - Maintain filled calendar slots showing only the patient name, with unbooked slots remaining clean and empty without break time slot mentions.
 - **Follow-ups**:
   - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
 
 ---
 
-## 13. Rollback & Migration Instructions
+## 14. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, or 8. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, or 9. Reverting safely restores previous UI layouts without altering database records.
 
 

@@ -148,6 +148,9 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onBookPatient={() =>
                 openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
               }
+              onEmptySlotClick={(date, start, end) =>
+                openSlotActionModal(date, start, end, "booking")
+              }
               onEventClick={openEventDrawer}
             />
           )}
