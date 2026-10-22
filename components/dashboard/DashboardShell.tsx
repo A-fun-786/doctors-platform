@@ -40,7 +40,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const navItems: { id: DashboardTabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "calendar", label: "Calendar", icon: Calendar },
+    { id: "calendar", label: "Appointment", icon: Calendar },
     { id: "profile", label: "Profile", icon: User },
   ];
 

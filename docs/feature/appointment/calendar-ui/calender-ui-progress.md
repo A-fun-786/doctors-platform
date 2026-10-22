@@ -6,6 +6,7 @@
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
 2. **Google Calendar Sync Removal (Phase 2)**: Executed `google_calendar_removal_plan.md`. Completely removed obsolete Google Calendar sync UI scaffolding, buttons, modals, and hooks while strictly preserving Google OAuth Sign-In for doctor authentication and backend calendar scheduling APIs.
 3. **Calendar Module Enhancement & Hardening (Phase 3)**: Executed `phase3-verification-plan.md`. Standardized 30-minute slot granularity, implemented Option A Hard-Block conflict enforcement across all calendar modal submit handlers, auto-advanced end times (+30m parity), clamped `minutesToTime24` boundary conditions (00:00–23:59), pruned dead code (`getSlotHourKey`), and added comprehensive automated unit and acceptance suites (56 unit tests + 8 QA acceptance scenarios).
+4. **Left Navigation Tab Label Update**: Updated the left navigation tab label in `DashboardShell.tsx` from "Calendar" to "Appointment" (`<span>Appointment</span>`), keeping the internal tab ID `calendar` for contract compatibility.
 
 ## 2. Key Changes (Google Calendar Removal)
 - **Component Deletions**:
@@ -66,6 +67,7 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 - **Midnight Clamping**: `minutesToTime24` clamps values >= 1440 at `23:59` to prevent silent rollover to 00:xx of the same day.
 - **Dead Code Purge**: `getSlotHourKey` removed from `calendarUtils.ts` (0 usages in codebase).
 - **Working Tree Isolation**: `.agents/agents/` changes (`plan-executor.md`) were kept untouched and deliberately excluded from feature commits per approval.
+- **Navigation Tab Label ("Appointment")**: Updated `navItems` label from "Calendar" to "Appointment" in `DashboardShell.tsx` to render `<span>Appointment</span>` in the left navigation sidebar. Retained `id: "calendar"` to preserve internal tab routing contracts without requiring cascading renames across child tabs and handlers.
 - **Deviations**: None.
 
 ## 5. Verification Scorecard
