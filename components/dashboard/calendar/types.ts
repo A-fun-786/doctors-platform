@@ -33,3 +33,16 @@ export interface DayStatusInfo {
   text: string;
   color: string;
 }
+
+export type CalendarDrawerMode = "view" | "edit";
+
+export type CalendarDrawerType = "appointment" | "leave" | "blocked";
+
+export interface CalendarDrawerState {
+  isOpen: boolean;
+  type: CalendarDrawerType | null;
+  mode: CalendarDrawerMode;
+  event: CalendarEvent | null;
+  date: string;
+  leaveId?: string;
+}

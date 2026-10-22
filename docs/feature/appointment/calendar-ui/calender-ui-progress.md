@@ -1,6 +1,6 @@
 # Progress: Calendar UI Enhancements & Cleanups
 
-**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md` | **Base SHA**: `7c324e3` | **Branch**: `calendar-ui` | **Status**: Verified ✅
+**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md` | **Base SHA**: `e4dd560` | **Branch**: `calendar-ui` | **Status**: Verified ✅
 
 ## 1. Summary & Scope
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
@@ -8,6 +8,7 @@
 3. **Calendar Module Enhancement & Hardening (Phase 3)**: Executed `phase3-verification-plan.md`. Standardized 30-minute slot granularity, implemented Option A Hard-Block conflict enforcement across all calendar modal submit handlers, auto-advanced end times (+30m parity), clamped `minutesToTime24` boundary conditions (00:00–23:59), pruned dead code (`getSlotHourKey`), and added comprehensive automated unit and acceptance suites (56 unit tests + 8 QA acceptance scenarios).
 4. **Dashboard Navigation Tab Rebranding (Phase 4)**: Renamed the doctor dashboard tab from `calendar` to `appointment` (`id: "calendar"` → `id: "appointment"`, `label: "Calendar"` → `label: "Appointment"`). Updated `DashboardShell.tsx`, `page.tsx`, and `OverviewTab.tsx`, along with the automated navigation test suite in `scripts/test_dashboard_shell.mjs`.
 5. **Empty Slot Popup, Editable Working Hours & Dedicated Patient Schema (Phase 5)**: Executed `calendar_empty_slot_plan.md`. Created dedicated database columns for patient vitals (`patient_gender`, `patient_age`, `patient_height`, `patient_weight`, `patient_blood_group`, `patient_address`) with safe Alembic migration `008_add_patient_details_to_appointments.py`. Implemented dynamic, editable doctor working hours (Morning and Evening shifts) with slot recalculation, live daily capacity preview, and interactive WeekView empty-slot cues. Developed modern, responsive dual-tab `SlotActionModal` with 5 strictly mandatory validated fields for booking (Name, Mobile, Gender, Age, Reason) and streamlined single-field Doctor Leave form.
+6. **Calendar Slot Details & Rescheduling Drawer with Full Patient Vitals & Leave Management (Phase 6)**: Executed `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`. Built a high-performance, accessible right-side slide-in drawer (`CalendarDrawer.tsx`) triggered on appointment and leave slot clicks without leaving the calendar view or disrupting scroll/view state. Displays full patient demographics and clinical vitals captured during booking (Height, Weight, Blood Group, Age, Gender, Address, Notes, Reason, Contact) with 1-click copy buttons for Patient ID, Doctor ID, and Appointment ID. Integrates an inline appointment rescheduling sub-panel (`AppointmentRescheduleForm.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx`) with conflict checking against working hours, and a dedicated doctor leave management panel (`LeaveDetailsPanel.tsx`) with prominent Leave ID and immediate slot restoration.
 
 ---
 
@@ -134,61 +135,151 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
 
 ---
 
-## 6. Decisions, Deviations & Assumptions
-- **Decision (Pydantic Schema Backward Compatibility)**: In `AppointmentCreateRequest`, new patient columns are marked `Optional` with validators (validating gender values and age bounds when provided), while the frontend `SlotActionModal` strictly enforces all 5 mandatory fields (Name, Mobile, Gender, Age, Reason) before allowing submission.
-  - *Reasoning*: Prevents breaking existing tests in `test_productionization.py` and `test_appointment_lifecycle.py` that create basic test appointments without clinical demographics, while ensuring 100% compliance with user requirements in the UI.
-- **Decision (Dual Shift Storage)**: Config is persisted in `localStorage` with fallback to `DEFAULT_WORKING_HOURS`, allowing immediate UI recalculation without requiring extra backend auth-bound config endpoints.
-- **Deviations from Plan**: None.
-- **Assumptions**: Clinic operating hours follow doctor's configured morning and evening shifts; Sundays remain closed by standard clinic policy.
+## 6. Key Changes (Phase 6 — Calendar Slot Details & Rescheduling Drawer with Full Patient Vitals & Leave Management)
+
+### 6a. Right-Side Drawer Architecture & Accessibility (`CalendarDrawer.tsx`, `useCalendarDrawer.ts`, `CalendarTab.tsx`)
+- **Slide-In Drawer Component** (`components/dashboard/calendar/panels/CalendarDrawer.tsx`):
+  - Fixed-position overlay (`z-50`) with subtle backdrop blur (`bg-slate-900/30 backdrop-blur-[2px]`) preserving desktop calendar background visibility.
+  - Smooth 300ms slide-in animation (`animate-in slide-in-from-right duration-300 ease-out`).
+  - Full keyboard accessibility: traps focus, listens for `Escape` key to close, and disables body bounce on mobile.
+  - Responsive sizing: full width on mobile (`w-screen`), standard 480px width on desktop (`md:max-w-lg lg:w-[480px]`).
+  - Sticky glass header with title, subtitle (formatted date and 12-hour time), and category badge ("Patient Appointment" in blue or "Doctor Leave & Exclusion" in amber).
+- **Drawer State Management Hook** (`components/dashboard/calendar/hooks/useCalendarDrawer.ts`):
+  - Manages `drawerState`: `{ isOpen, type, mode, event, date, leaveId }`.
+  - Type-safe slot dispatcher: categorizes clicked slots into `"appointment"`, `"leave"`, or `"blocked"`.
+  - Provides `openEventDrawer(event, date)` and `closeDrawer()`.
+- **CalendarTab Mounting** (`components/dashboard/CalendarTab.tsx`):
+  - Replaced legacy modal event clicks with `onEventClick={openEventDrawer}` across both WeekView and DayView.
+  - Mounted `CalendarDrawer` directly within `CalendarTab` without route changes or page reloads, ensuring zero loss of scroll position.
+
+### 6b. Comprehensive Patient Details & Vitals Panel with IDs (`AppointmentDetailsPanel.tsx`, `constants.ts`)
+- **Patient Profile & Contact Card**:
+  - Displays Patient Initial Avatar, Patient Full Name, Appointment Status Badge (e.g. `BOOKED`).
+  - Direct telephone (`tel:`) and mailto (`mailto:`) links with 1-click copy icons.
+  - Residential Address with location marker icon.
+- **Patient Demographics & Vitals Matrix**:
+  - Clean 5-column responsive vitals grid: Age (`yrs`), Gender (`Male`/`Female`/`Other`), Blood Group (`A+`, `B+`, `O+`, `AB+`, etc.), Height (e.g. `165 cm`), and Weight (e.g. `58 kg`).
+  - Gracefully hides missing optional vitals without awkward layout shifts.
+- **Appointment Specifications & Copyable IDs Card**:
+  - Displays Date and 12-Hour Time Window (`format12Hour`).
+  - **Patient ID**: Displayed with 1-click clipboard copy button and checkmark confirmation.
+  - **Doctor ID**: Displayed with 1-click clipboard copy button.
+  - **Appointment ID**: Displayed with 1-click clipboard copy button.
+  - **Booking Created Date**: Formatted into readable localized date and time.
+- **Consultation Details Card**:
+  - Prominent Visit Reason card and multi-line Additional Clinical Notes.
+- **Background API Hydration**:
+  - Fetches complete appointment record via `getAppointment(appointment_id)` upon drawer opening to populate full UUIDs and timestamps seamlessly.
+- **Enriched Demo Data** (`constants.ts`):
+  - Enriched `DEMO_WEEK_EVENTS` with realistic patient demographics, vitals, addresses, notes, and copyable UUIDs (`pat-demo-2001`, `doc-demo-1001`, `appt-demo-101`) for offline and demonstration fidelity.
+
+### 6c. Inline Rescheduling Sub-panel & Conflict Guard (`AppointmentRescheduleForm.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx`)
+- **Inline Flow Switching**: Clicking "Edit / Reschedule Appointment" switches the drawer content directly to the rescheduling form without navigating away or opening additional stacked modals.
+- **Dynamic Slot Selector Grid** (`SlotSelectorGrid.tsx`):
+  - Interactive date picker (allowing navigation up to 60 days forward).
+  - Fetches backend available slots via `getDoctorAvailableSlots(date)` with local calculation fallback.
+  - Enforces conflict detection: marks conflicting slots as unavailable with collision reasons (`APPOINTMENT`, `LEAVE`, `BLOCKED`, `HOLIDAY`).
+  - Enforces doctor working hours shifts (morning & evening), disabling slots outside active operating shifts.
+- **Confirmation Safety Modal** (`RescheduleConfirmModal.tsx`):
+  - Displays patient name, original date/time, and proposed new date/time with arrow visual.
+  - Clear confirmation warning before dispatching `rescheduleAppointment` API.
+  - On success, triggers calendar stream reload and toast confirmation.
+
+### 6d. Doctor Leave Details & Instant Availability Restoration (`LeaveDetailsPanel.tsx`)
+- **Prominent Leave ID Presentation**:
+  - Prominent amber banner displaying the Leave Schedule UUID with 1-click copy button.
+  - Displays Doctor ID, Leave Date, 12-Hour Time Window, and Leave Reason.
+- **Cancellation & Deletion Flow**:
+  - Red-themed "Cancel Leave" button triggers confirmation dialog explaining that cancelling will immediately restore patient booking availability.
+  - Calls `deleteDoctorSchedule(schedule_id)` API, shows toast confirmation, and refreshes the calendar stream immediately.
+
+### 6e. Backend UUID Generation & Calendar Serialization
+- **Automatic Patient ID Assignment** (`backend/app/services/appointment_service.py`):
+  - Generates `patient_id = uuid.uuid4()` during appointment creation when not explicitly provided by a registered account, ensuring 100% of appointments possess a valid, non-null patient identifier.
+- **Event Serialization** (`backend/app/schemas/calendar.py` & `backend/app/services/calendar_service.py`):
+  - Serializes `patient_id`, `doctor_id`, and `created_at` in calendar appointment events.
+  - Serializes `schedule_id` and `doctor_id` in calendar leave events.
+- **TypeScript API Contracts** (`lib/api.ts`):
+  - Added `patient_id`, `doctor_id`, `schedule_id`, `created_at`, `patient_height`, `patient_weight`, `patient_blood_group`, `patient_address` to `CalendarEvent`.
 
 ---
 
-## 7. Verification Scorecard
+## 7. Decisions, Deviations & Assumptions
+- **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
+  - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
+  - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
+- **Decision (Slide-in Drawer vs Stacked Modals)**: Replaced modal details with a fixed right-side slide-in drawer (`CalendarDrawer.tsx`).
+  - *Reasoning*: Modals obscure the entire calendar grid and break context. The drawer allows doctors to inspect full clinical details and slot alternatives while keeping the operational calendar visible in the background.
+- **Decision (1-Click Clipboard Copying)**: Added copy buttons for Patient ID, Doctor ID, Appointment ID, Leave ID, Phone, and Email.
+  - *Reasoning*: High-volume clinic workflows require quickly pasting IDs into pharmacy, lab, and billing software.
+- **Deviations from Plan**: None.
+- **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
+
+---
+
+## 8. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Validation** | `npm run lint` | 🟢 PASS | 0 warnings, 0 errors |
 | **Next.js Production Build** | `npm run build` | 🟢 PASS | 8/8 routes compiled |
-| **Backend Lifecycle & Pytest Suite** | `pytest backend/tests/test_appointment_lifecycle.py backend/tests/test_calendar.py` | 🟢 PASS | 46/46 passed |
+| **Backend Pytest Suite** | `pytest backend/` | 🟢 PASS | 126/126 passed |
 | **Alembic Migration Bidirectional Test** | `alembic downgrade -1 && alembic upgrade head` | 🟢 PASS | 008 upgrade & downgrade verified |
 | **Appointments Unit Suite** | `node scripts/test_appointments_comprehensive.mjs` | 🟢 PASS | 30/30 passed |
 | **Calendar Utils Unit Suite** | `node scripts/test_calendar_utils.mjs` | 🟢 PASS | 32/32 passed (7/7 suites) |
-| **Acceptance Scenarios Suite (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
-| **Empty Slot & Working Hours Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
+| **Calendar Acceptance QA Suite (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
+| **Empty Slot Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
+| **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
 
 ---
 
-## 8. Manual Verification Guide & Acceptance
-1. **Editable Working Hours**:
+## 9. Manual Verification Guide & Acceptance
+1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
-   - In right sidebar under "Working Hours", click **Edit Hours**.
-   - Adjust Morning Shift to `09:00 - 12:30`. Observe live total daily capacity update to 15 slots.
-   - Click "Save Working Hours" and verify toast notification.
-2. **Empty Slot Click Trigger**:
-   - In WeekView, observe 9:00 AM – 9:30 AM slot is now highlighted as active working hours with dashed border.
-   - Hover over the slot to see `+ Book / Leave` cue.
-   - Click the slot. Verify `SlotActionModal` opens with the selected date and 9:00 AM – 9:30 AM.
-3. **Mandatory Booking Form Validation**:
-   - Check that Name, Mobile, Gender, Age, and Visit Reason have red asterisks `*`.
-   - Verify "Book Appointment" button is disabled until all 5 fields are filled and valid.
-   - Enter Name: "Neha Verma", Mobile: "+91 98765 43210", Gender: "Female", Age: "28", Reason: "General Consultation", plus optional vitals (Height: 165 cm, Weight: 58 kg, Blood Group: B+).
-   - Click "Book Appointment". Verify appointment is created and rendered in the slot.
-4. **Doctor Leave Tab**:
-   - Click another empty working-hour slot.
-   - Switch to the "Doctor Leave" tab.
-   - Verify only the "Leave Reason" selector/input is present.
-   - Select "Medical Conference / CME" and click "Mark Leave for this Slot".
-   - Verify amber leave badge renders on the calendar.
+   - Click on any booked appointment slot (e.g. "Neha Verma").
+   - Verify right-side drawer slides in smoothly without page reload or scrolling jump.
+   - Inspect Patient Name, Phone, Email, Address, Vitals (Age: 28 yrs, Gender: Female, Blood Group: B+, Height: 165 cm, Weight: 58 kg), Visit Reason, and Notes.
+   - Verify Patient ID, Doctor ID, and Appointment ID each have functional copy buttons with checkmark feedback.
+2. **Inline Appointment Rescheduling Flow**:
+   - From the open appointment drawer, click **Edit / Reschedule Appointment**.
+   - Verify the panel switches to the date picker and 30-minute slot grid.
+   - Select a new date (e.g. tomorrow) and click an available 30-minute slot.
+   - Verify conflicting slots (occupied by other appointments or leaves) are disabled.
+   - Click "Review & Reschedule". Verify confirmation dialog displays original vs new date/time.
+   - Click "Confirm Reschedule" and verify toast notification and updated calendar stream.
+3. **Doctor Leave Slot Click & Prominent Leave ID**:
+   - In WeekView, click on a leave slot (e.g. "Hospital Medical Conference").
+   - Verify drawer opens with amber "Doctor Leave & Exclusion" badge.
+   - Verify Leave ID is prominently displayed in the top amber card with a working copy button.
+   - Verify Doctor ID, leave window, and leave reason are clearly rendered.
+4. **Cancel Doctor Leave & Instant Availability Restoration**:
+   - Click **Cancel Leave** at the bottom of the leave drawer.
+   - In the confirmation modal, click "Confirm & Cancel Leave".
+   - Verify toast confirmation "Leave schedule cancelled successfully".
+   - Verify the calendar refreshes immediately and the slot becomes open/available for patient booking.
+5. **Drawer Dismissal & Accessibility**:
+   - Press the `Escape` key on the keyboard. Verify drawer slides closed.
+   - Reopen drawer and click the darkened backdrop overlay. Verify drawer closes.
+   - Reopen drawer and click the top-right `X` button. Verify drawer closes.
 
 ---
 
-## 9. Rollback & Migration Instructions
+## 10. Known Issues & Follow-ups
+- **Pre-existing Failures**: None.
+- **Regressions**: None detected across frontend and backend test suites.
+- **Follow-ups**:
+  - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
+
+---
+
+## 11. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: Reverting the migration drops the 6 optional columns (`patient_gender`, `patient_age`, `patient_height`, `patient_weight`, `patient_blood_group`, `patient_address`) from the `appointments` table without affecting core appointment date, time, patient name, contact, reason, or status.
+- **Data Implications**: No database schema migrations were added in Phase 6 (all columns were provisioned in migration 008). Reverting Phase 6 code safely removes drawer rendering and restores default modal displays without altering any appointment or schedule database records.
+

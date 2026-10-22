@@ -139,6 +139,7 @@ def create_appointment(
 
     appointment = Appointment(
         doctor_id=doctor_id,
+        patient_id=uuid.uuid4(),
         patient_name=payload.patient_name,
         patient_contact=payload.patient_contact,
         patient_gender=payload.patient_gender,

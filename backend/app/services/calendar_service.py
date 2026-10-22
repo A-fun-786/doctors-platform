@@ -91,6 +91,8 @@ def get_doctor_calendar(
                     "type": s.type,
                     "start": s.start_time.strftime("%H:%M"),
                     "end": s.end_time.strftime("%H:%M"),
+                    "schedule_id": str(s.id),
+                    "doctor_id": str(s.doctor_id),
                 }
                 if s.reason:
                     ev["reason"] = s.reason
@@ -105,7 +107,12 @@ def get_doctor_calendar(
                 "patient_name": a.patient_name,
                 "status": a.status,
                 "appointment_id": str(a.id),
+                "doctor_id": str(a.doctor_id),
             }
+            if a.patient_id:
+                ev["patient_id"] = str(a.patient_id)
+            if a.created_at:
+                ev["created_at"] = a.created_at.isoformat()
             if a.patient_contact:
                 ev["patient_contact"] = a.patient_contact
             if a.patient_gender:

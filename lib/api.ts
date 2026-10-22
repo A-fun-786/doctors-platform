@@ -268,6 +268,11 @@ export interface CalendarEvent {
   notes?: string;
   status?: AppointmentStatus;
   appointment_id?: string;
+  schedule_id?: string;
+  doctor_id?: string;
+  patient_id?: string;
+  patient_email?: string;
+  created_at?: string;
 }
 
 export interface CalendarDay {

@@ -22,6 +22,10 @@ class CalendarEvent(BaseModel):
     notes: Optional[str] = Field(None, description="Clinical or booking notes")
     status: Optional[str] = Field(None, description="Appointment status (BOOKED, COMPLETED)")
     appointment_id: Optional[str] = Field(None, description="Appointment UUID string if appointment")
+    schedule_id: Optional[str] = Field(None, description="Schedule UUID string if leave or blocked slot")
+    doctor_id: Optional[str] = Field(None, description="Doctor UUID string")
+    patient_id: Optional[str] = Field(None, description="Patient UUID string if linked")
+    created_at: Optional[str] = Field(None, description="Creation timestamp ISO string")
 
 
 class CalendarDay(BaseModel):
