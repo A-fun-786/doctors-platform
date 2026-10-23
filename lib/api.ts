@@ -143,7 +143,7 @@ export interface PublicMedicineOrderResponse {
 // ==========================================
 
 // Schedule types
-export type ScheduleType = "AVAILABLE" | "LEAVE" | "HOLIDAY" | "BLOCKED";
+export type ScheduleType = "LEAVE" | "HOLIDAY" | "BLOCKED";
 
 export interface ScheduleEntry {
   id: string;

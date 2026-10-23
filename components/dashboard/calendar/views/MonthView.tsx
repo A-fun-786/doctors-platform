@@ -27,7 +27,6 @@ export default function MonthView({
         {miniCalDays.map((cell, idx) => {
           const evs = getEventsForDate(cell.dateStr);
           const appts = evs.filter((e) => e.type === "APPOINTMENT").length;
-          const avails = evs.filter((e) => e.type === "AVAILABLE").length;
           const leaves = evs.filter(
             (e) => e.type === "LEAVE" || e.type === "HOLIDAY" || e.type === "BLOCKED"
           ).length;
@@ -68,11 +67,6 @@ export default function MonthView({
                 {appts > 0 && (
                   <div className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-medium truncate">
                     {appts} Booked (30m)
-                  </div>
-                )}
-                {avails > 0 && (
-                  <div className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium truncate">
-                    {avails} Slots
                   </div>
                 )}
               </div>

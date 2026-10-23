@@ -16,51 +16,85 @@
 
 ---
 
-## 2. Key Changes (Google Calendar Removal)
+## 2. Key Changes (Quick Actions Removal — Phase 4)
+
+### 2a. Component Deletions & Refactoring
+- **Deleted**: `components/dashboard/calendar/sidebar/QuickActionsCard.tsx` (38 lines).
+- **`components/dashboard/calendar/sidebar/CalendarSidebar.tsx`**:
+  - Removed `QuickActionsCard` import and `<QuickActionsCard />` rendering.
+  - Tightened `interface CalendarSidebarProps` to strictly require `miniCalMonth`, `setMiniCalMonth`, `miniCalDays`, and `onSelectDate`.
+  - Pruned `onAddAppointment` and `onBlockTime` props from interface and component parameter destructuring.
+  - Preserved `MiniCalendar` and `WorkingHoursCard` in responsive layout (`xl:col-span-3 space-y-5`).
+- **`components/dashboard/CalendarTab.tsx`**:
+  - Removed `onAddAppointment` and `onBlockTime` props passed to `<CalendarSidebar>`.
+  - Retained `<BlockTimeModal>` JSX, `openBlockModal`, `blockType`, `blockReason`, and `handleBlockSubmit` wiring intact to preserve backend blocking functionality for future UI surfaces.
+  - Maintained primary patient booking pathways via `WeekView` (`onAvailableSlotClick={openAddAppointment}`) and `DayView` (`onBookPatient={() => openAddAppointment(selectedDate)}`).
+
+### 2b. Documentation Updates
+- **`CALENDAR_UI_DOCUMENTATION.md`**: Removed `QuickActionsCard.tsx` from file index table and component hierarchy diagram.
+- **`README.md`**: Removed `QuickActionsCard.tsx` from calendar directory tree.
+
+### 2c. Comprehensive Automated & Live Test Suites
+- Added `scripts/test_quick_actions_removal.mjs`: 24 automated unit and AST assertion test cases covering:
+  - T1: File deletion and complete elimination of `QuickActionsCard` imports and JSX tags.
+  - T2: WeekView slot click wiring to `openAddAppointment`.
+  - T3: DayView "Book Patient" button wiring to `openAddAppointment`.
+  - T4: `BlockTimeModal` component preservation and `useCalendarModals` state hook retention.
+  - T5: Strict `CalendarSidebarProps` interface type validation via TypeScript AST parser.
+  - T6: Production build and clean bundle verification.
+- Added `scripts/verify_quick_actions_live_ui.mjs`: 7 live end-to-end checks against running servers on ports 3000 and 8000:
+  - Service health verification (`http://localhost:8000/docs`, `http://localhost:3000/dashboard`).
+  - Doctor authentication with test credentials (`manual.doctor.test@clinic.local`) & CORS validation (`Access-Control-Allow-Origin: http://localhost:3000`).
+  - Session verification via `/api/v1/auth/me`.
+  - Live UI bundle verification confirming absence of `QuickActionsCard` and presence of `MiniCalendar` and `WorkingHoursCard`.
+  - Doctor calendar unified scheduling API query (`/api/v1/doctor/calendar`).
+- Updated `package.json`: Chained `node scripts/test_quick_actions_removal.mjs` into `npm test` and `npm run test:calendar`.
+
+## 3. Key Changes (Google Calendar Removal — Phase 2)
 - **Component Deletions**:
-  - `components/dashboard/calendar/sidebar/GoogleCalendarCard.tsx` (sidebar sync status widget)
-  - `components/dashboard/calendar/modals/GoogleCalendarModal.tsx` (mock settings & sync modal)
-  - `components/dashboard/calendar/sidebar/SyncNotificationBanner.tsx` (static sync notification banner)
+  - `components/dashboard/calendar/sidebar/GoogleCalendarCard.tsx`
+  - `components/dashboard/calendar/modals/GoogleCalendarModal.tsx`
+  - `components/dashboard/calendar/sidebar/SyncNotificationBanner.tsx`
 - **Component & Hook Updates**:
-  - `QuickActionsCard.tsx`: Removed `onSyncGoogle`, `syncingGoogle` props, `RotateCw` icon, and the "Sync with Google Calendar" action button.
-  - `CalendarSidebar.tsx`: Pruned deleted card imports and unused props (`onOpenGoogleModal`, `onSyncGoogle`, `syncingGoogle`).
+  - `CalendarSidebar.tsx`: Pruned deleted card imports and unused props.
   - `useCalendarData.ts`: Removed `syncingGoogle` state and `handleSyncGoogle()` callback.
   - `useCalendarModals.ts`: Removed `showGoogleModal` state and `openGoogleModal()` callback.
-  - `CalendarTab.tsx`: Removed `GoogleCalendarModal` import/rendering and pruned Google sync props/destructuring.
-- **Documentation**:
-  - Updated `CALENDAR_UI_DOCUMENTATION.md` (removed Section 10 & 12.5, updated Quick Actions, and renumbered sections).
-  - Updated `README.md` calendar component hierarchy tree.
+  - `CalendarTab.tsx`: Removed `GoogleCalendarModal` import/rendering.
 
 ---
 
 ## 3. Key Changes (Phase 3 — Calendar Module Enhancement & Hardening)
 
-### 3a. 30-Minute Slot Granularity (`constants.ts`)
-- `TIME_ROWS` expanded from hourly to **30-minute intervals** (9:00 AM → 8:30 PM, 24 rows total).
-- Added `SLOT_DURATION_MINUTES = 30` constant.
-- Introduced `TimeOption30M` interface and `TIME_OPTIONS_30M` array: full 30-min dropdown options (09:00–20:00) for use in modal pickers.
-- Mock `DOCTOR_SCHEDULE` data enriched: all dates have half-hour `AVAILABLE`, `APPOINTMENT`, `BLOCKED`, and `LEAVE` slots.
+### 2a. Types & API Layer (`lib/api.ts`)
+- **`ScheduleType` Union**: Removed `"AVAILABLE"`, leaving `export type ScheduleType = "LEAVE" | "HOLIDAY" | "BLOCKED";`.
+- **`CalendarEvent.type`**: Propagated to `ScheduleType | "APPOINTMENT"`, ensuring events can only be appointments, leaves, holidays, or blocked times.
 
-### 3b. Calendar Utility Functions & Time Clamping (`calendarUtils.ts`)
-Active time-arithmetic and conflict-detection helpers:
-| Function | Purpose | Edge Cases Handled |
-|---|---|---|
-| `timeToMinutes(time24)` | Converts `"HH:MM"` → total minutes from midnight | Midnight `"00:00"` (0), End of day `"23:59"` (1439), single digit hour, malformed `"abc"` |
-| `minutesToTime24(minutes)` | Converts minutes → `"HH:MM"` | Clamped to `[0, 1439]` (00:00–23:59) to prevent midnight rollover |
-| `addMinutesToTime(time24, mins)` | Adds N minutes (default 30) to a time string | Clamped at `"23:59"`; defaults to +30 min |
-| `getSlot30MinKey(time24)` | Maps a 24h time to its 30-min row label (12h format) | Empty string, noon/midnight transitions |
-| `getTimeRowRange(timeRow)` | Parses a row label like `"9:30 AM"` → `{ start, end }` in 24h | Noon `"12:00 PM"`, Midnight `"12:30 AM"`, Evening `"8:30 PM"` |
-| `isIntervalOverlapping(a1,a2,b1,b2)` | Checks if two `[start, end)` intervals overlap | Adjacent non-overlapping, contained, identical, inverted ranges |
-| `doesEventOverlapSlot(event, slotStart, slotEnd)` | Checks if a `CalendarEvent` hits a slot window | Boundary checks, cross-slot intervals |
-| `findConflictingEvents(start, end, events)` | Returns all blocking events (`APPOINTMENT`, `LEAVE`, `HOLIDAY`, `BLOCKED`) | Skips `CANCELLED` and `AVAILABLE` types |
+### 2b. Calendar Infrastructure (`constants.ts`, `calendarUtils.ts`)
+- **`constants.ts`**: Pruned all mock `{ type: "AVAILABLE", ... }` entries from `DEMO_WEEK_EVENTS`.
+- **`calendarUtils.ts`**: Removed the `if (ev.type === "AVAILABLE") return false;` bypass in `findConflictingEvents`, as availability entries no longer exist and any non-appointment/non-leave slot is open.
 
-- **Dead Code Elimination**: Removed unused legacy function `getSlotHourKey`.
+### 2c. Modals & Hooks (`AddAvailabilityModal.tsx`, `useCalendarModals.ts`, `AddAppointmentModal.tsx`)
+- **Deleted File**: `components/dashboard/calendar/modals/AddAvailabilityModal.tsx`.
+- **`useCalendarModals.ts`**:
+  - Removed state `showAddAvailabilityModal`, callback `openAddAvailability`, and submit handler `handleAddAvailabilitySubmit`.
+  - Cleaned up the return object to omit all availability-related properties.
+- **`AddAppointmentModal.tsx`**:
+  - Removed `availableSlotsToday` memo (which filtered `type === "AVAILABLE"`).
+  - Removed the "Available 30-min alternatives today" quick suggestion chip section.
 
-### 3c. Modal Hard-Block Conflict Enforcement (`useCalendarModals.ts`)
-Submit handlers now enforce strict Option A Hard-Block conflict policy before API dispatch:
-- **`handleAddAppointmentSubmit`**: Blocks submission if `findConflictingEvents` detects overlapping appointments, doctor leaves, clinic holidays, or blocked intervals; returns toast error with conflicting entity name/reason.
-- **`handleAddAvailabilitySubmit`**: Blocks submission if window overlaps doctor leaves or clinic holidays; validates `end > start` and minimum 30-minute duration.
-- **`handleBlockSubmit`**: Blocks submission if window collides with existing booked appointments; returns toast specifying number of booked patients requiring reschedule.
+### 2d. Calendar Views (`DayView.tsx`, `WeekView.tsx`, `MonthView.tsx`, `CalendarHeader.tsx`)
+- **`DayView.tsx`**:
+  - Removed `availCount` badge and its "Available Slots" card from summary KPI badges (converted to 2 columns).
+  - Removed `isAvail` check and green visual slot styling branch.
+- **`WeekView.tsx`**:
+  - Removed `onAvailableSlotClick` prop from `WeekViewProps`.
+  - Removed `isAvailable` boolean and the green "AVAILABLE 30-MINUTE SLOT" rendering block.
+  - Updated empty 30-minute slot hover button to book an appointment directly (`title="Book appointment (...)"`).
+- **`MonthView.tsx`**:
+  - Removed `avails` slot counter and the green "{avails} Slots" badge from monthly calendar day cells.
+- **`CalendarHeader.tsx`**:
+  - Removed `onAddAvailability` prop from `CalendarHeaderProps`.
+  - Removed "+ Add Availability" primary action button from the calendar header bar.
 
 ---
 
@@ -437,5 +471,3 @@ Submit handlers now enforce strict Option A Hard-Block conflict policy before AP
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
 - **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, or 10. Reverting safely restores previous UI layouts without altering database records.
-
-

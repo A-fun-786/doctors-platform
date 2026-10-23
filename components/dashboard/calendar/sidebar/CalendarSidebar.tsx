@@ -3,7 +3,6 @@
 import React from "react";
 import MiniCalendar from "./MiniCalendar";
 import WorkingHoursCard from "./WorkingHoursCard";
-import QuickActionsCard from "./QuickActionsCard";
 import { MiniCalDayItem } from "../types";
 import { WorkingHoursConfig } from "../calendarUtils";
 
@@ -12,8 +11,6 @@ interface CalendarSidebarProps {
   setMiniCalMonth: React.Dispatch<React.SetStateAction<Date>>;
   miniCalDays: MiniCalDayItem[];
   onSelectDate: (dateStr: string) => void;
-  onAddAppointment: () => void;
-  onBlockTime: () => void;
   workingHoursConfig?: WorkingHoursConfig;
   onEditWorkingHours?: () => void;
   selectedDate?: string;
@@ -25,8 +22,6 @@ export default function CalendarSidebar({
   setMiniCalMonth,
   miniCalDays,
   onSelectDate,
-  onAddAppointment,
-  onBlockTime,
   workingHoursConfig,
   onEditWorkingHours,
 }: CalendarSidebarProps) {
@@ -45,14 +40,6 @@ export default function CalendarSidebar({
         config={workingHoursConfig}
         onEditHours={onEditWorkingHours}
       />
-
-      {/* Quick Actions */}
-      <QuickActionsCard
-        onAddAppointment={onAddAppointment}
-        onBlockTime={onBlockTime}
-      />
     </div>
   );
 }
-
-

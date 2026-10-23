@@ -101,7 +101,7 @@ export default function SlotSelectorGrid({
             continue;
           }
 
-          if (ev.type === "AVAILABLE") continue;
+          if ((ev.type as string) === "AVAILABLE") continue;
 
           if (doesEventOverlapSlot(ev, start, end)) {
             isBlocked = true;

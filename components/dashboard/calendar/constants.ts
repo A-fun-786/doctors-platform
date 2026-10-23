@@ -79,7 +79,6 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-18T09:30:00Z",
     },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
     {
       type: "APPOINTMENT",
       start: "11:00",
@@ -101,9 +100,8 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-17T14:15:00Z",
     },
-    { type: "AVAILABLE", start: "11:30", end: "12:00" },
-    { type: "AVAILABLE", start: "12:00", end: "12:30" },
-    { type: "AVAILABLE", start: "12:30", end: "13:00" },
+
+
     {
       type: "APPOINTMENT",
       start: "16:00",
@@ -125,8 +123,7 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-16T11:00:00Z",
     },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
-    { type: "AVAILABLE", start: "17:00", end: "17:30" },
+
     {
       type: "APPOINTMENT",
       start: "18:00",
@@ -148,15 +145,13 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-18T16:45:00Z",
     },
-    { type: "AVAILABLE", start: "18:30", end: "19:00" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
   ],
   "2026-10-20": [
-    { type: "AVAILABLE", start: "10:00", end: "10:30" },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
-    { type: "AVAILABLE", start: "11:00", end: "11:30" },
-    { type: "AVAILABLE", start: "11:30", end: "12:00" },
+
+
+
     {
       type: "APPOINTMENT",
       start: "12:00",
@@ -178,9 +173,8 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-17T18:20:00Z",
     },
-    { type: "AVAILABLE", start: "12:30", end: "13:00" },
-    { type: "AVAILABLE", start: "16:00", end: "16:30" },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
+
+
     {
       type: "APPOINTMENT",
       start: "17:00",
@@ -202,10 +196,9 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-19T08:10:00Z",
     },
-    { type: "AVAILABLE", start: "17:30", end: "18:00" },
-    { type: "AVAILABLE", start: "18:00", end: "18:30" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
+
   ],
   "2026-10-21": [
     {
@@ -228,10 +221,9 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-18T10:00:00Z",
     },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
-    { type: "AVAILABLE", start: "11:00", end: "11:30" },
-    { type: "AVAILABLE", start: "11:30", end: "12:00" },
-    { type: "AVAILABLE", start: "12:00", end: "12:30" },
+
+
+
     {
       type: "APPOINTMENT",
       start: "16:00",
@@ -251,8 +243,7 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-19T12:00:00Z",
     },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
-    { type: "AVAILABLE", start: "17:00", end: "17:30" },
+
     {
       type: "APPOINTMENT",
       start: "18:00",
@@ -272,13 +263,11 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-19T15:30:00Z",
     },
-    { type: "AVAILABLE", start: "18:30", end: "19:00" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
   ],
   "2026-10-22": [
-    { type: "AVAILABLE", start: "10:00", end: "10:30" },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
+
     {
       type: "APPOINTMENT",
       start: "11:00",
@@ -295,10 +284,9 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-20T10:15:00Z",
     },
-    { type: "AVAILABLE", start: "11:30", end: "12:00" },
-    { type: "AVAILABLE", start: "12:00", end: "12:30" },
-    { type: "AVAILABLE", start: "16:00", end: "16:30" },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
+
+
+
     {
       type: "APPOINTMENT",
       start: "17:00",
@@ -315,15 +303,13 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-20T14:40:00Z",
     },
-    { type: "AVAILABLE", start: "17:30", end: "18:00" },
-    { type: "AVAILABLE", start: "18:00", end: "18:30" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
+
   ],
   "2026-10-23": [
     { type: "BLOCKED", start: "10:00", end: "10:30", reason: "Personal Follow-up" },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
-    { type: "AVAILABLE", start: "11:00", end: "11:30" },
+
     {
       type: "APPOINTMENT",
       start: "12:00",
@@ -364,8 +350,7 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-21T13:20:00Z",
     },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
-    { type: "AVAILABLE", start: "17:00", end: "17:30" },
+
     {
       type: "APPOINTMENT",
       start: "18:00",
@@ -382,13 +367,11 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-21T17:45:00Z",
     },
-    { type: "AVAILABLE", start: "18:30", end: "19:00" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
   ],
   "2026-10-24": [
-    { type: "AVAILABLE", start: "10:00", end: "10:30" },
-    { type: "AVAILABLE", start: "10:30", end: "11:00" },
+
     {
       type: "APPOINTMENT",
       start: "11:00",
@@ -405,15 +388,14 @@ export const DEMO_WEEK_EVENTS: Record<string, CalendarEvent[]> = {
       status: "BOOKED",
       created_at: "2026-10-22T11:10:00Z",
     },
-    { type: "AVAILABLE", start: "11:30", end: "12:00" },
-    { type: "AVAILABLE", start: "12:00", end: "12:30" },
-    { type: "AVAILABLE", start: "16:00", end: "16:30" },
-    { type: "AVAILABLE", start: "16:30", end: "17:00" },
-    { type: "AVAILABLE", start: "17:00", end: "17:30" },
-    { type: "AVAILABLE", start: "18:00", end: "18:30" },
-    { type: "AVAILABLE", start: "18:30", end: "19:00" },
-    { type: "AVAILABLE", start: "19:00", end: "19:30" },
-    { type: "AVAILABLE", start: "19:30", end: "20:00" },
+
+
+
+
+
+
+
+
   ],
   "2026-10-25": [],
 };

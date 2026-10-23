@@ -18,7 +18,6 @@ interface WeekViewProps {
   onSelectDate: (dateStr: string) => void;
   getEventsForDate: (dateStr: string) => CalendarEvent[];
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onAvailableSlotClick: (date: string, start: string, end: string) => void;
   onQuickAddSlot: (date: string, start: string, end: string) => void;
   onEmptySlotClick?: (date: string, start: string, end: string) => void;
   workingHoursConfig?: WorkingHoursConfig;
@@ -32,7 +31,6 @@ export default function WeekView({
   onSelectDate,
   getEventsForDate,
   onEventClick,
-  onAvailableSlotClick,
   onQuickAddSlot,
   onEmptySlotClick,
   workingHoursConfig,
@@ -255,8 +253,6 @@ export default function WeekView({
                           onClick={() => {
                             if (onEmptySlotClick) {
                               onEmptySlotClick(day.dateStr, slotStart, slotEnd);
-                            } else if (onAvailableSlotClick) {
-                              onAvailableSlotClick(day.dateStr, slotStart, slotEnd);
                             } else {
                               onQuickAddSlot(day.dateStr, slotStart, slotEnd);
                             }

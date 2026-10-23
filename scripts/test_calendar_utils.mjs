@@ -218,7 +218,6 @@ describe("getTimeRowRange & isIntervalOverlapping", () => {
 describe("doesEventOverlapSlot & findConflictingEvents", () => {
   const sampleEvents = [
     { id: "1", title: "Patient A", start: "09:00", end: "09:30", type: "APPOINTMENT", status: "BOOKED" },
-    { id: "2", title: "Open Slot", start: "09:30", end: "10:30", type: "AVAILABLE", status: "CONFIRMED" },
     { id: "3", title: "Conference", start: "14:00", end: "16:00", type: "LEAVE", status: "CONFIRMED" },
     { id: "4", title: "Blocked Meeting", start: "11:00", end: "12:00", type: "BLOCKED", status: "CONFIRMED" },
     { id: "5", title: "Clinic Holiday", start: "00:00", end: "23:59", type: "HOLIDAY", status: "CONFIRMED" },
@@ -232,13 +231,11 @@ describe("doesEventOverlapSlot & findConflictingEvents", () => {
     assert.strictEqual(doesEventOverlapSlot(appt, "08:30", "09:00"), false);
   });
 
-  test("findConflictingEvents ignores AVAILABLE and CANCELLED slots", () => {
-    // Checking 09:30 - 10:00 which has AVAILABLE (id 2) and CANCELLED (id 6)
-    const conflicts = findConflictingEvents("09:30", "10:00", sampleEvents);
-    // Note: id 5 (HOLIDAY) covers all day, so let's filter out id 5 to test AVAILABLE and CANCELLED specifically
+  test("findConflictingEvents ignores CANCELLED slots", () => {
+    // Checking 10:00 - 10:30 which has CANCELLED (id 6)
     const noHolidayEvents = sampleEvents.filter((e) => e.type !== "HOLIDAY");
-    const subConflicts = findConflictingEvents("09:30", "10:00", noHolidayEvents);
-    assert.strictEqual(subConflicts.length, 0, "AVAILABLE and CANCELLED events should not trigger conflicts");
+    const subConflicts = findConflictingEvents("10:00", "10:30", noHolidayEvents);
+    assert.strictEqual(subConflicts.length, 0, "CANCELLED events should not trigger conflicts");
   });
 
   test("findConflictingEvents detects APPOINTMENT, LEAVE, BLOCKED, and HOLIDAY conflicts", () => {
@@ -283,11 +280,16 @@ describe("Modal Hard-Block Validation Logic", () => {
     );
   });
 
-  test("useCalendarModals enforces hard block on leave / holiday conflicts for availability", () => {
+  test("useCalendarModals cleanly removed availability state and handlers", () => {
     assert.strictEqual(
-      hookSource.includes("Cannot add availability: Overlaps with scheduled doctor leave or clinic holiday"),
-      true,
-      "useCalendarModals must hard block availability on doctor leaves"
+      hookSource.includes("showAddAvailabilityModal"),
+      false,
+      "showAddAvailabilityModal must be removed"
+    );
+    assert.strictEqual(
+      hookSource.includes("handleAddAvailabilitySubmit"),
+      false,
+      "handleAddAvailabilitySubmit must be removed"
     );
   });
 
@@ -299,13 +301,9 @@ describe("Modal Hard-Block Validation Logic", () => {
     );
   });
 
-  test("useCalendarModals enforces end > start and minimum 30-min duration", () => {
+  test("useCalendarModals enforces end > start time selection", () => {
     assert.strictEqual(
       hookSource.includes("Invalid time selection: End time must be after start time"),
-      true
-    );
-    assert.strictEqual(
-      hookSource.includes("Invalid duration: Minimum availability interval is 30 minutes"),
       true
     );
   });

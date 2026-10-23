@@ -69,7 +69,7 @@ export default function LeaveDetailsPanel({
             setResolvedLeaveId(match.id);
           } else {
             // fallback to first non-available schedule on this date
-            const nonAvail = res.items.find((s) => s.type !== "AVAILABLE");
+            const nonAvail = res.items.find((s) => (s.type as string) !== "AVAILABLE");
             if (nonAvail) setResolvedLeaveId(nonAvail.id);
           }
         }
