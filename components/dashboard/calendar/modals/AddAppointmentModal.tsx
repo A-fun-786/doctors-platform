@@ -64,16 +64,7 @@ export default function AddAppointmentModal({
 
   const hasConflict = conflicts.length > 0;
 
-  // Extract open/available 30-minute slots for this day as suggestions
-  const availableSlotsToday = useMemo(() => {
-    return existingEvents
-      .filter((e) => e.type === "AVAILABLE")
-      .map((e) => ({
-        start: e.start,
-        end: e.end,
-        label: `${format12Hour(e.start)} – ${format12Hour(e.end)}`,
-      }));
-  }, [existingEvents]);
+
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Book Patient Appointment">
@@ -203,27 +194,6 @@ export default function AddAppointmentModal({
                 </div>
               </div>
             </div>
-
-            {/* Quick Suggestions for Available 30-Minute Slots */}
-            {availableSlotsToday.length > 0 && (
-              <div className="pt-2 border-t border-red-100">
-                <div className="text-[10px] font-semibold text-red-900 mb-1">
-                  Available 30-min alternatives today:
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableSlotsToday.slice(0, 4).map((slot, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleStartTimeChange(slot.start)}
-                      className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md transition-colors"
-                    >
-                      {format12Hour(slot.start)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 

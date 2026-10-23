@@ -189,38 +189,36 @@ console.log("============================================================");
   );
 }
 
-// C6: AddAvailabilityModal end <= start & min 30m duration validation
+// C6: Availability Concept Removal & Time Range Validation
 {
   let toastErrors = [];
 
-  const validateAvailability = (start, end) => {
+  const validateTimeRange = (start, end) => {
     const startM = timeToMinutes(start);
     const endM = timeToMinutes(end);
     if (endM <= startM) {
       toastErrors.push("Invalid time selection: End time must be after start time.");
       return false;
     }
-    if (endM - startM < 30) {
-      toastErrors.push("Invalid duration: Minimum availability interval is 30 minutes.");
-      return false;
-    }
     return true;
   };
 
-  const invertedValid = validateAvailability("14:00", "11:00");
-  const tooShortValid = validateAvailability("14:00", "14:15");
-  const properValid = validateAvailability("14:00", "15:00");
+  const availabilityModalExists = fs.existsSync(
+    path.join(__dirname, "../components/dashboard/calendar/modals/AddAvailabilityModal.tsx")
+  );
+  const invertedValid = validateTimeRange("14:00", "11:00");
+  const properValid = validateTimeRange("14:00", "15:00");
 
-  const pass = !invertedValid && !tooShortValid && properValid && toastErrors.length === 2;
+  const pass = !availabilityModalExists && !invertedValid && properValid && toastErrors.length === 1;
   recordScenario(
     "C6",
-    "AddAvailabilityModal Duration & Range Validation",
+    "Availability Removal & Time Range Validation",
     "AGENT_EXECUTABLE",
-    "Test inverted range (14:00->11:00) and short interval (14:00->14:15)",
-    "Both invalid inputs rejected with respective error toasts; valid 14:00->15:00 allowed",
-    `Errors caught: ${toastErrors.join(" | ")}`,
+    "Confirm AddAvailabilityModal is deleted and time range validation guards appointments",
+    "AddAvailabilityModal nonexistent on disk; inverted time rejected; valid range allowed",
+    `Deleted=${!availabilityModalExists}, Inverted rejected=${!invertedValid}`,
     pass,
-    `toastErrors.length=${toastErrors.length}`
+    `availabilityModalExists=${availabilityModalExists}, toastErrors=${toastErrors.length}`
   );
 }
 

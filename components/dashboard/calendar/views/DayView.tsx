@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { User, Coffee, Lock, RotateCw, Plus } from "lucide-react";
+import { User, Coffee, Lock, Plus } from "lucide-react";
 import { CalendarEvent } from "@/lib/api";
 import { format12Hour } from "../calendarUtils";
 import Badge from "@/components/ui/Badge";
@@ -20,7 +20,6 @@ export default function DayView({
   onEventClick,
 }: DayViewProps) {
   const bookedCount = events.filter((e) => e.type === "APPOINTMENT").length;
-  const availCount = events.filter((e) => e.type === "AVAILABLE").length;
   const leaveCount = events.filter((e) => e.type === "LEAVE" || e.type === "HOLIDAY").length;
 
   return (
@@ -32,7 +31,7 @@ export default function DayView({
             Day Schedule — {selectedDate}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Operational 30-minute stream for appointments, availability, and doctor leave.
+            Operational 30-minute stream for appointments and doctor leaves.
           </p>
         </div>
 
@@ -49,14 +48,10 @@ export default function DayView({
       </div>
 
       {/* Summary Badges */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
           <div className="text-lg font-black text-blue-900">{bookedCount}</div>
           <div className="text-[11px] font-medium text-blue-700">Appointments (30m)</div>
-        </div>
-        <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-center">
-          <div className="text-lg font-black text-emerald-900">{availCount}</div>
-          <div className="text-[11px] font-medium text-emerald-700">Available Slots</div>
         </div>
         <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-100 text-center">
           <div className="text-lg font-black text-amber-900">{leaveCount}</div>
@@ -75,7 +70,6 @@ export default function DayView({
             const isLeave = event.type === "LEAVE" || event.type === "HOLIDAY";
             const isBlocked = event.type === "BLOCKED";
             const isAppt = event.type === "APPOINTMENT";
-            const isAvail = event.type === "AVAILABLE";
 
             return (
               <div
@@ -88,7 +82,7 @@ export default function DayView({
                     ? "border-purple-200 bg-purple-50/40 hover:border-purple-400"
                     : isAppt
                     ? "border-blue-200 bg-blue-50/30 hover:border-blue-400"
-                    : "border-emerald-200 bg-emerald-50/30 hover:border-emerald-400"
+                    : "border-slate-200 bg-slate-50/30 hover:border-slate-400"
                 } hover:shadow-xs`}
               >
                 <div className="flex items-center gap-3">
@@ -124,11 +118,6 @@ export default function DayView({
                       <div className="font-semibold text-xs text-purple-950 flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                         <span>Blocked Interval: {event.reason || "Doctor Duty / Personal"}</span>
-                      </div>
-                    ) : isAvail ? (
-                      <div className="font-semibold text-xs text-emerald-800 flex items-center gap-1.5">
-                        <RotateCw className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Open 30-Minute Booking Slot</span>
                       </div>
                     ) : (
                       <div className="font-semibold text-xs text-slate-800">

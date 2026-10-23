@@ -11,7 +11,6 @@ import { findConflictingEvents, isIntervalOverlapping } from "../calendarUtils";
 
 export function useCalendarModals() {
   // Modal visibility states
-  const [showAddAvailabilityModal, setShowAddAvailabilityModal] = useState(false);
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SelectedEventState | null>(null);
@@ -32,15 +31,6 @@ export function useCalendarModals() {
   const [blockReason, setBlockReason] = useState("");
 
   // Open modal helpers
-  const openAddAvailability = useCallback(
-    (date = "2026-10-19", start = "10:00", end = "13:00") => {
-      setModalDate(date);
-      setModalStartTime(start);
-      setModalEndTime(end);
-      setShowAddAvailabilityModal(true);
-    },
-    []
-  );
 
   const openAddAppointment = useCallback(
     (date = "2026-10-19", start = "10:00", end = "10:30") => {
@@ -69,56 +59,6 @@ export function useCalendarModals() {
   }, []);
 
   // Submit handlers
-  const handleAddAvailabilitySubmit = useCallback(
-    async (
-      e: React.FormEvent,
-      onSuccess: () => void,
-      showToast: (msg: string) => void,
-      existingEvents: CalendarEvent[] = []
-    ) => {
-      e.preventDefault();
-      const startParts = modalStartTime.split(":").map(Number);
-      const endParts = modalEndTime.split(":").map(Number);
-      const startM = (startParts[0] || 0) * 60 + (startParts[1] || 0);
-      const endM = (endParts[0] || 0) * 60 + (endParts[1] || 0);
-
-      if (endM <= startM) {
-        showToast("Invalid time selection: End time must be after start time.");
-        return;
-      }
-      if (endM - startM < 30) {
-        showToast("Invalid duration: Minimum availability interval is 30 minutes.");
-        return;
-      }
-
-      const leaveConflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents).filter(
-        (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-      );
-      if (leaveConflicts.length > 0) {
-        showToast("Cannot add availability: Overlaps with scheduled doctor leave or clinic holiday.");
-        return;
-      }
-
-      setModalSubmitting(true);
-      try {
-        await createDoctorSchedule({
-          date: modalDate,
-          start_time: modalStartTime,
-          end_time: modalEndTime,
-          type: "AVAILABLE",
-        });
-        showToast("Availability added successfully!");
-        setShowAddAvailabilityModal(false);
-        onSuccess();
-      } catch (err: unknown) {
-        showToast(err instanceof Error ? err.message : "Failed to add availability");
-      } finally {
-        setModalSubmitting(false);
-      }
-    },
-    [modalDate, modalStartTime, modalEndTime]
-  );
-
   const handleAddAppointmentSubmit = useCallback(
     async (
       e: React.FormEvent,
@@ -228,8 +168,6 @@ export function useCalendarModals() {
 
   return {
     // Visibility
-    showAddAvailabilityModal,
-    setShowAddAvailabilityModal,
     showAddAppointmentModal,
     setShowAddAppointmentModal,
     showBlockModal,
@@ -257,11 +195,9 @@ export function useCalendarModals() {
     setBlockReason,
 
     // Actions
-    openAddAvailability,
     openAddAppointment,
     openBlockModal,
     openEventDetails,
-    handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,
     handleBlockSubmit,
   };

@@ -106,9 +106,6 @@ export function findConflictingEvents(
 ): CalendarEvent[] {
   return events.filter((ev) => {
     if (ev.status === "CANCELLED") return false;
-    // AVAILABLE slots are not conflicts for new appointments/availability;
-    // APPOINTMENT, LEAVE, HOLIDAY, BLOCKED are blocking conflicts.
-    if (ev.type === "AVAILABLE") return false;
     return isIntervalOverlapping(start, end, ev.start, ev.end);
   });
 }

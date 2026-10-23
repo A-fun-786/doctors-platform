@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, User, RotateCw, Plus, Coffee, Lock } from "lucide-react";
+import { Sparkles, User, Plus, Coffee, Lock } from "lucide-react";
 import { CalendarEvent } from "@/lib/api";
 import { WeekDayItem } from "../types";
 import { TIME_ROWS } from "../constants";
@@ -17,7 +17,6 @@ interface WeekViewProps {
   onSelectDate: (dateStr: string) => void;
   getEventsForDate: (dateStr: string) => CalendarEvent[];
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onAvailableSlotClick: (date: string, start: string, end: string) => void;
   onQuickAddSlot: (date: string, start: string, end: string) => void;
 }
 
@@ -26,7 +25,6 @@ export default function WeekView({
   onSelectDate,
   getEventsForDate,
   onEventClick,
-  onAvailableSlotClick,
   onQuickAddSlot,
 }: WeekViewProps) {
   return (
@@ -147,7 +145,6 @@ export default function WeekView({
                         <div className="space-y-1">
                           {cellEvents.map((event, idx) => {
                             const isAppointment = event.type === "APPOINTMENT";
-                            const isAvailable = event.type === "AVAILABLE";
                             const isLeave = event.type === "LEAVE" || event.type === "HOLIDAY";
                             const isBlocked = event.type === "BLOCKED";
 
@@ -225,30 +222,6 @@ export default function WeekView({
                               );
                             }
 
-                            // AVAILABLE 30-MINUTE SLOT
-                            if (isAvailable) {
-                              return (
-                                <div
-                                  key={idx}
-                                  onClick={() =>
-                                    onAvailableSlotClick(day.dateStr, event.start, event.end)
-                                  }
-                                  className="p-1.5 rounded-lg bg-emerald-50/80 border border-emerald-200 text-emerald-900 hover:border-emerald-400 hover:bg-emerald-100/70 hover:shadow-xs transition-all cursor-pointer select-none"
-                                  title={`Click to book appointment (${format12Hour(event.start)} - ${format12Hour(event.end)})`}
-                                >
-                                  <div className="flex items-center gap-1">
-                                    <RotateCw className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span className="text-[11px] font-bold text-emerald-950">
-                                      Available
-                                    </span>
-                                  </div>
-                                  <div className="text-[10px] text-emerald-700 font-medium mt-0.5">
-                                    {format12Hour(event.start)} – {format12Hour(event.end)}
-                                  </div>
-                                </div>
-                              );
-                            }
-
                             return null;
                           })}
                         </div>
@@ -258,7 +231,7 @@ export default function WeekView({
                           type="button"
                           onClick={() => onQuickAddSlot(day.dateStr, slotStart, slotEnd)}
                           className="w-full h-full min-h-[40px] opacity-0 group-hover:opacity-100 flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50/40 rounded transition-all"
-                          title={`Add available slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
+                          title={`Book appointment (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>

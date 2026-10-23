@@ -905,6 +905,14 @@ npm run build
 npm run start
 ```
 
+> [!TIP]
+> **Troubleshooting Dev Server Cache / Unstyled UI (404 Chunks):**  
+> If switching from `npm run build` back to `npm run dev`, or if styles fail to load (unstyled loading screen with 404s on CSS/JS chunks), purge the Next.js webpack cache and restart:
+> ```bash
+> rm -rf .next && npm run dev
+> ```
+> Then perform a hard refresh in the browser (`Cmd + Shift + R` on macOS / `Ctrl + F5` on Windows).
+
 For Docker deployment:
 
 ```bash

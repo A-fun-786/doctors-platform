@@ -10,7 +10,6 @@ import WeekView from "./calendar/views/WeekView";
 import DayView from "./calendar/views/DayView";
 import MonthView from "./calendar/views/MonthView";
 import CalendarSidebar from "./calendar/sidebar/CalendarSidebar";
-import AddAvailabilityModal from "./calendar/modals/AddAvailabilityModal";
 import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
 import BlockTimeModal from "./calendar/modals/BlockTimeModal";
 import EventDetailsModal from "./calendar/modals/EventDetailsModal";
@@ -37,8 +36,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
 
   // Modals management hook
   const {
-    showAddAvailabilityModal,
-    setShowAddAvailabilityModal,
     showAddAppointmentModal,
     setShowAddAppointmentModal,
     showBlockModal,
@@ -62,21 +59,19 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setBlockType,
     blockReason,
     setBlockReason,
-    openAddAvailability,
     openAddAppointment,
     openBlockModal,
     openEventDetails,
-    handleAddAvailabilitySubmit,
     handleAddAppointmentSubmit,
     handleBlockSubmit,
   } = useCalendarModals();
 
-  // Quick slot create on hover in WeekView
+  // Quick slot create on hover in WeekView opens appointment booking
   const handleQuickAddSlot = useCallback(
     (dateStr: string, start: string, end: string) => {
-      openAddAvailability(dateStr, start, end);
+      openAddAppointment(dateStr, start, end);
     },
-    [openAddAvailability]
+    [openAddAppointment]
   );
 
   // Month date click navigates and switches to week view
@@ -100,7 +95,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         onViewModeChange={setViewMode}
         onPrevWeek={handlePrevWeek}
         onNextWeek={handleNextWeek}
-        onAddAvailability={() => openAddAvailability(selectedDate)}
       />
 
       {/* Main 2-Column Dashboard Layout */}
@@ -113,7 +107,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onSelectDate={setSelectedDate}
               getEventsForDate={getEventsForDate}
               onEventClick={openEventDetails}
-              onAvailableSlotClick={openAddAppointment}
               onQuickAddSlot={handleQuickAddSlot}
             />
           )}
@@ -136,7 +129,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           )}
         </div>
 
-        {/* Right Column: Mini Calendar, Working Hours, Quick Actions */}
+        {/* Right Column: Mini Calendar, Quick Actions, Working Hours */}
         <CalendarSidebar
           miniCalMonth={miniCalMonth}
           setMiniCalMonth={setMiniCalMonth}
@@ -146,28 +139,6 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           onBlockTime={() => openBlockModal(selectedDate)}
         />
       </div>
-
-      {/* MODAL: Add Availability */}
-      <AddAvailabilityModal
-        isOpen={showAddAvailabilityModal}
-        onClose={() => setShowAddAvailabilityModal(false)}
-        date={modalDate}
-        setDate={setModalDate}
-        startTime={modalStartTime}
-        setStartTime={setModalStartTime}
-        endTime={modalEndTime}
-        setEndTime={setModalEndTime}
-        submitting={modalSubmitting}
-        existingEvents={getEventsForDate(modalDate)}
-        onSubmit={(e) =>
-          handleAddAvailabilitySubmit(
-            e,
-            refreshCurrentWeek,
-            showToast,
-            getEventsForDate(modalDate)
-          )
-        }
-      />
 
       {/* MODAL: Add Appointment */}
       <AddAppointmentModal
