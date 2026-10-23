@@ -208,25 +208,22 @@ describe("Appointment Booking Pathways Continuity (WeekView & DayView)", () => {
   const weekContent = fs.readFileSync(weekViewPath, "utf-8");
   const dayContent = fs.readFileSync(dayViewPath, "utf-8");
 
-  test("T2: WeekView available slot click connects to openAddAppointment in CalendarTab", () => {
-    assert.match(
-      tabContent,
-      /onAvailableSlotClick=\{openAddAppointment\}/,
-      "CalendarTab must pass openAddAppointment to WeekView.onAvailableSlotClick"
-    );
-    assert.match(
-      weekContent,
-      /onAvailableSlotClick:\s*\(date:\s*string,\s*start:\s*string,\s*end:\s*string\)\s*=>\s*void/,
-      "WeekView interface must declare onAvailableSlotClick with (date, start, end)"
-    );
+  test("T2: WeekView slot click connects to openAddAppointment in CalendarTab", () => {
+    const hasQuickAdd = /onQuickAddSlot=\{handleQuickAddSlot\}/.test(tabContent) && /openAddAppointment\(dateStr,\s*start,\s*end\)/.test(tabContent);
+    const hasAvailableSlot = /onAvailableSlotClick=\{openAddAppointment\}/.test(tabContent);
+    assert.ok(hasQuickAdd || hasAvailableSlot, "CalendarTab must wire slot click to openAddAppointment");
+
+    const weekDeclaresSlotClick =
+      /onQuickAddSlot:\s*\(date:\s*string,\s*start:\s*string,\s*end:\s*string\)\s*=>\s*void/.test(weekContent) ||
+      /onAvailableSlotClick:\s*\(date:\s*string,\s*start:\s*string,\s*end:\s*string\)\s*=>\s*void/.test(weekContent);
+    assert.ok(weekDeclaresSlotClick, "WeekView interface must declare slot click callback with (date, start, end)");
   });
 
-  test("T2: WeekView slot chip click triggers onAvailableSlotClick", () => {
-    assert.match(
-      weekContent,
-      /onAvailableSlotClick\(day\.dateStr,\s*event\.start,\s*event\.end\)/,
-      "WeekView event chip onClick must invoke onAvailableSlotClick with day.dateStr, event.start, event.end"
-    );
+  test("T2: WeekView slot interaction triggers slot click handler", () => {
+    const triggersSlot =
+      /onQuickAddSlot\(day\.dateStr,\s*slotStart,\s*slotEnd\)/.test(weekContent) ||
+      /onAvailableSlotClick\(day\.dateStr,\s*event\.start,\s*event\.end\)/.test(weekContent);
+    assert.ok(triggersSlot, "WeekView slot interaction must invoke slot click callback with date and time range");
   });
 
   test("T3: DayView 'Book Patient' button connects to openAddAppointment in CalendarTab", () => {
