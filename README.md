@@ -722,8 +722,7 @@ docspace-platform/
 │   │       ├── 📌 sidebar/
 │   │       │   ├── CalendarSidebar.tsx        # Right-hand panel orchestrator
 │   │       │   ├── MiniCalendar.tsx           # Compact date-picker with active day highlights
-│   │       │   ├── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
-│   │       │   └── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
+│   │       │   └── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
 │   │       └── 🪟 modals/
 │   │           ├── AddAppointmentModal.tsx    # Patient consultation booking dialog
 │   │           ├── AddAvailabilityModal.tsx   # Custom availability slot creator
@@ -904,6 +903,14 @@ Open [**http://localhost:3000**](http://localhost:3000) in your browser:
 npm run build
 npm run start
 ```
+
+> [!TIP]
+> **Troubleshooting Dev Server Cache / Unstyled UI (404 Chunks):**  
+> If switching from `npm run build` back to `npm run dev`, or if styles fail to load (unstyled loading screen with 404s on CSS/JS chunks), purge the Next.js webpack cache and restart:
+> ```bash
+> rm -rf .next && npm run dev
+> ```
+> Then perform a hard refresh in the browser (`Cmd + Shift + R` on macOS / `Ctrl + F5` on Windows).
 
 For Docker deployment:
 
