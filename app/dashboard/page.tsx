@@ -172,7 +172,7 @@ export default function DashboardPage() {
               <OverviewTab doctor={doctor} profile={profile} onNavigateTab={handleTabChange} />
             )}
 
-            {activeTab === "calendar" && (
+            {activeTab === "appointment" && (
               <CalendarTab doctor={doctor} onNavigateTab={handleTabChange} />
             )}
 

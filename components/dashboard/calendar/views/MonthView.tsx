@@ -35,15 +35,29 @@ export default function MonthView({
             <div
               key={idx}
               onClick={() => onSelectDate(cell.dateStr)}
-              className={`min-h-[85px] p-2 border border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition-all ${
+              className={`min-h-[85px] p-2 border rounded-xl cursor-pointer hover:border-blue-400 transition-all ${
                 cell.isSelected
-                  ? "bg-blue-50/60 border-blue-500"
+                  ? "bg-blue-50/60 border-blue-500 shadow-2xs"
+                  : cell.isToday
+                  ? "border-blue-300 bg-blue-50/20"
                   : cell.isCurrentMonth
-                  ? "bg-white"
-                  : "bg-slate-50/50 opacity-60"
+                  ? "border-slate-200 bg-white"
+                  : "border-slate-200 bg-slate-50/50 opacity-60"
               }`}
             >
-              <div className="text-xs font-bold text-slate-800 mb-1">{cell.dayNum}</div>
+              <div className="flex items-center justify-between mb-1">
+                <span
+                  className={`text-xs font-bold ${
+                    cell.isToday
+                      ? "w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs"
+                      : cell.isCurrentMonth
+                      ? "text-slate-800"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {cell.dayNum}
+                </span>
+              </div>
               <div className="space-y-1">
                 {leaves > 0 && (
                   <div className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-medium truncate">

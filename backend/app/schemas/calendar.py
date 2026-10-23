@@ -12,8 +12,20 @@ class CalendarEvent(BaseModel):
     end: str = Field(..., description="End time (HH:MM)")
     reason: Optional[str] = Field(None, description="Reason for blocked/leave/holiday entry")
     patient_name: Optional[str] = Field(None, description="Patient name if appointment")
+    patient_contact: Optional[str] = Field(None, description="Patient phone number")
+    patient_gender: Optional[str] = Field(None, description="Patient gender (Male, Female, Other)")
+    patient_age: Optional[int] = Field(None, description="Patient age")
+    patient_height: Optional[str] = Field(None, description="Patient height")
+    patient_weight: Optional[str] = Field(None, description="Patient weight")
+    patient_blood_group: Optional[str] = Field(None, description="Patient blood group")
+    patient_address: Optional[str] = Field(None, description="Patient address")
+    notes: Optional[str] = Field(None, description="Clinical or booking notes")
     status: Optional[str] = Field(None, description="Appointment status (BOOKED, COMPLETED)")
     appointment_id: Optional[str] = Field(None, description="Appointment UUID string if appointment")
+    schedule_id: Optional[str] = Field(None, description="Schedule UUID string if leave or blocked slot")
+    doctor_id: Optional[str] = Field(None, description="Doctor UUID string")
+    patient_id: Optional[str] = Field(None, description="Patient UUID string if linked")
+    created_at: Optional[str] = Field(None, description="Creation timestamp ISO string")
 
 
 class CalendarDay(BaseModel):

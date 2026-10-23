@@ -974,3 +974,81 @@ def test_3_32_report_upload_stub_intact(client, tenant_a):
     data = res.json()
     assert data["status"] == "received"
     assert data["report_id"].startswith("REP-")
+
+
+def test_3_33_create_appointment_with_patient_details(client, headers_a, db_session, doctor_a):
+    """Test creating an appointment with all dedicated patient columns."""
+    from app.models.schedule import Schedule
+    sched = Schedule(
+        doctor_id=doctor_a.id,
+        date=date(2026, 10, 20),
+        start_time=time(10, 0),
+        end_time=time(13, 0),
+        type="AVAILABLE",
+    )
+    db_session.add(sched)
+    db_session.commit()
+
+    payload = {
+        "patient_name": "Neha Verma",
+        "patient_contact": "+91 98765 43210",
+        "patient_gender": "Female",
+        "patient_age": 28,
+        "patient_height": "165 cm",
+        "patient_weight": "58 kg",
+        "patient_blood_group": "B+",
+        "patient_address": "Flat 402, Green Valley Apartments",
+        "date": "2026-10-20",
+        "start_time": "10:30:00",
+        "end_time": "11:00:00",
+        "reason": "Routine Checkup",
+        "notes": "Follow-up blood test needed",
+    }
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers_a,
+        json=payload,
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["patient_name"] == "Neha Verma"
+    assert data["patient_contact"] == "+91 98765 43210"
+    assert data["patient_gender"] == "Female"
+    assert data["patient_age"] == 28
+    assert data["patient_height"] == "165 cm"
+    assert data["patient_weight"] == "58 kg"
+    assert data["patient_blood_group"] == "B+"
+    assert data["patient_address"] == "Flat 402, Green Valley Apartments"
+    assert data["reason"] == "Routine Checkup"
+    assert data["notes"] == "Follow-up blood test needed"
+
+    # Verify calendar event includes patient vitals
+    cal_res = client.get(
+        "/api/v1/doctor/calendar?from=2026-10-20&to=2026-10-20",
+        headers=headers_a,
+    )
+    assert cal_res.status_code == 200
+    cal_data = cal_res.json()
+    assert len(cal_data["dates"]) == 1
+    events = cal_data["dates"][0]["events"]
+    appt_event = next(e for e in events if e.get("appointment_id") == data["id"])
+    assert appt_event["patient_gender"] == "Female"
+    assert appt_event["patient_age"] == 28
+    assert appt_event["patient_blood_group"] == "B+"
+
+
+def test_3_34_create_appointment_invalid_gender(client, headers_a, db_session, tenant_a):
+    """Test validation reject for invalid gender value."""
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers_a,
+        json={
+            "patient_name": "Test",
+            "patient_gender": "Alien",
+            "date": "2026-10-20",
+            "start_time": "11:00:00",
+            "end_time": "11:30:00",
+        },
+    )
+    assert res.status_code == 422
+

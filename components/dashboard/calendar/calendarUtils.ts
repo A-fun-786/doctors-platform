@@ -112,32 +112,54 @@ export function findConflictingEvents(
 
 
 /**
+ * Safely format a local Date object into a "YYYY-MM-DD" string
+ */
+export function formatDateToYYYYMMDD(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Safely parse a "YYYY-MM-DD" string into a Date at local midnight
+ */
+export function parseYYYYMMDD(dateStr: string): Date {
+  const [yearStr, monthStr, dayStr] = dateStr.split("-");
+  const y = parseInt(yearStr, 10);
+  const m = parseInt(monthStr, 10) - 1;
+  const d = parseInt(dayStr, 10);
+  return new Date(y, m, d);
+}
+
+/**
  * Compute the Monday of the given date (Monday starts the operational week)
  */
 export function getMonday(d: Date): Date {
-  const date = new Date(d);
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const day = date.getDay();
   const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(date.setDate(diff));
+  return new Date(date.getFullYear(), date.getMonth(), diff);
 }
 
 /**
  * Calculate the 7 days of the selected week (Monday to Sunday)
  */
 export function generateWeekDays(selectedDate: string): WeekDayItem[] {
-  const curDate = new Date(selectedDate);
+  const curDate = parseYYYYMMDD(selectedDate);
   const mon = getMonday(curDate);
+  const todayStr = formatDateToYYYYMMDD(new Date());
   const days: WeekDayItem[] = [];
 
   for (let i = 0; i < 7; i++) {
-    const d = new Date(mon);
-    d.setDate(mon.getDate() + i);
-    const iso = d.toISOString().split("T")[0];
+    const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+    const iso = formatDateToYYYYMMDD(d);
     days.push({
       dateStr: iso,
       dayName: DAY_NAMES[i],
       dayNum: d.getDate(),
       isSelected: iso === selectedDate,
+      isToday: iso === todayStr,
     });
   }
   return days;
@@ -148,8 +170,8 @@ export function generateWeekDays(selectedDate: string): WeekDayItem[] {
  */
 export function computeWeekRangeTitle(currentWeekDays: WeekDayItem[]): string {
   if (currentWeekDays.length === 0) return "";
-  const start = new Date(currentWeekDays[0].dateStr);
-  const end = new Date(currentWeekDays[6].dateStr);
+  const start = parseYYYYMMDD(currentWeekDays[0].dateStr);
+  const end = parseYYYYMMDD(currentWeekDays[6].dateStr);
 
   const startMonth = start.toLocaleDateString("en-US", { month: "short" });
   const endMonth = end.toLocaleDateString("en-US", { month: "short" });
@@ -166,7 +188,7 @@ export function computeWeekRangeTitle(currentWeekDays: WeekDayItem[]): string {
  * Determine operational day badge status (Open, Closed, Holiday)
  */
 export function getDayStatus(dateStr: string): DayStatusInfo {
-  const d = new Date(dateStr);
+  const d = parseYYYYMMDD(dateStr);
   const dayOfWeek = d.getDay(); // 0 is Sunday, 3 is Wednesday
   if (dayOfWeek === 0) {
     return { text: "Closed", color: "bg-red-50 text-red-600 border-red-200" };
@@ -178,16 +200,25 @@ export function getDayStatus(dateStr: string): DayStatusInfo {
 }
 
 /**
- * Generate 7xN grid cells for the mini calendar
+ * Generate 7xN grid cells for the mini calendar, matching Google Calendar layout & real dates
  */
 export function generateMiniCalDays(
   miniCalMonth: Date,
-  selectedDate: string
+  selectedDate: string,
+  eventsGetter?: (dateStr: string) => CalendarEvent[]
 ): MiniCalDayItem[] {
   const year = miniCalMonth.getFullYear();
   const month = miniCalMonth.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
+
+  const todayStr = formatDateToYYYYMMDD(new Date());
+
+  const selDate = parseYYYYMMDD(selectedDate);
+  const mon = getMonday(selDate);
+  const weekStartStr = formatDateToYYYYMMDD(mon);
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+  const weekEndStr = formatDateToYYYYMMDD(sun);
 
   // Days in week: 0(Sun) -> 6(Sat). Monday first (0=Mon, 6=Sun)
   let startDayOfWeek = firstDay.getDay() - 1;
@@ -200,39 +231,185 @@ export function generateMiniCalDays(
   for (let i = startDayOfWeek - 1; i >= 0; i--) {
     const num = prevMonthLastDate - i;
     const prevDate = new Date(year, month - 1, num);
-    const iso = prevDate.toISOString().split("T")[0];
+    const iso = formatDateToYYYYMMDD(prevDate);
     days.push({
       dayNum: num,
       dateStr: iso,
       isCurrentMonth: false,
       isSelected: iso === selectedDate,
+      isToday: iso === todayStr,
+      isInCurrentWeek: iso >= weekStartStr && iso <= weekEndStr,
+      hasEvents: eventsGetter ? (eventsGetter(iso)?.length || 0) > 0 : false,
     });
   }
 
   // Current month days
   for (let i = 1; i <= lastDay.getDate(); i++) {
     const curDate = new Date(year, month, i);
-    const iso = curDate.toISOString().split("T")[0];
+    const iso = formatDateToYYYYMMDD(curDate);
     days.push({
       dayNum: i,
       dateStr: iso,
       isCurrentMonth: true,
       isSelected: iso === selectedDate,
+      isToday: iso === todayStr,
+      isInCurrentWeek: iso >= weekStartStr && iso <= weekEndStr,
+      hasEvents: eventsGetter ? (eventsGetter(iso)?.length || 0) > 0 : false,
     });
   }
 
-  // Next month leading days to complete grid
-  const remaining = (7 - (days.length % 7)) % 7;
+  // Next month leading days to complete full Google Calendar grid (35 or 42 cells)
+  const targetCount = days.length <= 35 ? 35 : 42;
+  const remaining = targetCount - days.length;
   for (let i = 1; i <= remaining; i++) {
     const nextDate = new Date(year, month + 1, i);
-    const iso = nextDate.toISOString().split("T")[0];
+    const iso = formatDateToYYYYMMDD(nextDate);
     days.push({
       dayNum: i,
       dateStr: iso,
       isCurrentMonth: false,
       isSelected: iso === selectedDate,
+      isToday: iso === todayStr,
+      isInCurrentWeek: iso >= weekStartStr && iso <= weekEndStr,
+      hasEvents: eventsGetter ? (eventsGetter(iso)?.length || 0) > 0 : false,
     });
   }
 
   return days;
 }
+
+
+export interface WorkingHoursShift {
+  id: string;
+  label: string;
+  start: string; // e.g. "10:00"
+  end: string;   // e.g. "13:00"
+  enabled: boolean;
+}
+
+export interface WorkingHoursConfig {
+  shifts: WorkingHoursShift[];
+}
+
+export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
+  shifts: [
+    {
+      id: "morning",
+      label: "Morning Shift",
+      start: "10:00",
+      end: "13:00",
+      enabled: true,
+    },
+    {
+      id: "evening",
+      label: "Evening Shift",
+      start: "16:00",
+      end: "20:00",
+      enabled: true,
+    },
+  ],
+};
+
+export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
+
+/**
+ * Calculate total 30-minute slot count for a given time window.
+ */
+export function calculateShiftSlotCount(start: string, end: string, stepMinutes = 30): number {
+  const startM = timeToMinutes(start);
+  const endM = timeToMinutes(end);
+  if (endM <= startM) return 0;
+  return Math.floor((endM - startM) / stepMinutes);
+}
+
+/**
+ * Retrieve doctor working hours from localStorage or fallback to default.
+ */
+export function getDoctorWorkingHours(): WorkingHoursConfig {
+  if (typeof window === "undefined") return DEFAULT_WORKING_HOURS;
+  try {
+    const raw = localStorage.getItem(WORKING_HOURS_STORAGE_KEY);
+    if (!raw) return DEFAULT_WORKING_HOURS;
+    const parsed = JSON.parse(raw) as WorkingHoursConfig;
+    if (parsed && Array.isArray(parsed.shifts) && parsed.shifts.length > 0) {
+      return parsed;
+    }
+  } catch (err) {
+    console.error("Error loading working hours:", err);
+  }
+  return DEFAULT_WORKING_HOURS;
+}
+
+/**
+ * Persist doctor customized working hours to localStorage.
+ */
+export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WORKING_HOURS_STORAGE_KEY, JSON.stringify(config));
+  } catch (err) {
+    console.error("Error saving working hours:", err);
+  }
+}
+
+/**
+ * Check if a time slot (start, end) falls within doctor's configured working hours.
+ * Closed on Sundays.
+ */
+export function isSlotWithinWorkingHours(
+  dateStr: string,
+  slotStart: string,
+  slotEnd: string,
+  config?: WorkingHoursConfig
+): boolean {
+  if (!dateStr || !slotStart || !slotEnd) return false;
+  const d = new Date(dateStr);
+  if (d.getDay() === 0) return false; // Sunday closed
+
+  const startM = timeToMinutes(slotStart);
+  const endM = timeToMinutes(slotEnd);
+
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+  return activeConfig.shifts.some((shift) => {
+    if (!shift.enabled) return false;
+    const shiftStartM = timeToMinutes(shift.start);
+    const shiftEndM = timeToMinutes(shift.end);
+    return startM >= shiftStartM && endM <= shiftEndM;
+  });
+}
+
+export interface PatientVitalsData {
+  gender?: string;
+  age?: string | number;
+  height?: string;
+  weight?: string;
+  bloodGroup?: string;
+  address?: string;
+  shortNotes?: string;
+}
+
+/**
+ * Format patient details (vitals, address, notes) into structured clinical notes string.
+ */
+export function formatPatientClinicalNotes(data: PatientVitalsData): string {
+  const vitals: string[] = [];
+  if (data.gender) vitals.push(`Gender: ${data.gender}`);
+  if (data.age) vitals.push(`Age: ${data.age}`);
+  if (data.bloodGroup) vitals.push(`Blood Group: ${data.bloodGroup}`);
+  if (data.height) vitals.push(`Height: ${data.height}`);
+  if (data.weight) vitals.push(`Weight: ${data.weight}`);
+
+  const sections: string[] = [];
+  if (vitals.length > 0) {
+    sections.push(`[Patient Vitals] ${vitals.join(" | ")}`);
+  }
+  if (data.address?.trim()) {
+    sections.push(`[Address] ${data.address.trim()}`);
+  }
+  if (data.shortNotes?.trim()) {
+    sections.push(`[Notes] ${data.shortNotes.trim()}`);
+  }
+
+  return sections.join("\n");
+}
+

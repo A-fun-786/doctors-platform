@@ -4,12 +4,17 @@ import React from "react";
 import MiniCalendar from "./MiniCalendar";
 import WorkingHoursCard from "./WorkingHoursCard";
 import { MiniCalDayItem } from "../types";
+import { WorkingHoursConfig } from "../calendarUtils";
 
 interface CalendarSidebarProps {
   miniCalMonth: Date;
   setMiniCalMonth: React.Dispatch<React.SetStateAction<Date>>;
   miniCalDays: MiniCalDayItem[];
   onSelectDate: (dateStr: string) => void;
+  workingHoursConfig?: WorkingHoursConfig;
+  onEditWorkingHours?: () => void;
+  selectedDate?: string;
+  onToday?: () => void;
 }
 
 export default function CalendarSidebar({
@@ -17,9 +22,12 @@ export default function CalendarSidebar({
   setMiniCalMonth,
   miniCalDays,
   onSelectDate,
+  workingHoursConfig,
+  onEditWorkingHours,
 }: CalendarSidebarProps) {
   return (
-    <div className="xl:col-span-3 space-y-5">
+    <div className="xl:col-span-3 space-y-5 select-none">
+      {/* Real Google Calendar Mini-Calendar */}
       <MiniCalendar
         miniCalMonth={miniCalMonth}
         setMiniCalMonth={setMiniCalMonth}
@@ -27,7 +35,11 @@ export default function CalendarSidebar({
         onSelectDate={onSelectDate}
       />
 
-      <WorkingHoursCard />
+      {/* Working Hours Schedule */}
+      <WorkingHoursCard
+        config={workingHoursConfig}
+        onEditHours={onEditWorkingHours}
+      />
     </div>
   );
 }
