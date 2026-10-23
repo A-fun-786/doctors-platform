@@ -70,7 +70,6 @@ The Calendar system was refactored from a monolithic 2,000+ line component into 
 | `components/dashboard/calendar/sidebar/CalendarSidebar.tsx` | Sidebar Container | Orchestrates all contextual widgets in the right-hand panel |
 | `components/dashboard/calendar/sidebar/MiniCalendar.tsx` | Sidebar Widget | Compact month calendar date-picker with active day highlights and event markers |
 | `components/dashboard/calendar/sidebar/WorkingHoursCard.tsx` | Sidebar Widget | Active clinical hours summary with one-click routing to `/schedule` |
-| `components/dashboard/calendar/sidebar/QuickActionsCard.tsx` | Sidebar Widget | Fast shortcuts to add availability, block time, or jump to appointments |
 | `components/dashboard/calendar/modals/AddAppointmentModal.tsx` | Modal Dialog | Doctor booking modal for creating patient consultations directly on the calendar |
 | `components/dashboard/calendar/modals/AddAvailabilityModal.tsx` | Modal Dialog | Modal dialog to configure custom available clinical time blocks |
 | `components/dashboard/calendar/modals/BlockTimeModal.tsx` | Modal Dialog | Modal dialog for blocking personal time, leaves, or clinical holidays |
@@ -142,8 +141,7 @@ app/dashboard/page.tsx
                 │   └── Right Column (xl:col-span-3) — Sidebar Panel
                 │       └── CalendarSidebar
                 │           ├── MiniCalendar (month picker with active day highlight)
-                │           ├── WorkingHoursCard (quick jump to /schedule)
-                │           └── QuickActionsCard (instant modal launchers)
+                │           └── WorkingHoursCard (quick jump to /schedule)
                 │
                 └── Modals Layer (Rendered conditionally via useCalendarModals)
                     ├── AddAppointmentModal
