@@ -10,6 +10,7 @@ import {
   getTimeRowRange,
   doesEventOverlapSlot,
   getDayStatus,
+  getWorkingHoursTimeRows,
   WorkingHoursConfig,
 } from "../calendarUtils";
 
@@ -35,7 +36,6 @@ export default function WeekView({
   onEmptySlotClick,
   workingHoursConfig,
 }: WeekViewProps) {
-  // Current real-world date for highlight
   const todayStr = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -43,6 +43,16 @@ export default function WeekView({
     const d = String(now.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }, []);
+
+  // Collect all events across visible week days
+  const allWeekEvents = useMemo(() => {
+    return currentWeekDays.flatMap((day) => getEventsForDate(day.dateStr));
+  }, [currentWeekDays, getEventsForDate]);
+
+  // Only show working hours slots (active shifts) or slots that contain scheduled events
+  const workingTimeRows = useMemo(() => {
+    return getWorkingHoursTimeRows(workingHoursConfig, allWeekEvents);
+  }, [workingHoursConfig, allWeekEvents]);
 
   return (
     <div className="w-full select-none">
@@ -160,9 +170,9 @@ export default function WeekView({
           })}
         </div>
 
-        {/* 30-Minute Time Slots Grid - All 7 Days Fully Rendered */}
+        {/* 30-Minute Time Slots Grid - Rendered Exclusively for Working Hours */}
         <div className="divide-y divide-slate-100">
-          {TIME_ROWS.map((timeRow) => {
+          {workingTimeRows.map((timeRow) => {
             const isHour = timeRow.endsWith(":00 AM") || timeRow.endsWith(":00 PM");
             const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
 

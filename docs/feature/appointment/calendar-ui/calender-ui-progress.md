@@ -13,6 +13,7 @@
 8. **Real Calendar Date Synchronization & Google Calendar Mini-Calendar Alignment (Phase 8)**: Fixed a critical timezone-offset bug in calendar date calculation where `.toISOString().split("T")[0]` on local midnight dates shifted dates backwards by 1 day in positive UTC timezones. Replaced with robust, timezone-immune `formatDateToYYYYMMDD` and `parseYYYYMMDD` utilities. Redesigned `MiniCalendar.tsx` to authentically replicate Google Calendar: single-letter day-of-week headers (`M`, `T`, `W`, `T`, `F`, `S`, `S`), circular day badges, prominent real-time date highlight without text clutter, soft selection circle for non-current days, active week row tinting, and appointment dot indicators. Streamlined `CalendarSidebar.tsx` by removing the redundant `+ New Appointment` / `+ Create` button and strictly omitting the textual word "Today" from banners, headers, and buttons, maintaining an uncluttered, distraction-free operational sidebar.
 9. **Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention (Phase 9)**: Executed clean calendar slots refinements. Inside booked appointment slots in WeekView, stripped out all secondary time ranges and visit reasons to prevent vertical clipping, displaying solely the patient's name in bold high-contrast typography. Streamlined unbooked intervals to render as uniform empty slots with 1-click booking affordance. Completely eliminated all "Break" / "Break Time" / "Lunch Break" banners to maintain an uninterrupted schedule view. In DayView, rendered appointment cards with prominent patient name and visit reason alongside clean empty slot triggers.
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
+11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
 
 ---
 
@@ -352,7 +353,47 @@
 
 ---
 
-## 11. Decisions, Deviations & Assumptions
+## 11. Key Changes (Phase 11 — Exclusive Working Hours Slot Display in DayView & WeekView)
+
+### 11a. Dynamic Working Hours Time Rows Utility (`calendarUtils.ts`)
+- **Function**: `getWorkingHoursTimeRows(config?: WorkingHoursConfig, additionalEvents?: CalendarEvent[]): string[]`
+  - Generates 30-minute time row labels (e.g. `"10:00 AM"`, `"10:30 AM"`) strictly corresponding to enabled doctor working shifts in `workingHoursConfig`.
+  - For default shifts (Morning: 10:00 AM – 1:00 PM, Evening: 4:00 PM – 8:00 PM), it produces exactly 14 operational 30-minute intervals.
+  - Automatically incorporates any off-shift intervals that contain booked patient appointments or leaves, ensuring that special or pre-existing appointments scheduled outside regular shifts are never hidden or omitted.
+  - Sorts all intervals in ascending chronological order and formats them into standard 12-hour AM/PM labels.
+
+### 11b. DayView Operational Stream Filtering (`DayView.tsx`, `CalendarTab.tsx`)
+- **`DayView.tsx` Component**:
+  - Added `workingHoursConfig?: WorkingHoursConfig` to `DayViewProps` interface.
+  - Replaced the static, unfiltered `TIME_ROWS.map` iteration with dynamic `workingTimeRows.map` computed via `getWorkingHoursTimeRows(workingHoursConfig, events)`.
+  - **Clean Empty Slot Display**: All unoccupied 30-minute slots within active clinic shifts now render as interactive dashed empty slot cards (`Empty Slot — Click to book` with `EMPTY SLOT` badge).
+  - Clicking any empty slot immediately triggers `onEmptySlotClick(selectedDate, slotStart, slotEnd)` to launch `SlotActionModal` with the exact 30-minute window pre-selected.
+  - **Summary Badge Recalculation**: Updated the 3-column KPI summary badges:
+    - `Appointments (30m)`: Number of booked patient appointments.
+    - `Empty Slots`: Exact count of remaining unbooked 30-minute intervals within active clinic shifts.
+    - `Leaves / Exclusions`: Number of doctor leaves or holidays.
+  - Non-working off-hours (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and post-8:00 PM) are completely eliminated from the stream, removing dead space and booking confusion.
+- **`CalendarTab.tsx` Integration**:
+  - Connected `workingHoursConfig` state prop to `<DayView workingHoursConfig={workingHoursConfig} ... />`, enabling immediate schedule recalculation whenever the doctor edits their shifts via `EditWorkingHoursModal`.
+
+### 11c. WeekView Grid Row Filtering (`WeekView.tsx`)
+- **`WeekView.tsx` Component**:
+  - Collected all events across visible week days (`allWeekEvents = currentWeekDays.flatMap(...)`).
+  - Replaced static 24-row `TIME_ROWS` grid rendering with dynamic `workingTimeRows` generated from `getWorkingHoursTimeRows(workingHoursConfig, allWeekEvents)`.
+  - Compacted the weekly calendar from 24 rows down to the doctor's active 14 shift rows (10:00 AM – 1:00 PM and 4:00 PM – 8:00 PM), entirely eliminating early morning, late evening, and 3-hour afternoon dead zones.
+  - Unbooked cells within active working days render clean empty slot affordances with 1-click booking cues.
+
+### 11d. Automated Verification & Regression Guard
+- Verified via `scripts/verify_phase9_clean_slots.mjs` (7/7 passed, 100%).
+- Verified via `scripts/test_calendar_utils.mjs` (32/32 passed, 100%).
+- Verified via `scripts/verify_calendar_qa_scenarios.mjs` (8/8 passed, 100%).
+- Verified via `scripts/test_quick_actions_removal.mjs` (24/24 passed, 100%).
+- Verified TypeScript compilation: `npx tsc --noEmit` (0 errors).
+- Verified ESLint: `npm run lint` (0 warnings, 0 errors).
+
+---
+
+## 12. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -371,12 +412,14 @@
   - *Reasoning*: When switching between Day and Week views, doctors maintain a consistent, recognizable color-code guide without layout jump or missing context.
 - **Decision (Removal of DayView "Book Patient" Header Button)**: In Phase 10, removed the redundant "Book Patient" button from the `DayView.tsx` header.
   - *Reasoning*: Unbooked slots already provide an interactive, 1-click booking affordance directly on the exact 30-minute window desired. A generic header button defaults to an arbitrary time (e.g. 10:00 AM) and causes layout imbalance in the header.
+- **Decision (Exclusive Working Hours Slot Display in DayView & WeekView)**: In Phase 11, restricted rendered slots across DayView and WeekView exclusively to active clinic working shifts (plus any special booked events).
+  - *Reasoning*: Displaying non-working intervals (e.g. 9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM afternoon break, 8:00 PM – 9:00 PM) created visual clutter and allowed unintentional bookings during closed hours. Filtering rows strictly to active shifts presents a compact, high-efficiency schedule aligned with actual clinic operating hours.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 12. Verification Scorecard
+## 13. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -396,7 +439,7 @@
 
 ---
 
-## 13. Manual Verification Guide & Acceptance
+## 14. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -446,10 +489,16 @@
    - Confirm all 4 indicators are present: Appointment (Patient), Empty Slot (Click to Book), Doctor Leave, and Blocked Period, alongside "30-Minute Operating Intervals".
    - Confirm the Day Schedule header displays only the title and subtitle without any redundant "Book Patient" button.
    - Click any empty slot card in the day stream and verify the `SlotActionModal` opens with accurate 30-minute bounds.
+10. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**:
+   - In both DayView and WeekView, confirm that rows render strictly for active working shifts (default: 10:00 AM – 1:00 PM and 4:00 PM – 8:00 PM, 14 slots total).
+   - Confirm that off-shift closed hours (9:00 AM, 9:30 AM, 1:00 PM – 4:00 PM, and post-8:00 PM) are not rendered as empty rows.
+   - Confirm that empty slots in DayView show `[Start] – [End] | Empty Slot — Click to book` with an `EMPTY SLOT` badge.
+   - Click an empty slot in DayView or WeekView; verify the `SlotActionModal` opens pre-filled to that exact 30-minute window.
+   - If an appointment exists outside regular shifts, verify that its row is dynamically included and rendered without loss.
 
 ---
 
-## 14. Known Issues & Commitments
+## 15. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
@@ -463,11 +512,11 @@
 
 ---
 
-## 15. Rollback & Migration Instructions
+## 16. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, or 10. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, 10, or 11. Reverting safely restores previous UI layouts without altering database records.

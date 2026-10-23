@@ -138,6 +138,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             <DayView
               selectedDate={selectedDate}
               events={getEventsForDate(selectedDate)}
+              workingHoursConfig={workingHoursConfig}
               onBookPatient={() =>
                 openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
               }

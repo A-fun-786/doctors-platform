@@ -413,3 +413,40 @@ export function formatPatientClinicalNotes(data: PatientVitalsData): string {
   return sections.join("\n");
 }
 
+/**
+ * Generate 30-minute time row labels (e.g. "10:00 AM", "10:30 AM") for all active working shifts.
+ * Automatically incorporates any slots that contain scheduled events so no appointments are missed.
+ */
+export function getWorkingHoursTimeRows(
+  config?: WorkingHoursConfig,
+  additionalEvents?: CalendarEvent[]
+): string[] {
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+  const timeMinutesSet = new Set<number>();
+
+  // Add 30-minute intervals for all enabled shifts
+  activeConfig.shifts.forEach((shift) => {
+    if (!shift.enabled) return;
+    const startM = timeToMinutes(shift.start);
+    const endM = timeToMinutes(shift.end);
+    for (let m = startM; m + 30 <= endM; m += 30) {
+      timeMinutesSet.add(m);
+    }
+  });
+
+  // Also include any 30-minute slots containing scheduled events
+  if (additionalEvents && Array.isArray(additionalEvents)) {
+    additionalEvents.forEach((ev) => {
+      if (ev.status === "CANCELLED" || !ev.start) return;
+      const evStartM = timeToMinutes(ev.start);
+      // Floor to nearest 30-min interval
+      const slotM = Math.floor(evStartM / 30) * 30;
+      timeMinutesSet.add(slotM);
+    });
+  }
+
+  // Sort chronologically and convert to 12-hour labels
+  const sortedMinutes = Array.from(timeMinutesSet).sort((a, b) => a - b);
+  return sortedMinutes.map((m) => format12Hour(minutesToTime24(m)));
+}
+
