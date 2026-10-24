@@ -90,7 +90,13 @@ export default function AppointmentDetailsPanel({
 
   const handleCopy = (text: string, key: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } catch {
+      // Defensive handling for unsupported or insecure HTTP contexts
+    }
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };

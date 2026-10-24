@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   Clock,
@@ -11,7 +11,7 @@ import {
   Check,
   RotateCcw,
 } from "lucide-react";
-import { CalendarEvent, rescheduleAppointment } from "@/lib/api";
+import { CalendarEvent, rescheduleAppointment, getDoctorCalendar } from "@/lib/api";
 import { WorkingHoursConfig, format12Hour } from "../calendarUtils";
 import SlotSelectorGrid from "./SlotSelectorGrid";
 import RescheduleConfirmModal from "./RescheduleConfirmModal";
@@ -54,6 +54,42 @@ export default function AppointmentRescheduleForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Fallback events for SlotSelectorGrid:
+  // If targetDate matches original date, evaluate against existingEvents.
+  // If doctor picks a different targetDate, clear immediately to avoid evaluating
+  // against the previous date's events, and fetch target date events in background.
+  const [targetEvents, setTargetEvents] = useState<CalendarEvent[]>(existingEvents);
+
+  useEffect(() => {
+    if (targetDate === date) {
+      setTargetEvents(existingEvents);
+      return;
+    }
+
+    let isMounted = true;
+    // Clear immediately to prevent cross-date slot collision
+    setTargetEvents([]);
+
+    async function fetchTargetEvents() {
+      try {
+        const cal = await getDoctorCalendar(targetDate, targetDate);
+        if (isMounted && cal?.dates?.[0]?.events) {
+          setTargetEvents(cal.dates[0].events);
+        }
+      } catch {
+        // Fallback remains safely empty
+      }
+    }
+
+    if (targetDate) {
+      fetchTargetEvents();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [targetDate, date, existingEvents]);
 
   // Validate inputs before opening confirmation modal
   const handleInitiateSave = (e: React.FormEvent) => {
@@ -175,7 +211,7 @@ export default function AppointmentRescheduleForm({
         date={targetDate}
         selectedSlot={selectedSlot}
         onSelectSlot={(slot) => setSelectedSlot(slot)}
-        existingEvents={existingEvents}
+        existingEvents={targetEvents}
         workingHoursConfig={workingHoursConfig}
         currentAppointmentId={event.appointment_id}
       />
