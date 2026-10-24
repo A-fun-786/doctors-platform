@@ -722,7 +722,8 @@ docspace-platform/
 │   │       ├── 📌 sidebar/
 │   │       │   ├── CalendarSidebar.tsx        # Right-hand panel orchestrator
 │   │       │   ├── MiniCalendar.tsx           # Compact date-picker with active day highlights
-│   │       │   └── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
+│   │       │   ├── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
+│   │       │   └── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
 │   │       └── 🪟 modals/
 │   │           ├── AddAppointmentModal.tsx    # Patient consultation booking dialog
 │   │           ├── AddAvailabilityModal.tsx   # Custom availability slot creator
