@@ -129,12 +129,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           )}
         </div>
 
-        {/* Right Column: Mini Calendar, Working Hours */}
+        {/* Right Column: Mini Calendar, Quick Actions, Working Hours */}
         <CalendarSidebar
           miniCalMonth={miniCalMonth}
           setMiniCalMonth={setMiniCalMonth}
           miniCalDays={miniCalDays}
           onSelectDate={setSelectedDate}
+          onAddAppointment={() => openAddAppointment(selectedDate)}
+          onBlockTime={() => openBlockModal(selectedDate)}
         />
       </div>
 
