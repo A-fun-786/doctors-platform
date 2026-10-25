@@ -364,7 +364,13 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                     type="button"
                     onClick={() => {
                       const url = getAppDownloadUrl(buildStatus.task_id);
-                      navigator.clipboard.writeText(url);
+                      try {
+                        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                          navigator.clipboard.writeText(url).catch(() => {});
+                        }
+                      } catch {
+                        // ignore
+                      }
                       setCopiedApkUrl(true);
                       setTimeout(() => setCopiedApkUrl(false), 2000);
                     }}

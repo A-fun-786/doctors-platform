@@ -13,7 +13,7 @@ Write-Host "  Starting DocSpace Platform Servers (Windows) " -ForegroundColor Cy
 Write-Host "==================================================" -ForegroundColor Cyan
 
 # 1. Check Backend (Port 8000)
-$backendConn = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
+$backendConn = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($backendConn) {
     Write-Host "[!] Backend port 8000 is already in use by PID $($backendConn.OwningProcess)." -ForegroundColor Yellow
 } else {
@@ -35,7 +35,7 @@ if ($backendConn) {
 }
 
 # 2. Check Frontend (Port 3000)
-$frontendConn = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+$frontendConn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($frontendConn) {
     Write-Host "[!] Frontend port 3000 is already in use by PID $($frontendConn.OwningProcess)." -ForegroundColor Yellow
 } else {

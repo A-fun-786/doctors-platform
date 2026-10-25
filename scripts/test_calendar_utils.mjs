@@ -67,6 +67,10 @@ const {
   isIntervalOverlapping,
   doesEventOverlapSlot,
   findConflictingEvents,
+  DEFAULT_WORKING_HOURS,
+  calculateShiftSlotCount,
+  isSlotWithinWorkingHours,
+  formatPatientClinicalNotes,
 } = utils;
 
 // ============================================================================
@@ -302,6 +306,85 @@ describe("Modal Hard-Block Validation Logic", () => {
       hookSource.includes("Invalid time selection: End time must be after start time"),
       true
     );
+  });
+});
+
+// ============================================================================
+// SUITE 7: Editable Working Hours & Clinical Notes
+// ============================================================================
+describe("Editable Working Hours & Clinical Notes", () => {
+  const hookSource = fs.readFileSync(modalsHookPath, "utf-8");
+
+  test("DEFAULT_WORKING_HOURS contains enabled morning and evening shifts", () => {
+    assert.ok(DEFAULT_WORKING_HOURS.shifts.length >= 2);
+    const morning = DEFAULT_WORKING_HOURS.shifts.find((s) => s.id === "morning");
+    const evening = DEFAULT_WORKING_HOURS.shifts.find((s) => s.id === "evening");
+    assert.strictEqual(morning?.start, "10:00");
+    assert.strictEqual(morning?.end, "13:00");
+    assert.strictEqual(morning?.enabled, true);
+    assert.strictEqual(evening?.start, "16:00");
+    assert.strictEqual(evening?.end, "20:00");
+    assert.strictEqual(evening?.enabled, true);
+  });
+
+  test("calculateShiftSlotCount computes 30-minute intervals correctly", () => {
+    assert.strictEqual(calculateShiftSlotCount("10:00", "13:00"), 6); // 3 hrs = 6 slots
+    assert.strictEqual(calculateShiftSlotCount("16:00", "20:00"), 8); // 4 hrs = 8 slots
+    assert.strictEqual(calculateShiftSlotCount("09:00", "12:30"), 7); // 3.5 hrs = 7 slots
+    assert.strictEqual(calculateShiftSlotCount("12:00", "12:00"), 0); // 0 hrs = 0 slots
+    assert.strictEqual(calculateShiftSlotCount("14:00", "10:00"), 0); // inverted = 0 slots
+  });
+
+  test("isSlotWithinWorkingHours respects default doctor operating hours and Sunday closure", () => {
+    // 2026-10-19 is Monday
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "10:00", "10:30"), true);
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "12:30", "13:00"), true);
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "16:00", "16:30"), true);
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "19:30", "20:00"), true);
+    // Afternoon break (13:00 - 16:00)
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "14:00", "14:30"), false);
+    // Early morning
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "08:00", "08:30"), false);
+    // 2026-10-18 is Sunday (Closed)
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30"), false);
+  });
+
+  test("isSlotWithinWorkingHours respects dynamic customized shifts and disabled shifts", () => {
+    const customConfig = {
+      shifts: [
+        { id: "morning", label: "Morning", start: "09:00", end: "12:30", enabled: true },
+        { id: "evening", label: "Evening", start: "17:00", end: "21:00", enabled: false }, // disabled
+      ],
+    };
+    // 09:00-09:30 is now within morning shift
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "09:00", "09:30", customConfig), true);
+    // 12:30-13:00 is outside new morning shift (which ends at 12:30)
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "12:30", "13:00", customConfig), false);
+    // Evening shift is disabled, so evening slots return false
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "17:00", "17:30", customConfig), false);
+  });
+
+  test("formatPatientClinicalNotes formats vitals, address, and notes properly", () => {
+    const formatted = formatPatientClinicalNotes({
+      gender: "Female",
+      age: 28,
+      bloodGroup: "B+",
+      height: "165 cm",
+      weight: "58 kg",
+      address: "Flat 402, Green Valley",
+      shortNotes: "Routine follow-up required",
+    });
+    assert.ok(formatted.includes("[Patient Vitals] Gender: Female | Age: 28 | Blood Group: B+ | Height: 165 cm | Weight: 58 kg"));
+    assert.ok(formatted.includes("[Address] Flat 402, Green Valley"));
+    assert.ok(formatted.includes("[Notes] Routine follow-up required"));
+  });
+
+  test("useCalendarModals integrates slot action modal and editable working hours", () => {
+    assert.ok(hookSource.includes("openSlotActionModal"), "Must expose openSlotActionModal");
+    assert.ok(hookSource.includes("handleSlotBookingSubmit"), "Must expose handleSlotBookingSubmit");
+    assert.ok(hookSource.includes("handleSlotLeaveSubmit"), "Must expose handleSlotLeaveSubmit");
+    assert.ok(hookSource.includes("openEditWorkingHours"), "Must expose openEditWorkingHours");
+    assert.ok(hookSource.includes("workingHoursConfig"), "Must expose workingHoursConfig");
   });
 });
 

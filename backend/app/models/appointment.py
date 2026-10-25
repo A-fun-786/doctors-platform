@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Date, ForeignKey, Index, String, Text, Time, Uuid, text
+from sqlalchemy import Date, ForeignKey, Index, Integer, String, Text, Time, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -39,6 +39,30 @@ class Appointment(Base, TimestampMixin):
     )
     patient_contact: Mapped[Optional[str]] = mapped_column(
         String(100),
+        nullable=True,
+    )
+    patient_gender: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    patient_age: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    patient_height: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    patient_weight: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    patient_blood_group: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+    patient_address: Mapped[Optional[str]] = mapped_column(
+        Text,
         nullable=True,
     )
     date: Mapped[datetime.date] = mapped_column(

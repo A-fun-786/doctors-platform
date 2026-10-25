@@ -14,7 +14,7 @@ import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "
 
 export type DashboardTabId =
   | "overview"
-  | "calendar"
+  | "appointment"
   | "profile"
   | "android";
 
@@ -40,7 +40,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const navItems: { id: DashboardTabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "calendar", label: "Appointment", icon: Calendar },
+    { id: "appointment", label: "Appointment", icon: Calendar },
     { id: "profile", label: "Profile", icon: User },
   ];
 
@@ -75,11 +75,10 @@ export default function DashboardShell({
                   key={item.id}
                   type="button"
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap text-left w-full ${
-                    isActive
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap text-left w-full ${isActive
                       ? "bg-brand-50 text-brand-700 font-semibold shadow-xs border-l-0 md:border-l-4 md:border-brand-600"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} />
                   <span>{item.label}</span>

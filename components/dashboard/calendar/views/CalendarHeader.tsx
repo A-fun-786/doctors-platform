@@ -64,11 +64,10 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("day")}
             aria-pressed={viewMode === "day"}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              viewMode === "day"
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === "day"
                 ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+              }`}
           >
             Day
           </button>
@@ -76,11 +75,10 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("week")}
             aria-pressed={viewMode === "week"}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              viewMode === "week"
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === "week"
                 ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+              }`}
           >
             Week
           </button>
@@ -88,11 +86,10 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("month")}
             aria-pressed={viewMode === "month"}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              viewMode === "month"
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === "month"
                 ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
+              }`}
           >
             Month
           </button>

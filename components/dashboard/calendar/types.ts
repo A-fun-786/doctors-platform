@@ -15,6 +15,7 @@ export interface WeekDayItem {
   dayName: string;
   dayNum: number;
   isSelected: boolean;
+  isToday?: boolean;
 }
 
 export interface MiniCalDayItem {
@@ -22,6 +23,9 @@ export interface MiniCalDayItem {
   dateStr: string;
   isCurrentMonth: boolean;
   isSelected: boolean;
+  isToday?: boolean;
+  hasEvents?: boolean;
+  isInCurrentWeek?: boolean;
 }
 
 export interface SelectedEventState {
@@ -32,4 +36,17 @@ export interface SelectedEventState {
 export interface DayStatusInfo {
   text: string;
   color: string;
+}
+
+export type CalendarDrawerMode = "view" | "edit";
+
+export type CalendarDrawerType = "appointment" | "leave" | "blocked";
+
+export interface CalendarDrawerState {
+  isOpen: boolean;
+  type: CalendarDrawerType | null;
+  mode: CalendarDrawerMode;
+  event: CalendarEvent | null;
+  date: string;
+  leaveId?: string;
 }

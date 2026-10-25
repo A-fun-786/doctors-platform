@@ -135,7 +135,7 @@ describe("Component Relocation & Layout Architecture", () => {
 describe("Navigation & Tab State Logic Simulation", () => {
   const baseTabs = [
     { id: "overview", label: "Overview" },
-    { id: "calendar", label: "Calendar" },
+    { id: "appointment", label: "Appointment" },
     { id: "schedule", label: "Schedule" },
     { id: "appointments", label: "Appointments" },
     { id: "profile", label: "Profile" },
@@ -144,7 +144,7 @@ describe("Navigation & Tab State Logic Simulation", () => {
   test("Base navigation contains 5 core tabs", () => {
     assert.strictEqual(baseTabs.length, 5);
     const ids = baseTabs.map((t) => t.id);
-    assert.deepStrictEqual(ids, ["overview", "calendar", "schedule", "appointments", "profile"]);
+    assert.deepStrictEqual(ids, ["overview", "appointment", "schedule", "appointments", "profile"]);
   });
 
   test("Enable Android build flag dynamically appends Android tab", () => {

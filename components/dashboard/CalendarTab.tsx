@@ -12,7 +12,13 @@ import MonthView from "./calendar/views/MonthView";
 import CalendarSidebar from "./calendar/sidebar/CalendarSidebar";
 import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
 import BlockTimeModal from "./calendar/modals/BlockTimeModal";
-import EventDetailsModal from "./calendar/modals/EventDetailsModal";
+import SlotActionModal from "./calendar/modals/SlotActionModal";
+import EditWorkingHoursModal from "./calendar/modals/EditWorkingHoursModal";
+import { useCalendarDrawer } from "./calendar/hooks/useCalendarDrawer";
+import CalendarDrawer from "./calendar/panels/CalendarDrawer";
+import AppointmentDetailsPanel from "./calendar/panels/AppointmentDetailsPanel";
+import LeaveDetailsPanel from "./calendar/panels/LeaveDetailsPanel";
+import { format12Hour } from "./calendar/calendarUtils";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
@@ -30,6 +36,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     miniCalDays,
     handlePrevWeek,
     handleNextWeek,
+    handleGoToToday,
     getEventsForDate,
     refreshCurrentWeek,
   } = useCalendarData();
@@ -40,6 +47,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setShowAddAppointmentModal,
     showBlockModal,
     setShowBlockModal,
+    showSlotActionModal,
+    setShowSlotActionModal,
+    slotActionInitialTab,
+    showEditWorkingHoursModal,
+    setShowEditWorkingHoursModal,
+    workingHoursConfig,
+    openEditWorkingHours,
+    handleSaveWorkingHours,
     selectedEvent,
     setSelectedEvent,
     modalDate,
@@ -61,12 +76,18 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setBlockReason,
     openAddAppointment,
     openBlockModal,
+    openSlotActionModal,
     openEventDetails,
     handleAddAppointmentSubmit,
     handleBlockSubmit,
+    handleSlotBookingSubmit,
+    handleSlotLeaveSubmit,
   } = useCalendarModals();
 
-  // Quick slot create on hover in WeekView opens appointment booking
+  // Right-side Drawer Hook
+  const { drawerState, openEventDrawer, closeDrawer } = useCalendarDrawer();
+
+  // Quick slot create on hover in WeekView
   const handleQuickAddSlot = useCallback(
     (dateStr: string, start: string, end: string) => {
       openAddAppointment(dateStr, start, end);
@@ -106,8 +127,10 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               currentWeekDays={currentWeekDays}
               onSelectDate={setSelectedDate}
               getEventsForDate={getEventsForDate}
-              onEventClick={openEventDetails}
+              onEventClick={openEventDrawer}
               onQuickAddSlot={handleQuickAddSlot}
+              onEmptySlotClick={openSlotActionModal}
+              workingHoursConfig={workingHoursConfig}
             />
           )}
 
@@ -115,8 +138,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             <DayView
               selectedDate={selectedDate}
               events={getEventsForDate(selectedDate)}
-              onBookPatient={() => openAddAppointment(selectedDate)}
-              onEventClick={openEventDetails}
+              workingHoursConfig={workingHoursConfig}
+              onBookPatient={() =>
+                openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
+              }
+              onEmptySlotClick={(date, start, end) =>
+                openSlotActionModal(date, start, end, "booking")
+              }
+              onEventClick={openEventDrawer}
             />
           )}
 
@@ -135,10 +164,48 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           setMiniCalMonth={setMiniCalMonth}
           miniCalDays={miniCalDays}
           onSelectDate={setSelectedDate}
+          workingHoursConfig={workingHoursConfig}
+          onEditWorkingHours={openEditWorkingHours}
           onAddAppointment={() => openAddAppointment(selectedDate)}
           onBlockTime={() => openBlockModal(selectedDate)}
         />
       </div>
+
+      {/* MODAL: Slot Action (Empty slot click -> Book Patient or Doctor Leave) */}
+      <SlotActionModal
+        isOpen={showSlotActionModal}
+        onClose={() => setShowSlotActionModal(false)}
+        date={modalDate}
+        startTime={modalStartTime}
+        endTime={modalEndTime}
+        initialTab={slotActionInitialTab}
+        submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
+        onBookPatient={(formData) =>
+          handleSlotBookingSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+        onMarkLeave={(formData) =>
+          handleSlotLeaveSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+      />
+
+      {/* MODAL: Edit Working Hours */}
+      <EditWorkingHoursModal
+        isOpen={showEditWorkingHoursModal}
+        onClose={() => setShowEditWorkingHoursModal(false)}
+        config={workingHoursConfig}
+        onSave={(newCfg) => handleSaveWorkingHours(newCfg, showToast)}
+      />
 
       {/* MODAL: Add Appointment */}
       <AddAppointmentModal
@@ -194,11 +261,63 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         }
       />
 
-      {/* MODAL: Event Details */}
-      <EventDetailsModal
-        selectedEvent={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
-      />
+      {/* RIGHT-SIDE DRAWER: Patient Appointment Slot Details & Rescheduling OR Doctor Leave Management */}
+      <CalendarDrawer
+        isOpen={drawerState.isOpen}
+        onClose={closeDrawer}
+        categoryBadge={
+          drawerState.type === "appointment" ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+              Patient Appointment
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+              Doctor Leave &amp; Exclusion
+            </span>
+          )
+        }
+        title={
+          drawerState.type === "appointment"
+            ? drawerState.event?.patient_name || "Patient Appointment"
+            : drawerState.event?.type === "LEAVE"
+            ? "Doctor Leave"
+            : drawerState.event?.type === "HOLIDAY"
+            ? "Clinic Holiday"
+            : "Blocked Time"
+        }
+        subtitle={
+          drawerState.event
+            ? `${drawerState.date} • ${format12Hour(drawerState.event.start)} – ${format12Hour(
+                drawerState.event.end
+              )}`
+            : undefined
+        }
+      >
+        {drawerState.type === "appointment" && drawerState.event && (
+          <AppointmentDetailsPanel
+            event={drawerState.event}
+            date={drawerState.date}
+            doctorUuid={doctor?.id}
+            onClose={closeDrawer}
+            onRefreshCalendar={refreshCurrentWeek}
+            showToast={showToast}
+            existingEvents={getEventsForDate(drawerState.date)}
+            workingHoursConfig={workingHoursConfig}
+          />
+        )}
+
+        {(drawerState.type === "leave" || drawerState.type === "blocked") &&
+          drawerState.event && (
+            <LeaveDetailsPanel
+              event={drawerState.event}
+              date={drawerState.date}
+              doctorUuid={doctor?.id}
+              onClose={closeDrawer}
+              onRefreshCalendar={refreshCurrentWeek}
+              showToast={showToast}
+            />
+          )}
+      </CalendarDrawer>
     </div>
   );
 }
