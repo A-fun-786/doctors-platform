@@ -1,6 +1,6 @@
 # Progress: Calendar UI Enhancements & Cleanups
 
-**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`, `dayview_legend_bar_plan.md` | **Base SHA**: `e4dd560` | **Branch**: `calendar-ui` | **Status**: Verified ✅
+**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`, `dayview_legend_bar_plan.md`, `appointment_calender_plan.md` | **Base SHA**: `1fe949c` | **Branch**: `calendar-ui` | **Status**: Verified ✅
 
 ## 1. Summary & Scope
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
@@ -14,6 +14,7 @@
 9. **Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention (Phase 9)**: Executed clean calendar slots refinements. Inside booked appointment slots in WeekView, stripped out all secondary time ranges and visit reasons to prevent vertical clipping, displaying solely the patient's name in bold high-contrast typography. Streamlined unbooked intervals to render as uniform empty slots with 1-click booking affordance. Completely eliminated all "Break" / "Break Time" / "Lunch Break" banners to maintain an uninterrupted schedule view. In DayView, rendered appointment cards with prominent patient name and visit reason alongside clean empty slot triggers.
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
+12. **Database Migration & Doctor Working Hours Persistence (appointment_calender_plan.md Phase 1)**: Executed Phase 1 of `appointment_calender_plan.md`. Added Alembic migration `009_add_working_hours_to_doctor.py` introducing a `working_hours` JSON column on the `doctors` table with bidirectional `upgrade()` and `downgrade()` routines, automated fallback seeding for existing rows, and dialect-neutral text binding supporting SQLite and PostgreSQL (`--sql` verified). Updated SQLAlchemy `Doctor` model to declare `working_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)`. Created robust Pydantic schemas (`WorkingHoursShift`, `DoctorWorkingHoursUpdate`, `DoctorWorkingHoursResponse`) with 30-minute interval validation, start < end enforcement, non-overlapping active shift detection, and max 4 shifts per day ceiling. Added `GET /api/v1/doctor/working-hours` and rate-limited `PUT /api/v1/doctor/working-hours` (`30/minute`) with cache invalidation (`invalidate_slot_cache`) and structured telemetry logging (`doctor.working_hours_updated`). Added automated backend pytest suite (`backend/tests/test_working_hours_engine.py`) with 10 unit and migration tests (136/136 backend tests passing).
 
 ---
 
@@ -393,10 +394,65 @@
 
 ---
 
-## 12. Decisions, Deviations & Assumptions
+## 12. Key Changes (Phase 12 — Database Migration & Doctor Working Hours Persistence — appointment_calender_plan.md Phase 1)
+
+### 12a. Alembic Migration `009_add_working_hours_to_doctor.py`
+- Added column `working_hours` of type `JSON` (nullable) to the `doctors` table using `op.batch_alter_table("doctors")`.
+- Implemented safe bidirectional `upgrade()` and `downgrade()` routines.
+- Seeded default shift configuration for existing doctor rows where `working_hours IS NULL`:
+  ```json
+  {
+    "shifts": [
+      {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": true},
+      {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": true}
+    ],
+    "closed_days": [0]
+  }
+  ```
+- Used parameter-bound SQL updates (`UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL`) guaranteeing flawless compatibility in both online database transactions and offline static DDL generation (`alembic upgrade ... --sql`).
+
+### 12b. SQLAlchemy Model & Pydantic Validation Schemas
+- **SQLAlchemy Doctor Model (`backend/app/models/doctor.py`)**:
+  - Imported `JSON` from `sqlalchemy`.
+  - Added `working_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)`.
+- **Pydantic Validation Schemas (`backend/app/schemas/schedule.py`)**:
+  - `WorkingHoursShift`: Validates shift `id`, `label`, `start`, `end`, and `enabled`. Enforces regex `^([01]\d|2[0-3]):[0-5]\d$`, strictly requires `start < end`, and verifies both start and end minute boundaries are multiples of 30 (`minute % 30 == 0`).
+  - `DoctorWorkingHoursUpdate`: Validates list of shifts (`max_length=4`) and `closed_days` array. Enforces day index range (0–6), checks for duplicate closed days, and asserts that active (enabled) shifts do not chronologically overlap.
+  - `DoctorWorkingHoursResponse`: Strongly-typed API response schema returning `shifts` and `closed_days`.
+  - `DEFAULT_DOCTOR_WORKING_HOURS`: Centralized fallback constant providing the 2-shift default schedule (Morning 10:00–13:00, Evening 16:00–20:00, Sunday closed).
+
+### 12c. Working Hours API Endpoints & Telemetry (`backend/app/api/routes/schedule.py`)
+- `GET /api/v1/doctor/working-hours`: Returns current doctor's working shifts and closed days. If `working_hours` is null in the database, falls back gracefully to `DEFAULT_DOCTOR_WORKING_HOURS`.
+- `PUT /api/v1/doctor/working-hours`:
+  - Rate limited via `@limiter.limit("30/minute")`.
+  - Validates payload against `DoctorWorkingHoursUpdate` (30m bounds, duration, overlaps, max 4 shifts).
+  - Persists JSON configuration to `current_doctor.working_hours` and commits transaction.
+  - Automatically invokes `invalidate_slot_cache(current_doctor.id)` to purge cached public slot availability.
+  - Emits structured telemetry log event: `doctor.working_hours_updated` with doctor ID, shift count, enabled shift count, and closed days.
+
+### 12d. Automated Pytest Test Suite (`backend/tests/test_working_hours_engine.py`)
+- Added 10 automated backend tests covering:
+  - T1: `GET /doctor/working-hours` returns default shifts for unconfigured doctor accounts.
+  - T2: `PUT /doctor/working-hours` successfully stores and returns valid shift updates and persists to database.
+  - T3: Inverted time ranges (`start >= end`) are rejected with 422 Unprocessable Entity.
+  - T4: Zero-duration shifts (`start == end`) are rejected with 422 Unprocessable Entity.
+  - T5: Non-30m step intervals (e.g., 10:15) are rejected with 422 Unprocessable Entity.
+  - T6: Chronologically overlapping enabled shifts are rejected with 422 Unprocessable Entity.
+  - T7: Overlapping disabled (draft) shifts are allowed without validation error.
+  - T8: Payloads exceeding the 4-shift daily ceiling are rejected with 422 Unprocessable Entity.
+  - T9: Cache invalidation verification confirming `invalidate_slot_cache` purges cached doctor dates on shift update.
+  - T10: Alembic migration 009 bidirectional test (`upgrade head` -> `downgrade 008` -> `upgrade head`).
+
+---
+
+## 13. Decisions, Deviations & Assumptions
+- **Decision (Doctor Working Hours JSON Column vs Normalized Relational Table)**: In `009_add_working_hours_to_doctor.py`, stored working hours shifts and closed days in a `JSON` column on `doctors` rather than creating a separate table.
+  - *Reasoning*: Doctor recurring shift configurations are compact (typically 1–2 shifts, max 4), read frequently with doctor profile, and always updated as a single coherent document. JSON column avoids additional joins during slot generation and profile queries.
+  - *Alternative Considered*: A `doctor_shifts` normalized table. Rejected as overengineered for max 4 rows per doctor and introduces complex cascade and foreign key overhead.
+- **Decision (Literal Binding Compatibility in Migration 009)**: Used parameter-bound text SQL (`UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL`) instead of raw Python dictionaries in `op.execute()`.
+  - *Reasoning*: Alembic `--sql` offline migration mode cannot render Python dictionary literals with `sa.JSON()` without explicit string serialization. The serialized text approach works identically across both online execution and offline static SQL generation.
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
-  - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
 - **Decision (Slide-in Drawer vs Stacked Modals)**: Replaced modal details with a fixed right-side slide-in drawer (`CalendarDrawer.tsx`).
   - *Reasoning*: Modals obscure the entire calendar grid and break context. The drawer allows doctors to inspect full clinical details and slot alternatives while keeping the operational calendar visible in the background.
 - **Decision (1-Click Clipboard Copying)**: Added copy buttons for Patient ID, Doctor ID, Appointment ID, Leave ID, Phone, and Email.
@@ -409,37 +465,37 @@
 - **Decision (Strict Omission of the Word "Today")**: Textual labels like "Today", "Today's Date", or "Go to Today" were omitted from the sidebar and mini-calendar. Instead, Google Calendar's visual badge conventions (solid blue circle or prominent blue ring) immediately signify the current day without unnecessary text clutter.
 - **Decision (Only Patient Name in Filled Slots & Break Omission)**: In Phase 9, crowded text inside calendar slot boxes was stripped away in favor of displaying only the patient name. Open slots were simplified into clean empty slots, and break time labels were completely removed to present a clean, uninterrupted schedule.
 - **Decision (DayView Top-Mounted Operational Legend Bar)**: In Phase 10, added the exact operational legend bar from `WeekView.tsx` to the top of `DayView.tsx` edge-to-edge.
-  - *Reasoning*: When switching between Day and Week views, doctors maintain a consistent, recognizable color-code guide without layout jump or missing context.
 - **Decision (Removal of DayView "Book Patient" Header Button)**: In Phase 10, removed the redundant "Book Patient" button from the `DayView.tsx` header.
-  - *Reasoning*: Unbooked slots already provide an interactive, 1-click booking affordance directly on the exact 30-minute window desired. A generic header button defaults to an arbitrary time (e.g. 10:00 AM) and causes layout imbalance in the header.
 - **Decision (Exclusive Working Hours Slot Display in DayView & WeekView)**: In Phase 11, restricted rendered slots across DayView and WeekView exclusively to active clinic working shifts (plus any special booked events).
-  - *Reasoning*: Displaying non-working intervals (e.g. 9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM afternoon break, 8:00 PM – 9:00 PM) created visual clutter and allowed unintentional bookings during closed hours. Filtering rows strictly to active shifts presents a compact, high-efficiency schedule aligned with actual clinic operating hours.
-- **Deviations from Plan**: None.
-- **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
+- **Deviations from Plan**: None. Phase 1 implemented exactly according to `appointment_calender_plan.md`.
+- **Assumptions**: Unconfigured doctors default to the system standard shifts (10:00–13:00, 16:00–20:00, Sunday closed).
 
 ---
 
-## 13. Verification Scorecard
+## 14. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Validation** | `npm run lint` | 🟢 PASS | 0 warnings, 0 errors |
-| **Next.js Production Build** | `npm run build` | 🟢 PASS | 8/8 routes compiled |
-| **Backend Pytest Suite** | `pytest backend/` | 🟢 PASS | 126/126 passed |
-| **Alembic Migration Bidirectional Test** | `alembic downgrade -1 && alembic upgrade head` | 🟢 PASS | 008 upgrade & downgrade verified |
+| **Full Backend Pytest Suite** | `pytest backend/tests` | 🟢 PASS | 136/136 passed (100%) |
+| **Working Hours Engine Pytest Suite** | `pytest backend/tests/test_working_hours_engine.py` | 🟢 PASS | 10/10 passed (100%) |
+| **Alembic Migration 009 Bidirectional Test** | `alembic downgrade -1 && alembic upgrade head` | 🟢 PASS | 009 upgrade & downgrade cleanly verified |
+| **Alembic Static DDL SQL Generation** | `alembic upgrade 008:009 --sql` | 🟢 PASS | Clean PostgreSQL & SQLite compatible DDL generated |
 | **Appointments Unit Suite** | `node scripts/test_appointments_comprehensive.mjs` | 🟢 PASS | 30/30 passed |
 | **Calendar Utils Unit Suite** | `node scripts/test_calendar_utils.mjs` | 🟢 PASS | 32/32 passed (7/7 suites) |
 | **Calendar Acceptance QA Suite (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
 | **Empty Slot Acceptance Suite (E1–E5)** | `node scripts/verify_empty_slot_plan.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
-| **Phase 9 & 10 Clean Slots, DayView Legend Bar & Header Cleanup Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 7/7 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions, DayView top legend bar, no redundant Book Patient button |
+| **Phase 9 & 10 Clean Slots, DayView Legend Bar & Header Cleanup Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 7/7 passed (100%) |
+| **Live Working Hours API & Persistence (Agent-Executed)** | Live HTTP requests (`GET`/`PUT` `/api/v1/doctor/working-hours`) + SQLite DB check | 🟢 PASS | HTTP 200 persistence, 422 error boundaries (inverted ranges, non-30m step, overlaps), DB inspection verified |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
+
 
 ---
 
-## 14. Manual Verification Guide & Acceptance
+## 15. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -495,10 +551,17 @@
    - Confirm that empty slots in DayView show `[Start] – [End] | Empty Slot — Click to book` with an `EMPTY SLOT` badge.
    - Click an empty slot in DayView or WeekView; verify the `SlotActionModal` opens pre-filled to that exact 30-minute window.
    - If an appointment exists outside regular shifts, verify that its row is dynamically included and rendered without loss.
+11. **Doctor Working Hours Persistence & Fallback Verification (Phase 12)**:
+   - Authenticate as a doctor via Bearer token.
+   - Query `GET /api/v1/doctor/working-hours`. Confirm returns default 2 shifts (Morning 10:00–13:00, Evening 16:00–20:00, closed Sunday [0]).
+   - Submit `PUT /api/v1/doctor/working-hours` with customized shifts (e.g. 09:00–12:00, 14:00–17:00, closed [0, 6]). Confirm HTTP 200 OK and database persistence.
+   - Submit invalid payload with start >= end (e.g. 15:00–12:00). Confirm HTTP 422 Unprocessable Entity.
+   - Submit invalid payload with non-30m step (e.g. 10:15–12:00). Confirm HTTP 422 Unprocessable Entity.
+   - Confirm cached public slots are purged upon successful shift update.
 
 ---
 
-## 15. Known Issues & Commitments
+## 16. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
@@ -507,16 +570,20 @@
   - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
   - Maintain filled calendar slots showing only the patient name, with unbooked slots remaining clean and empty without break time slot mentions.
   - Maintain operational legend bar on top across both WeekView and DayView for UI parity.
+  - Ensure doctor shift updates continue to invalidate cached public slot queries immediately.
 - **Follow-ups**:
-  - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
+  - Phase 2: Harmonize `generate_available_slots` engine in `schedule_service.py` to calculate slots from `doctor.working_hours`.
+  - Phase 3: Add Complete and Cancel lifecycle transition buttons in `AppointmentDetailsPanel.tsx`.
+  - Phase 4: Dynamic public slot booking restoration in `app/[slug]/page.tsx`.
 
 ---
 
-## 16. Rollback & Migration Instructions
+## 17. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
-  ```powershell
+  ```bash
   cd backend
-  .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
+  .venv/bin/alembic downgrade 008_add_patient_details_to_appointments
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, 10, or 11. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: Reverting migration `009_add_working_hours_to_doctor` safely drops the `working_hours` JSON column from the `doctors` table without affecting appointments, patients, schedules, tenants, or doctor authentication credentials.
+
