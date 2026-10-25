@@ -10,6 +10,12 @@ class AppointmentCreateRequest(BaseModel):
     """Payload to create an appointment."""
     patient_name: str = Field(..., min_length=1)
     patient_contact: Optional[str] = None
+    patient_gender: Optional[str] = None
+    patient_age: Optional[int] = Field(None, ge=0, le=130)
+    patient_height: Optional[str] = None
+    patient_weight: Optional[str] = None
+    patient_blood_group: Optional[str] = None
+    patient_address: Optional[str] = None
     date: date
     start_time: time
     end_time: time
@@ -20,6 +26,8 @@ class AppointmentCreateRequest(BaseModel):
     def validate_time_range(self) -> "AppointmentCreateRequest":
         if self.end_time <= self.start_time:
             raise ValueError("end_time must be after start_time")
+        if self.patient_gender is not None and self.patient_gender not in ("Male", "Female", "Other"):
+            raise ValueError("patient_gender must be Male, Female, or Other")
         return self
 
 
@@ -46,6 +54,12 @@ class AppointmentResponse(BaseModel):
     request_id: Optional[uuid.UUID] = None
     patient_name: str
     patient_contact: Optional[str] = None
+    patient_gender: Optional[str] = None
+    patient_age: Optional[int] = None
+    patient_height: Optional[str] = None
+    patient_weight: Optional[str] = None
+    patient_blood_group: Optional[str] = None
+    patient_address: Optional[str] = None
     date: date
     start_time: time
     end_time: time

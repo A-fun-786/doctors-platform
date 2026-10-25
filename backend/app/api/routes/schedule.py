@@ -16,13 +16,20 @@ from app.schemas.schedule import (
     ScheduleResponse,
     ScheduleListResponse,
     AvailableSlotResponse,
+    WorkingHoursShift,
+    DoctorWorkingHoursUpdate,
+    DoctorWorkingHoursResponse,
+    DEFAULT_DOCTOR_WORKING_HOURS,
 )
 from app.services import schedule_service
 from app.core.cache import get_cached_slots, set_cached_slots, invalidate_slot_cache
+from app.core.logging import get_logger
 
 settings = get_settings()
+logger = get_logger("schedule")
 
 router = APIRouter(tags=["schedule"])
+
 
 
 @router.post(
@@ -185,3 +192,60 @@ def get_public_available_slots(
     )
     set_cached_slots(tenant.doctor.id, date, slots)
     return [AvailableSlotResponse(**slot) for slot in slots]
+
+
+@router.get(
+    "/doctor/working-hours",
+    response_model=DoctorWorkingHoursResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Doctor Working Hours & Shifts",
+)
+def get_doctor_working_hours(
+    current_doctor: Doctor = Depends(get_current_doctor),
+):
+    """
+    Returns the authenticated doctor's configured recurring shift hours.
+    Falls back to system default shifts if unconfigured.
+    """
+    if current_doctor.working_hours and "shifts" in current_doctor.working_hours:
+        return DoctorWorkingHoursResponse.model_validate(current_doctor.working_hours)
+    return DoctorWorkingHoursResponse.model_validate(DEFAULT_DOCTOR_WORKING_HOURS)
+
+
+@router.put(
+    "/doctor/working-hours",
+    response_model=DoctorWorkingHoursResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Doctor Working Hours & Shifts",
+)
+@limiter.limit("30/minute")
+def update_doctor_working_hours(
+    request: Request,
+    payload: DoctorWorkingHoursUpdate,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """
+    Update recurring shift schedule and closed days for the authenticated doctor.
+    Enforces time constraints, 30m intervals, shift count limit (<= 4), and invalidates slot cache.
+    """
+    working_hours_dict = payload.model_dump()
+    current_doctor.working_hours = working_hours_dict
+    db.add(current_doctor)
+    db.commit()
+    db.refresh(current_doctor)
+
+    # Invalidate cached slot responses for this doctor
+    invalidate_slot_cache(current_doctor.id)
+
+    # Structured telemetry logging
+    logger.info(
+        "doctor.working_hours_updated",
+        doctor_id=str(current_doctor.id),
+        shifts_count=len(payload.shifts),
+        enabled_shifts_count=sum(1 for s in payload.shifts if s.enabled),
+        closed_days=payload.closed_days,
+    )
+
+    return DoctorWorkingHoursResponse.model_validate(current_doctor.working_hours)
+

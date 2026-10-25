@@ -22,7 +22,6 @@ import {
   Sparkles,
   Loader2,
   ShieldCheck,
-  Camera,
   Upload,
   RotateCcw,
 } from "lucide-react";
@@ -30,7 +29,6 @@ import {
   getDoctorProfile,
   updateDoctorProfile,
   uploadDoctorAvatar,
-  DoctorProfileResponse,
   ServicesConfig,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
@@ -196,11 +194,15 @@ export default function OnboardingPage() {
     : `/${tenantSlug}`;
 
   const copyPatientLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(patientUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(patientUrl).catch(() => {});
+      }
+    } catch {
+      // Insecure context or clipboard access failure
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   if (loading) {

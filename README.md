@@ -683,57 +683,64 @@ DocSpace transforms the way healthcare professionals establish their digital pre
 ```text
 docspace-platform/
 │
-├── 📂 app/                           # Next.js App Router
-│   ├── layout.tsx                   # Root layout & global providers
+├── 📂 app/                           # Next.js 14 App Router
+│   ├── layout.tsx                   # Root layout, font optimization & metadata
 │   ├── page.tsx                     # Homepage (/)
-│   ├── globals.css                  # Tailwind & base styles
-│   ├── 🔐 login/
-│   │   └── page.tsx                 # Doctor login portal (/login)
-│   ├── 📝 register/
-│   │   └── page.tsx                 # Doctor registration (/register)
-│   ├── 🎯 features/
-│   │   └── page.tsx                 # Features page (/features)
-│   ├── 🎓 onboarding/
-│   │   └── page.tsx                 # Multi-step wizard (/onboarding)
-│   ├── 🎛️ dashboard/
-│   │   └── page.tsx                 # Doctor control panel (/dashboard)
-│   └── 🌐 [slug]/
-│       └── page.tsx                 # Dynamic doctor profiles (/dr-noah)
+│   ├── error.tsx                    # Route-level error recovery with diagnostics link
+│   ├── global-error.tsx             # Critical layout error fallback
+│   ├── globals.css                  # Tailwind tokens & base styles
+│   ├── 🔐 login/                    # Doctor login portal (/login)
+│   ├── 📝 register/                 # Doctor registration (/register)
+│   ├── 🎓 onboarding/               # Practice setup & clinic branding wizard (/onboarding)
+│   ├── 🎛️ dashboard/                # Protected doctor dashboard with ErrorBoundary
+│   └── 🌐 [slug]/                   # Dynamic doctor profile (/dr-noah)
 │
 ├── 📂 components/
-│   ├── 🎨 landing/
-│   │   ├── Navbar.tsx               # Navigation header
-│   │   ├── Hero.tsx                 # Hero section with mockups
-│   │   ├── Features.tsx             # Platform capabilities grid
-│   │   ├── HowItWorks.tsx           # 3-step process visualization
-│   │   ├── PreviewSection.tsx       # Web + mobile previews
-│   │   ├── CTA.tsx                  # Conversion callout
-│   │   └── Footer.tsx               # Footer with links
 │   ├── 🔐 auth/
-│   │   ├── LoginForm.tsx            # Email/password form
-│   │   └── OAuthButtons.tsx         # Google signin button
-│   ├── 📝 forms/
-│   │   ├── PracticeDetailsForm.tsx  # Step 1
-│   │   ├── ServicesSelectionForm.tsx# Step 2
-│   │   └── OnboardingProgressBar.tsx# Progress indicator
-│   ├── 👨‍⚕️ profile/
-│   │   ├── DoctorHeader.tsx         # Profile header
-│   │   ├── ServicesList.tsx         # Services display
-│   │   └── BookingCTA.tsx           # Booking buttons
-│   ├── 📱 mobile/
-│   │   ├── MobileNavigation.tsx     # Mobile bottom nav
-│   │   ├── AppointmentBooker.tsx    # Booking widget
-│   │   └── ServiceCard.tsx          # Service display card
-│   └── 🎛️ dashboard/
-│       ├── APKBuilder.tsx           # APK compilation UI
-│       ├── BuildConsole.tsx         # Terminal output
-│       └── DistributionLinks.tsx    # Download & sharing
+│   │   ├── EmailAuthForm.tsx        # Email & password login/signup with validation
+│   │   └── GoogleAuthForm.tsx       # Google One Tap & OAuth button with GSI resilience
+│   ├── 🎛️ dashboard/
+│   │   ├── DashboardShell.tsx       # Global layout, navigation tabs & topbar diagnostics trigger
+│   │   ├── OverviewTab.tsx          # Key metrics, practice status & shortcut actions
+│   │   ├── CalendarTab.tsx          # Main scheduling dashboard container
+│   │   ├── ScheduleTab.tsx          # Clinical operating hours & weekly rules manager
+│   │   ├── AppointmentsTab.tsx      # Comprehensive patient appointment management
+│   │   ├── ProfileTab.tsx           # Practice profile & consultation fees editor
+│   │   ├── AndroidAppTab.tsx        # APK compilation & mobile branding builder
+│   │   └── 📅 calendar/
+│   │       ├── types.ts             # Strongly typed event & view definitions
+│   │       ├── constants.ts         # Hours (7 AM - 9 PM), demo data, color tokens
+│   │       ├── calendarUtils.ts     # ISO date conversions, time arithmetic & slot helpers
+│   │       ├── 🪝 hooks/
+│   │       │   ├── useCalendarData.ts   # Event querying, API caching & date navigation
+│   │       │   └── useCalendarModals.ts # Modal state machine & submission actions
+│   │       ├── 👁️ views/
+│   │       │   ├── CalendarHeader.tsx   # Date range selector & mode switcher (Day/Week/Month)
+│   │       │   ├── WeekView.tsx         # 7-day interactive time grid with slot chips
+│   │       │   ├── DayView.tsx          # Hourly day breakdown with patient cards
+│   │       │   └── MonthView.tsx        # 35/42-cell monthly overview with daily badges
+│   │       ├── 📌 sidebar/
+│   │       │   ├── CalendarSidebar.tsx        # Right-hand panel orchestrator
+│   │       │   ├── MiniCalendar.tsx           # Compact date-picker with active day highlights
+│   │       │   ├── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
+│   │       │   └── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
+│   │       └── 🪟 modals/
+│   │           ├── AddAppointmentModal.tsx    # Patient consultation booking dialog
+│   │           ├── AddAvailabilityModal.tsx   # Custom availability slot creator
+│   │           ├── BlockTimeModal.tsx         # Leave/holiday time-block dialog
+│   │           └── EventDetailsModal.tsx      # Detailed event inspection card
+│   └── 🧩 ui/
+│       ├── Badge.tsx                # Status badge chip with 6 color variants
+│       ├── Modal.tsx                # Accessible backdrop modal dialog with Esc handler
+│       ├── Toast.tsx                # Bottom-right fixed notification feedback
+│       ├── ErrorBoundary.tsx        # Component crash isolation with diagnostic telemetry
+│       └── DiagnosticsModal.tsx     # Telemetry log inspector (Ctrl+Shift+D) & JSON/CSV export
 │
 ├── 📂 lib/
-│   ├── api.ts                       # API utilities
-│   ├── auth.ts                      # Authentication logic
-│   ├── db.ts                        # Database connections
-│   └── types.ts                     # Shared TypeScript types
+│   ├── api.ts                       # Typed REST client with centralized apiFetch & request tracing
+│   ├── logger.ts                    # In-memory ring-buffer logger (1,000 entries) & Sentry bridge
+│   ├── useLogger.ts                 # Scoped component lifecycle & action hook
+│   └── auth.ts                      # Client-side session tokens & JWT decoding
 │
 ├── 📂 public/
 │   ├── screenshots/                 # All 12 screenshots
@@ -898,6 +905,14 @@ npm run build
 npm run start
 ```
 
+> [!TIP]
+> **Troubleshooting Dev Server Cache / Unstyled UI (404 Chunks):**  
+> If switching from `npm run build` back to `npm run dev`, or if styles fail to load (unstyled loading screen with 404s on CSS/JS chunks), purge the Next.js webpack cache and restart:
+> ```bash
+> rm -rf .next && npm run dev
+> ```
+> Then perform a hard refresh in the browser (`Cmd + Shift + R` on macOS / `Ctrl + F5` on Windows).
+
 For Docker deployment:
 
 ```bash
@@ -976,6 +991,16 @@ Doctors can directly compile and distribute their branded APK through the Dashbo
 ✅ **Mobile App** - Native iOS/Android experience
 ✅ **Verified Credentials** - Trust verification badge
 ✅ **24/7 Access** - Anytime appointment inquiry
+
+### 📅 Modular Clinical Scheduling & Calendar System
+
+✅ **Three Responsive Calendar Views:** Instant switching between Day, Week (7-day time slot grid), and Month (35/42-cell overview with badge counts).  
+✅ **Multi-Modal Event Management:** Interactive creation and management of Patient Appointments, Custom Availability Slots, and Blocked Time / Leaves / Holidays.  
+✅ **Google Calendar 2-Way Sync:** Built-in connection management, background synchronization, and instant refresh notifications.  
+✅ **Interactive Sidebar:** Includes month date-picker Mini Calendar, active Clinical Working Hours widget, Google Sync status card, and Quick Action shortcuts.  
+✅ **Zero-Downtime Error Isolation:** Component-level `ErrorBoundary` wrappers prevent tab crashes from bringing down the entire portal.  
+✅ **In-Memory Telemetry & Diagnostics:** Built-in ring-buffer logger (1,000 entries) capturing user actions, API timing, and errors with live overlay (`Ctrl + Shift + D`) and JSON/CSV export.  
+✅ **Centralized API Client:** Unified `apiFetch` with automatic JWT handling, 401 recovery, and request tracing.  
 
 ---
 

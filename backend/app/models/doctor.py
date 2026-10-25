@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import Boolean, String, Text, Uuid
+from sqlalchemy import Boolean, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -73,6 +73,10 @@ class Doctor(Base, TimestampMixin):
         Boolean,
         default=True,
         nullable=False,
+    )
+    working_hours: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
     )
 
     # 1:1 Relationship with Tenant

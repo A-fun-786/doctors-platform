@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Activity, AlertCircle, Loader2, ArrowLeft, ShieldCheck, Mail, Lock } from "lucide-react";
 import { loginWithEmail, registerWithEmail, authenticateWithGoogle } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 declare global {
   interface Window {
@@ -60,46 +61,69 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
     if (!googleClientId) return;
 
     let isMounted = true;
+
+    const renderGoogleButton = () => {
+      if (!isMounted || !window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: (res: { credential: string }) => handleGoogleAuth(res.credential),
+      });
+
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: "100%",
+        text: mode === "register" ? "signup_with" : "signin_with",
+        shape: "rectangular",
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]'
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", renderGoogleButton);
+      return () => {
+        isMounted = false;
+        existingScript.removeEventListener("load", renderGoogleButton);
+      };
+    }
+
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      if (!isMounted) return;
-      if (window.google && googleButtonRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: (res: { credential: string }) => handleGoogleAuth(res.credential),
-        });
-
-        window.google.accounts.id.renderButton(googleButtonRef.current, {
-          theme: "outline",
-          size: "large",
-          width: "100%",
-          text: mode === "register" ? "signup_with" : "signin_with",
-          shape: "rectangular",
-        });
-      }
-    };
+    script.onload = renderGoogleButton;
     document.body.appendChild(script);
 
     return () => {
       isMounted = false;
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleClientId, mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    logger.action("Auth", `User submitted ${mode} form`, {
+      email,
+      mode,
+    });
+
     if (!email || !password) {
+      logger.warn("Auth", `Validation rejected empty credentials for ${mode}`);
       setError("Please fill in both email and password.");
       return;
     }
 
     if (mode === "register" && password.length < 6) {
+      logger.warn("Auth", "Registration password below required 6 character length");
       setError("Password must be at least 6 characters.");
       return;
     }
@@ -115,17 +139,21 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
         authData = await loginWithEmail(email, password);
       }
 
+      logger.info("Auth", `Authentication successful via email (${mode})`, {
+        doctorId: authData?.doctor?.id,
+        email: authData?.doctor?.email,
+        onboardingCompleted: authData?.doctor?.onboarding_completed,
+      });
+
       if (authData?.doctor && !authData.doctor.onboarding_completed) {
         router.push("/onboarding");
       } else {
         router.push("/dashboard");
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Authentication failed. Please try again.");
-      }
+      const errMsg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      logger.error(`Authentication failure (${mode})`, err, { email, mode }, "Auth");
+      setError(errMsg);
     } finally {
       setLoading(false);
     }

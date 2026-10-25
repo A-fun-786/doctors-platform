@@ -1,338 +1,323 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Clock,
-  User,
-  AlertTriangle,
-  Coffee,
-  CheckCircle2,
-  Loader2,
-  CalendarDays,
-  PlusCircle,
-} from "lucide-react";
-import {
-  DoctorMeResponse,
-  getDoctorCalendar,
-  CalendarDay,
-  CalendarEvent,
-} from "@/lib/api";
-import { DashboardTabId } from "./DashboardShell";
+import React, { useCallback } from "react";
+import Toast from "@/components/ui/Toast";
+import { CalendarTabProps } from "./calendar/types";
+import { useCalendarData } from "./calendar/hooks/useCalendarData";
+import { useCalendarModals } from "./calendar/hooks/useCalendarModals";
+import CalendarHeader from "./calendar/views/CalendarHeader";
+import WeekView from "./calendar/views/WeekView";
+import DayView from "./calendar/views/DayView";
+import MonthView from "./calendar/views/MonthView";
+import CalendarSidebar from "./calendar/sidebar/CalendarSidebar";
+import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
+import BlockTimeModal from "./calendar/modals/BlockTimeModal";
+import SlotActionModal from "./calendar/modals/SlotActionModal";
+import EditWorkingHoursModal from "./calendar/modals/EditWorkingHoursModal";
+import { useCalendarDrawer } from "./calendar/hooks/useCalendarDrawer";
+import CalendarDrawer from "./calendar/panels/CalendarDrawer";
+import AppointmentDetailsPanel from "./calendar/panels/AppointmentDetailsPanel";
+import LeaveDetailsPanel from "./calendar/panels/LeaveDetailsPanel";
+import { format12Hour } from "./calendar/calendarUtils";
 
-interface CalendarTabProps {
-  doctor: DoctorMeResponse;
-  onNavigateTab?: (tab: DashboardTabId) => void;
-}
+export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
+  // Calendar data & date state hook
+  const {
+    selectedDate,
+    setSelectedDate,
+    viewMode,
+    setViewMode,
+    toastMessage,
+    showToast,
+    miniCalMonth,
+    setMiniCalMonth,
+    currentWeekDays,
+    weekRangeTitle,
+    miniCalDays,
+    handlePrevWeek,
+    handleNextWeek,
+    handleGoToToday,
+    getEventsForDate,
+    refreshCurrentWeek,
+  } = useCalendarData();
 
-export default function CalendarTab({
-  doctor,
-  onNavigateTab,
-}: CalendarTabProps) {
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
-  });
-  const [loading, setLoading] = useState(false);
-  const [dayData, setDayData] = useState<CalendarDay | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Modals management hook
+  const {
+    showAddAppointmentModal,
+    setShowAddAppointmentModal,
+    showBlockModal,
+    setShowBlockModal,
+    showSlotActionModal,
+    setShowSlotActionModal,
+    slotActionInitialTab,
+    showEditWorkingHoursModal,
+    setShowEditWorkingHoursModal,
+    workingHoursConfig,
+    openEditWorkingHours,
+    handleSaveWorkingHours,
+    selectedEvent,
+    setSelectedEvent,
+    modalDate,
+    setModalDate,
+    modalStartTime,
+    setModalStartTime,
+    modalEndTime,
+    setModalEndTime,
+    modalSubmitting,
+    newPatientName,
+    setNewPatientName,
+    newPatientContact,
+    setNewPatientContact,
+    newApptReason,
+    setNewApptReason,
+    blockType,
+    setBlockType,
+    blockReason,
+    setBlockReason,
+    openAddAppointment,
+    openBlockModal,
+    openSlotActionModal,
+    openEventDetails,
+    handleAddAppointmentSubmit,
+    handleBlockSubmit,
+    handleSlotBookingSubmit,
+    handleSlotLeaveSubmit,
+  } = useCalendarModals();
 
-  const fetchCalendar = async (dateStr: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await getDoctorCalendar(dateStr, dateStr);
-      const day = res.dates?.find((d) => d.date === dateStr) || null;
-      setDayData(day);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load calendar events");
-      setDayData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Right-side Drawer Hook
+  const { drawerState, openEventDrawer, closeDrawer } = useCalendarDrawer();
 
-  useEffect(() => {
-    fetchCalendar(selectedDate);
-  }, [selectedDate]);
+  // Quick slot create on hover in WeekView
+  const handleQuickAddSlot = useCallback(
+    (dateStr: string, start: string, end: string) => {
+      openAddAppointment(dateStr, start, end);
+    },
+    [openAddAppointment]
+  );
 
-  const handlePrevDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(d.toISOString().split("T")[0]);
-  };
-
-  const handleNextDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(d.toISOString().split("T")[0]);
-  };
-
-  const handleToday = () => {
-    setSelectedDate(new Date().toISOString().split("T")[0]);
-  };
-
-  const formatDateDisplay = (dateStr: string) => {
-    try {
-      const [year, month, day] = dateStr.split("-").map(Number);
-      const d = new Date(year, month - 1, day);
-      return d.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const events = dayData?.events || [];
-  const availableCount = events.filter((e) => e.type === "AVAILABLE").length;
-  const appointmentCount = events.filter((e) => e.type === "APPOINTMENT").length;
-  const leaveCount = events.filter((e) => e.type === "LEAVE" || e.type === "HOLIDAY").length;
-  const blockedCount = events.filter((e) => e.type === "BLOCKED").length;
+  // Month date click navigates and switches to week view
+  const handleMonthDateSelect = useCallback(
+    (dateStr: string) => {
+      setSelectedDate(dateStr);
+      setViewMode("week");
+    },
+    [setSelectedDate, setViewMode]
+  );
 
   return (
     <div className="space-y-6">
-      {/* Calendar Control Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                Operational Calendar
-              </h2>
-              <span className="text-xs bg-brand-50 text-brand-700 font-semibold px-2 py-0.5 rounded border border-brand-200">
-                Day View
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Unified chronological stream of available slots, bookings, breaks, leaves, and holidays.
-            </p>
-          </div>
+      {/* Toast Feedback */}
+      <Toast message={toastMessage} type="success" />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToday}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-            >
-              Today
-            </button>
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-              <button
-                type="button"
-                onClick={handlePrevDay}
-                className="p-1.5 hover:bg-white rounded-md text-slate-700 transition-colors"
-                title="Previous Day"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="px-2 py-1 text-xs font-semibold bg-transparent text-slate-800 focus:outline-none cursor-pointer"
-              />
-              <button
-                type="button"
-                onClick={handleNextDay}
-                className="p-1.5 hover:bg-white rounded-md text-slate-700 transition-colors"
-                title="Next Day"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => fetchCalendar(selectedDate)}
-              className="p-2 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-600 transition-colors"
-              title="Refresh"
-            >
-              <RotateCcw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            </button>
-          </div>
+      {/* Top Header Bar */}
+      <CalendarHeader
+        weekRangeTitle={weekRangeTitle}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onPrevWeek={handlePrevWeek}
+        onNextWeek={handleNextWeek}
+      />
+
+      {/* Main 2-Column Dashboard Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Calendar Main Grid */}
+        <div className="xl:col-span-9 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          {viewMode === "week" && (
+            <WeekView
+              currentWeekDays={currentWeekDays}
+              onSelectDate={setSelectedDate}
+              getEventsForDate={getEventsForDate}
+              onEventClick={openEventDrawer}
+              onQuickAddSlot={handleQuickAddSlot}
+              onEmptySlotClick={openSlotActionModal}
+              workingHoursConfig={workingHoursConfig}
+            />
+          )}
+
+          {viewMode === "day" && (
+            <DayView
+              selectedDate={selectedDate}
+              events={getEventsForDate(selectedDate)}
+              workingHoursConfig={workingHoursConfig}
+              onBookPatient={() =>
+                openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
+              }
+              onEmptySlotClick={(date, start, end) =>
+                openSlotActionModal(date, start, end, "booking")
+              }
+              onEventClick={openEventDrawer}
+            />
+          )}
+
+          {viewMode === "month" && (
+            <MonthView
+              miniCalDays={miniCalDays}
+              getEventsForDate={getEventsForDate}
+              onSelectDate={handleMonthDateSelect}
+            />
+          )}
         </div>
 
-        {/* Date Display and Event Stats Pill Row */}
-        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 text-brand-600" />
-            <span className="text-sm font-bold text-slate-900">
-              {formatDateDisplay(selectedDate)}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Available: {availableCount}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-50 text-brand-800 border border-brand-200 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-brand-600" />
-              Booked: {appointmentCount}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              Leave/Holiday: {leaveCount}
-            </span>
-            {blockedCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Blocked: {blockedCount}
-              </span>
-            )}
-          </div>
-        </div>
+        {/* Right Column: Mini Calendar, Quick Actions, Working Hours */}
+        <CalendarSidebar
+          miniCalMonth={miniCalMonth}
+          setMiniCalMonth={setMiniCalMonth}
+          miniCalDays={miniCalDays}
+          onSelectDate={setSelectedDate}
+          workingHoursConfig={workingHoursConfig}
+          onEditWorkingHours={openEditWorkingHours}
+          onAddAppointment={() => openAddAppointment(selectedDate)}
+          onBlockTime={() => openBlockModal(selectedDate)}
+        />
       </div>
 
-      {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      {/* MODAL: Slot Action (Empty slot click -> Book Patient or Doctor Leave) */}
+      <SlotActionModal
+        isOpen={showSlotActionModal}
+        onClose={() => setShowSlotActionModal(false)}
+        date={modalDate}
+        startTime={modalStartTime}
+        endTime={modalEndTime}
+        initialTab={slotActionInitialTab}
+        submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
+        onBookPatient={(formData) =>
+          handleSlotBookingSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+        onMarkLeave={(formData) =>
+          handleSlotLeaveSubmit(
+            formData,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+      />
 
-      {/* Main Time Grid Stream */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm min-h-[400px]">
-        {loading ? (
-          <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
-            <span>Aggregating operational events for {selectedDate}...</span>
-          </div>
-        ) : events.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-              <CalendarDays className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-800">
-                No Working Hours or Events on this Date
-              </h3>
-              <p className="text-xs text-slate-500 max-w-sm">
-                No schedule entries exist for {selectedDate}. Add your available consultation hours in the Schedule tab to open booking slots.
-              </p>
-            </div>
-            {onNavigateTab && (
-              <button
-                type="button"
-                onClick={() => onNavigateTab("schedule")}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Configure Working Hours</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {events.map((event, index) => {
-              const isAvailable = event.type === "AVAILABLE";
-              const isAppt = event.type === "APPOINTMENT";
-              const isBlocked = event.type === "BLOCKED";
-              const isLeave = event.type === "LEAVE";
-              const isHoliday = event.type === "HOLIDAY";
+      {/* MODAL: Edit Working Hours */}
+      <EditWorkingHoursModal
+        isOpen={showEditWorkingHoursModal}
+        onClose={() => setShowEditWorkingHoursModal(false)}
+        config={workingHoursConfig}
+        onSave={(newCfg) => handleSaveWorkingHours(newCfg, showToast)}
+      />
 
-              return (
-                <div
-                  key={`${event.start}-${event.end}-${index}`}
-                  className="flex items-center gap-4 group"
-                >
-                  {/* Time Column */}
-                  <div className="w-28 shrink-0 text-right font-mono text-xs font-semibold text-slate-700">
-                    {event.start} - {event.end}
-                  </div>
+      {/* MODAL: Add Appointment */}
+      <AddAppointmentModal
+        isOpen={showAddAppointmentModal}
+        onClose={() => setShowAddAppointmentModal(false)}
+        patientName={newPatientName}
+        setPatientName={setNewPatientName}
+        patientContact={newPatientContact}
+        setPatientContact={setNewPatientContact}
+        date={modalDate}
+        setDate={setModalDate}
+        startTime={modalStartTime}
+        setStartTime={setModalStartTime}
+        endTime={modalEndTime}
+        setEndTime={setModalEndTime}
+        reason={newApptReason}
+        setReason={setNewApptReason}
+        submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
+        onSubmit={(e) =>
+          handleAddAppointmentSubmit(
+            e,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+      />
 
-                  {/* Event Block */}
-                  <div className="flex-1">
-                    {isAvailable && (
-                      <div className="px-4 py-3 rounded-xl bg-emerald-50/70 border border-dashed border-emerald-300 text-emerald-800 flex items-center justify-between transition-all hover:bg-emerald-100/50">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-xs font-semibold tracking-wide">
-                            AVAILABLE FOR BOOKING
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-emerald-700 font-mono">
-                          30 min slot
-                        </span>
-                      </div>
-                    )}
+      {/* MODAL: Block Time / Leave */}
+      <BlockTimeModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        blockType={blockType}
+        setBlockType={setBlockType}
+        date={modalDate}
+        setDate={setModalDate}
+        startTime={modalStartTime}
+        setStartTime={setModalStartTime}
+        endTime={modalEndTime}
+        setEndTime={setModalEndTime}
+        reason={blockReason}
+        setReason={setBlockReason}
+        submitting={modalSubmitting}
+        existingEvents={getEventsForDate(modalDate)}
+        onSubmit={(e) =>
+          handleBlockSubmit(
+            e,
+            refreshCurrentWeek,
+            showToast,
+            getEventsForDate(modalDate)
+          )
+        }
+      />
 
-                    {isAppt && (
-                      <div className="px-4 py-3.5 rounded-xl bg-brand-600 text-white shadow-sm border border-brand-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <User className="w-4 h-4 text-blue-200 shrink-0" />
-                          <div>
-                            <span className="text-xs font-bold tracking-tight">
-                              {event.patient_name || "Patient Appointment"}
-                            </span>
-                            {event.reason && (
-                              <p className="text-[11px] text-blue-100 font-normal mt-0.5">
-                                Reason: {event.reason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 self-start sm:self-auto">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-white/20 text-white">
-                            {event.status || "BOOKED"}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {isBlocked && (
-                      <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span className="text-xs font-bold">
-                            BLOCKED: {event.reason || "Unavailable Period"}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-semibold text-amber-700 uppercase">
-                          Blocked
-                        </span>
-                      </div>
-                    )}
-
-                    {isLeave && (
-                      <div className="px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Coffee className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span className="text-xs font-bold text-slate-800">
-                            LEAVE: {event.reason || "Doctor Off Duty"}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-semibold text-slate-500 uppercase">
-                          Leave
-                        </span>
-                      </div>
-                    )}
-
-                    {isHoliday && (
-                      <div className="px-4 py-3 rounded-xl bg-purple-50 border border-purple-300 text-purple-900 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="w-4 h-4 text-purple-600 shrink-0" />
-                          <span className="text-xs font-bold text-purple-900">
-                            HOLIDAY: {event.reason || "Public Holiday"}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-semibold text-purple-700 uppercase">
-                          Holiday
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* RIGHT-SIDE DRAWER: Patient Appointment Slot Details & Rescheduling OR Doctor Leave Management */}
+      <CalendarDrawer
+        isOpen={drawerState.isOpen}
+        onClose={closeDrawer}
+        categoryBadge={
+          drawerState.type === "appointment" ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+              Patient Appointment
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+              Doctor Leave &amp; Exclusion
+            </span>
+          )
+        }
+        title={
+          drawerState.type === "appointment"
+            ? drawerState.event?.patient_name || "Patient Appointment"
+            : drawerState.event?.type === "LEAVE"
+            ? "Doctor Leave"
+            : drawerState.event?.type === "HOLIDAY"
+            ? "Clinic Holiday"
+            : "Blocked Time"
+        }
+        subtitle={
+          drawerState.event
+            ? `${drawerState.date} • ${format12Hour(drawerState.event.start)} – ${format12Hour(
+                drawerState.event.end
+              )}`
+            : undefined
+        }
+      >
+        {drawerState.type === "appointment" && drawerState.event && (
+          <AppointmentDetailsPanel
+            event={drawerState.event}
+            date={drawerState.date}
+            doctorUuid={doctor?.id}
+            onClose={closeDrawer}
+            onRefreshCalendar={refreshCurrentWeek}
+            showToast={showToast}
+            existingEvents={getEventsForDate(drawerState.date)}
+            workingHoursConfig={workingHoursConfig}
+          />
         )}
-      </div>
+
+        {(drawerState.type === "leave" || drawerState.type === "blocked") &&
+          drawerState.event && (
+            <LeaveDetailsPanel
+              event={drawerState.event}
+              date={drawerState.date}
+              doctorUuid={doctor?.id}
+              onClose={closeDrawer}
+              onRefreshCalendar={refreshCurrentWeek}
+              showToast={showToast}
+            />
+          )}
+      </CalendarDrawer>
     </div>
   );
 }

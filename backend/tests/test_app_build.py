@@ -90,7 +90,7 @@ def test_prepare_project_workspace():
     finally:
         import shutil
         if workspace.exists():
-            shutil.rmtree(workspace)
+            shutil.rmtree(workspace, ignore_errors=True)
 
 
 def test_app_build_routes():

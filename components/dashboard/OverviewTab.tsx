@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   Calendar,
-  Clock,
   ClipboardList,
   CheckCircle2,
   CalendarDays,
@@ -18,8 +17,6 @@ import {
   DoctorProfileResponse,
   AppointmentEntry,
   getDoctorAppointments,
-  getDoctorCalendar,
-  DoctorCalendarResponse,
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
 
@@ -31,14 +28,13 @@ interface OverviewTabProps {
 
 export default function OverviewTab({
   doctor,
-  profile,
+  profile: _profile,
   onNavigateTab,
 }: OverviewTabProps) {
   const [loading, setLoading] = useState(true);
   const [todayAppointments, setTodayAppointments] = useState<AppointmentEntry[]>([]);
   const [totalBookedCount, setTotalBookedCount] = useState<number>(0);
   const [completedCount, setCompletedCount] = useState<number>(0);
-  const [todayAvailableSlots, setTodayAvailableSlots] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -50,10 +46,9 @@ export default function OverviewTab({
         setLoading(true);
         setError(null);
 
-        const [todayApptRes, allApptRes, calRes] = await Promise.allSettled([
+        const [todayApptRes, allApptRes] = await Promise.allSettled([
           getDoctorAppointments({ from: todayStr, to: todayStr }),
           getDoctorAppointments({ page_size: 100 }),
-          getDoctorCalendar(todayStr, todayStr),
         ]);
 
         if (!isMounted) return;
@@ -68,12 +63,6 @@ export default function OverviewTab({
           const completed = items.filter((a) => a.status === "COMPLETED").length;
           setTotalBookedCount(booked);
           setCompletedCount(completed);
-        }
-
-        if (calRes.status === "fulfilled") {
-          const day = calRes.value.dates?.[0];
-          const available = day?.events?.filter((e) => e.type === "AVAILABLE").length || 0;
-          setTodayAvailableSlots(available);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -119,7 +108,7 @@ export default function OverviewTab({
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Card 1: Today's Appointments */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
@@ -179,26 +168,6 @@ export default function OverviewTab({
             <p className="text-xs text-slate-500 mt-1">Consultations finished</p>
           </div>
         </div>
-
-        {/* Card 4: Today's Available Slots */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Available Slots Today
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-            ) : (
-              <p className="text-2xl font-bold text-slate-900">{todayAvailableSlots}</p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">Open 30-min windows</p>
-          </div>
-        </div>
       </div>
 
       {/* Today's Appointments Section */}
@@ -212,7 +181,7 @@ export default function OverviewTab({
           </div>
           <button
             type="button"
-            onClick={() => onNavigateTab("appointments")}
+            onClick={() => onNavigateTab("appointment")}
             className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
           >
             <span>View All</span>
@@ -235,10 +204,10 @@ export default function OverviewTab({
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => onNavigateTab("appointments")}
+                onClick={() => onNavigateTab("appointment")}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
               >
-                <span>+ Create Appointment</span>
+                <span>View Calendar</span>
               </button>
             </div>
           </div>
@@ -285,10 +254,10 @@ export default function OverviewTab({
       </div>
 
       {/* Quick Actions Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           type="button"
-          onClick={() => onNavigateTab("calendar")}
+          onClick={() => onNavigateTab("appointment")}
           className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
         >
           <div className="space-y-1">
@@ -301,24 +270,6 @@ export default function OverviewTab({
           </div>
           <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
             <Calendar className="w-4 h-4" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateTab("schedule")}
-          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
-        >
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Manage Working Hours
-            </h3>
-            <p className="text-xs text-slate-500">
-              Define daily consultation windows and configure leaves, holidays, or blocked slots.
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4" />
           </div>
         </button>
 
