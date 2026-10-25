@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Activity } from "lucide-react";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 export default function Footer() {
   return (
@@ -8,17 +9,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Brand Col */}
           <div className="space-y-4 md:col-span-2">
-            <Link href="/" className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-                <Activity className="w-5 h-5" />
-              </div>
-              <span className="text-xl font-bold text-white tracking-tight">
-                DocSpace
-              </span>
-            </Link>
+            <BrandLogo size="md" variant="dark" />
             <p className="text-slate-400 text-sm max-w-sm leading-relaxed">
-              The white-label digital healthcare platform enabling doctors to create,
-              customize, and scale their own branded website and mobile presence effortlessly.
+              {BRAND_CONFIG.description}
             </p>
           </div>
 
@@ -83,7 +76,7 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
-          <p>&copy; {new Date().getFullYear()} DocSpace Platform. All rights reserved.</p>
+          <p>{BRAND_CONFIG.copyright()}</p>
           <p>Multi-Tenant White-Label Healthcare Infrastructure</p>
         </div>
       </div>

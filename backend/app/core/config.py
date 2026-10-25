@@ -12,7 +12,19 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    APP_NAME: str = "Doctor Platform API"
+    # Brand Configuration (Single Source of Truth)
+    BRAND_NAME: str = "GoSmartClinic"
+
+    @property
+    def BRAND_SLUG(self) -> str:
+        import re
+        return re.sub(r"[^a-z0-9]", "", self.BRAND_NAME.lower())
+
+    @property
+    def BRAND_PACKAGE_PREFIX(self) -> str:
+        return f"com.{self.BRAND_SLUG}"
+
+    APP_NAME: str = "GoSmartClinic API"
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/doctor_platform"
@@ -22,7 +34,7 @@ class Settings(BaseSettings):
     # Authentication & Security
     ALLOW_MOCK_AUTH: bool = False
     GOOGLE_CLIENT_ID: str = ""
-    JWT_SECRET_KEY: str = "docspace-super-secret-jwt-key-minimum-32-chars-for-hs256"
+    JWT_SECRET_KEY: str = "gosmartclinic-super-secret-jwt-key-minimum-32-chars-for-hs256"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 

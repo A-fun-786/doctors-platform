@@ -1,7 +1,8 @@
 import { logger } from "./logger";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-const TOKEN_STORAGE_KEY = "docspace_auth_token";
+const TOKEN_STORAGE_KEY = BRAND_CONFIG.storage.authTokenKey;
 
 export const DEFAULT_DOCTOR_AVATAR =
   "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80";
@@ -289,7 +290,15 @@ export interface DoctorCalendarResponse {
  */
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  const currentToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (currentToken) return currentToken;
+  // Backward compatibility: check legacy token key and auto-migrate
+  const legacyToken = localStorage.getItem(BRAND_CONFIG.storage.legacyAuthTokenKey);
+  if (legacyToken) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, legacyToken);
+    return legacyToken;
+  }
+  return null;
 }
 
 /**
@@ -306,6 +315,7 @@ export function setAuthToken(token: string): void {
 export function removeAuthToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_STORAGE_KEY);
+  localStorage.removeItem(BRAND_CONFIG.storage.legacyAuthTokenKey);
 }
 
 export interface ApiFetchOptions extends Omit<RequestInit, "headers"> {

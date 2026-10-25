@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
 import { authenticateWithGoogle } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 declare global {
   interface Window {
@@ -128,12 +130,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
       <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center space-x-2 text-brand-600 font-bold text-lg">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-sm">
-              <Activity className="w-5 h-5" />
-            </div>
-            <span className="text-slate-900 tracking-tight">DocSpace</span>
-          </Link>
+          <BrandLogo size="md" />
 
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
@@ -261,7 +258,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
               className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to DocSpace Home</span>
+              <span>{BRAND_CONFIG.backToHome}</span>
             </Link>
           </div>
         </div>
