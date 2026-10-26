@@ -94,12 +94,16 @@ describe("Dead Code & Top Header Removal Verification", () => {
 // SUITE 2: Component Relocation & Architecture Verification
 // ============================================================================
 describe("Component Relocation & Layout Architecture", () => {
-  test("DocSpace branding is relocated inside the sidebar <aside>", () => {
+  test("GoSmartClinic BrandLogo is rendered inside the sidebar <aside>", () => {
     const asideRegex = /<aside[\s\S]*?<\/aside>/;
     const match = source.match(asideRegex);
     assert.ok(match, "<aside> block must be present");
-    assert.ok(match[0].includes("DocSpace"), "DocSpace logo text must be located inside <aside>");
-    assert.ok(match[0].includes("Activity"), "Activity brand icon must be located inside <aside>");
+    // After rebranding (DocSpace → GoSmartClinic), the sidebar now uses the
+    // BrandLogo component instead of hardcoded "DocSpace" text.
+    assert.ok(
+      match[0].includes("BrandLogo"),
+      "BrandLogo component must be rendered inside <aside> (replaces legacy DocSpace text)"
+    );
   });
 
   test("Doctor profile identity card is relocated inside the sidebar <aside>", () => {

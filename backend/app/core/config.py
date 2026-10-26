@@ -34,7 +34,10 @@ class Settings(BaseSettings):
     # Authentication & Security
     ALLOW_MOCK_AUTH: bool = False
     GOOGLE_CLIENT_ID: str = ""
-    JWT_SECRET_KEY: str = "gosmartclinic-super-secret-jwt-key-minimum-32-chars-for-hs256"
+    # Preserving default key prevents invalidating existing user sessions on deployments lacking an explicit .env override.
+    # In production, ALWAYS override JWT_SECRET_KEY via your .env file.
+    # Never commit a real secret here — generate with: openssl rand -hex 32
+    JWT_SECRET_KEY: str = "docspace-super-secret-jwt-key-minimum-32-chars-for-hs256"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
@@ -78,6 +81,7 @@ class Settings(BaseSettings):
             insecure_keys = {
                 "",
                 "docspace-super-secret-jwt-key-minimum-32-chars-for-hs256",
+                "gosmartclinic-super-secret-jwt-key-minimum-32-chars-for-hs256",
                 "replace-with-secure-secret-minimum-32-chars-long",
             }
             if not self.JWT_SECRET_KEY or self.JWT_SECRET_KEY in insecure_keys or len(self.JWT_SECRET_KEY) < 32:

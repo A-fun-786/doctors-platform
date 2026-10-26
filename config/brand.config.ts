@@ -1,7 +1,8 @@
 import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPulseIcon";
 
 // =========================================================================
-// 🎯 MASTER BRAND SWITCH: NEXT TIME SIRF YE 1 VARIABLE CHANGE KARNA HOGA!
+// Master Brand Switch — update this single variable to rebrand the entire app.
+// All derived properties (slug, storage keys, titles, etc.) update automatically.
 // =========================================================================
 export const PRIMARY_BRAND_NAME = "GoSmartClinic";
 

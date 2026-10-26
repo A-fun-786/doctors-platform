@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 
 interface StethoscopeHeartPulseIconProps {
   className?: string;
@@ -9,6 +9,7 @@ export function StethoscopeHeartPulseIcon({
   className = "w-8 h-8",
   size,
 }: StethoscopeHeartPulseIconProps) {
+  const gradientId = useId();
   const style = size ? { width: size, height: size } : undefined;
 
   return (
@@ -21,15 +22,15 @@ export function StethoscopeHeartPulseIcon({
       aria-hidden="true"
     >
       <defs>
-        {/* Soft Modern Medical Gradient */}
-        <linearGradient id="gscIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        {/* Soft Modern Medical Gradient — unique ID per instance via useId() */}
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#2563EB" />
           <stop offset="100%" stopColor="#0D9488" />
         </linearGradient>
       </defs>
 
       {/* Rounded Squircle Container Badge */}
-      <rect width="100" height="100" rx="24" fill="url(#gscIconGrad)" />
+      <rect width="100" height="100" rx="24" fill={`url(#${gradientId})`} />
       <rect
         width="96"
         height="96"

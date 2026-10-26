@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { BRAND_CONFIG } from "@/config/brand.config";
 
 interface BrandLogoProps {
@@ -41,9 +42,11 @@ export function BrandLogo({
         {icon.type === "svg" ? (
           <icon.component className="w-full h-full" />
         ) : (
-          <img
-            src={icon.imageSrc}
+          <Image
+            src={icon.imageSrc!}
             alt={icon.alt}
+            width={64}
+            height={64}
             className="w-full h-full object-contain rounded-lg"
           />
         )}
