@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { logger, LogEntry, LogLevel } from "@/lib/logger";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 interface DiagnosticsModalProps {
   isOpen: boolean;
@@ -338,7 +339,7 @@ export default function DiagnosticsModal({ isOpen, onClose }: DiagnosticsModalPr
         {/* Footer info */}
         <div className="px-5 py-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
           <span>Tip: Press Ctrl+Shift+D anywhere to toggle this panel.</span>
-          <span>DocSpace Telemetry v1.0</span>
+          <span>{BRAND_CONFIG.storage.telemetryVersion}</span>
         </div>
       </div>
     </div>

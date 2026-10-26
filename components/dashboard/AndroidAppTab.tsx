@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   Smartphone,
   CheckCircle2,
-  Activity,
   Upload,
   RefreshCw,
   Loader2,
@@ -26,6 +25,7 @@ import {
   getAppBuildLogs,
   getAppDownloadUrl,
 } from "@/lib/api";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 interface AndroidAppTabProps {
   doctor: DoctorMeResponse;
@@ -181,7 +181,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                 <label className="block text-xs text-slate-500 font-medium">Android Package Identifier</label>
                 <div className="text-xs font-mono font-semibold text-brand-700 bg-white px-2.5 py-1.5 rounded border border-slate-200 mt-0.5 truncate">
                   {appPreview?.package_name ||
-                    `com.docspace.${(fullName || "doctor").toLowerCase().replace(/[^a-z0-9]/g, "")}.${(clinicName || "clinic").toLowerCase().replace(/[^a-z0-9]/g, "")}`}
+                    `${BRAND_CONFIG.android.packagePrefix}.${(fullName || "doctor").toLowerCase().replace(/[^a-z0-9]/g, "")}.${(clinicName || "clinic").toLowerCase().replace(/[^a-z0-9]/g, "")}`}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Unique per-doctor package namespace for clean coexistence on patient devices.
@@ -217,14 +217,16 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Activity className="w-10 h-10" />
+                  <div className="w-full h-full p-2">
+                    <BRAND_CONFIG.icon.component className="w-full h-full" />
+                  </div>
                 )}
               </div>
 
               <div className="space-y-2 flex-1 text-center sm:text-left">
                 <div>
                   <span className="text-xs font-bold text-slate-800 block">
-                    {appIconPreview ? "Custom Launcher Icon Active" : "Default DocSpace Icon"}
+                    {appIconPreview ? "Custom Launcher Icon Active" : BRAND_CONFIG.android.defaultIconLabel}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     PNG or JPG recommended (512x512px). Used on patient home screens.

@@ -1,3 +1,5 @@
+import { BRAND_CONFIG } from "@/config/brand.config";
+
 type SentryModule = typeof import("@sentry/nextjs");
 let sentryClient: SentryModule | null = null;
 
@@ -97,10 +99,10 @@ function getOrCreateSessionId(): string {
     return "server-session";
   }
   try {
-    let sid = window.sessionStorage.getItem("docspace_session_id");
+    let sid = window.sessionStorage.getItem(BRAND_CONFIG.storage.sessionIdKey);
     if (!sid) {
       sid = `ses_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      window.sessionStorage.setItem("docspace_session_id", sid);
+      window.sessionStorage.setItem(BRAND_CONFIG.storage.sessionIdKey, sid);
     }
     return sid;
   } catch {
@@ -466,7 +468,7 @@ class ProductionLogger {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `docspace-diagnostics-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    a.download = `${BRAND_CONFIG.storage.telemetryPrefix}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

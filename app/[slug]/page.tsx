@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 import {
-  Activity,
   Calendar,
   Video,
   Pill,
@@ -243,8 +244,8 @@ export default function PatientDoctorPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4">
-          <Activity className="w-6 h-6 animate-pulse" />
+        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4 p-2">
+          <BRAND_CONFIG.icon.component className="w-full h-full animate-pulse" />
         </div>
         <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
           <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
@@ -270,7 +271,7 @@ export default function PatientDoctorPage() {
           href="/"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
         >
-          <span>DocSpace Home</span>
+          <span>{BRAND_CONFIG.name} Home</span>
         </Link>
       </div>
     );
@@ -284,12 +285,7 @@ export default function PatientDoctorPage() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-                <Activity className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-bold text-slate-900 tracking-tight">DocSpace</span>
-            </Link>
+            <BrandLogo size="sm" />
             <span className="text-slate-300">|</span>
             <button
               type="button"
@@ -1598,7 +1594,7 @@ export default function PatientDoctorPage() {
       <footer className="bg-white border-t border-slate-200 py-8 text-center text-xs text-slate-500">
         <div className="max-w-6xl mx-auto px-4 space-y-2">
           <p className="font-medium text-slate-700">
-            {doctor.clinic_name || doctor.full_name} • Powered by DocSpace
+            {doctor.clinic_name || doctor.full_name} • {BRAND_CONFIG.poweredBy}
           </p>
           <p className="text-slate-400">
             For medical emergencies, please dial your local emergency services (e.g. 911 / 112) immediately.

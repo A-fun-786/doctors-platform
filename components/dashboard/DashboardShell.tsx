@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Activity,
   LayoutDashboard,
   Calendar,
   User,
@@ -11,6 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 export type DashboardTabId =
   | "overview"
@@ -58,12 +58,7 @@ export default function DashboardShell({
         <aside className="w-full md:w-60 shrink-0 flex flex-col gap-3">
           {/* Brand Logo */}
           <div className="flex items-center justify-between px-2 py-1">
-            <Link href="/" className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shadow-sm">
-                <Activity className="w-4.5 h-4.5" />
-              </div>
-              <span className="text-lg font-bold text-slate-900 tracking-tight">DocSpace</span>
-            </Link>
+            <BrandLogo size="sm" />
           </div>
 
           <nav className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
