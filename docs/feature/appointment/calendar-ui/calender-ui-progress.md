@@ -774,3 +774,42 @@
 
 - **Manual Steps Pending**: None.
 
+---
+
+## 22. Phase 4: Kill Split-Brain & Restore Dynamic Public Slots (`appointment_calender_plan.md`)
+
+- **Plan Reference**: Phase 4 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) (Base Commit: `941e770`).
+- **Scope & Objectives**:
+  1. Synchronize doctor working hours between backend API and frontend calendar module, eliminating split-brain storage and state drift.
+  2. Implement backend API hooks `getDoctorWorkingHours()` and `updateDoctorWorkingHours()` in [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts).
+  3. Fetch remote doctor working hours on mount in [`CalendarTab.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/CalendarTab.tsx), seeding local React state and updating `localStorage` as an offline cache.
+  4. Dispatch backend API updates on save in [`EditWorkingHoursModal.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/modals/EditWorkingHoursModal.tsx) while synchronizing `localStorage` and presenting responsive saving/loading states.
+  5. Remove hardcoded static `TIME_SLOTS` array in [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx).
+  6. Dynamically fetch real available slots using `getPublicAvailableSlots(slug, selectedDate)` on date changes for both In-Clinic and Video Consultation patient booking forms, providing an animated `Loader2` spinner and courteous empty states.
+- **Changes**:
+  - [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts): Added `WorkingHoursShift`, `DoctorWorkingHoursResponse`, and `DoctorWorkingHoursUpdatePayload` interfaces; implemented `getDoctorWorkingHours()` (GET `/api/v1/doctor/working-hours`) and `updateDoctorWorkingHours()` (PUT `/api/v1/doctor/working-hours`).
+  - [`components/dashboard/calendar/calendarUtils.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/calendarUtils.ts): Updated `WorkingHoursConfig` with optional `closed_days?: number[]`, updated `DEFAULT_WORKING_HOURS` to include `closed_days: [0]`, enhanced `isSlotWithinWorkingHours` to honor `closed_days`, and aliased `getCachedDoctorWorkingHours`.
+  - [`components/dashboard/CalendarTab.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/CalendarTab.tsx): Destructured `setWorkingHoursConfig` from `useCalendarModals`; added mount `useEffect` to fetch authoritative working hours from `getDoctorWorkingHours()`, update state, and synchronize `localStorage` via `saveDoctorWorkingHours()`.
+  - [`components/dashboard/calendar/modals/EditWorkingHoursModal.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/modals/EditWorkingHoursModal.tsx): Replaced purely local save with async handler dispatching `updateDoctorWorkingHours()`, persisting to `localStorage`, displaying `Loader2` saving state, and surfacing validation/API errors.
+  - [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx): Completely removed hardcoded `TIME_SLOTS` array; added dynamic slot loading hooks using `getPublicAvailableSlots` on date change for both In-Clinic and Video forms; integrated `Loader2` loading spinner, courteous empty state (*"No available slots on this date. Please choose another date."*), and required slot selection guards.
+  - [`backend/app/services/schedule_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/schedule_service.py): Harmonized `closed_days` day indexing to support both JS/Schema convention (`0=Sun, 1=Mon...6=Sat`) and ISO Sunday (`6`), resolving day-offset collision where `closed_days=[0]` mistakenly closed Monday.
+  - [`backend/app/services/appointment_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py): Aligned booking validation to prevent false-positive closed-day rejections on Mondays when `closed_days=[0]`.
+- **Architectural Decisions**:
+  - **Offline-First Cache with Server Synchronization**: The calendar module immediately reads initial state from `localStorage` to avoid layout flickers or blank modals on first render, then asynchronously reconciles against `GET /api/v1/doctor/working-hours`. On doctor edit, the modal persists to the backend first, updating `localStorage` with the validated server response.
+  - **Unified closed_days in WorkingHoursConfig**: Added optional `closed_days?: number[]` to the TypeScript interface, matching the backend Pydantic schema where Sunday (`0`) defaults to closed while allowing custom closed day arrays.
+  - **Dynamic Slot Generation on Date Selection**: Rather than presenting patients with fixed, potentially stale appointment slots, the public page invokes `getPublicAvailableSlots(slug, date)` whenever the booking date changes, guaranteeing that doctor leaves, clinic holidays, and existing bookings are respected in real time.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Live Agent Runtime E2E Flow** | Manual/Runtime | `node` live test (Auth -> GET/PUT shifts -> public slots -> real booking -> omission) | 100% live pass across real running server | 9/9 live steps passed | 0 | 🟢 PASS |
+| **Phase 4 AST & Integration Checks** | Integration | `node -e '...'` (Phase 4 integration script) | All 4 checks pass | 4/4 checks passed | 0 | 🟢 PASS |
+| **Shift Engine & Booking Pytests** | Unit/Integration | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 20 tests pass | 20 passed in 4.15s | 0 | 🟢 PASS |
+| **Full Backend Regression Suite** | Regression | `backend/.venv/bin/pytest backend/tests` | 146 tests pass | 146 passed in 77.17s | 0 | 🟢 PASS |
+| **Calendar Utilities Unit Tests** | Unit | `node scripts/test_calendar_utils.mjs` | 32 tests pass (7 suites) | 32/32 passed | 0 | 🟢 PASS |
+| **Calendar Drawer & Lifecycle Tests** | Integration | `node scripts/verify_calendar_drawer_scenarios.mjs` | 6 scenarios pass | 6/6 passed | 0 | 🟢 PASS |
+| **DashboardShell Regression Tests** | Regression | `node scripts/test_dashboard_shell.mjs` | 19 tests pass | 19/19 passed | 0 | 🟢 PASS |
+| **TypeScript Compilation** | Type Check | `npx tsc --noEmit` | Clean compilation, 0 errors | 0 errors | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.

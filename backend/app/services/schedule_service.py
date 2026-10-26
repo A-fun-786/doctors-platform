@@ -198,8 +198,10 @@ def generate_available_slots(
                     working_hours = {}
 
             closed_days = working_hours.get("closed_days", [])
-            # Evaluate query_date.weekday() against closed_days (ISO: Monday=0 ... Sunday=6)
-            if query_date.weekday() not in closed_days:
+            # Evaluate closed days (JS/Schema convention: 0=Sun, 1=Mon...6=Sat, plus ISO Sunday=6)
+            js_day = (query_date.weekday() + 1) % 7
+            is_closed = (js_day in closed_days) or (query_date.weekday() == 6 and 6 in closed_days)
+            if not is_closed:
                 shifts = working_hours.get("shifts", [])
                 for shift in shifts:
                     if shift.get("enabled", True):

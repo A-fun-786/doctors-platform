@@ -76,9 +76,10 @@ def _validate_slot_against_schedule(
                 working_hours = {}
 
         closed_days = working_hours.get("closed_days", [])
-        # Support ISO convention (Monday=0 ... Sunday=6) and JS convention (Sunday=0 ... Saturday=6)
+        # Support schema/JS convention (0=Sun, 1=Mon...6=Sat) and ISO Sunday (6)
         js_day = (slot_date.weekday() + 1) % 7
-        if slot_date.weekday() in closed_days or js_day in closed_days:
+        is_closed = (js_day in closed_days) or (slot_date.weekday() == 6 and 6 in closed_days)
+        if is_closed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Clinic is closed on this date",

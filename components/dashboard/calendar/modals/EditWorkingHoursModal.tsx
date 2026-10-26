@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Clock, Sun, Sunset, Coffee, Check, AlertCircle, Sparkles } from "lucide-react";
+import { Clock, Sun, Sunset, Coffee, Check, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { TIME_OPTIONS_30M, BREAK_TIME_LABEL, BREAK_TIME_BADGE } from "../constants";
 import {
@@ -9,8 +9,10 @@ import {
   WorkingHoursShift,
   calculateShiftSlotCount,
   format12Hour,
+  saveDoctorWorkingHours,
   timeToMinutes,
 } from "../calendarUtils";
+import { updateDoctorWorkingHours } from "@/lib/api";
 
 interface EditWorkingHoursModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ export default function EditWorkingHoursModal({
 }: EditWorkingHoursModalProps) {
   const [shifts, setShifts] = useState<WorkingHoursShift[]>(config.shifts);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Sync with prop when modal opens
   useEffect(() => {
@@ -127,12 +130,14 @@ export default function EditWorkingHoursModal({
     };
   }, [shifts]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validationError) {
       setError(validationError);
       return;
     }
+    setIsSaving(true);
+    setError(null);
     const breakTime = calculatedBreak
       ? {
           enabled: true,
@@ -142,8 +147,27 @@ export default function EditWorkingHoursModal({
         }
       : undefined;
 
-    onSave({ shifts, breakTime });
-    onClose();
+    const newConfig: WorkingHoursConfig = {
+      shifts,
+      breakTime,
+      closed_days: config.closed_days ?? [0],
+    };
+
+    try {
+      const updated = await updateDoctorWorkingHours(newConfig);
+      const merged: WorkingHoursConfig = {
+        ...updated,
+        breakTime,
+      };
+      saveDoctorWorkingHours(merged);
+      onSave(merged);
+      onClose();
+    } catch (err: unknown) {
+      console.error("Failed to persist working hours to server:", err);
+      setError(err instanceof Error ? err.message : "Failed to update working hours");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -322,11 +346,20 @@ export default function EditWorkingHoursModal({
           </button>
           <button
             type="submit"
-            disabled={!!validationError}
+            disabled={!!validationError || isSaving}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            <Check className="w-4 h-4" />
-            Save Working Hours
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                Save Working Hours
+              </>
+            )}
           </button>
         </div>
       </form>

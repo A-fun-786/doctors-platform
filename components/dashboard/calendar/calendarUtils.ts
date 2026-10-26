@@ -297,6 +297,7 @@ export interface WorkingHoursBreak {
 export interface WorkingHoursConfig {
   shifts: WorkingHoursShift[];
   breakTime?: WorkingHoursBreak;
+  closed_days?: number[];
 }
 
 export interface BreakIntervalInfo {
@@ -332,6 +333,7 @@ export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
     end: "16:00",
     label: BREAK_TIME_LABEL,
   },
+  closed_days: [0],
 };
 
 export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
@@ -437,6 +439,8 @@ export function getDoctorWorkingHours(): WorkingHoursConfig {
   return DEFAULT_WORKING_HOURS;
 }
 
+export const getCachedDoctorWorkingHours = getDoctorWorkingHours;
+
 /**
  * Persist doctor customized working hours to localStorage.
  */
@@ -451,7 +455,7 @@ export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
 
 /**
  * Check if a time slot (start, end) falls within doctor's configured working hours.
- * Disallows Sundays and intervals during the doctor's break time.
+ * Defaults to closed on Sundays if closed_days not specified, and disallows intervals during the doctor's break time.
  */
 export function isSlotWithinWorkingHours(
   dateStr: string,
@@ -461,9 +465,9 @@ export function isSlotWithinWorkingHours(
 ): boolean {
   if (!dateStr || !slotStart || !slotEnd) return false;
   const d = new Date(dateStr);
-  if (d.getDay() === 0) return false; // Sunday closed
-
   const activeConfig = config || DEFAULT_WORKING_HOURS;
+  const closedDays = activeConfig.closed_days ?? [0];
+  if (closedDays.includes(d.getDay())) return false;
 
   // Disallow slots during doctor's break time
   if (isSlotInBreak(slotStart, slotEnd, activeConfig)) {
