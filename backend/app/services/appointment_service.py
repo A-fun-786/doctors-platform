@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
+from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.schemas.appointment import (
     AppointmentCreateRequest,
@@ -32,7 +33,7 @@ def _validate_slot_against_schedule(
     s_start = _time_to_minutes(start_time)
     s_end = _time_to_minutes(end_time)
 
-    # 1. Check AVAILABLE schedules
+    # 1. Check explicit AVAILABLE schedules (takes precedence for custom/test overrides)
     available_schedules = (
         db.query(Schedule)
         .filter(
@@ -43,25 +44,63 @@ def _validate_slot_against_schedule(
         .all()
     )
 
-    if not available_schedules:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No AVAILABLE schedule window for this date",
-        )
+    if available_schedules:
+        in_available_window = False
+        for sched in available_schedules:
+            w_start = _time_to_minutes(sched.start_time)
+            w_end = _time_to_minutes(sched.end_time)
+            if s_start >= w_start and s_end <= w_end:
+                in_available_window = True
+                break
 
-    in_available_window = False
-    for sched in available_schedules:
-        w_start = _time_to_minutes(sched.start_time)
-        w_end = _time_to_minutes(sched.end_time)
-        if s_start >= w_start and s_end <= w_end:
-            in_available_window = True
-            break
+        if not in_available_window:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Slot does not fall within any AVAILABLE schedule window",
+            )
+    else:
+        # Step B: Fall back to doctor working_hours
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+        if not doctor or not doctor.working_hours:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No AVAILABLE schedule window for this date",
+            )
 
-    if not in_available_window:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Slot does not fall within any AVAILABLE schedule window",
-        )
+        working_hours = doctor.working_hours
+        if isinstance(working_hours, str):
+            import json
+            try:
+                working_hours = json.loads(working_hours)
+            except Exception:
+                working_hours = {}
+
+        closed_days = working_hours.get("closed_days", [])
+        # Support ISO convention (Monday=0 ... Sunday=6) and JS convention (Sunday=0 ... Saturday=6)
+        js_day = (slot_date.weekday() + 1) % 7
+        if slot_date.weekday() in closed_days or js_day in closed_days:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Clinic is closed on this date",
+            )
+
+        shifts = working_hours.get("shifts", [])
+        in_shift_window = False
+        for shift in shifts:
+            if shift.get("enabled", True):
+                start_h, start_m = map(int, shift["start"].split(":"))
+                end_h, end_m = map(int, shift["end"].split(":"))
+                w_start = start_h * 60 + start_m
+                w_end = end_h * 60 + end_m
+                if s_start >= w_start and s_end <= w_end:
+                    in_shift_window = True
+                    break
+
+        if not in_shift_window:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Slot does not fall within doctor's working hours",
+            )
 
     # 2. Check exclusions: LEAVE, HOLIDAY, BLOCKED
     exclusions = (

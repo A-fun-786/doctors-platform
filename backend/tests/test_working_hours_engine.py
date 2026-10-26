@@ -496,3 +496,223 @@ def test_shift_slot_generation_disabled_shift_ignored(db_session, test_doctor):
     starts = [s["start"] for s in slots]
     assert starts == ["10:00", "10:30", "11:00", "11:30", "12:00", "12:30"]
 
+
+# ==============================================================================
+# Phase 2 Harmonization: Open Working Hours Booking & Leave Lifecycle Tests
+# ==============================================================================
+def test_booking_directly_within_working_hours_without_schedule_succeeds(client, auth_headers, test_doctor, db_session):
+    """
+    A doctor with configured working hours can book an appointment directly
+    without ever having to mark manual 'AVAILABLE' schedule entries.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [6],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Wednesday 2026-11-04, 10:00-10:30 is within Morning Shift
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Direct Booking Patient",
+            "patient_contact": "+91 99999 88888",
+            "date": "2026-11-04",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+            "reason": "General Consultation",
+        },
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["status"] == "BOOKED"
+    assert data["patient_name"] == "Direct Booking Patient"
+    assert data["start_time"] == "10:00:00"
+    assert data["end_time"] == "10:30:00"
+
+
+def test_booking_outside_working_hours_rejected(client, auth_headers, test_doctor, db_session):
+    """
+    Attempting to book a slot outside enabled working shifts is rejected with HTTP 400.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [6],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # 14:00-14:30 falls in the inter-shift break (13:00-16:00)
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Break Time Patient",
+            "date": "2026-11-04",
+            "start_time": "14:00:00",
+            "end_time": "14:30:00",
+        },
+    )
+    assert res.status_code == 400
+    assert "Slot does not fall within doctor's working hours" in res.json()["detail"]
+
+
+def test_booking_on_closed_day_rejected(client, auth_headers, test_doctor, db_session):
+    """
+    Attempting to book an appointment on a configured closed day is rejected with HTTP 400.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+        ],
+        "closed_days": [6],  # Sunday is closed
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Sunday 2026-11-08
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Patient",
+            "date": "2026-11-08",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert res.status_code == 400
+    assert "Clinic is closed on this date" in res.json()["detail"]
+
+
+def test_booking_during_leave_rejected_and_cancellation_restores_booking(client, auth_headers, test_doctor, db_session):
+    """
+    1. A LEAVE slot blocks patient appointments from being booked (HTTP 400).
+    2. Deleting / cancelling the LEAVE immediately restores the slot as open for booking.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+        ],
+        "closed_days": [],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # 1. Doctor marks leave on Wednesday 2026-11-04 from 10:00 to 11:00
+    leave_res = client.post(
+        "/api/v1/doctor/schedule",
+        headers=auth_headers,
+        json={
+            "entries": [
+                {
+                    "date": "2026-11-04",
+                    "start_time": "10:00:00",
+                    "end_time": "11:00:00",
+                    "type": "LEAVE",
+                    "reason": "Medical Conference",
+                }
+            ]
+        },
+    )
+    assert leave_res.status_code == 201
+    leave_id = leave_res.json()[0]["id"]
+
+    # 2. Attempt to book appointment during leave period -> Rejected
+    appt_fail = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Conference Blocked Patient",
+            "date": "2026-11-04",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert appt_fail.status_code == 400
+    assert "Slot overlaps with LEAVE period" in appt_fail.json()["detail"]
+
+    # 3. Doctor cancels leave
+    del_res = client.delete(f"/api/v1/doctor/schedule/{leave_id}", headers=auth_headers)
+    assert del_res.status_code == 204
+
+    # 4. Now the slot is restored and can be booked directly
+    appt_ok = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Restored Slot Patient",
+            "date": "2026-11-04",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert appt_ok.status_code == 201
+    assert appt_ok.json()["status"] == "BOOKED"
+
+
+def test_reschedule_within_working_hours_succeeds(client, auth_headers, test_doctor, db_session):
+    """
+    Rescheduling an appointment directly against working hours succeeds when moving
+    to another open shift interval, and fails when moving outside working hours.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Create initial appointment in morning shift
+    init_res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Reschedule Patient",
+            "date": "2026-11-04",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert init_res.status_code == 201
+    appt_id = init_res.json()["id"]
+
+    # Reschedule to outside working hours -> 400
+    reschedule_fail = client.patch(
+        f"/api/v1/doctor/appointments/{appt_id}",
+        headers=auth_headers,
+        json={
+            "date": "2026-11-04",
+            "start_time": "14:00:00",
+            "end_time": "14:30:00",
+        },
+    )
+    assert reschedule_fail.status_code == 400
+    assert "Slot does not fall within doctor's working hours" in reschedule_fail.json()["detail"]
+
+    # Reschedule to evening shift 16:30 -> 200 OK
+    reschedule_ok = client.patch(
+        f"/api/v1/doctor/appointments/{appt_id}",
+        headers=auth_headers,
+        json={
+            "date": "2026-11-04",
+            "start_time": "16:30:00",
+            "end_time": "17:00:00",
+        },
+    )
+    assert reschedule_ok.status_code == 200
+    assert reschedule_ok.json()["start_time"] == "16:30:00"
+    assert reschedule_ok.json()["end_time"] == "17:00:00"
+
+

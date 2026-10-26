@@ -669,6 +669,37 @@
 
 - **Manual Steps Pending**: None.
 
+---
+
+## 21. Phase 2 Harmonization: Open Working Hours Booking & Validation
+
+- **Scope & Purpose**: Harmonized appointment booking validation ([`appointment_service.py:_validate_slot_against_schedule`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py)) with recurring doctor working hours. Eliminated the obsolete requirement demanding manual per-date `AVAILABLE` records in the `schedules` table. Every 30-minute interval within active shifts is now bookable directly, while strictly blocking appointments on closed days, during inter-shift gaps, or when overlapping active `LEAVE`, `HOLIDAY`, or `BLOCKED` windows.
+- **Plan Reference**: Phase 2 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) and [`unified_slot_architecture_plan.md`](file:///Users/mdaffanahmed/.gemini/antigravity/brain/c040044c-57c2-41a0-b682-aeb977fd93ce/unified_slot_architecture_plan.md) (Base Commit: `8ec50194e1e88ca3e21d00b5419869e8db1ca679`).
+- **Files Modified**:
+  - `backend/app/services/appointment_service.py`: Updated `_validate_slot_against_schedule` to check explicit `Schedule(type="AVAILABLE")` precedence first; if absent, validate against `doctor.working_hours` active shifts and `closed_days`. Preserved collision checks for `LEAVE`, `HOLIDAY`, and `BLOCKED`.
+  - `backend/tests/test_working_hours_engine.py`: Added 5 new automated integration tests covering direct shift booking, break-time rejection, closed day rejection, leave blocking & cancellation slot restoration, and working hours rescheduling parity.
+  - `docs/feature/appointment/appointment_calender_plan.md`: Updated Phase 2 plan deliverables to include validation harmonization.
+  - `docs/feature/appointment/calendar-ui/calender-ui-progress.md`: Documented implementation and verification scorecard.
+- **Architectural Decisions**:
+  - **Explicit Available Schedule Precedence**: If per-date `Schedule(type="AVAILABLE")` rows exist, they are honored first. This preserves surgical ad-hoc override capabilities and ensures 100% backwards-compatibility with legacy unit tests.
+  - **Direct Working Hours Fallback**: If no date-specific `AVAILABLE` rows exist, validation evaluates the slot against the doctor's recurring working shifts (`Doctor.working_hours`).
+  - **Symmetric Leave Slot Mechanics**: When a doctor marks `LEAVE` on a slot via `SlotActionModal`, any appointment booking at that slot is blocked (`HTTP 400: Slot overlaps with LEAVE period`). Deleting/cancelling the leave via `LeaveDetailsPanel` immediately restores the slot as open and bookable.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Shift Engine & Booking Tests** | Unit/Integration | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 20 tests pass (5 new) | 20 passed in 3.37s | 0 | 🟢 PASS |
+| **Appointment Lifecycle Tests** | Regression | `backend/.venv/bin/pytest backend/tests/test_appointment_lifecycle.py` | 32 tests pass | 32 passed in 6.85s | 0 | 🟢 PASS |
+| **Full Backend Suite** | Regression | `backend/.venv/bin/pytest backend/tests` | 146 tests pass (Baseline: 136) | 146 passed in 26.05s | 0 | 🟢 PASS |
+| **Live Multi-Step Workflow** | Integration | Simulated direct booking, leave blocking & restoration | All 5 steps pass | 5/5 passed | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass | 62 passed in 1.4s | 0 | 🟢 PASS |
+| **TypeScript Typecheck** | Type Check | `npx tsc --noEmit` | Clean typecheck, 0 errors | 0 errors | 0 | 🟢 PASS |
+| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+
 
 
 

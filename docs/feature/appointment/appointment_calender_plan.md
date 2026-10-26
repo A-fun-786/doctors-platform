@@ -55,16 +55,24 @@ flowchart LR
 
 ---
 
-### Phase 2: Slot Generation Engine Harmonization
+### Phase 2: Slot Generation & Booking Validation Harmonization
 
 **Deliverables:**
 1. **Update `generate_available_slots` in [`schedule_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/schedule_service.py):**
-   - **Precedence Rule:** Query `Schedule(type="AVAILABLE")` for `query_date`. If per-date records exist, slice them (existing behavior).
-   - **Shift Fallback:** If no `AVAILABLE` records exist and `doctor.working_hours is not None`:
-     - Evaluate `query_date.weekday()` against `closed_days` (ISO: Monday=0 ... Sunday=6). If closed, candidate slots = 0.
+   - **Precedence Rule:** Query `Schedule(type="AVAILABLE")` for `query_date`. If per-date records exist, slice them (preserves test overrides).
+   - **Shift Fallback:** If no `AVAILABLE` records exist, query `doctor.working_hours` (falling back to `DEFAULT_DOCTOR_WORKING_HOURS` if `None`).
+     - Evaluate `query_date.weekday()` against `closed_days`. If closed, candidate slots = 0.
      - Slices active shifts into 30m slots ($[t, t+30\text{m})$).
    - **Past-Slot Guard:** If `query_date == date.today()`, filter out candidate intervals where `end_time <= datetime.now().time()`.
-   - **Exclusions:** Subtract `LEAVE`, `HOLIDAY`, `BLOCKED`, and active `BOOKED`/`COMPLETED` appointments (existing code preserved).
+   - **Exclusions:** Subtract `LEAVE`, `HOLIDAY`, `BLOCKED`, and active `BOOKED`/`COMPLETED` appointments.
+
+2. **Harmonize `_validate_slot_against_schedule` in [`appointment_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py):**
+   - **Eliminate Separate Availability Requirement:** Remove the hard block requiring `Schedule.type == "AVAILABLE"`.
+   - **Working Hours Validation:** If no explicit `AVAILABLE` entries exist for `slot_date`:
+     - Validate that `slot_date` is not in `closed_days`. If closed, raise `HTTP 400: Clinic is closed on this date`.
+     - Validate that `[start_time, end_time)` falls within an enabled shift in `doctor.working_hours` (or `DEFAULT_DOCTOR_WORKING_HOURS`). If not, raise `HTTP 400: Slot does not fall within doctor working hours`.
+   - **Exclusions:** Check that `[start_time, end_time)` does not overlap any `LEAVE`, `HOLIDAY`, or `BLOCKED` entry. If `LEAVE` overlaps, raise `HTTP 400: Slot overlaps with LEAVE period`.
+   - **Rescheduling Parity:** Ensure `reschedule_appointment` benefits identically from working hours slot validation.
 
 ---
 
