@@ -18,6 +18,9 @@
 13. **Slot Generation Engine Harmonization (appointment_calender_plan.md Phase 2)**: Executed Phase 2 of `appointment_calender_plan.md`. Enhanced `generate_available_slots` in `backend/app/services/schedule_service.py` to enforce explicit schedule precedence over recurring shifts, fallback to doctor configured `working_hours` when no date-specific `AVAILABLE` entries exist, evaluate ISO weekday closure (`closed_days`), filter out expired intervals on the current date (`end_time <= now.time()`), and preserve subtraction of leaves, holidays, blocked windows, and booked appointments. Expanded test suite in `backend/tests/test_working_hours_engine.py` (15/15 tests passing, 141/141 full suite passing).
 14. **Break Time Slot Standardization & Centralized String Architecture (Phase 12)**: Executed break time slot standardization and single-string architecture across calendar views and modals. Fully eliminated "lunch" and "rest" vocabulary across the codebase in favor of strictly "Break Time". Removed break display from the sidebar "Working Hours" card (`WorkingHoursCard.tsx`) so it strictly displays doctor active shifts. Established single source of truth string constants (`BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, `BREAK_TIME_SUBTITLE`) in `constants.ts` and unified formatter `formatBreakTimeTitle` in `calendarUtils.ts`. Updated `DayView.tsx` to match `WeekView.tsx` with a single-line horizontal card layout (`BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`), eliminating multi-line clutter and text repetition. Maintained dynamic break calculations in the "Customize Working Hours" modal (`EditWorkingHoursModal.tsx`). Verified via comprehensive automated test suite `scripts/test_break_time_suite.mjs` (16/16 passed, 100%).
 15. **Complete Calendar Sidebar Quick Actions Card Elimination (Phase 13)**: Completely eliminated `QuickActionsCard` and its fast-action triggers ('Add Appointment' and 'Block Time / Leave') from the calendar sidebar. Removed component file `QuickActionsCard.tsx`. Pruned `QuickActionsCard` import, props (`onAddAppointment`, `onBlockTime`), and JSX rendering block from `CalendarSidebar.tsx`. Cleaned up `<CalendarSidebar />` invocation in `CalendarTab.tsx` by removing unused callback props and updating comments. Streamlined the calendar sidebar to strictly contain the Google Calendar `MiniCalendar` and active `WorkingHoursCard`. Validated via automated unit test suite `scripts/test_sidebar_quick_actions_clean.mjs` (11/11 passed, 100%) and TypeScript compiler check (`npx tsc --noEmit`, 0 errors).
+16. **Appointment Lifecycle in Calendar Drawer (appointment_calender_plan.md Phase 3)**: Implemented full appointment lifecycle transitions directly within the calendar drawer panel (`AppointmentDetailsPanel.tsx`). Integrated `completeAppointment` with "Mark Completed" button (`CheckCircle`, emerald badge styling) and `cancelAppointment` with accessible warning dialog (*"Cancelling this appointment will release this 30-minute slot for other patients."*). Fixed status guard bug to prevent completed or cancelled consultations from being edited or rescheduled (`status !== "CANCELLED" && status !== "COMPLETED"`). Added color-coded status badges (`BOOKED` blue, `COMPLETED` emerald, `CANCELLED` rose, `NO_SHOW` slate).
+17. **Kill Split-Brain Working Hours & Restore Dynamic Public Slots (appointment_calender_plan.md Phase 4)**: Synchronized recurring doctor working shifts across backend and UI, eliminating split-brain storage and state drift. Added `getDoctorWorkingHours` and `updateDoctorWorkingHours` API clients in `lib/api.ts`. In `CalendarTab.tsx`, fetched authoritative working hours on mount, updating state and `localStorage` as an offline cache. In `EditWorkingHoursModal.tsx`, persisted shift updates to the backend API with loading state. In `app/[slug]/page.tsx`, removed hardcoded static `TIME_SLOTS` array, restoring real-time slot generation via `getPublicAvailableSlots(slug, date)` with `Loader2` spinner and courteous empty state.
+18. **Phase 5 Focused Verification Suite & Automated Tests (appointment_calender_plan.md Phase 5)**: Created `scripts/verify_appointment_ui_integration.mjs` covering 7 AST and integration assertions across appointment drawer lifecycle transitions, status guards, public slot generation, working hours API contracts, and unified `closed_days`/`breakTime` schema parity (7/7 passed, 100%). Chained into `npm test` alongside existing test suites (69/69 automated tests passing).
 
 ---
 
@@ -748,8 +751,8 @@
 
 ## 21. Phase 2 Harmonization: Open Working Hours Booking & Validation
 
-- **Scope & Purpose**: Harmonized appointment booking validation ([`appointment_service.py:_validate_slot_against_schedule`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py)) with recurring doctor working hours. Eliminated the obsolete requirement demanding manual per-date `AVAILABLE` records in the `schedules` table. Every 30-minute interval within active shifts is now bookable directly, while strictly blocking appointments on closed days, during inter-shift gaps, or when overlapping active `LEAVE`, `HOLIDAY`, or `BLOCKED` windows.
-- **Plan Reference**: Phase 2 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) and [`unified_slot_architecture_plan.md`](file:///Users/mdaffanahmed/.gemini/antigravity/brain/c040044c-57c2-41a0-b682-aeb977fd93ce/unified_slot_architecture_plan.md) (Base Commit: `8ec50194e1e88ca3e21d00b5419869e8db1ca679`).
+- **Scope & Purpose**: Harmonized appointment booking validation (`backend/app/services/appointment_service.py:_validate_slot_against_schedule`) with recurring doctor working hours. Eliminated the obsolete requirement demanding manual per-date `AVAILABLE` records in the `schedules` table. Every 30-minute interval within active shifts is now bookable directly, while strictly blocking appointments on closed days, during inter-shift gaps, or when overlapping active `LEAVE`, `HOLIDAY`, or `BLOCKED` windows.
+- **Plan Reference**: Phase 2 of `docs/feature/appointment/appointment_calender_plan.md` (Base Commit: `8ec50194e1e88ca3e21d00b5419869e8db1ca679`).
 - **Files Modified**:
   - `backend/app/services/appointment_service.py`: Updated `_validate_slot_against_schedule` to check explicit `Schedule(type="AVAILABLE")` precedence first; if absent, validate against `doctor.working_hours` active shifts and `closed_days`. Preserved collision checks for `LEAVE`, `HOLIDAY`, and `BLOCKED`.
   - `backend/tests/test_working_hours_engine.py`: Added 5 new automated integration tests covering direct shift booking, break-time rejection, closed day rejection, leave blocking & cancellation slot restoration, and working hours rescheduling parity.
@@ -778,22 +781,22 @@
 
 ## 22. Phase 4: Kill Split-Brain & Restore Dynamic Public Slots (`appointment_calender_plan.md`)
 
-- **Plan Reference**: Phase 4 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) (Base Commit: `941e770`).
+- **Plan Reference**: Phase 4 of `docs/feature/appointment/appointment_calender_plan.md` (Base Commit: `941e770`).
 - **Scope & Objectives**:
   1. Synchronize doctor working hours between backend API and frontend calendar module, eliminating split-brain storage and state drift.
-  2. Implement backend API hooks `getDoctorWorkingHours()` and `updateDoctorWorkingHours()` in [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts).
-  3. Fetch remote doctor working hours on mount in [`CalendarTab.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/CalendarTab.tsx), seeding local React state and updating `localStorage` as an offline cache.
-  4. Dispatch backend API updates on save in [`EditWorkingHoursModal.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/modals/EditWorkingHoursModal.tsx) while synchronizing `localStorage` and presenting responsive saving/loading states.
-  5. Remove hardcoded static `TIME_SLOTS` array in [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx).
+  2. Implement backend API hooks `getDoctorWorkingHours()` and `updateDoctorWorkingHours()` in `lib/api.ts`.
+  3. Fetch remote doctor working hours on mount in `components/dashboard/CalendarTab.tsx`, seeding local React state and updating `localStorage` as an offline cache.
+  4. Dispatch backend API updates on save in `components/dashboard/calendar/modals/EditWorkingHoursModal.tsx` while synchronizing `localStorage` and presenting responsive saving/loading states.
+  5. Remove hardcoded static `TIME_SLOTS` array in `app/[slug]/page.tsx`.
   6. Dynamically fetch real available slots using `getPublicAvailableSlots(slug, selectedDate)` on date changes for both In-Clinic and Video Consultation patient booking forms, providing an animated `Loader2` spinner and courteous empty states.
 - **Changes**:
-  - [`lib/api.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/api.ts): Added `WorkingHoursShift`, `DoctorWorkingHoursResponse`, and `DoctorWorkingHoursUpdatePayload` interfaces; implemented `getDoctorWorkingHours()` (GET `/api/v1/doctor/working-hours`) and `updateDoctorWorkingHours()` (PUT `/api/v1/doctor/working-hours`).
-  - [`components/dashboard/calendar/calendarUtils.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/calendarUtils.ts): Updated `WorkingHoursConfig` with optional `closed_days?: number[]`, updated `DEFAULT_WORKING_HOURS` to include `closed_days: [0]`, enhanced `isSlotWithinWorkingHours` to honor `closed_days`, and aliased `getCachedDoctorWorkingHours`.
-  - [`components/dashboard/CalendarTab.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/CalendarTab.tsx): Destructured `setWorkingHoursConfig` from `useCalendarModals`; added mount `useEffect` to fetch authoritative working hours from `getDoctorWorkingHours()`, update state, and synchronize `localStorage` via `saveDoctorWorkingHours()`.
-  - [`components/dashboard/calendar/modals/EditWorkingHoursModal.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/modals/EditWorkingHoursModal.tsx): Replaced purely local save with async handler dispatching `updateDoctorWorkingHours()`, persisting to `localStorage`, displaying `Loader2` saving state, and surfacing validation/API errors.
-  - [`app/[slug]/page.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/app/%5Bslug%5D/page.tsx): Completely removed hardcoded `TIME_SLOTS` array; added dynamic slot loading hooks using `getPublicAvailableSlots` on date change for both In-Clinic and Video forms; integrated `Loader2` loading spinner, courteous empty state (*"No available slots on this date. Please choose another date."*), and required slot selection guards.
-  - [`backend/app/services/schedule_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/schedule_service.py): Harmonized `closed_days` day indexing to support both JS/Schema convention (`0=Sun, 1=Mon...6=Sat`) and ISO Sunday (`6`), resolving day-offset collision where `closed_days=[0]` mistakenly closed Monday.
-  - [`backend/app/services/appointment_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py): Aligned booking validation to prevent false-positive closed-day rejections on Mondays when `closed_days=[0]`.
+  - `lib/api.ts`: Added `WorkingHoursShift`, `DoctorWorkingHoursResponse`, and `DoctorWorkingHoursUpdatePayload` interfaces; implemented `getDoctorWorkingHours()` (GET `/api/v1/doctor/working-hours`) and `updateDoctorWorkingHours()` (PUT `/api/v1/doctor/working-hours`).
+  - `components/dashboard/calendar/calendarUtils.ts`: Updated `WorkingHoursConfig` with optional `closed_days?: number[]`, updated `DEFAULT_WORKING_HOURS` to include `closed_days: [0]`, enhanced `isSlotWithinWorkingHours` to honor `closed_days`, and aliased `getCachedDoctorWorkingHours`.
+  - `components/dashboard/CalendarTab.tsx`: Destructured `setWorkingHoursConfig` from `useCalendarModals`; added mount `useEffect` to fetch authoritative working hours from `getDoctorWorkingHours()`, update state, and synchronize `localStorage` via `saveDoctorWorkingHours()`.
+  - `components/dashboard/calendar/modals/EditWorkingHoursModal.tsx`: Replaced purely local save with async handler dispatching `updateDoctorWorkingHours()`, persisting to `localStorage`, displaying `Loader2` saving state, and surfacing validation/API errors.
+  - `app/[slug]/page.tsx`: Completely removed hardcoded `TIME_SLOTS` array; added dynamic slot loading hooks using `getPublicAvailableSlots` on date change for both In-Clinic and Video forms; integrated `Loader2` loading spinner, courteous empty state (*"No available slots on this date. Please choose another date."*), and required slot selection guards.
+  - `backend/app/services/schedule_service.py`: Harmonized `closed_days` day indexing to support both JS/Schema convention (`0=Sun, 1=Mon...6=Sat`) and ISO Sunday (`6`), resolving day-offset collision where `closed_days=[0]` mistakenly closed Monday.
+  - `backend/app/services/appointment_service.py`: Aligned booking validation to prevent false-positive closed-day rejections on Mondays when `closed_days=[0]`.
 - **Architectural Decisions**:
   - **Offline-First Cache with Server Synchronization**: The calendar module immediately reads initial state from `localStorage` to avoid layout flickers or blank modals on first render, then asynchronously reconciles against `GET /api/v1/doctor/working-hours`. On doctor edit, the modal persists to the backend first, updating `localStorage` with the validated server response.
   - **Unified closed_days in WorkingHoursConfig**: Added optional `closed_days?: number[]` to the TypeScript interface, matching the backend Pydantic schema where Sunday (`0`) defaults to closed while allowing custom closed day arrays.
@@ -811,5 +814,32 @@
 | **Calendar Drawer & Lifecycle Tests** | Integration | `node scripts/verify_calendar_drawer_scenarios.mjs` | 6 scenarios pass | 6/6 passed | 0 | 🟢 PASS |
 | **DashboardShell Regression Tests** | Regression | `node scripts/test_dashboard_shell.mjs` | 19 tests pass | 19/19 passed | 0 | 🟢 PASS |
 | **TypeScript Compilation** | Type Check | `npx tsc --noEmit` | Clean compilation, 0 errors | 0 errors | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+---
+
+## 23. Phase 5: Focused Verification & AST Integration Suite (`appointment_calender_plan.md`)
+
+- **Scope & Purpose**: Executed Phase 5 of `appointment_calender_plan.md`. Authored and executed the automated AST and integration test suite `scripts/verify_appointment_ui_integration.mjs` to comprehensively verify cross-layer appointment lifecycle interactions, status guards, public slot generation, and working hours API contracts.
+- **Plan Reference**: Phase 5 of `docs/feature/appointment/appointment_calender_plan.md`.
+- **Files Added / Modified**:
+  - `scripts/verify_appointment_ui_integration.mjs`: Added automated test suite validating:
+    - V1: `AppointmentDetailsPanel` exposes Complete and Cancel buttons calling `completeAppointment` / `cancelAppointment` with accessible warning dialog.
+    - V2: `AppointmentDetailsPanel` hides Edit/Reschedule button when `status === "COMPLETED"` or `"CANCELLED"`.
+    - V3: `app/[slug]/page.tsx` calls `getPublicAvailableSlots` dynamically without static slot fallback, with `Loader2` spinner and courteous empty state.
+    - V4: `EditWorkingHoursModal` dispatches `updateDoctorWorkingHours` to backend API and updates local cache with `isSaving` state.
+    - V5: `CalendarTab.tsx` fetches authoritative `getDoctorWorkingHours` on mount to prevent split-brain state drift.
+    - V6: `lib/api.ts` exports `getDoctorWorkingHours` and `updateDoctorWorkingHours` with typed response and update schemas.
+    - V7: `calendarUtils.ts` `WorkingHoursConfig` schema supports both `closed_days` and `breakTime` with default Sunday closure.
+  - `package.json`: Added `"test:integration": "node scripts/verify_appointment_ui_integration.mjs"` and chained into `"npm test"`.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Integration Suite (V1–V7)** | AST/Integration | `node scripts/verify_appointment_ui_integration.mjs` | 7 checks pass | 7/7 passed (100%) | 0 | 🟢 PASS |
+| **Frontend Test Suite** | Automated Tests | `npm test` | All 5 test suites pass | 69 passed | 0 | 🟢 PASS |
+| **TypeScript Compilation** | Type Check | `npx tsc --noEmit` | Clean compilation, 0 errors | 0 errors | 0 | 🟢 PASS |
+| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean | 0 | 🟢 PASS |
 
 - **Manual Steps Pending**: None.
