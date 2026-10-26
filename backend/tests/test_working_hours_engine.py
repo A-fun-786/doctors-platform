@@ -16,7 +16,10 @@ from app.core.cache import set_cached_slots, get_cached_slots
 from app.main import app
 from app.models.base import Base
 from app.models.doctor import Doctor
-from datetime import date
+from app.models.schedule import Schedule
+from app.models.appointment import Appointment
+from app.services import schedule_service
+from datetime import date, time, datetime
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -303,3 +306,193 @@ def test_alembic_migration_009_bidirectional(tmp_path):
 
     # 3. Re-upgrade to head (009)
     command.upgrade(alembic_cfg, "head")
+
+
+# ==============================================================================
+# Phase 2 Test 3: Slot generation from shifts & closed day guard
+# ==============================================================================
+def test_3_slot_generation_from_shifts_and_closed_day(db_session, test_doctor):
+    """
+    Asserts 14 slots on weekdays, 0 on Sunday (closed_days=[6]).
+    Default shifts: Morning 10:00-13:00 (6 slots), Evening 16:00-20:00 (8 slots).
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [6],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Wednesday: 2026-11-04 (weekday == 2, not closed)
+    weekday_date = date(2026, 11, 4)
+    weekday_slots = schedule_service.generate_available_slots(test_doctor.id, weekday_date, db_session)
+    assert len(weekday_slots) == 14
+    assert weekday_slots[0] == {"start": "10:00", "end": "10:30"}
+    assert weekday_slots[5] == {"start": "12:30", "end": "13:00"}
+    assert weekday_slots[6] == {"start": "16:00", "end": "16:30"}
+    assert weekday_slots[13] == {"start": "19:30", "end": "20:00"}
+
+    # Sunday: 2026-11-08 (weekday == 6, closed)
+    sunday_date = date(2026, 11, 8)
+    sunday_slots = schedule_service.generate_available_slots(test_doctor.id, sunday_date, db_session)
+    assert sunday_slots == []
+
+
+# ==============================================================================
+# Phase 2 Test 4: Precedence - Explicit AVAILABLE records override shifts
+# ==============================================================================
+def test_4_precedence_explicit_available_wins(db_session, test_doctor):
+    """
+    When explicit Schedule(type='AVAILABLE') records exist for a date,
+    they take absolute precedence and the doctor's recurring shifts are ignored.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [6],
+    }
+    db_session.add(test_doctor)
+
+    target_date = date(2026, 11, 5)  # Thursday
+    # Add an explicit one-off AVAILABLE window 08:00 - 09:00 (2 slots)
+    explicit_schedule = Schedule(
+        doctor_id=test_doctor.id,
+        date=target_date,
+        start_time=time(8, 0),
+        end_time=time(9, 0),
+        type="AVAILABLE",
+    )
+    db_session.add(explicit_schedule)
+    db_session.commit()
+
+    slots = schedule_service.generate_available_slots(test_doctor.id, target_date, db_session)
+    assert len(slots) == 2
+    assert slots == [
+        {"start": "08:00", "end": "08:30"},
+        {"start": "08:30", "end": "09:00"},
+    ]
+
+
+# ==============================================================================
+# Phase 2 Additional Tests: Past-Slot Guard, Exclusions, and Disabled Shifts
+# ==============================================================================
+def test_past_slot_guard_filters_expired_intervals(db_session, test_doctor):
+    """
+    When query_date == date.today(), candidate intervals where end_time <= now.time()
+    are filtered out.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    today_date = date(2026, 11, 4)
+    # Simulated current time at 11:15 AM
+    simulated_now = datetime(2026, 11, 4, 11, 15)
+
+    slots = schedule_service.generate_available_slots(
+        test_doctor.id,
+        today_date,
+        db_session,
+        now=simulated_now,
+    )
+
+    # Morning slots 10:00-10:30 (end 10:30 <= 11:15) and 10:30-11:00 (end 11:00 <= 11:15) must be dropped.
+    # 11:00-11:30 (end 11:30 > 11:15) should be kept.
+    # Remaining: 4 morning slots + 8 evening slots = 12 slots.
+    assert len(slots) == 12
+    starts = [s["start"] for s in slots]
+    assert "10:00" not in starts
+    assert "10:30" not in starts
+    assert "11:00" in starts
+    assert "16:00" in starts
+
+    # If current time is 20:30 PM (after all shifts end)
+    simulated_late_now = datetime(2026, 11, 4, 20, 30)
+    slots_late = schedule_service.generate_available_slots(
+        test_doctor.id,
+        today_date,
+        db_session,
+        now=simulated_late_now,
+    )
+    assert slots_late == []
+
+
+def test_shift_slot_generation_with_leave_and_appointment_exclusions(db_session, test_doctor):
+    """
+    Exclusions (LEAVE, BLOCKED, HOLIDAY) and occupied appointments (BOOKED, COMPLETED)
+    are correctly subtracted from shift-generated candidate slots.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [],
+    }
+    db_session.add(test_doctor)
+
+    q_date = date(2026, 11, 4)
+    # Doctor takes leave between 16:00 and 17:00 (removes 16:00-16:30 and 16:30-17:00)
+    leave = Schedule(
+        doctor_id=test_doctor.id,
+        date=q_date,
+        start_time=time(16, 0),
+        end_time=time(17, 0),
+        type="LEAVE",
+    )
+    # Patient has a booked appointment at 10:00 - 10:30
+    apt = Appointment(
+        doctor_id=test_doctor.id,
+        date=q_date,
+        start_time=time(10, 0),
+        end_time=time(10, 30),
+        status="BOOKED",
+        patient_name="John Doe",
+        patient_contact="john@example.com",
+    )
+    db_session.add_all([leave, apt])
+    db_session.commit()
+
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    # Total candidate slots = 14. Exclusions = 2 (leave) + 1 (booked) = 3. Valid slots = 11.
+    assert len(slots) == 11
+    starts = [s["start"] for s in slots]
+    assert "10:00" not in starts
+    assert "10:30" in starts
+    assert "16:00" not in starts
+    assert "16:30" not in starts
+    assert "17:00" in starts
+
+
+def test_shift_slot_generation_disabled_shift_ignored(db_session, test_doctor):
+    """
+    Disabled shifts within doctor.working_hours do not generate candidate slots.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": False},
+        ],
+        "closed_days": [],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    q_date = date(2026, 11, 4)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    # Only morning shift (10:00-13:00) produces 6 slots; evening shift is disabled.
+    assert len(slots) == 6
+    starts = [s["start"] for s in slots]
+    assert starts == ["10:00", "10:30", "11:00", "11:30", "12:00", "12:30"]
+

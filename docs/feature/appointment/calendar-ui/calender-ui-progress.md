@@ -15,6 +15,7 @@
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
 12. **Database Migration & Doctor Working Hours Persistence (appointment_calender_plan.md Phase 1)**: Executed Phase 1 of `appointment_calender_plan.md`. Added Alembic migration `009_add_working_hours_to_doctor.py` introducing a `working_hours` JSON column on the `doctors` table with bidirectional `upgrade()` and `downgrade()` routines, automated fallback seeding for existing rows, and dialect-neutral text binding supporting SQLite and PostgreSQL (`--sql` verified). Updated SQLAlchemy `Doctor` model to declare `working_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)`. Created robust Pydantic schemas (`WorkingHoursShift`, `DoctorWorkingHoursUpdate`, `DoctorWorkingHoursResponse`) with 30-minute interval validation, start < end enforcement, non-overlapping active shift detection, and max 4 shifts per day ceiling. Added `GET /api/v1/doctor/working-hours` and rate-limited `PUT /api/v1/doctor/working-hours` (`30/minute`) with cache invalidation (`invalidate_slot_cache`) and structured telemetry logging (`doctor.working_hours_updated`). Added automated backend pytest suite (`backend/tests/test_working_hours_engine.py`) with 10 unit and migration tests (136/136 backend tests passing).
+13. **Slot Generation Engine Harmonization (appointment_calender_plan.md Phase 2)**: Executed Phase 2 of `appointment_calender_plan.md`. Enhanced `generate_available_slots` in `backend/app/services/schedule_service.py` to enforce explicit schedule precedence over recurring shifts, fallback to doctor configured `working_hours` when no date-specific `AVAILABLE` entries exist, evaluate ISO weekday closure (`closed_days`), filter out expired intervals on the current date (`end_time <= now.time()`), and preserve subtraction of leaves, holidays, blocked windows, and booked appointments. Expanded test suite in `backend/tests/test_working_hours_engine.py` (15/15 tests passing, 141/141 full suite passing).
 
 ---
 
@@ -572,9 +573,9 @@
   - Maintain operational legend bar on top across both WeekView and DayView for UI parity.
   - Ensure doctor shift updates continue to invalidate cached public slot queries immediately.
 - **Follow-ups**:
-  - Phase 2: Harmonize `generate_available_slots` engine in `schedule_service.py` to calculate slots from `doctor.working_hours`.
-  - Phase 3: Add Complete and Cancel lifecycle transition buttons in `AppointmentDetailsPanel.tsx`.
-  - Phase 4: Dynamic public slot booking restoration in `app/[slug]/page.tsx`.
+  - Phase 3: Add Complete and Cancel lifecycle transition buttons in `AppointmentDetailsPanel.tsx` and fix edit guard bug.
+  - Phase 4: Dynamic public slot booking restoration in `app/[slug]/page.tsx` and kill split-brain working hours in UI.
+  - Phase 5: Verification ast scripts and test runner integration.
 
 ---
 
@@ -601,5 +602,39 @@
   - Slot verification scripts (`verify_phase9_clean_slots.mjs`, `verify_calendar_drawer_scenarios.mjs`, `verify_calendar_qa_scenarios.mjs`, `verify_empty_slot_plan.mjs`): 25/25 checks passed (100%).
   - `npm run lint`: Clean (0 errors, 0 warnings).
   - `npm run build`: Production Next.js build compiled successfully (8/8 static pages prerendered).
+
+---
+
+## 19. Phase 2: Slot Generation Engine Harmonization (`appointment_calender_plan.md`)
+
+- **Scope & Purpose**: Harmonized the core backend slot generation engine (`generate_available_slots`) in `schedule_service.py` to seamlessly blend explicit per-date schedule entries with doctor recurring working hours, ISO weekday closures, past-slot guards, and collision exclusions.
+- **Files Modified**:
+  - `backend/app/services/schedule_service.py`: Added explicit schedule precedence, shift fallback from `Doctor.working_hours`, ISO `closed_days` filtering, past-slot guard for `query_date == date.today()`, and optional `now: Optional[datetime] = None` testing parameter.
+  - `backend/tests/test_working_hours_engine.py`: Added comprehensive unit test coverage covering shift slot generation, closed day suppression, explicit schedule override precedence, past-slot filtering, and exclusion subtraction.
+- **Architectural Decisions**:
+  - **Precedence Rule**: Explicit `Schedule(type="AVAILABLE")` entries are evaluated first; if present, recurring shifts are omitted for that day, giving doctors surgical control over specific days.
+  - **Shift Fallback**: When no date-specific `AVAILABLE` records exist, the engine queries `Doctor.working_hours`. If configured, active enabled shifts are sliced into contiguous 30-minute intervals ($[t, t+30\text{m})$).
+  - **ISO Weekday Closed Days**: Evaluates `query_date.weekday()` against `closed_days` (ISO: Monday=0 ... Sunday=6). Closed days immediately produce 0 candidate slots.
+  - **Past-Slot Guard**: When querying the current date (`query_date == date.today()`), slots with `end_time <= datetime.now().time()` are filtered out before collision analysis.
+  - **Optional Parameter for Determinism**: `generate_available_slots(doctor_id, query_date, db, now=None)` accepts an optional `now: Optional[datetime]` timestamp that defaults to `datetime.now()`, ensuring 100% backward compatibility while allowing exact deterministic clock simulations in unit tests.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Shift Engine & Guard Tests** | Unit | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 15 tests pass | 15 passed in 2.79s | 0 | 🟢 PASS |
+| **Legacy Slot Engine Tests** | Unit | `backend/.venv/bin/pytest backend/tests/test_slot_generation.py` | 14 tests pass | 14 passed in 1.74s | 0 | 🟢 PASS |
+| **Full Backend Suite** | Regression | `backend/.venv/bin/pytest backend/tests` | 141 tests pass (Baseline: 136) | 141 passed in 70.26s | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass | 62 passed in 1.5s | 0 | 🟢 PASS |
+| **Live API: Working Hours** | Manual/cURL | `GET & PUT /doctor/working-hours` | 200 OK, saved shifts & closed days | Verified 200 OK | 0 | 🟢 PASS |
+| **Live API: Shift Fallback** | Manual/cURL | `GET /doctor/available-slots?date=2026-11-04` | 14 slots (10:00-13:00, 16:00-20:00) | 14 slots returned | 0 | 🟢 PASS |
+| **Live API: Closed Day** | Manual/cURL | `GET /doctor/available-slots?date=2026-11-08` | `[]` (Sunday in closed_days=[6]) | `[]` returned | 0 | 🟢 PASS |
+| **Live API: Precedence Override** | Manual/cURL | `POST /doctor/schedule` then `GET ...` | Explicit 08:00-09:00 overrides shifts | 2 slots returned (08:00, 08:30) | 0 | 🟢 PASS |
+| **Live API: Public Practice** | Manual/cURL | `GET /public/tenants/{slug}/available-slots` | Public returns slots with TTL cache | 200 OK, slots verified | 0 | 🟢 PASS |
+| **Live API: Past-Slot Guard** | Manual/cURL | `GET /doctor/available-slots?date=TODAY` | Expired intervals <= now filtered out | Only remaining evening slots | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+
 
 

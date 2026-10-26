@@ -1,11 +1,12 @@
 import uuid
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import List, Optional, Tuple, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
+from app.models.doctor import Doctor
 from app.schemas.schedule import ScheduleCreateRequest
 
 
@@ -148,15 +149,19 @@ def generate_available_slots(
     doctor_id: uuid.UUID,
     query_date: date,
     db: Session,
+    now: Optional[datetime] = None,
 ) -> List[Dict[str, str]]:
     """
     Deterministic 30-minute slot generation engine:
-    1. Query AVAILABLE schedule intervals on query_date.
-    2. Slice into contiguous 30m slots; discard fragments < 30m.
-    3. Query exclusions (LEAVE, HOLIDAY, BLOCKED).
-    4. Query occupied appointments (BOOKED, COMPLETED).
-    5. Discard candidate slots overlapping any exclusion or occupied appointment.
-    6. Return sorted available slots.
+    1. Precedence Rule: Check explicit AVAILABLE schedule intervals on query_date.
+    2. Shift Fallback: If no AVAILABLE records exist and doctor has working_hours:
+       - Check query_date.weekday() against closed_days (ISO: Mon=0 ... Sun=6).
+       - Slice enabled shifts into 30m slots.
+    3. Past-Slot Guard: If query_date == date.today(), filter out candidate intervals
+       where end_time <= datetime.now().time().
+    4. Exclusions: Subtract LEAVE, HOLIDAY, BLOCKED schedule windows.
+    5. Subtract occupied appointments (BOOKED, COMPLETED).
+    6. Return deduplicated, sorted available slots.
     """
     available_schedules = (
         db.query(Schedule)
@@ -169,20 +174,63 @@ def generate_available_slots(
         .all()
     )
 
-    if not available_schedules:
+    candidate_slots: List[Tuple[int, int]] = []
+
+    if available_schedules:
+        # Step A: Explicit AVAILABLE schedule records take precedence
+        for sched in available_schedules:
+            start_m = _time_to_minutes(sched.start_time)
+            end_m = _time_to_minutes(sched.end_time)
+            curr = start_m
+            while curr + 30 <= end_m:
+                candidate_slots.append((curr, curr + 30))
+                curr += 30
+    else:
+        # Step B: Shift Fallback from Doctor.working_hours
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+        if doctor and doctor.working_hours:
+            working_hours = doctor.working_hours
+            if isinstance(working_hours, str):
+                import json
+                try:
+                    working_hours = json.loads(working_hours)
+                except Exception:
+                    working_hours = {}
+
+            closed_days = working_hours.get("closed_days", [])
+            # Evaluate query_date.weekday() against closed_days (ISO: Monday=0 ... Sunday=6)
+            if query_date.weekday() not in closed_days:
+                shifts = working_hours.get("shifts", [])
+                for shift in shifts:
+                    if shift.get("enabled", True):
+                        start_h, start_m = map(int, shift["start"].split(":"))
+                        end_h, end_m = map(int, shift["end"].split(":"))
+                        s_start = start_h * 60 + start_m
+                        s_end = end_h * 60 + end_m
+                        curr = s_start
+                        while curr + 30 <= s_end:
+                            candidate_slots.append((curr, curr + 30))
+                            curr += 30
+
+    if not candidate_slots:
         return []
 
-    # Step B: Slicing into 30m slots
-    candidate_slots: List[Tuple[int, int]] = []
-    for sched in available_schedules:
-        start_m = _time_to_minutes(sched.start_time)
-        end_m = _time_to_minutes(sched.end_time)
-        curr = start_m
-        while curr + 30 <= end_m:
-            candidate_slots.append((curr, curr + 30))
-            curr += 30
+    # Step C: Past-Slot Guard
+    # If query_date is today, filter out candidate intervals where end_time <= now.time()
+    current_dt = now or datetime.now()
+    if query_date == current_dt.date():
+        curr_time = current_dt.time()
+        filtered_candidates: List[Tuple[int, int]] = []
+        for s_start, s_end in candidate_slots:
+            slot_end_t = time(s_end // 60, s_end % 60) if s_end < 1440 else time(23, 59, 59)
+            if slot_end_t > curr_time:
+                filtered_candidates.append((s_start, s_end))
+        candidate_slots = filtered_candidates
 
-    # Step C: Exclusion windows (LEAVE, HOLIDAY, BLOCKED)
+    if not candidate_slots:
+        return []
+
+    # Step D: Exclusion windows (LEAVE, HOLIDAY, BLOCKED)
     exclusions = (
         db.query(Schedule)
         .filter(
@@ -202,7 +250,7 @@ def generate_available_slots(
             e_end = 24 * 60
         exclusion_intervals.append((e_start, e_end))
 
-    # Step D: Occupied Appointments (BOOKED, COMPLETED)
+    # Step E: Occupied Appointments (BOOKED, COMPLETED)
     appointments = (
         db.query(Appointment)
         .filter(
@@ -219,7 +267,7 @@ def generate_available_slots(
             a_end = 24 * 60
         exclusion_intervals.append((a_start, a_end))
 
-    # Step E: Intersection & Subtraction
+    # Step F: Intersection & Subtraction
     valid_slots: List[Dict[str, str]] = []
     # Deduplicate candidate slots if any duplicate windows existed
     seen_slots = set()
@@ -241,6 +289,6 @@ def generate_available_slots(
                 "end": _minutes_to_time_str(s_end),
             })
 
-    # Step F: Sort by start
+    # Step G: Sort by start
     valid_slots.sort(key=lambda s: s["start"])
     return valid_slots
