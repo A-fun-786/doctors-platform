@@ -1,6 +1,6 @@
 # Progress: Calendar UI Enhancements & Cleanups
 
-**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`, `dayview_legend_bar_plan.md` | **Base SHA**: `e4dd560` | **Branch**: `calendar-ui` | **Status**: Verified ✅
+**Plans**: `removal-plan.md`, `google_calendar_removal_plan.md`, `phase3-verification-plan.md`, `calendar_empty_slot_plan.md`, `CALENDAR_SLOT_DETAILS_DRAWER_PLAN.md`, `dayview_legend_bar_plan.md`, `appointment_calender_plan.md` | **Base SHA**: `1fe949c` | **Branch**: `calendar-ui` | **Status**: Verified ✅
 
 ## 1. Summary & Scope
 1. **Appointments & Schedule Tabs Removal (Phase 1)**: Removed obsolete "schedule" and "appointments" navigation tabs and rendering blocks from `DashboardShell` and `page.tsx`. Deleted `AppointmentsTab.tsx`, `ScheduleTab.tsx`, and `components/dashboard/appointments/` (14 files).
@@ -14,8 +14,10 @@
 9. **Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention (Phase 9)**: Executed clean calendar slots refinements. Inside booked appointment slots in WeekView, stripped out all secondary time ranges and visit reasons to prevent vertical clipping, displaying solely the patient's name in bold high-contrast typography. Streamlined unbooked intervals to render as uniform empty slots with 1-click booking affordance. Completely eliminated all "Break" / "Break Time" / "Lunch Break" banners to maintain an uninterrupted schedule view. In DayView, rendered appointment cards with prominent patient name and visit reason alongside clean empty slot triggers.
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
-12. **Break Time Slot Standardization & Centralized String Architecture (Phase 12)**: Executed break time slot standardization and single-string architecture across calendar views and modals. Fully eliminated "lunch" and "rest" vocabulary across the codebase in favor of strictly "Break Time". Removed break display from the sidebar "Working Hours" card (`WorkingHoursCard.tsx`) so it strictly displays doctor active shifts. Established single source of truth string constants (`BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, `BREAK_TIME_SUBTITLE`) in `constants.ts` and unified formatter `formatBreakTimeTitle` in `calendarUtils.ts`. Updated `DayView.tsx` to match `WeekView.tsx` with a single-line horizontal card layout (`BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`), eliminating multi-line clutter and text repetition. Maintained dynamic break calculations in the "Customize Working Hours" modal (`EditWorkingHoursModal.tsx`). Verified via comprehensive automated test suite `scripts/test_break_time_suite.mjs` (16/16 passed, 100%).
-13. **Complete Calendar Sidebar Quick Actions Card Elimination (Phase 13)**: Completely eliminated `QuickActionsCard` and its fast-action triggers ('Add Appointment' and 'Block Time / Leave') from the calendar sidebar. Removed component file `QuickActionsCard.tsx`. Pruned `QuickActionsCard` import, props (`onAddAppointment`, `onBlockTime`), and JSX rendering block from `CalendarSidebar.tsx`. Cleaned up `<CalendarSidebar />` invocation in `CalendarTab.tsx` by removing unused callback props and updating comments. Streamlined the calendar sidebar to strictly contain the Google Calendar `MiniCalendar` and active `WorkingHoursCard`. Validated via automated unit test suite `scripts/test_sidebar_quick_actions_clean.mjs` (11/11 passed, 100%) and TypeScript compiler check (`npx tsc --noEmit`, 0 errors).
+12. **Database Migration & Doctor Working Hours Persistence (appointment_calender_plan.md Phase 1)**: Executed Phase 1 of `appointment_calender_plan.md`. Added Alembic migration `009_add_working_hours_to_doctor.py` introducing a `working_hours` JSON column on the `doctors` table with bidirectional `upgrade()` and `downgrade()` routines, automated fallback seeding for existing rows, and dialect-neutral text binding supporting SQLite and PostgreSQL (`--sql` verified). Updated SQLAlchemy `Doctor` model to declare `working_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)`. Created robust Pydantic schemas (`WorkingHoursShift`, `DoctorWorkingHoursUpdate`, `DoctorWorkingHoursResponse`) with 30-minute interval validation, start < end enforcement, non-overlapping active shift detection, and max 4 shifts per day ceiling. Added `GET /api/v1/doctor/working-hours` and rate-limited `PUT /api/v1/doctor/working-hours` (`30/minute`) with cache invalidation (`invalidate_slot_cache`) and structured telemetry logging (`doctor.working_hours_updated`). Added automated backend pytest suite (`backend/tests/test_working_hours_engine.py`) with 10 unit and migration tests (136/136 backend tests passing).
+13. **Slot Generation Engine Harmonization (appointment_calender_plan.md Phase 2)**: Executed Phase 2 of `appointment_calender_plan.md`. Enhanced `generate_available_slots` in `backend/app/services/schedule_service.py` to enforce explicit schedule precedence over recurring shifts, fallback to doctor configured `working_hours` when no date-specific `AVAILABLE` entries exist, evaluate ISO weekday closure (`closed_days`), filter out expired intervals on the current date (`end_time <= now.time()`), and preserve subtraction of leaves, holidays, blocked windows, and booked appointments. Expanded test suite in `backend/tests/test_working_hours_engine.py` (15/15 tests passing, 141/141 full suite passing).
+14. **Break Time Slot Standardization & Centralized String Architecture (Phase 12)**: Executed break time slot standardization and single-string architecture across calendar views and modals. Fully eliminated "lunch" and "rest" vocabulary across the codebase in favor of strictly "Break Time". Removed break display from the sidebar "Working Hours" card (`WorkingHoursCard.tsx`) so it strictly displays doctor active shifts. Established single source of truth string constants (`BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, `BREAK_TIME_SUBTITLE`) in `constants.ts` and unified formatter `formatBreakTimeTitle` in `calendarUtils.ts`. Updated `DayView.tsx` to match `WeekView.tsx` with a single-line horizontal card layout (`BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`), eliminating multi-line clutter and text repetition. Maintained dynamic break calculations in the "Customize Working Hours" modal (`EditWorkingHoursModal.tsx`). Verified via comprehensive automated test suite `scripts/test_break_time_suite.mjs` (16/16 passed, 100%).
+15. **Complete Calendar Sidebar Quick Actions Card Elimination (Phase 13)**: Completely eliminated `QuickActionsCard` and its fast-action triggers ('Add Appointment' and 'Block Time / Leave') from the calendar sidebar. Removed component file `QuickActionsCard.tsx`. Pruned `QuickActionsCard` import, props (`onAddAppointment`, `onBlockTime`), and JSX rendering block from `CalendarSidebar.tsx`. Cleaned up `<CalendarSidebar />` invocation in `CalendarTab.tsx` by removing unused callback props and updating comments. Streamlined the calendar sidebar to strictly contain the Google Calendar `MiniCalendar` and active `WorkingHoursCard`. Validated via automated unit test suite `scripts/test_sidebar_quick_actions_clean.mjs` (11/11 passed, 100%) and TypeScript compiler check (`npx tsc --noEmit`, 0 errors).
 
 ---
 
@@ -395,14 +397,65 @@
 
 ---
 
-## 12. Key Changes (Phase 12 — Break Time Standardization, Sidebar Working Hours Cleanup & Single String Concept)
+## 12. Key Changes (Phase 12 — Database Migration & Doctor Working Hours Persistence — appointment_calender_plan.md Phase 1)
 
-### 12a. Complete Vocabulary Standardization & Elimination of "Lunch" and "Rest"
+### 12a. Alembic Migration `009_add_working_hours_to_doctor.py`
+- Added column `working_hours` of type `JSON` (nullable) to the `doctors` table using `op.batch_alter_table("doctors")`.
+- Implemented safe bidirectional `upgrade()` and `downgrade()` routines.
+- Seeded default shift configuration for existing doctor rows where `working_hours IS NULL`:
+  ```json
+  {
+    "shifts": [
+      {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": true},
+      {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": true}
+    ],
+    "closed_days": [0]
+  }
+  ```
+- Used parameter-bound SQL updates (`UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL`) guaranteeing flawless compatibility in both online database transactions and offline static DDL generation (`alembic upgrade ... --sql`).
+
+### 12b. SQLAlchemy Model & Pydantic Validation Schemas
+- **SQLAlchemy Doctor Model (`backend/app/models/doctor.py`)**:
+  - Imported `JSON` from `sqlalchemy`.
+  - Added `working_hours: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)`.
+- **Pydantic Validation Schemas (`backend/app/schemas/schedule.py`)**:
+  - `WorkingHoursShift`: Validates shift `id`, `label`, `start`, `end`, and `enabled`. Enforces regex `^([01]\d|2[0-3]):[0-5]\d$`, strictly requires `start < end`, and verifies both start and end minute boundaries are multiples of 30 (`minute % 30 == 0`).
+  - `DoctorWorkingHoursUpdate`: Validates list of shifts (`max_length=4`) and `closed_days` array. Enforces day index range (0–6), checks for duplicate closed days, and asserts that active (enabled) shifts do not chronologically overlap.
+  - `DoctorWorkingHoursResponse`: Strongly-typed API response schema returning `shifts` and `closed_days`.
+  - `DEFAULT_DOCTOR_WORKING_HOURS`: Centralized fallback constant providing the 2-shift default schedule (Morning 10:00–13:00, Evening 16:00–20:00, Sunday closed).
+
+### 12c. Working Hours API Endpoints & Telemetry (`backend/app/api/routes/schedule.py`)
+- `GET /api/v1/doctor/working-hours`: Returns current doctor's working shifts and closed days. If `working_hours` is null in the database, falls back gracefully to `DEFAULT_DOCTOR_WORKING_HOURS`.
+- `PUT /api/v1/doctor/working-hours`:
+  - Rate limited via `@limiter.limit("30/minute")`.
+  - Validates payload against `DoctorWorkingHoursUpdate` (30m bounds, duration, overlaps, max 4 shifts).
+  - Persists JSON configuration to `current_doctor.working_hours` and commits transaction.
+  - Automatically invokes `invalidate_slot_cache(current_doctor.id)` to purge cached public slot availability.
+  - Emits structured telemetry log event: `doctor.working_hours_updated` with doctor ID, shift count, enabled shift count, and closed days.
+
+### 12d. Automated Pytest Test Suite (`backend/tests/test_working_hours_engine.py`)
+- Added 10 automated backend tests covering:
+  - T1: `GET /doctor/working-hours` returns default shifts for unconfigured doctor accounts.
+  - T2: `PUT /doctor/working-hours` successfully stores and returns valid shift updates and persists to database.
+  - T3: Inverted time ranges (`start >= end`) are rejected with 422 Unprocessable Entity.
+  - T4: Zero-duration shifts (`start == end`) are rejected with 422 Unprocessable Entity.
+  - T5: Non-30m step intervals (e.g., 10:15) are rejected with 422 Unprocessable Entity.
+  - T6: Chronologically overlapping enabled shifts are rejected with 422 Unprocessable Entity.
+  - T7: Overlapping disabled (draft) shifts are allowed without validation error.
+  - T8: Payloads exceeding the 4-shift daily ceiling are rejected with 422 Unprocessable Entity.
+  - T9: Cache invalidation verification confirming `invalidate_slot_cache` purges cached doctor dates on shift update.
+  - T10: Alembic migration 009 bidirectional test (`upgrade head` -> `downgrade 008` -> `upgrade head`).
+
+---
+
+## 13. Key Changes (Phase 13 — Break Time Standardization, Sidebar Working Hours Cleanup & Single String Concept)
+
+### 13a. Complete Vocabulary Standardization & Elimination of "Lunch" and "Rest"
 - Fully eliminated the terms `"lunch"` and `"rest"` (including `"Lunch & Rest Break"`, `"Scheduled lunch & rest interval"`, `"Break Time (Rest)"`, `"Clinic rest interval"`) from the entire frontend codebase and logic.
 - Standardized strictly on the clean, professional term **`"Break Time"`**.
 - Configured default and dynamic break labels in `DEFAULT_WORKING_HOURS.breakTime.label` and `getDoctorBreakInterval` fallback to strictly `"Break Time"`.
 
-### 12b. Centralized Single Source of Truth String Architecture (`constants.ts`, `calendarUtils.ts`)
+### 13b. Centralized Single Source of Truth String Architecture (`constants.ts`, `calendarUtils.ts`)
 - **Shared Constants (`constants.ts`)**:
   - Defined centralized, type-safe string constants to eliminate ad-hoc hardcoded strings:
     ```typescript
@@ -414,13 +467,13 @@
   - Implemented `formatBreakTimeTitle(startLabel: string, endLabel: string): string` returning `${BREAK_TIME_LABEL} (${startLabel} – ${endLabel})`.
   - Both `DayView.tsx` and `WeekView.tsx` consume this single helper, guaranteeing 100% string uniformity across calendar views.
 
-### 12c. Sidebar "Working Hours" Card Cleanup (`WorkingHoursCard.tsx`)
+### 13c. Sidebar "Working Hours" Card Cleanup (`WorkingHoursCard.tsx`)
 - **Strict Working Shifts Focus**:
   - Removed the break interval card block from `WorkingHoursCard.tsx`.
   - The sidebar "Working Hours" card now strictly displays the doctor's active clinical working shifts (Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM).
   - Pruned unused icons (`Coffee`) and hook dependencies (`getDoctorBreakInterval`, `useMemo`), maintaining a clean, distraction-free sidebar.
 
-### 12d. DayView Break Card Redesign for WeekView Parity (`DayView.tsx`)
+### 13d. DayView Break Card Redesign for WeekView Parity (`DayView.tsx`)
 - **Single String Concept / Horizontal Layout Parity**:
   - Replaced the previous multi-line stacked text (`<div><span>Break Time • Doctor On Break</span></div><div>Break Time (180 min)</div>`), which duplicated the words "Break Time" twice and caused visual clutter.
   - Implemented the streamlined single-line horizontal card layout:
@@ -429,12 +482,12 @@
     - **Badge**: Amber-styled `{BREAK_TIME_BADGE}` (`BREAK TIME`).
   - Legend indicator updated to `{BREAK_TIME_LABEL}`.
 
-### 12e. Dynamic Break Preview in Working Hours Modal (`EditWorkingHoursModal.tsx`)
+### 13e. Dynamic Break Preview in Working Hours Modal (`EditWorkingHoursModal.tsx`)
 - **Popup-Only Break Configuration Preview**:
   - Preserved the interactive auto-calculated break time preview strictly within the "Customize Doctor Working Hours" modal popup.
   - Displays dynamic gap calculation between morning and evening shifts with `{BREAK_TIME_BADGE}` badge and `BREAK_TIME_LABEL` save payload.
 
-### 12f. Comprehensive Automated Verification Suite (`test_break_time_suite.mjs`)
+### 13f. Comprehensive Automated Verification Suite (`test_break_time_suite.mjs`)
 - Added `scripts/test_break_time_suite.mjs` executing 16 automated tests covering:
   - Dynamic break interval calculations (180 min default, custom shift gap calculations, explicit override).
   - `isSlotInBreak` slot boundary detection.
@@ -443,10 +496,14 @@
 
 ---
 
-## 13. Decisions, Deviations & Assumptions
+## 14. Decisions, Deviations & Assumptions
+- **Decision (Doctor Working Hours JSON Column vs Normalized Relational Table)**: In `009_add_working_hours_to_doctor.py`, stored working hours shifts and closed days in a `JSON` column on `doctors` rather than creating a separate table.
+  - *Reasoning*: Doctor recurring shift configurations are compact (typically 1–2 shifts, max 4), read frequently with doctor profile, and always updated as a single coherent document. JSON column avoids additional joins during slot generation and profile queries.
+  - *Alternative Considered*: A `doctor_shifts` normalized table. Rejected as overengineered for max 4 rows per doctor and introduces complex cascade and foreign key overhead.
+- **Decision (Literal Binding Compatibility in Migration 009)**: Used parameter-bound text SQL (`UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL`) instead of raw Python dictionaries in `op.execute()`.
+  - *Reasoning*: Alembic `--sql` offline migration mode cannot render Python dictionary literals with `sa.JSON()` without explicit string serialization. The serialized text approach works identically across both online execution and offline static SQL generation.
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
-  - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
 - **Decision (Slide-in Drawer vs Stacked Modals)**: Replaced modal details with a fixed right-side slide-in drawer (`CalendarDrawer.tsx`).
   - *Reasoning*: Modals obscure the entire calendar grid and break context. The drawer allows doctors to inspect full clinical details and slot alternatives while keeping the operational calendar visible in the background.
 - **Decision (1-Click Clipboard Copying)**: Added copy buttons for Patient ID, Doctor ID, Appointment ID, Leave ID, Phone, and Email.
@@ -459,9 +516,7 @@
 - **Decision (Strict Omission of the Word "Today")**: Textual labels like "Today", "Today's Date", or "Go to Today" were omitted from the sidebar and mini-calendar. Instead, Google Calendar's visual badge conventions (solid blue circle or prominent blue ring) immediately signify the current day without unnecessary text clutter.
 - **Decision (Only Patient Name in Filled Slots & Break Omission)**: In Phase 9, crowded text inside calendar slot boxes was stripped away in favor of displaying only the patient name. Open slots were simplified into clean empty slots, and break time labels were completely removed to present a clean, uninterrupted schedule.
 - **Decision (DayView Top-Mounted Operational Legend Bar)**: In Phase 10, added the exact operational legend bar from `WeekView.tsx` to the top of `DayView.tsx` edge-to-edge.
-  - *Reasoning*: When switching between Day and Week views, doctors maintain a consistent, recognizable color-code guide without layout jump or missing context.
 - **Decision (Removal of DayView "Book Patient" Header Button)**: In Phase 10, removed the redundant "Book Patient" button from the `DayView.tsx` header.
-  - *Reasoning*: Unbooked slots already provide an interactive, 1-click booking affordance directly on the exact 30-minute window desired. A generic header button defaults to an arbitrary time (e.g. 10:00 AM) and causes layout imbalance in the header.
 - **Decision (Exclusive Working Hours Slot Display in DayView & WeekView)**: In Phase 11, restricted rendered slots across DayView and WeekView exclusively to active clinic working shifts (plus any special booked events).
   - *Reasoning*: Displaying non-working intervals (e.g. 9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM afternoon break, 8:00 PM – 9:00 PM) created visual clutter and allowed unintentional bookings during closed hours. Filtering rows strictly to active shifts presents a compact, high-efficiency schedule aligned with actual clinic operating hours.
 - **Decision (Elimination of "Lunch" and "Rest" Vocabulary — Phase 12)**: Standardized all break descriptions across the platform strictly to "Break Time".
@@ -471,19 +526,20 @@
 - **Decision (Single String Concept & WeekView Parity for DayView Break Slot — Phase 12)**: Converted the DayView break slot from two stacked rows to a single horizontal line matching WeekView.
   - *Reasoning*: Prevents redundant text repetition ("Break Time" displayed twice in the same card) and ensures complete layout and string consistency across Day and Week views.
 - **Deviations from Plan**: None.
-- **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
+- **Assumptions**: Unconfigured doctors default to the system standard shifts (10:00–13:00, 16:00–20:00, Sunday closed); leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 14. Verification Scorecard
+## 15. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
 | **TypeScript Compilation** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Validation** | `npm run lint` | 🟢 PASS | 0 warnings, 0 errors |
-| **Next.js Production Build** | `npm run build` | 🟢 PASS | 8/8 routes compiled |
-| **Backend Pytest Suite** | `pytest backend/` | 🟢 PASS | 126/126 passed |
-| **Alembic Migration Bidirectional Test** | `alembic downgrade -1 && alembic upgrade head` | 🟢 PASS | 008 upgrade & downgrade verified |
+| **Full Backend Pytest Suite** | `pytest backend/tests` | 🟢 PASS | 136/136 passed (100%) |
+| **Working Hours Engine Pytest Suite** | `pytest backend/tests/test_working_hours_engine.py` | 🟢 PASS | 10/10 passed (100%) |
+| **Alembic Migration 009 Bidirectional Test** | `alembic downgrade -1 && alembic upgrade head` | 🟢 PASS | 009 upgrade & downgrade cleanly verified |
+| **Alembic Static DDL SQL Generation** | `alembic upgrade 008:009 --sql` | 🟢 PASS | Clean PostgreSQL & SQLite compatible DDL generated |
 | **Appointments Unit Suite** | `node scripts/test_appointments_comprehensive.mjs` | 🟢 PASS | 30/30 passed |
 | **Calendar Utils Unit Suite** | `node scripts/test_calendar_utils.mjs` | 🟢 PASS | 32/32 passed (7/7 suites) |
 | **Calendar Acceptance QA Suite (C1–C7 & D2)** | `node scripts/verify_calendar_qa_scenarios.mjs` | 🟢 PASS | 8/8 passed |
@@ -492,7 +548,10 @@
 | **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
 | **Phase 9 & 10 Clean Slots, DayView Legend Bar & Header Cleanup Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 7/7 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions, DayView top legend bar, no redundant Book Patient button |
 | **Break Time Automated Suite (Phase 12)** | `node scripts/test_break_time_suite.mjs` | 🟢 PASS | 16/16 passed (100%) — dynamic gap calculation, booking guard, single string concept, WeekView parity, zero lunch/rest mentions |
+| **Sidebar Quick Actions Cleanup Suite (Phase 13)** | `node scripts/test_sidebar_quick_actions_clean.mjs` | 🟢 PASS | 11/11 passed (100%) — QuickActionsCard eliminated, clean sidebar structure |
+| **Live Working Hours API & Persistence (Agent-Executed)** | Live HTTP requests (`GET`/`PUT` `/api/v1/doctor/working-hours`) + SQLite DB check | 🟢 PASS | HTTP 200 persistence, 422 error boundaries (inverted ranges, non-30m step, overlaps), DB inspection verified |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
+
 
 ---
 
@@ -551,7 +610,14 @@
    - Confirm that empty slots in DayView show `[Start] – [End] | Empty Slot — Click to book` with an `EMPTY SLOT` badge.
    - Click an empty slot in DayView or WeekView; verify the `SlotActionModal` opens pre-filled to that exact 30-minute window.
    - If an appointment exists outside regular shifts, verify that its row is dynamically included and rendered without loss.
-11. **Break Time Standardization & Single String Concept (Phase 12)**:
+11. **Doctor Working Hours Persistence & Fallback Verification (Phase 12)**:
+   - Authenticate as a doctor via Bearer token.
+   - Query `GET /api/v1/doctor/working-hours`. Confirm returns default 2 shifts (Morning 10:00–13:00, Evening 16:00–20:00, closed Sunday [0]).
+   - Submit `PUT /api/v1/doctor/working-hours` with customized shifts (e.g. 09:00–12:00, 14:00–17:00, closed [0, 6]). Confirm HTTP 200 OK and database persistence.
+   - Submit invalid payload with start >= end (e.g. 15:00–12:00). Confirm HTTP 422 Unprocessable Entity.
+   - Submit invalid payload with non-30m step (e.g. 10:15–12:00). Confirm HTTP 422 Unprocessable Entity.
+   - Confirm cached public slots are purged upon successful shift update.
+12. **Break Time Standardization & Single String Concept (Phase 13)**:
    - In doctor dashboard, inspect WeekView and DayView break indicators.
    - In both views, verify the legend item displays strictly `Break Time` (without any `(Rest)` suffix).
    - In DayView, verify the break card displays a single clean horizontal string line: `BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)` with the `BREAK TIME` badge, with no duplicate text or stacked rows.
@@ -559,7 +625,7 @@
    - Confirm complete absence of the words "lunch" or "rest" across all calendar views and modals.
    - Inspect the sidebar `Working Hours` card: verify that only active clinical shifts (Morning Shift and Evening Shift) are listed, and that no break banner is rendered in this widget.
    - Click "Edit Hours" on the sidebar card: verify that the "Customize Doctor Working Hours" popup modal renders the dynamic `Break Time` preview between shifts.
-12. **Sidebar Quick Actions Card Elimination (Phase 13)**:
+13. **Sidebar Quick Actions Card Elimination (Phase 14)**:
    - In doctor dashboard, inspect the right-side operational sidebar (`CalendarSidebar`).
    - Confirm that the `QuickActionsCard` widget (and its buttons "Add Appointment" and "Block Time / Leave") is completely removed.
    - Verify the sidebar renders solely two clean cards: the Google Calendar `MiniCalendar` and active `WorkingHoursCard`.
@@ -580,16 +646,131 @@
   - Maintain operational legend bar on top across both WeekView and DayView for UI parity.
   - Strictly use centralized constants `BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, and `BREAK_TIME_SUBTITLE` for all break time rendering; do not introduce "lunch" or "rest" vocabulary.
   - Keep the sidebar `WorkingHoursCard.tsx` strictly focused on working shifts without displaying break times.
+  - Ensure doctor shift updates continue to invalidate cached public slot queries immediately.
 - **Follow-ups**:
-  - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
+  - Phase 3: Add Complete and Cancel lifecycle transition buttons in `AppointmentDetailsPanel.tsx` and fix edit guard bug.
+  - Phase 4: Dynamic public slot booking restoration in `app/[slug]/page.tsx` and kill split-brain working hours in UI.
+  - Phase 5: Verification ast scripts and test runner integration.
 
 ---
 
 ## 17. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
-  ```powershell
+  ```bash
   cd backend
-  .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
+  .venv/bin/alembic downgrade 008_add_patient_details_to_appointments
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, 10, 11, or 12. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: Reverting migration `009_add_working_hours_to_doctor` safely drops the `working_hours` JSON column from the `doctors` table without affecting appointments, patients, schedules, tenants, or doctor authentication credentials. Reverting frontend code safely restores previous UI layouts without altering database records.
+
+---
+
+## 18. Branch Integration: Merge `calendar-ui` into `appointment-system`
+- **Target Branch**: `appointment-system` (HEAD: `0ffe0af`)
+- **Source Branch**: `calendar-ui` (HEAD: `f19b3a8`)
+- **Merge Strategy**: 3-way merge (`git merge --no-commit calendar-ui`)
+- **Merge Conflicts**: 0 conflicts; clean merge. All changes from `calendar-ui` successfully integrated into `appointment-system`.
+- **Verification Results**:
+  - `npm run test` (Comprehensive appointment test suite + calendar utils): 30/30 & 32/32 tests passed (100%).
+  - `npm run test:shell` (Dashboard shell layout and responsive suites): 19/19 tests passed (100%).
+  - `backend/.venv/bin/pytest backend/tests/`: 50/50 tests passed (100%).
+  - Slot verification scripts (`verify_phase9_clean_slots.mjs`, `verify_calendar_drawer_scenarios.mjs`, `verify_calendar_qa_scenarios.mjs`, `verify_empty_slot_plan.mjs`): 25/25 checks passed (100%).
+  - `npm run lint`: Clean (0 errors, 0 warnings).
+  - `npm run build`: Production Next.js build compiled successfully (8/8 static pages prerendered).
+
+---
+
+## 19. Phase 2: Slot Generation Engine Harmonization (`appointment_calender_plan.md`)
+
+- **Scope & Purpose**: Harmonized the core backend slot generation engine (`generate_available_slots`) in `schedule_service.py` to seamlessly blend explicit per-date schedule entries with doctor recurring working hours, ISO weekday closures, past-slot guards, and collision exclusions.
+- **Files Modified**:
+  - `backend/app/services/schedule_service.py`: Added explicit schedule precedence, shift fallback from `Doctor.working_hours`, ISO `closed_days` filtering, past-slot guard for `query_date == date.today()`, and optional `now: Optional[datetime] = None` testing parameter.
+  - `backend/tests/test_working_hours_engine.py`: Added comprehensive unit test coverage covering shift slot generation, closed day suppression, explicit schedule override precedence, past-slot filtering, and exclusion subtraction.
+- **Architectural Decisions**:
+  - **Precedence Rule**: Explicit `Schedule(type="AVAILABLE")` entries are evaluated first; if present, recurring shifts are omitted for that day, giving doctors surgical control over specific days.
+  - **Shift Fallback**: When no date-specific `AVAILABLE` records exist, the engine queries `Doctor.working_hours`. If configured, active enabled shifts are sliced into contiguous 30-minute intervals ($[t, t+30\text{m})$).
+  - **ISO Weekday Closed Days**: Evaluates `query_date.weekday()` against `closed_days` (ISO: Monday=0 ... Sunday=6). Closed days immediately produce 0 candidate slots.
+  - **Past-Slot Guard**: When querying the current date (`query_date == date.today()`), slots with `end_time <= datetime.now().time()` are filtered out before collision analysis.
+  - **Optional Parameter for Determinism**: `generate_available_slots(doctor_id, query_date, db, now=None)` accepts an optional `now: Optional[datetime]` timestamp that defaults to `datetime.now()`, ensuring 100% backward compatibility while allowing exact deterministic clock simulations in unit tests.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Shift Engine & Guard Tests** | Unit | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 15 tests pass | 15 passed in 2.79s | 0 | 🟢 PASS |
+| **Legacy Slot Engine Tests** | Unit | `backend/.venv/bin/pytest backend/tests/test_slot_generation.py` | 14 tests pass | 14 passed in 1.74s | 0 | 🟢 PASS |
+| **Full Backend Suite** | Regression | `backend/.venv/bin/pytest backend/tests` | 141 tests pass (Baseline: 136) | 141 passed in 70.26s | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass | 62 passed in 1.5s | 0 | 🟢 PASS |
+| **Live API: Working Hours** | Manual/cURL | `GET & PUT /doctor/working-hours` | 200 OK, saved shifts & closed days | Verified 200 OK | 0 | 🟢 PASS |
+| **Live API: Shift Fallback** | Manual/cURL | `GET /doctor/available-slots?date=2026-11-04` | 14 slots (10:00-13:00, 16:00-20:00) | 14 slots returned | 0 | 🟢 PASS |
+| **Live API: Closed Day** | Manual/cURL | `GET /doctor/available-slots?date=2026-11-08` | `[]` (Sunday in closed_days=[6]) | `[]` returned | 0 | 🟢 PASS |
+| **Live API: Precedence Override** | Manual/cURL | `POST /doctor/schedule` then `GET ...` | Explicit 08:00-09:00 overrides shifts | 2 slots returned (08:00, 08:30) | 0 | 🟢 PASS |
+| **Live API: Public Practice** | Manual/cURL | `GET /public/tenants/{slug}/available-slots` | Public returns slots with TTL cache | 200 OK, slots verified | 0 | 🟢 PASS |
+| **Live API: Past-Slot Guard** | Manual/cURL | `GET /doctor/available-slots?date=TODAY` | Expired intervals <= now filtered out | Only remaining evening slots | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+---
+
+## 20. Phase 3: Appointment Lifecycle in Calendar Drawer (`appointment_calender_plan.md`)
+
+- **Scope & Purpose**: Implemented full appointment lifecycle transitions directly within the calendar drawer panel (`AppointmentDetailsPanel.tsx`), fixed critical status edit guard bug, provided an accessible cancellation confirmation dialog, and added dynamic status badge color coding.
+- **Plan Reference**: Phase 3 of `docs/feature/appointment/appointment_calender_plan.md` (Base Commit: `673e0e85ac3b835257933ee55038410e7a4864f7`).
+- **Files Modified**:
+  - `lib/api.ts`: Added optional `reason?: string` signature to `cancelAppointment` helper, preserving full backward compatibility.
+  - `components/dashboard/calendar/panels/AppointmentDetailsPanel.tsx`:
+    - Integrated `completeAppointment` with "Mark Completed" button (`CheckCircle`, emerald badge styling).
+    - Integrated `cancelAppointment` with "Cancel Appointment" button (`XCircle`, rose styling) and confirmation modal dialog.
+    - Added cancellation dialog with exact warning message (*"Cancelling this appointment will release this 30-minute slot for other patients."*), optional reason input, and accessible focus/escape handlers.
+    - Fixed status guard bug on Edit/Reschedule button from `currentEvent.status !== "CANCELLED"` to `currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"`.
+    - Added color-coded status badges: `BOOKED` (blue), `COMPLETED` (emerald), `CANCELLED` (rose), `NO_SHOW` (slate).
+    - Added lifecycle transition async flows: `await ... -> onRefreshCalendar() -> showToast()`.
+  - `scripts/verify_calendar_drawer_scenarios.mjs`: Added scenario S6 asserting drawer lifecycle helpers, status guard logic, warning modal text, status badges, and API functions.
+- **Architectural Decisions**:
+  - **In-Drawer Optimistic State Synchronization**: On successful completion or cancellation API call, `currentEvent.status` is updated in local state before or alongside `onRefreshCalendar()`. This guarantees immediate visual reflection (badge transitions to emerald/rose, edit/complete/cancel buttons gracefully disappear) while the background calendar stream refreshes.
+  - **Medically Sealed Consultations Guard**: Completed consultations represent historical medical encounters and must not be rescheduled. Updating the guard to `currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"` ensures state invariants are strictly preserved in the UI.
+  - **Non-Destructive Slot Release Warning**: Cancellation dialog clearly alerts doctors that confirming cancellation immediately releases the 30-minute booking window for other prospective patients via public booking.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Drawer Scenarios (S1-S6)** | Unit/AST | `node scripts/verify_calendar_drawer_scenarios.mjs` | 6 scenarios pass (including S6 Lifecycle) | 6/6 passed (100%) | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass across 11 suites | 62 passed in 1.4s | 0 | 🟢 PASS |
+| **TypeScript Typecheck** | Type Check | `npx tsc --noEmit` | Clean typecheck, 0 errors | Exited 0 with no errors | 0 | 🟢 PASS |
+| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean (0 warnings or errors) | 0 | 🟢 PASS |
+| **Next.js Production Build** | Build | `npm run build` | 8/8 static pages prerendered | Compiled successfully | 0 | 🟢 PASS |
+| **Backend Working Hours Engine** | Unit/Regression | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 15 tests pass | 15 passed in 6.07s | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+---
+
+## 21. Phase 2 Harmonization: Open Working Hours Booking & Validation
+
+- **Scope & Purpose**: Harmonized appointment booking validation ([`appointment_service.py:_validate_slot_against_schedule`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/appointment_service.py)) with recurring doctor working hours. Eliminated the obsolete requirement demanding manual per-date `AVAILABLE` records in the `schedules` table. Every 30-minute interval within active shifts is now bookable directly, while strictly blocking appointments on closed days, during inter-shift gaps, or when overlapping active `LEAVE`, `HOLIDAY`, or `BLOCKED` windows.
+- **Plan Reference**: Phase 2 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) and [`unified_slot_architecture_plan.md`](file:///Users/mdaffanahmed/.gemini/antigravity/brain/c040044c-57c2-41a0-b682-aeb977fd93ce/unified_slot_architecture_plan.md) (Base Commit: `8ec50194e1e88ca3e21d00b5419869e8db1ca679`).
+- **Files Modified**:
+  - `backend/app/services/appointment_service.py`: Updated `_validate_slot_against_schedule` to check explicit `Schedule(type="AVAILABLE")` precedence first; if absent, validate against `doctor.working_hours` active shifts and `closed_days`. Preserved collision checks for `LEAVE`, `HOLIDAY`, and `BLOCKED`.
+  - `backend/tests/test_working_hours_engine.py`: Added 5 new automated integration tests covering direct shift booking, break-time rejection, closed day rejection, leave blocking & cancellation slot restoration, and working hours rescheduling parity.
+  - `docs/feature/appointment/appointment_calender_plan.md`: Updated Phase 2 plan deliverables to include validation harmonization.
+  - `docs/feature/appointment/calendar-ui/calender-ui-progress.md`: Documented implementation and verification scorecard.
+- **Architectural Decisions**:
+  - **Explicit Available Schedule Precedence**: If per-date `Schedule(type="AVAILABLE")` rows exist, they are honored first. This preserves surgical ad-hoc override capabilities and ensures 100% backwards-compatibility with legacy unit tests.
+  - **Direct Working Hours Fallback**: If no date-specific `AVAILABLE` rows exist, validation evaluates the slot against the doctor's recurring working shifts (`Doctor.working_hours`).
+  - **Symmetric Leave Slot Mechanics**: When a doctor marks `LEAVE` on a slot via `SlotActionModal`, any appointment booking at that slot is blocked (`HTTP 400: Slot overlaps with LEAVE period`). Deleting/cancelling the leave via `LeaveDetailsPanel` immediately restores the slot as open and bookable.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Shift Engine & Booking Tests** | Unit/Integration | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 20 tests pass (5 new) | 20 passed in 3.37s | 0 | 🟢 PASS |
+| **Appointment Lifecycle Tests** | Regression | `backend/.venv/bin/pytest backend/tests/test_appointment_lifecycle.py` | 32 tests pass | 32 passed in 6.85s | 0 | 🟢 PASS |
+| **Full Backend Suite** | Regression | `backend/.venv/bin/pytest backend/tests` | 146 tests pass (Baseline: 136) | 146 passed in 26.05s | 0 | 🟢 PASS |
+| **Live Multi-Step Workflow** | Integration | Simulated direct booking, leave blocking & restoration | All 5 steps pass | 5/5 passed | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass | 62 passed in 1.4s | 0 | 🟢 PASS |
+| **TypeScript Typecheck** | Type Check | `npx tsc --noEmit` | Clean typecheck, 0 errors | 0 errors | 0 | 🟢 PASS |
+| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+

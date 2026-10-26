@@ -64,7 +64,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://accounts.google.com",
               "img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com",
               "font-src 'self' data:",
-              "connect-src 'self' https://accounts.google.com https://*.sentry.io https://backend-production-b26c.up.railway.app https://*.railway.app http://127.0.0.1:8000 http://localhost:8000",
+              "connect-src 'self' https://gosmartclinic.com https://www.gosmartclinic.com https://api.gosmartclinic.com https://accounts.google.com https://*.sentry.io https://backend-production-b26c.up.railway.app https://*.railway.app http://127.0.0.1:8000 http://localhost:8000",
               "frame-src 'self' https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
