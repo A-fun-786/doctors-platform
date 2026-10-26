@@ -635,6 +635,41 @@
 
 - **Manual Steps Pending**: None.
 
+---
+
+## 20. Phase 3: Appointment Lifecycle in Calendar Drawer (`appointment_calender_plan.md`)
+
+- **Scope & Purpose**: Implemented full appointment lifecycle transitions directly within the calendar drawer panel (`AppointmentDetailsPanel.tsx`), fixed critical status edit guard bug, provided an accessible cancellation confirmation dialog, and added dynamic status badge color coding.
+- **Plan Reference**: Phase 3 of `docs/feature/appointment/appointment_calender_plan.md` (Base Commit: `673e0e85ac3b835257933ee55038410e7a4864f7`).
+- **Files Modified**:
+  - `lib/api.ts`: Added optional `reason?: string` signature to `cancelAppointment` helper, preserving full backward compatibility.
+  - `components/dashboard/calendar/panels/AppointmentDetailsPanel.tsx`:
+    - Integrated `completeAppointment` with "Mark Completed" button (`CheckCircle`, emerald badge styling).
+    - Integrated `cancelAppointment` with "Cancel Appointment" button (`XCircle`, rose styling) and confirmation modal dialog.
+    - Added cancellation dialog with exact warning message (*"Cancelling this appointment will release this 30-minute slot for other patients."*), optional reason input, and accessible focus/escape handlers.
+    - Fixed status guard bug on Edit/Reschedule button from `currentEvent.status !== "CANCELLED"` to `currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"`.
+    - Added color-coded status badges: `BOOKED` (blue), `COMPLETED` (emerald), `CANCELLED` (rose), `NO_SHOW` (slate).
+    - Added lifecycle transition async flows: `await ... -> onRefreshCalendar() -> showToast()`.
+  - `scripts/verify_calendar_drawer_scenarios.mjs`: Added scenario S6 asserting drawer lifecycle helpers, status guard logic, warning modal text, status badges, and API functions.
+- **Architectural Decisions**:
+  - **In-Drawer Optimistic State Synchronization**: On successful completion or cancellation API call, `currentEvent.status` is updated in local state before or alongside `onRefreshCalendar()`. This guarantees immediate visual reflection (badge transitions to emerald/rose, edit/complete/cancel buttons gracefully disappear) while the background calendar stream refreshes.
+  - **Medically Sealed Consultations Guard**: Completed consultations represent historical medical encounters and must not be rescheduled. Updating the guard to `currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"` ensures state invariants are strictly preserved in the UI.
+  - **Non-Destructive Slot Release Warning**: Cancellation dialog clearly alerts doctors that confirming cancellation immediately releases the 30-minute booking window for other prospective patients via public booking.
+- **Deviations from Plan**: None.
+- **Verification Summary**:
+
+| Step | Type | Command | Expected | Observed | Exit Code | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Drawer Scenarios (S1-S6)** | Unit/AST | `node scripts/verify_calendar_drawer_scenarios.mjs` | 6 scenarios pass (including S6 Lifecycle) | 6/6 passed (100%) | 0 | 🟢 PASS |
+| **Frontend Calendar Suites** | Unit | `npm test` | 62 tests pass across 11 suites | 62 passed in 1.4s | 0 | 🟢 PASS |
+| **TypeScript Typecheck** | Type Check | `npx tsc --noEmit` | Clean typecheck, 0 errors | Exited 0 with no errors | 0 | 🟢 PASS |
+| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean (0 warnings or errors) | 0 | 🟢 PASS |
+| **Next.js Production Build** | Build | `npm run build` | 8/8 static pages prerendered | Compiled successfully | 0 | 🟢 PASS |
+| **Backend Working Hours Engine** | Unit/Regression | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 15 tests pass | 15 passed in 6.07s | 0 | 🟢 PASS |
+
+- **Manual Steps Pending**: None.
+
+
 
 
 

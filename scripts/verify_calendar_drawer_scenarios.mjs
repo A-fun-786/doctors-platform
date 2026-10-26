@@ -222,6 +222,59 @@ runScenario("S5: Drawer Accessibility, Transitions & Hook Integration", () => {
   assert.ok(tabCode.includes("openEventDrawer"), "CalendarTab must trigger drawer via openEventDrawer");
 });
 
+// S6: Appointment Lifecycle State Transitions (Complete & Cancel Actions + Reschedule Guard)
+runScenario("S6: Appointment Lifecycle State Transitions (Complete & Cancel Actions + Reschedule Guard)", () => {
+  const panelPath = path.join(
+    projectRoot,
+    "components",
+    "dashboard",
+    "calendar",
+    "panels",
+    "AppointmentDetailsPanel.tsx"
+  );
+  const apiPath = path.join(projectRoot, "lib", "api.ts");
+
+  assert.ok(fs.existsSync(panelPath), "AppointmentDetailsPanel.tsx must exist");
+  assert.ok(fs.existsSync(apiPath), "lib/api.ts must exist");
+
+  const panelCode = fs.readFileSync(panelPath, "utf-8");
+  const apiCode = fs.readFileSync(apiPath, "utf-8");
+
+  // V1: Complete & Cancel helper wiring
+  assert.ok(panelCode.includes("completeAppointment"), "AppointmentDetailsPanel must import & call completeAppointment");
+  assert.ok(panelCode.includes("cancelAppointment"), "AppointmentDetailsPanel must import & call cancelAppointment");
+  assert.ok(panelCode.includes("Mark Completed"), "Must render 'Mark Completed' action button");
+  assert.ok(panelCode.includes("Cancel Appointment"), "Must render 'Cancel Appointment' action button");
+  assert.ok(panelCode.includes("onRefreshCalendar"), "Must refresh calendar stream on transition");
+  assert.ok(panelCode.includes("showToast"), "Must trigger toast notification on transition");
+
+  // V2: Reschedule guard against completed and cancelled consultations
+  assert.ok(
+    panelCode.includes('currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"') ||
+    panelCode.includes('currentEvent.status !== "COMPLETED" && currentEvent.status !== "CANCELLED"'),
+    "Must prevent completed or cancelled appointments from being edited / rescheduled"
+  );
+
+  // Cancellation Confirmation Dialog with slot release warning
+  assert.ok(
+    panelCode.includes("Cancelling this appointment will release this 30-minute slot for other patients."),
+    "Cancel modal must display release slot warning message"
+  );
+  assert.ok(panelCode.includes("Confirm Cancellation"), "Cancel modal must render Confirm Cancellation button");
+  assert.ok(panelCode.includes("cancelReason"), "Cancel modal must support optional reason input");
+
+  // Status badges color coding
+  assert.ok(panelCode.includes("getStatusBadgeStyle"), "Must have getStatusBadgeStyle helper");
+  assert.ok(panelCode.includes("bg-emerald-100") && panelCode.includes("text-emerald-800"), "COMPLETED status must use emerald style");
+  assert.ok(panelCode.includes("bg-rose-100") && panelCode.includes("text-rose-800"), "CANCELLED status must use rose style");
+  assert.ok(panelCode.includes("bg-slate-100") && panelCode.includes("text-slate-700"), "NO_SHOW status must use slate style");
+  assert.ok(panelCode.includes("bg-blue-100") && panelCode.includes("text-blue-800"), "BOOKED status must use blue style");
+
+  // API helper signatures
+  assert.ok(apiCode.includes("export async function completeAppointment(id: string)"), "completeAppointment API helper exported");
+  assert.ok(apiCode.includes("export async function cancelAppointment(id: string"), "cancelAppointment API helper exported");
+});
+
 console.log("\n============================================================");
 console.log(`🏁 SCORECARD: ${passed}/${total} Passed (${Math.round((passed / total) * 100)}%)`);
 console.log("============================================================\n");

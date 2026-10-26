@@ -713,7 +713,7 @@ export async function getAppointment(id: string): Promise<AppointmentEntry> {
 /**
  * Cancel an existing BOOKED appointment.
  */
-export async function cancelAppointment(id: string): Promise<AppointmentEntry> {
+export async function cancelAppointment(id: string, reason?: string): Promise<AppointmentEntry> {
   return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}/cancel`, {
     method: "POST",
     requireAuth: true,

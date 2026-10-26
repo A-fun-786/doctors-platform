@@ -13,11 +13,20 @@ import {
   FileText,
   Copy,
   Check,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
   Edit3,
   Shield,
   Loader2,
 } from "lucide-react";
-import { CalendarEvent, getAppointment, AppointmentEntry } from "@/lib/api";
+import {
+  CalendarEvent,
+  getAppointment,
+  completeAppointment,
+  cancelAppointment,
+  AppointmentEntry,
+} from "@/lib/api";
 import Badge from "@/components/ui/Badge";
 import { format12Hour, WorkingHoursConfig } from "../calendarUtils";
 import AppointmentRescheduleForm from "./AppointmentRescheduleForm";
@@ -48,6 +57,56 @@ export default function AppointmentDetailsPanel({
   const [currentDate, setCurrentDate] = useState<string>(initialDate);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getStatusBadgeStyle = (status?: string) => {
+    switch (status?.toUpperCase()) {
+      case "COMPLETED":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "CANCELLED":
+        return "bg-rose-100 text-rose-800 border-rose-200";
+      case "NO_SHOW":
+        return "bg-slate-100 text-slate-700 border-slate-200";
+      case "BOOKED":
+      default:
+        return "bg-blue-100 text-blue-800 border-blue-200";
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!currentEvent.appointment_id || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await completeAppointment(currentEvent.appointment_id);
+      setCurrentEvent((prev) => ({ ...prev, status: "COMPLETED" }));
+      onRefreshCalendar();
+      showToast?.("Appointment marked as completed");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to complete appointment";
+      showToast?.(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!currentEvent.appointment_id || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await cancelAppointment(currentEvent.appointment_id, cancelReason.trim() || undefined);
+      setCurrentEvent((prev) => ({ ...prev, status: "CANCELLED" }));
+      setShowCancelModal(false);
+      onRefreshCalendar();
+      showToast?.("Appointment cancelled successfully");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to cancel appointment";
+      showToast?.(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Background hydration: fetch full appointment entry from backend to get full UUIDs, created_at, patient_id, email, etc.
   useEffect(() => {
@@ -196,7 +255,10 @@ export default function AppointmentDetailsPanel({
             </div>
           </div>
 
-          <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] uppercase font-bold">
+          <Badge
+            variant="default"
+            className={`${getStatusBadgeStyle(currentEvent.status)} text-[10px] uppercase font-bold`}
+          >
             {currentEvent.status || "BOOKED"}
           </Badge>
         </div>
@@ -452,7 +514,7 @@ export default function AppointmentDetailsPanel({
       )}
 
       {/* 5. Sticky Action Footer */}
-      <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+      <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
         <button
           type="button"
           onClick={onClose}
@@ -461,17 +523,120 @@ export default function AppointmentDetailsPanel({
           Close
         </button>
 
-        {currentEvent.status !== "CANCELLED" && (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs flex items-center gap-2"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit / Reschedule Appointment</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {currentEvent.status !== "CANCELLED" &&
+            currentEvent.status !== "COMPLETED" &&
+            currentEvent.appointment_id && (
+              <>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setShowCancelModal(true)}
+                  className="px-3.5 py-2.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Cancel Appointment</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleComplete}
+                  className="px-3.5 py-2.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-2xs"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                  <span>Mark Completed</span>
+                </button>
+              </>
+            )}
+
+          {currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED" && (
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs flex items-center gap-2 disabled:opacity-50"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit / Reschedule Appointment</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 6. Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-dialog-title"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 id="cancel-dialog-title" className="text-sm font-bold text-slate-900">
+                  Cancel Appointment?
+                </h4>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Cancelling this appointment will release this 30-minute slot for other patients.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="cancel-reason"
+                className="block text-[11px] font-semibold text-slate-600 mb-1"
+              >
+                Reason for Cancellation (optional)
+              </label>
+              <input
+                id="cancel-reason"
+                type="text"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g., Patient requested cancellation"
+                className="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelReason("");
+                }}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Keep Appointment
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmCancel}
+                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5" />
+                )}
+                <span>Confirm Cancellation</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
