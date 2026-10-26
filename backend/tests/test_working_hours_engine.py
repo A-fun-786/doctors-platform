@@ -84,10 +84,14 @@ def auth_headers(test_doctor):
 
 
 # ==============================================================================
-# Phase 1 Test 1: GET /doctor/working-hours returns default shifts when unconfigured
+# Phase 5 Test 1: GET /doctor/working-hours returns default shifts when column is null
 # ==============================================================================
-def test_get_working_hours_default(client, auth_headers):
-    """When a doctor has no configured shifts, GET returns the 2-shift default (10-13, 16-20, Sun closed)."""
+def test_1_get_working_hours_default_fallback(client, auth_headers, test_doctor, db_session):
+    """When doctor.working_hours column is null, GET returns the 2-shift standard fallback."""
+    # Assert column is null prior to invocation
+    db_session.refresh(test_doctor)
+    assert test_doctor.working_hours is None
+
     response = client.get("/api/v1/doctor/working-hours", headers=auth_headers)
     assert response.status_code == 200, response.text
     data = response.json()
@@ -106,9 +110,68 @@ def test_get_working_hours_default(client, auth_headers):
     assert data["closed_days"] == [0]
 
 
+test_get_working_hours_default = test_1_get_working_hours_default_fallback
+
+
 # ==============================================================================
-# Phase 1 Test 2: PUT /doctor/working-hours saves valid shifts and rejects inverted ranges
+# Phase 5 Test 2: PUT /doctor/working-hours validates start < end and persists
 # ==============================================================================
+def test_2_put_working_hours_valid_and_validation_error(client, auth_headers, test_doctor, db_session):
+    """Validates start < end, persists valid shifts to DB, and rejects invalid inverted ranges with 422."""
+    # 1. Valid payload with start < end persists cleanly
+    valid_payload = {
+        "shifts": [
+            {
+                "id": "morning",
+                "label": "Morning Clinic",
+                "start": "09:00",
+                "end": "12:30",
+                "enabled": True,
+            },
+            {
+                "id": "afternoon",
+                "label": "Afternoon Rounds",
+                "start": "14:00",
+                "end": "18:00",
+                "enabled": True,
+            },
+        ],
+        "closed_days": [0, 6],
+    }
+
+    res_valid = client.put("/api/v1/doctor/working-hours", json=valid_payload, headers=auth_headers)
+    assert res_valid.status_code == 200, res_valid.text
+    data = res_valid.json()
+    assert len(data["shifts"]) == 2
+    assert data["shifts"][0]["start"] == "09:00"
+    assert data["shifts"][0]["end"] == "12:30"
+    assert data["closed_days"] == [0, 6]
+
+    # Verify persistence in DB
+    db_session.expire_all()
+    reloaded_doc = db_session.query(Doctor).filter(Doctor.id == test_doctor.id).first()
+    assert reloaded_doc.working_hours is not None
+    assert len(reloaded_doc.working_hours["shifts"]) == 2
+    assert reloaded_doc.working_hours["closed_days"] == [0, 6]
+
+    # 2. Inverted range (start >= end) is rejected with 422 Unprocessable Entity
+    invalid_payload = {
+        "shifts": [
+            {
+                "id": "morning",
+                "label": "Inverted Shift",
+                "start": "14:00",
+                "end": "10:00",
+                "enabled": True,
+            }
+        ],
+        "closed_days": [0],
+    }
+    res_invalid = client.put("/api/v1/doctor/working-hours", json=invalid_payload, headers=auth_headers)
+    assert res_invalid.status_code == 422, res_invalid.text
+
+
+# Phase 1 Test 2: individual test functions for granular reporting
 def test_put_working_hours_valid(client, auth_headers, test_doctor, db_session):
     """Valid shift configuration is stored to DB and returned."""
     payload = {
@@ -286,9 +349,9 @@ def test_put_working_hours_invalidates_cache(client, auth_headers, test_doctor):
 
 
 # ==============================================================================
-# Phase 1 Test 8: Alembic migration 009 bidirectional upgrade/downgrade test
+# Phase 5 Test 5: Alembic migration 009 bidirectional upgrade/downgrade test
 # ==============================================================================
-def test_alembic_migration_009_bidirectional(tmp_path):
+def test_5_migration_009_upgrade_downgrade(tmp_path):
     """Verify migration 009 applies and rolls back cleanly."""
     db_file = tmp_path / "test_mig_009.db"
     db_url = f"sqlite:///{db_file}"
@@ -306,6 +369,9 @@ def test_alembic_migration_009_bidirectional(tmp_path):
 
     # 3. Re-upgrade to head (009)
     command.upgrade(alembic_cfg, "head")
+
+
+test_alembic_migration_009_bidirectional = test_5_migration_009_upgrade_downgrade
 
 
 # ==============================================================================

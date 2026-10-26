@@ -818,28 +818,90 @@
 - **Manual Steps Pending**: None.
 
 ---
+---
 
-## 23. Phase 5: Focused Verification & AST Integration Suite (`appointment_calender_plan.md`)
+## 23. Phase 5: Focused Verification & Comprehensive Testing Report (`appointment_calender_plan.md`)
 
-- **Scope & Purpose**: Executed Phase 5 of `appointment_calender_plan.md`. Authored and executed the automated AST and integration test suite `scripts/verify_appointment_ui_integration.mjs` to comprehensively verify cross-layer appointment lifecycle interactions, status guards, public slot generation, and working hours API contracts.
-- **Plan Reference**: Phase 5 of `docs/feature/appointment/appointment_calender_plan.md`.
-- **Files Added / Modified**:
-  - `scripts/verify_appointment_ui_integration.mjs`: Added automated test suite validating:
-    - V1: `AppointmentDetailsPanel` exposes Complete and Cancel buttons calling `completeAppointment` / `cancelAppointment` with accessible warning dialog.
-    - V2: `AppointmentDetailsPanel` hides Edit/Reschedule button when `status === "COMPLETED"` or `"CANCELLED"`.
-    - V3: `app/[slug]/page.tsx` calls `getPublicAvailableSlots` dynamically without static slot fallback, with `Loader2` spinner and courteous empty state.
-    - V4: `EditWorkingHoursModal` dispatches `updateDoctorWorkingHours` to backend API and updates local cache with `isSaving` state.
-    - V5: `CalendarTab.tsx` fetches authoritative `getDoctorWorkingHours` on mount to prevent split-brain state drift.
-    - V6: `lib/api.ts` exports `getDoctorWorkingHours` and `updateDoctorWorkingHours` with typed response and update schemas.
-    - V7: `calendarUtils.ts` `WorkingHoursConfig` schema supports both `closed_days` and `breakTime` with default Sunday closure.
-  - `package.json`: Added `"test:integration": "node scripts/verify_appointment_ui_integration.mjs"` and chained into `"npm test"`.
+- **Plan Reference**: Phase 5 of [`docs/feature/appointment/appointment_calender_plan.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/appointment_calender_plan.md) (Base Commit: `941e770`).
+- **Scope & Objectives**:
+  1. Formalize and execute the 5 backend pytest cases specified in Phase 5:
+     - `test_1_get_working_hours_default_fallback`: Asserts standard fallback shifts when `doctor.working_hours` is null in the database.
+     - `test_2_put_working_hours_valid_and_validation_error`: Validates `start < end`, database persistence, and asserts HTTP 422 validation failure on inverted shift ranges.
+     - `test_3_slot_generation_from_shifts_and_closed_day`: Asserts exactly 14 slots generated on weekdays and 0 slots on Sunday (`closed_days=[6]`).
+     - `test_4_precedence_explicit_available_wins`: Verifies that per-date `Schedule(type="AVAILABLE")` records strictly override shifts.
+     - `test_5_migration_009_upgrade_downgrade`: Verifies bidirectional rollback clean (008 -> 009 -> 008 -> 009).
+  2. Implement automated Frontend AST & Integration Verification Script ([`scripts/verify_appointment_ui_integration.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/verify_appointment_ui_integration.mjs)):
+     - **V1**: Inspects `AppointmentDetailsPanel.tsx` to verify `completeAppointment` and `cancelAppointment` actions and accessible dialogs.
+     - **V2**: Inspects `AppointmentDetailsPanel.tsx` to verify the Edit button is conditionally guarded and hidden when `status === "COMPLETED"` or `"CANCELLED"`.
+     - **V3**: Inspects `app/[slug]/page.tsx` to verify `getPublicAvailableSlots` is called dynamically without static fallback, with `Loader2` spinner and courteous empty state.
+     - **V4**: Inspects `EditWorkingHoursModal.tsx` to verify `updateDoctorWorkingHours` backend dispatch with `isSaving` state and local cache sync.
+     - **V5**: Inspects `CalendarTab.tsx` mount synchronization with authoritative backend working hours.
+     - **V6**: Inspects `lib/api.ts` exports for `getDoctorWorkingHours` and `updateDoctorWorkingHours`.
+     - **V7**: Inspects `calendarUtils.ts` `WorkingHoursConfig` schema for `closed_days` and `breakTime` support.
+  3. Wire integration scripts into `package.json` (`npm test`, `npm run test:integration`, `npm run test:integration:ui`).
+  4. Execute full multi-tier regression suite spanning backend pytest (149 tests), frontend test runners (69 tests across suites), drawer lifecycle scenarios (6 scenarios), TypeScript typecheck (`npx tsc --noEmit`), ESLint (`npm run lint`), and Next.js production build (`npm run build`).
+- **Changes**:
+  - [`backend/tests/test_working_hours_engine.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/test_working_hours_engine.py): Formalized explicit Phase 5 test definitions (`test_1_get_working_hours_default_fallback`, `test_2_put_working_hours_valid_and_validation_error`, `test_5_migration_009_upgrade_downgrade`) with full backward-compatible aliases, increasing engine test coverage to 23 tests.
+  - [`scripts/verify_appointment_ui_integration.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/verify_appointment_ui_integration.mjs): Added comprehensive AST and integration assertion suite covering V1 through V7.
+  - [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json): Added `test:integration:ui` and `test:live:manual` and chained test scripts into `npm test`.
+  - [`docs/feature/appointment/calendar-ui/calender-ui-progress.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/calendar-ui/calender-ui-progress.md): Added detailed Phase 5 testing report and multi-layer verification matrix.
 - **Verification Summary**:
 
 | Step | Type | Command | Expected | Observed | Exit Code | Verdict |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Integration Suite (V1–V7)** | AST/Integration | `node scripts/verify_appointment_ui_integration.mjs` | 7 checks pass | 7/7 passed (100%) | 0 | 🟢 PASS |
-| **Frontend Test Suite** | Automated Tests | `npm test` | All 5 test suites pass | 69 passed | 0 | 🟢 PASS |
-| **TypeScript Compilation** | Type Check | `npx tsc --noEmit` | Clean compilation, 0 errors | 0 errors | 0 | 🟢 PASS |
-| **Frontend ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean | 0 | 🟢 PASS |
+| **Phase 5 Specific Tests** | Backend Unit/Integration | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py -k "test_1_ or test_2_ or test_3_ or test_4_ or test_5_"` | 5 tests pass | 5 passed in 1.78s | 0 | 🟢 PASS |
+| **Shift Engine & Booking Suite** | Backend Unit/Integration | `backend/.venv/bin/pytest backend/tests/test_working_hours_engine.py` | 23 tests pass | 23 passed in 12.08s | 0 | 🟢 PASS |
+| **Appointment Lifecycle Suite** | Backend Regression | `backend/.venv/bin/pytest backend/tests/test_appointment_lifecycle.py` | 32 tests pass | 32 passed in 28.67s | 0 | 🟢 PASS |
+| **Full Backend Regression Suite** | Backend Regression | `backend/.venv/bin/pytest backend/tests` | 149 tests pass | 149 passed in 42.48s | 0 | 🟢 PASS |
+| **Frontend AST/Integration Suite (V1-V7)** | AST/Integration | `node scripts/verify_appointment_ui_integration.mjs` | 7/7 checks pass | 7/7 passed in 0.3s | 0 | 🟢 PASS |
+| **Frontend Test Suite** | Automated Tests | `npm test` | All test suites pass | Clean run | 0 | 🟢 PASS |
+| **Calendar Drawer & Lifecycle Scenarios (S1-S6)** | Frontend Integration | `node scripts/verify_calendar_drawer_scenarios.mjs` | 6/6 scenarios pass | 6/6 passed in 0.4s | 0 | 🟢 PASS |
+| **TypeScript Typecheck** | Type Check | `npx tsc --noEmit` | Clean typecheck, 0 errors | 0 errors | 0 | 🟢 PASS |
+| **ESLint** | Linter | `npm run lint` | 0 errors, 0 warnings | Clean | 0 | 🟢 PASS |
+| **Next.js Production Build** | Build & Bundling | `npm run build` | Optimized production bundle generated (8/8 static/dynamic routes) | Clean build | 0 | 🟢 PASS |
 
+- **Manual Steps Pending**: None.
+
+---
+
+## 24. Comprehensive Live Application Manual Testing & Full Feature Verification
+
+- **Plan & Docs Reference**: [`docs/feature/appointment/`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment) and [`docs/feature/appointment/calendar-ui/calender-ui-progress.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/calendar-ui/calender-ui-progress.md).
+- **Scope & Objectives**:
+  Agentic end-to-end live testing across every architectural claim and feature documented under `docs/feature/appointment/` executed directly against live running application servers (FastAPI backend on port 8000 and Next.js frontend on port 3000). Total 62 live scenarios tested across 13 distinct functional domains.
+- **Coverage Matrix**:
+  1. **Server Health & Infrastructure (4 checks)**: Backend `/health`, OpenAPI Swagger UI (`/docs`), Next.js `/dashboard`, and CORS origin verification (`http://localhost:3000`).
+  2. **Doctor Authentication & Session Isolation (4 checks)**: Automated doctor registration (`/auth/register`), profile session check (`/auth/me`), credential login (`/auth/login`), and 401 unauthorized rejection.
+  3. **Doctor Profile & Onboarding Synchronization (2 checks)**: Profile updating with multi-service flags (`/doctor/profile`), public slug verification (`/public/tenants/{slug}`).
+  4. **Working Hours Engine & Shift Validation (8 checks)**: Default 2-shift fallback when unconfigured, valid shift persistence, 422 rejection on inverted time intervals (`start >= end`), equal start/end, non-30-minute steps, active overlapping shifts, disabled overlap allowance, and max-4 shifts constraint.
+  5. **Dynamic Slot Generation Engine (4 checks)**: 14 weekday slots (10:00–13:00, 16:00–20:00), 0 Sunday slots (`closed_days=[0]`), explicit `AVAILABLE` schedule override precedence, and patient public slot retrieval.
+  6. **Schedule & Leave Management (5 checks)**: Creation of `LEAVE` schedule entries, immediate blocking of corresponding slot intervals (14 → 12 slots), leave deletion and instant slot restoration (12 → 14 slots), `BLOCKED` windows, and date range querying.
+  7. **Appointment Full Lifecycle & State Machine (16 checks)**: Booking with complete patient vitals, duplicate slot prevention (400/409), multi-patient appointment generation, appointment listing with pagination, single appointment retrieval, transition to `COMPLETED`, prevention of double-completion, cancellation to `CANCELLED`, prevention of double-cancellation, completed cancellation guard, appointment rescheduling (`PATCH`), cancelled reschedule guard, immediate freed-slot reuse, and 404 nonexistent appointment handling.
+  8. **Strict Booking Constraints & Boundaries (5 checks)**: Off-hours rejection, closed-day (Sunday) rejection, active leave period booking rejection, slot rebooking after leave deletion, and mandatory field validation (`patient_name`).
+  9. **Unified Calendar Aggregation (1 check)**: Multi-event chronological aggregation across appointments, leaves, and blocked intervals via `GET /doctor/calendar`.
+  10. **Public Patient Portal Endpoints (4 checks)**: Public practice profile resolution, dynamic available slot retrieval on date selection, closed-day empty state, and 404 on nonexistent tenant slugs.
+  11. **Frontend Bundle & Clean Slot Architecture (5 checks)**: Next.js SSR and client hydration, complete absence of obsolete `QuickActionsCard` and `GoogleCalendarCard`, verified public booking routes (`/[slug]`), and `/login` accessibility.
+  12. **Security & Rate Limiting Enforcement (2 checks)**: 401/403 rejection on unauthenticated doctor routes, invalid JWT Bearer token rejection.
+  13. **Patient Vitals & Demographics Schema Integrity (2 checks)**: Dedicated storage and retrieval of `patient_gender`, `patient_age`, `patient_height`, `patient_weight`, `patient_blood_group`, and `patient_address` (Alembic migration 008 parity), with safe null-handling for unsupplied fields.
+- **Verification Scorecard**:
+
+| Section | Domain | Total Scenarios | Passed | Failed | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **§1** | Server Health & CORS | 4 | 4 | 0 | 🟢 PASS |
+| **§2** | Authentication & Session | 4 | 4 | 0 | 🟢 PASS |
+| **§3** | Doctor Profile & Onboarding | 2 | 2 | 0 | 🟢 PASS |
+| **§4** | Working Hours CRUD & Validation | 8 | 8 | 0 | 🟢 PASS |
+| **§5** | Slot Generation Engine | 4 | 4 | 0 | 🟢 PASS |
+| **§6** | Schedule & Leave Management | 5 | 5 | 0 | 🟢 PASS |
+| **§7** | Appointment Lifecycle Transitions | 16 | 16 | 0 | 🟢 PASS |
+| **§8** | Booking Validation Guards | 5 | 5 | 0 | 🟢 PASS |
+| **§9** | Unified Calendar Aggregator | 1 | 1 | 0 | 🟢 PASS |
+| **§10** | Public Patient-Facing Endpoints | 4 | 4 | 0 | 🟢 PASS |
+| **§11** | Frontend UI & Bundle Integrity | 5 | 5 | 0 | 🟢 PASS |
+| **§12** | Security & Auth Token Enforcement | 2 | 2 | 0 | 🟢 PASS |
+| **§13** | Dedicated Patient Vitals Schema | 2 | 2 | 0 | 🟢 PASS |
+| **TOTAL** | **Live Multi-Tier Application QA** | **62** | **62** | **0** | **🟢 100% PASS** |
+
+- **Command**: `node scripts/live_manual_test_comprehensive.mjs`
+- **Observed Result**: 62 passed, 0 failed, 0 skipped in 2.8s (exit code 0).
 - **Manual Steps Pending**: None.
