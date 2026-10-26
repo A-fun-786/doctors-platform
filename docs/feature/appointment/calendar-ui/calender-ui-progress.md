@@ -15,6 +15,7 @@
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
 12. **Break Time Slot Standardization & Centralized String Architecture (Phase 12)**: Executed break time slot standardization and single-string architecture across calendar views and modals. Fully eliminated "lunch" and "rest" vocabulary across the codebase in favor of strictly "Break Time". Removed break display from the sidebar "Working Hours" card (`WorkingHoursCard.tsx`) so it strictly displays doctor active shifts. Established single source of truth string constants (`BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, `BREAK_TIME_SUBTITLE`) in `constants.ts` and unified formatter `formatBreakTimeTitle` in `calendarUtils.ts`. Updated `DayView.tsx` to match `WeekView.tsx` with a single-line horizontal card layout (`BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`), eliminating multi-line clutter and text repetition. Maintained dynamic break calculations in the "Customize Working Hours" modal (`EditWorkingHoursModal.tsx`). Verified via comprehensive automated test suite `scripts/test_break_time_suite.mjs` (16/16 passed, 100%).
+13. **Complete Calendar Sidebar Quick Actions Card Elimination (Phase 13)**: Completely eliminated `QuickActionsCard` and its fast-action triggers ('Add Appointment' and 'Block Time / Leave') from the calendar sidebar. Removed component file `QuickActionsCard.tsx`. Pruned `QuickActionsCard` import, props (`onAddAppointment`, `onBlockTime`), and JSX rendering block from `CalendarSidebar.tsx`. Cleaned up `<CalendarSidebar />` invocation in `CalendarTab.tsx` by removing unused callback props and updating comments. Streamlined the calendar sidebar to strictly contain the Google Calendar `MiniCalendar` and active `WorkingHoursCard`. Validated via automated unit test suite `scripts/test_sidebar_quick_actions_clean.mjs` (11/11 passed, 100%) and TypeScript compiler check (`npx tsc --noEmit`, 0 errors).
 
 ---
 
@@ -558,6 +559,12 @@
    - Confirm complete absence of the words "lunch" or "rest" across all calendar views and modals.
    - Inspect the sidebar `Working Hours` card: verify that only active clinical shifts (Morning Shift and Evening Shift) are listed, and that no break banner is rendered in this widget.
    - Click "Edit Hours" on the sidebar card: verify that the "Customize Doctor Working Hours" popup modal renders the dynamic `Break Time` preview between shifts.
+12. **Sidebar Quick Actions Card Elimination (Phase 13)**:
+   - In doctor dashboard, inspect the right-side operational sidebar (`CalendarSidebar`).
+   - Confirm that the `QuickActionsCard` widget (and its buttons "Add Appointment" and "Block Time / Leave") is completely removed.
+   - Verify the sidebar renders solely two clean cards: the Google Calendar `MiniCalendar` and active `WorkingHoursCard`.
+   - Verify appointment bookings remain fully operational by clicking any 30-minute empty slot in WeekView or DayView to launch `SlotActionModal`.
+   - Run `node scripts/test_sidebar_quick_actions_clean.mjs` to ensure 100% automated structural verification.
 
 ---
 
@@ -565,7 +572,8 @@
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
-  - Keep `CalendarSidebar.tsx` free of redundant create buttons (`+ New Appointment`).
+  - Keep `CalendarSidebar.tsx` free of redundant create buttons (`+ New Appointment`) and fast action cards (`QuickActionsCard`).
+  - Keep sidebar strictly focused on date navigation (`MiniCalendar`) and operating schedule (`WorkingHoursCard`).
   - Do not introduce the textual word "Today" in sidebar widgets or mini-calendar header; retain pure visual circular affordance.
   - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
   - Maintain filled calendar slots showing only the patient name.
