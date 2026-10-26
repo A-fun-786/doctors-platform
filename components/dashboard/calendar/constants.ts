@@ -2,6 +2,10 @@ import { CalendarEvent } from "@/lib/api";
 
 export const SLOT_DURATION_MINUTES = 30;
 
+export const BREAK_TIME_LABEL = "Break Time" as const;
+export const BREAK_TIME_BADGE = "BREAK TIME" as const;
+export const BREAK_TIME_SUBTITLE = "• Clinic break interval (no patient booking)" as const;
+
 export const TIME_ROWS = [
   "9:00 AM",
   "9:30 AM",

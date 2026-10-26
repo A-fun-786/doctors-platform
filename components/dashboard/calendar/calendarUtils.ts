@@ -1,6 +1,6 @@
 import { CalendarEvent } from "@/lib/api";
 import { WeekDayItem, MiniCalDayItem, DayStatusInfo } from "./types";
-import { DAY_NAMES } from "./constants";
+import { DAY_NAMES, BREAK_TIME_LABEL } from "./constants";
 
 /**
  * Format 24-hour time "HH:MM" to 12-hour "h:MM AM/PM"
@@ -287,9 +287,27 @@ export interface WorkingHoursShift {
   enabled: boolean;
 }
 
+export interface WorkingHoursBreak {
+  enabled: boolean;
+  start: string; // e.g. "13:00"
+  end: string;   // e.g. "16:00"
+  label?: string; // e.g. "Break Time"
+}
+
 export interface WorkingHoursConfig {
   shifts: WorkingHoursShift[];
+  breakTime?: WorkingHoursBreak;
   closed_days?: number[];
+}
+
+export interface BreakIntervalInfo {
+  enabled: boolean;
+  start: string;
+  end: string;
+  startLabel: string;
+  endLabel: string;
+  label: string;
+  durationMinutes: number;
 }
 
 export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
@@ -309,10 +327,89 @@ export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
       enabled: true,
     },
   ],
+  breakTime: {
+    enabled: true,
+    start: "13:00",
+    end: "16:00",
+    label: BREAK_TIME_LABEL,
+  },
   closed_days: [0],
 };
 
 export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
+
+/**
+ * Returns the doctor's break interval based on working hours.
+ * Uses explicit breakTime config if enabled, otherwise calculates
+ * the gap between active shifts (e.g. morning shift end to evening shift start).
+ */
+export function getDoctorBreakInterval(
+  config?: WorkingHoursConfig
+): BreakIntervalInfo | null {
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+
+  // 1. Explicit break configuration
+  if (activeConfig.breakTime && activeConfig.breakTime.enabled) {
+    const startM = timeToMinutes(activeConfig.breakTime.start);
+    const endM = timeToMinutes(activeConfig.breakTime.end);
+    if (endM > startM) {
+      return {
+        enabled: true,
+        start: activeConfig.breakTime.start,
+        end: activeConfig.breakTime.end,
+        startLabel: format12Hour(activeConfig.breakTime.start),
+        endLabel: format12Hour(activeConfig.breakTime.end),
+        label: activeConfig.breakTime.label || BREAK_TIME_LABEL,
+        durationMinutes: endM - startM,
+      };
+    }
+  }
+
+  // 2. Dynamic gap calculation between active shifts
+  const enabledShifts = [...(activeConfig.shifts || [])]
+    .filter((s) => s.enabled)
+    .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+  if (enabledShifts.length >= 2) {
+    const firstEndM = timeToMinutes(enabledShifts[0].end);
+    const secondStartM = timeToMinutes(enabledShifts[1].start);
+
+    if (secondStartM > firstEndM) {
+      return {
+        enabled: true,
+        start: enabledShifts[0].end,
+        end: enabledShifts[1].start,
+        startLabel: format12Hour(enabledShifts[0].end),
+        endLabel: format12Hour(enabledShifts[1].start),
+        label: BREAK_TIME_LABEL,
+        durationMinutes: secondStartM - firstEndM,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Unified formatter for Break Time title string across DayView and WeekView.
+ * e.g. "Break Time (1:00 PM – 4:00 PM)"
+ */
+export function formatBreakTimeTitle(startLabel: string, endLabel: string): string {
+  return `${BREAK_TIME_LABEL} (${startLabel} – ${endLabel})`;
+}
+
+/**
+ * Check if a slot interval [start, end) overlaps with the doctor's break interval.
+ */
+export function isSlotInBreak(
+  start: string,
+  end: string,
+  config?: WorkingHoursConfig
+): boolean {
+  const breakInfo = getDoctorBreakInterval(config);
+  if (!breakInfo || !breakInfo.enabled) return false;
+  return isIntervalOverlapping(start, end, breakInfo.start, breakInfo.end);
+}
 
 /**
  * Calculate total 30-minute slot count for a given time window.
@@ -358,7 +455,7 @@ export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
 
 /**
  * Check if a time slot (start, end) falls within doctor's configured working hours.
- * Defaults to closed on Sundays if closed_days not specified.
+ * Defaults to closed on Sundays if closed_days not specified, and disallows intervals during the doctor's break time.
  */
 export function isSlotWithinWorkingHours(
   dateStr: string,
@@ -371,6 +468,11 @@ export function isSlotWithinWorkingHours(
   const activeConfig = config || DEFAULT_WORKING_HOURS;
   const closedDays = activeConfig.closed_days ?? [0];
   if (closedDays.includes(d.getDay())) return false;
+
+  // Disallow slots during doctor's break time
+  if (isSlotInBreak(slotStart, slotEnd, activeConfig)) {
+    return false;
+  }
 
   const startM = timeToMinutes(slotStart);
   const endM = timeToMinutes(slotEnd);

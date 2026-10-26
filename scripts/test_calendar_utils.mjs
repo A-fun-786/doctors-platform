@@ -50,8 +50,8 @@ function test(name, fn) {
 const rawTs = fs.readFileSync(calendarUtilsPath, "utf-8");
 const cleanTs = rawTs
   .replace(/import\s*\{\s*CalendarEvent\s*\}\s*from\s*"@\/lib\/api";/, "")
-  .replace(/import\s*\{\s*WeekDayItem[^}]*\}\s*from\s*"\.\/types";/, "")
-  .replace(/import\s*\{\s*DAY_NAMES\s*\}\s*from\s*"\.\/constants";/, "const DAY_NAMES = [\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\",\"Sat\",\"Sun\"];");
+  .replace(/import\s*\{[^}]*\}\s*from\s*"\.\/types";/, "")
+  .replace(/import\s*\{[^}]*\}\s*from\s*"\.\/constants";/, "const DAY_NAMES = [\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\",\"Sat\",\"Sun\"];\nconst BREAK_TIME_LABEL = \"Break Time\";");
 
 const jsCode = ts.transpileModule(cleanTs, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
 const encodedUri = "data:text/javascript;base64," + Buffer.from(jsCode).toString("base64");

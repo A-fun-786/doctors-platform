@@ -9,7 +9,15 @@ import {
   doesEventOverlapSlot,
   getWorkingHoursTimeRows,
   WorkingHoursConfig,
+  getDoctorBreakInterval,
+  formatBreakTimeTitle,
+  timeToMinutes,
 } from "../calendarUtils";
+import {
+  BREAK_TIME_LABEL,
+  BREAK_TIME_BADGE,
+  BREAK_TIME_SUBTITLE,
+} from "../constants";
 import Badge from "@/components/ui/Badge";
 
 interface DayViewProps {
@@ -33,6 +41,11 @@ export default function DayView({
   const leaveCount = events.filter(
     (e) => e.type === "LEAVE" || e.type === "HOLIDAY"
   ).length;
+
+  // Retrieve configured/calculated doctor break interval
+  const breakInfo = useMemo(() => {
+    return getDoctorBreakInterval(workingHoursConfig);
+  }, [workingHoursConfig]);
 
   // Only show working hours slots (active shifts) or slots that contain scheduled events
   const workingTimeRows = useMemo(() => {
@@ -76,6 +89,14 @@ export default function DayView({
               Blocked Period
             </span>
           </div>
+          {breakInfo && breakInfo.enabled && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-amber-100 border border-amber-300 shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">
+                {BREAK_TIME_LABEL}
+              </span>
+            </div>
+          )}
         </div>
         <div className="text-[11px] font-medium text-slate-500">
           30-Minute Operating Intervals
@@ -124,118 +145,208 @@ export default function DayView({
               No working slots scheduled for this day.
             </div>
           ) : (
-            workingTimeRows.map((timeRow) => {
-              const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
+            (() => {
+              const breakStartM = breakInfo && breakInfo.enabled ? timeToMinutes(breakInfo.start) : -1;
+              let breakRendered = false;
 
-              // Find events overlapping this 30-minute window
-              const cellEvents = events.filter((ev) =>
-                doesEventOverlapSlot(ev, slotStart, slotEnd)
-              );
-
-              const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-              const leaveEvent = cellEvents.find(
-                (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-              );
-              const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
-
-              // 1. Booked Patient Appointment
-              if (apptEvent) {
-                const event = apptEvent;
+              const renderBreakSlotCard = () => {
+                if (!breakInfo || !breakInfo.enabled) return null;
                 return (
                   <div
-                    key={timeRow}
-                    onClick={() => onEventClick(event, selectedDate)}
-                    className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:shadow-xs"
+                    key="break-time-slot-card"
+                    className="p-3.5 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 flex items-center justify-between shadow-2xs select-none"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
-                        {format12Hour(event.start)} – {format12Hour(event.end)}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300/80">
+                        <Coffee className="w-4 h-4" />
                       </div>
 
-                      <div>
-                        <div className="font-semibold text-xs text-blue-950 flex items-center gap-1.5 flex-wrap">
-                          <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          <span className="font-bold text-slate-900">
-                            {event.patient_name || "Patient"}
-                          </span>
-                          <span className="text-slate-500 font-normal">
-                            • {event.reason || "General Visit"}
-                          </span>
-                        </div>
+                      <div className="font-mono text-xs font-bold text-amber-950 w-36 shrink-0">
+                        {breakInfo.startLabel} – {breakInfo.endLabel}
+                      </div>
+
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-amber-900 tracking-wide uppercase truncate">
+                          {formatBreakTimeTitle(breakInfo.startLabel, breakInfo.endLabel)}
+                        </span>
+                        <span className="text-[11px] text-amber-700/80 font-medium hidden sm:inline truncate">
+                          {BREAK_TIME_SUBTITLE}
+                        </span>
                       </div>
                     </div>
 
-                    <Badge
-                      variant="default"
-                      className="text-[10px] font-bold uppercase tracking-wider"
-                    >
-                      {event.status || "BOOKED"}
-                    </Badge>
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 shadow-2xs">
+                      {BREAK_TIME_BADGE}
+                    </span>
                   </div>
                 );
-              }
+              };
 
-              // 2. Doctor Leave or Clinic Holiday
-              if (leaveEvent) {
-                const event = leaveEvent;
-                return (
-                  <div
-                    key={timeRow}
-                    onClick={() => onEventClick(event, selectedDate)}
-                    className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
-                        {format12Hour(event.start)} – {format12Hour(event.end)}
-                      </div>
+              const items: React.ReactNode[] = [];
 
-                      <div>
-                        <div className="font-semibold text-xs text-amber-950 flex items-center gap-1.5">
-                          <Coffee className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                          <span>
-                            {event.type === "LEAVE"
-                              ? "Doctor Leave"
-                              : "Clinic Holiday"}
-                          </span>
-                          {event.reason && (
-                            <span className="text-amber-700 font-normal ml-1">
-                              • {event.reason}
+              workingTimeRows.forEach((timeRow) => {
+                const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
+                const currentSlotStartM = timeToMinutes(slotStart);
+
+                // Insert break row right at chronological point
+                if (breakInfo && breakInfo.enabled && !breakRendered && currentSlotStartM >= breakStartM) {
+                  items.push(renderBreakSlotCard());
+                  breakRendered = true;
+                }
+
+                // Find events overlapping this 30-minute window
+                const cellEvents = events.filter((ev) =>
+                  doesEventOverlapSlot(ev, slotStart, slotEnd)
+                );
+
+                const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
+                const leaveEvent = cellEvents.find(
+                  (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
+                );
+                const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+
+                // 1. Booked Patient Appointment
+                if (apptEvent) {
+                  const event = apptEvent;
+                  items.push(
+                    <div
+                      key={timeRow}
+                      onClick={() => onEventClick(event, selectedDate)}
+                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                          {format12Hour(event.start)} – {format12Hour(event.end)}
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-xs text-blue-950 flex items-center gap-1.5 flex-wrap">
+                            <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span className="font-bold text-slate-900">
+                              {event.patient_name || "Patient"}
                             </span>
-                          )}
+                            <span className="text-slate-500 font-normal">
+                              • {event.reason || "General Visit"}
+                            </span>
+                          </div>
                         </div>
                       </div>
+
+                      <Badge
+                        variant="default"
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        {event.status || "BOOKED"}
+                      </Badge>
                     </div>
+                  );
+                  return;
+                }
 
-                    <Badge
-                      variant="warning"
-                      className="text-[10px] font-bold uppercase tracking-wider"
+                // 2. Doctor Leave or Clinic Holiday
+                if (leaveEvent) {
+                  const event = leaveEvent;
+                  items.push(
+                    <div
+                      key={timeRow}
+                      onClick={() => onEventClick(event, selectedDate)}
+                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xs"
                     >
-                      {event.type}
-                    </Badge>
-                  </div>
-                );
-              }
+                      <div className="flex items-center gap-3">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                          {format12Hour(event.start)} – {format12Hour(event.end)}
+                        </div>
 
-              // 3. Blocked Interval
-              if (blockedEvent) {
-                const event = blockedEvent;
-                return (
+                        <div>
+                          <div className="font-semibold text-xs text-amber-950 flex items-center gap-1.5">
+                            <Coffee className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>
+                              {event.type === "LEAVE"
+                                ? "Doctor Leave"
+                                : "Clinic Holiday"}
+                            </span>
+                            {event.reason && (
+                              <span className="text-amber-700 font-normal ml-1">
+                                • {event.reason}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Badge
+                        variant="warning"
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        {event.type}
+                      </Badge>
+                    </div>
+                  );
+                  return;
+                }
+
+                // 3. Blocked Interval
+                if (blockedEvent) {
+                  const event = blockedEvent;
+                  items.push(
+                    <div
+                      key={timeRow}
+                      onClick={() => onEventClick(event, selectedDate)}
+                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-purple-200 bg-purple-50/40 hover:border-purple-400 hover:shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                          {format12Hour(event.start)} – {format12Hour(event.end)}
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-xs text-purple-950 flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                            <span>
+                              Blocked Interval:{" "}
+                              {event.reason || "Doctor Duty / Personal"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        BLOCKED
+                      </Badge>
+                    </div>
+                  );
+                  return;
+                }
+
+                // 4. Clean Empty Slot (Click to Book)
+                items.push(
                   <div
                     key={timeRow}
-                    onClick={() => onEventClick(event, selectedDate)}
-                    className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-purple-200 bg-purple-50/40 hover:border-purple-400 hover:shadow-xs"
+                    onClick={() => {
+                      if (onEmptySlotClick) {
+                        onEmptySlotClick(selectedDate, slotStart, slotEnd);
+                      } else if (onBookPatient) {
+                        onBookPatient();
+                      }
+                    }}
+                    className="p-3.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-blue-50/40 hover:border-blue-300 transition-all flex items-center justify-between cursor-pointer hover:shadow-xs group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
-                        {format12Hour(event.start)} – {format12Hour(event.end)}
+                      <div className="font-mono text-xs font-bold text-slate-700 group-hover:text-blue-700 w-36 shrink-0 transition-colors">
+                        {format12Hour(slotStart)} – {format12Hour(slotEnd)}
                       </div>
 
                       <div>
-                        <div className="font-semibold text-xs text-purple-950 flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                          <span>
-                            Blocked Interval:{" "}
-                            {event.reason || "Doctor Duty / Personal"}
+                        <div className="font-medium text-xs text-slate-600 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full border border-slate-300 bg-white group-hover:border-blue-400 inline-block shrink-0 transition-colors" />
+                          <span className="font-bold text-slate-700 group-hover:text-blue-800 transition-colors">
+                            Empty Slot
+                          </span>
+                          <span className="text-[11px] text-slate-400 group-hover:text-blue-500 font-normal transition-colors">
+                            — Click to book
                           </span>
                         </div>
                       </div>
@@ -243,54 +354,22 @@ export default function DayView({
 
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-bold uppercase tracking-wider"
+                      className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border-slate-300 bg-white group-hover:border-blue-300 group-hover:text-blue-700 transition-colors"
                     >
-                      BLOCKED
+                      {"EMPTY SLOT"}
                     </Badge>
                   </div>
                 );
+              });
+
+              // If break time is after all working slots (or only morning was configured)
+              if (breakInfo && breakInfo.enabled && !breakRendered) {
+                items.push(renderBreakSlotCard());
+                breakRendered = true;
               }
 
-              // 4. Clean Empty Slot (Click to Book)
-              return (
-                <div
-                  key={timeRow}
-                  onClick={() => {
-                    if (onEmptySlotClick) {
-                      onEmptySlotClick(selectedDate, slotStart, slotEnd);
-                    } else if (onBookPatient) {
-                      onBookPatient();
-                    }
-                  }}
-                  className="p-3.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-blue-50/40 hover:border-blue-300 transition-all flex items-center justify-between cursor-pointer hover:shadow-xs group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="font-mono text-xs font-bold text-slate-700 group-hover:text-blue-700 w-36 shrink-0 transition-colors">
-                      {format12Hour(slotStart)} – {format12Hour(slotEnd)}
-                    </div>
-
-                    <div>
-                      <div className="font-medium text-xs text-slate-600 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full border border-slate-300 bg-white group-hover:border-blue-400 inline-block shrink-0 transition-colors" />
-                        <span className="font-bold text-slate-700 group-hover:text-blue-800 transition-colors">
-                          Empty Slot
-                        </span>
-                        <span className="text-[11px] text-slate-400 group-hover:text-blue-500 font-normal transition-colors">
-                          — Click to book
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border-slate-300 bg-white group-hover:border-blue-300 group-hover:text-blue-700 transition-colors"
-                  >
-                    {"EMPTY SLOT"}
-                  </Badge>
-                </div>
-              );
-            })
+              return items;
+            })()
           )}
         </div>
       </div>
