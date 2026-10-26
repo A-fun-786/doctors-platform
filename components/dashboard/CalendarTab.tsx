@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import Toast from "@/components/ui/Toast";
 import { CalendarTabProps } from "./calendar/types";
 import { useCalendarData } from "./calendar/hooks/useCalendarData";
@@ -18,7 +18,8 @@ import { useCalendarDrawer } from "./calendar/hooks/useCalendarDrawer";
 import CalendarDrawer from "./calendar/panels/CalendarDrawer";
 import AppointmentDetailsPanel from "./calendar/panels/AppointmentDetailsPanel";
 import LeaveDetailsPanel from "./calendar/panels/LeaveDetailsPanel";
-import { format12Hour } from "./calendar/calendarUtils";
+import { format12Hour, saveDoctorWorkingHours } from "./calendar/calendarUtils";
+import { getDoctorWorkingHours } from "@/lib/api";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
@@ -53,6 +54,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     showEditWorkingHoursModal,
     setShowEditWorkingHoursModal,
     workingHoursConfig,
+    setWorkingHoursConfig,
     openEditWorkingHours,
     handleSaveWorkingHours,
     selectedEvent,
@@ -83,6 +85,24 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     handleSlotBookingSubmit,
     handleSlotLeaveSubmit,
   } = useCalendarModals();
+
+  // Fetch working hours from backend API on mount, seeding state and updating localStorage as offline cache
+  useEffect(() => {
+    let isMounted = true;
+    getDoctorWorkingHours()
+      .then((remoteConfig) => {
+        if (isMounted && remoteConfig?.shifts) {
+          setWorkingHoursConfig(remoteConfig);
+          saveDoctorWorkingHours(remoteConfig);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load doctor working hours from server, using local cache:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [setWorkingHoursConfig]);
 
   // Right-side Drawer Hook
   const { drawerState, openEventDrawer, closeDrawer } = useCalendarDrawer();

@@ -33,29 +33,12 @@ import {
   bookPublicAppointment,
   uploadPublicReport,
   orderPublicMedicine,
+  getPublicAvailableSlots,
   PublicDoctorProfileResponse,
+  AvailableSlot,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
-
-const TIME_SLOTS = [
-  "09:00 AM",
-  "09:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-  "12:00 PM",
-  "12:30 PM",
-  "01:00 PM",
-  "01:30 PM",
-  "02:00 PM",
-  "02:30 PM",
-  "03:00 PM",
-  "03:30 PM",
-  "04:00 PM",
-  "04:30 PM",
-  "05:00 PM",
-];
+import { format12Hour } from "@/components/dashboard/calendar/calendarUtils";
 
 export default function PatientDoctorPage() {
   const params = useParams();
@@ -78,7 +61,9 @@ export default function PatientDoctorPage() {
 
   // In-Clinic Appointment form
   const [inClinicDate, setInClinicDate] = useState("");
-  const [inClinicSlot, setInClinicSlot] = useState(TIME_SLOTS[0]);
+  const [inClinicSlot, setInClinicSlot] = useState("");
+  const [inClinicAvailableSlots, setInClinicAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [inClinicSlotsLoading, setInClinicSlotsLoading] = useState(false);
   const [inClinicName, setInClinicName] = useState("");
   const [inClinicEmail, setInClinicEmail] = useState("");
   const [inClinicPhone, setInClinicPhone] = useState("");
@@ -88,7 +73,9 @@ export default function PatientDoctorPage() {
 
   // Video Consultation form
   const [videoDate, setVideoDate] = useState("");
-  const [videoSlot, setVideoSlot] = useState(TIME_SLOTS[1]);
+  const [videoSlot, setVideoSlot] = useState("");
+  const [videoAvailableSlots, setVideoAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [videoSlotsLoading, setVideoSlotsLoading] = useState(false);
   const [videoName, setVideoName] = useState("");
   const [videoEmail, setVideoEmail] = useState("");
   const [videoPhone, setVideoPhone] = useState("");
@@ -154,10 +141,86 @@ export default function PatientDoctorPage() {
     }
   }, [activeTab, doctor]);
 
+  // Load dynamic available slots on In-Clinic date change
+  useEffect(() => {
+    if (!slug || !inClinicDate) {
+      setInClinicAvailableSlots([]);
+      setInClinicSlot("");
+      return;
+    }
+    let isMounted = true;
+    setInClinicSlotsLoading(true);
+    getPublicAvailableSlots(slug, inClinicDate)
+      .then((slots) => {
+        if (isMounted) {
+          const list = slots || [];
+          setInClinicAvailableSlots(list);
+          if (list.length > 0) {
+            setInClinicSlot(format12Hour(list[0].start));
+          } else {
+            setInClinicSlot("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load in-clinic available slots:", err);
+        if (isMounted) {
+          setInClinicAvailableSlots([]);
+          setInClinicSlot("");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setInClinicSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, inClinicDate]);
+
+  // Load dynamic available slots on Video Consultation date change
+  useEffect(() => {
+    if (!slug || !videoDate) {
+      setVideoAvailableSlots([]);
+      setVideoSlot("");
+      return;
+    }
+    let isMounted = true;
+    setVideoSlotsLoading(true);
+    getPublicAvailableSlots(slug, videoDate)
+      .then((slots) => {
+        if (isMounted) {
+          const list = slots || [];
+          setVideoAvailableSlots(list);
+          if (list.length > 0) {
+            setVideoSlot(format12Hour(list[0].start));
+          } else {
+            setVideoSlot("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load video available slots:", err);
+        if (isMounted) {
+          setVideoAvailableSlots([]);
+          setVideoSlot("");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setVideoSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, videoDate]);
+
   // Handle In-Clinic Appointment
   const handleInClinicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctor) return;
+    if (!inClinicSlot) {
+      alert("Please select an available time slot");
+      return;
+    }
     try {
       setInClinicSubmitting(true);
       const res = await bookPublicAppointment(slug, {
@@ -181,6 +244,10 @@ export default function PatientDoctorPage() {
   const handleVideoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctor) return;
+    if (!videoSlot) {
+      alert("Please select an available time slot");
+      return;
+    }
     try {
       setVideoSubmitting(true);
       const res = await bookPublicAppointment(slug, {
@@ -833,22 +900,34 @@ export default function PatientDoctorPage() {
                         <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
                           Please select a preferred date above to view available time slots.
                         </div>
+                      ) : inClinicSlotsLoading ? (
+                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : inClinicAvailableSlots.length === 0 ? (
+                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please choose another date.
+                        </div>
                       ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                          {TIME_SLOTS.map((slot) => (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setInClinicSlot(slot)}
-                              className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                                inClinicSlot === slot
-                                  ? "bg-brand-600 text-white border-brand-600 shadow-sm"
-                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                              }`}
-                            >
-                              {slot}
-                            </button>
-                          ))}
+                          {inClinicAvailableSlots.map((slot) => {
+                            const slotLabel = format12Hour(slot.start);
+                            return (
+                              <button
+                                key={`${slot.start}-${slot.end}`}
+                                type="button"
+                                onClick={() => setInClinicSlot(slotLabel)}
+                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                  inClinicSlot === slotLabel
+                                    ? "bg-brand-600 text-white border-brand-600 shadow-sm"
+                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                {slotLabel}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1075,22 +1154,34 @@ export default function PatientDoctorPage() {
                         <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
                           Please select a consultation date above to view available time slots.
                         </div>
+                      ) : videoSlotsLoading ? (
+                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : videoAvailableSlots.length === 0 ? (
+                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please choose another date.
+                        </div>
                       ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                          {TIME_SLOTS.map((slot) => (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setVideoSlot(slot)}
-                              className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                                videoSlot === slot
-                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                              }`}
-                            >
-                              {slot}
-                            </button>
-                          ))}
+                          {videoAvailableSlots.map((slot) => {
+                            const slotLabel = format12Hour(slot.start);
+                            return (
+                              <button
+                                key={`${slot.start}-${slot.end}`}
+                                type="button"
+                                onClick={() => setVideoSlot(slotLabel)}
+                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                  videoSlot === slotLabel
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                {slotLabel}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

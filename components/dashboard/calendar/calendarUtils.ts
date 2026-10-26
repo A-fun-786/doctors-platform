@@ -289,6 +289,7 @@ export interface WorkingHoursShift {
 
 export interface WorkingHoursConfig {
   shifts: WorkingHoursShift[];
+  closed_days?: number[];
 }
 
 export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
@@ -308,6 +309,7 @@ export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
       enabled: true,
     },
   ],
+  closed_days: [0],
 };
 
 export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
@@ -340,6 +342,8 @@ export function getDoctorWorkingHours(): WorkingHoursConfig {
   return DEFAULT_WORKING_HOURS;
 }
 
+export const getCachedDoctorWorkingHours = getDoctorWorkingHours;
+
 /**
  * Persist doctor customized working hours to localStorage.
  */
@@ -354,7 +358,7 @@ export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
 
 /**
  * Check if a time slot (start, end) falls within doctor's configured working hours.
- * Closed on Sundays.
+ * Defaults to closed on Sundays if closed_days not specified.
  */
 export function isSlotWithinWorkingHours(
   dateStr: string,
@@ -364,12 +368,13 @@ export function isSlotWithinWorkingHours(
 ): boolean {
   if (!dateStr || !slotStart || !slotEnd) return false;
   const d = new Date(dateStr);
-  if (d.getDay() === 0) return false; // Sunday closed
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+  const closedDays = activeConfig.closed_days ?? [0];
+  if (closedDays.includes(d.getDay())) return false;
 
   const startM = timeToMinutes(slotStart);
   const endM = timeToMinutes(slotEnd);
 
-  const activeConfig = config || DEFAULT_WORKING_HOURS;
   return activeConfig.shifts.some((shift) => {
     if (!shift.enabled) return false;
     const shiftStartM = timeToMinutes(shift.start);

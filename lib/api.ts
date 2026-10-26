@@ -189,6 +189,24 @@ export interface AvailableSlot {
   end: string;
 }
 
+export interface WorkingHoursShift {
+  id: string;
+  label: string;
+  start: string;
+  end: string;
+  enabled: boolean;
+}
+
+export interface DoctorWorkingHoursResponse {
+  shifts: WorkingHoursShift[];
+  closed_days: number[];
+}
+
+export interface DoctorWorkingHoursUpdatePayload {
+  shifts: WorkingHoursShift[];
+  closed_days?: number[];
+}
+
 // Appointment types
 export type AppointmentStatus = "BOOKED" | "COMPLETED" | "CANCELLED";
 
@@ -661,6 +679,29 @@ export async function getPublicAvailableSlots(
       method: "GET",
     }
   );
+}
+
+/**
+ * Retrieve recurring working hours and shifts for the authenticated doctor.
+ */
+export async function getDoctorWorkingHours(): Promise<DoctorWorkingHoursResponse> {
+  return apiFetch<DoctorWorkingHoursResponse>("/api/v1/doctor/working-hours", {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+/**
+ * Update recurring shift schedule and closed days for the authenticated doctor.
+ */
+export async function updateDoctorWorkingHours(
+  payload: DoctorWorkingHoursUpdatePayload
+): Promise<DoctorWorkingHoursResponse> {
+  return apiFetch<DoctorWorkingHoursResponse>("/api/v1/doctor/working-hours", {
+    method: "PUT",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
 }
 
 // ==========================================
