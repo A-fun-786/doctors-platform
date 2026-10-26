@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Clock, Sun, Sunset, Check, AlertCircle, Sparkles } from "lucide-react";
+import { Clock, Sun, Sunset, Coffee, Check, AlertCircle, Sparkles } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { TIME_OPTIONS_30M } from "../constants";
+import { TIME_OPTIONS_30M, BREAK_TIME_LABEL, BREAK_TIME_BADGE } from "../constants";
 import {
   WorkingHoursConfig,
   WorkingHoursShift,
@@ -53,7 +53,7 @@ export default function EditWorkingHoursModal({
   };
 
   // Validation & Slot calculation
-  const { totalSlots, shiftSlotCounts, validationError } = useMemo(() => {
+  const { totalSlots, shiftSlotCounts, validationError, calculatedBreak } = useMemo(() => {
     let total = 0;
     const counts: Record<string, number> = {};
     let err: string | null = null;
@@ -93,7 +93,38 @@ export default function EditWorkingHoursModal({
       }
     }
 
-    return { totalSlots: total, shiftSlotCounts: counts, validationError: err };
+    // Calculate dynamic break interval between shifts
+    let calcBreak: {
+      start: string;
+      end: string;
+      start12: string;
+      end12: string;
+      mins: number;
+    } | null = null;
+
+    if (enabledShifts.length >= 2 && !err) {
+      const sorted = [...enabledShifts].sort(
+        (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start)
+      );
+      const s1End = timeToMinutes(sorted[0].end);
+      const s2Start = timeToMinutes(sorted[1].start);
+      if (s2Start > s1End) {
+        calcBreak = {
+          start: sorted[0].end,
+          end: sorted[1].start,
+          start12: format12Hour(sorted[0].end),
+          end12: format12Hour(sorted[1].start),
+          mins: s2Start - s1End,
+        };
+      }
+    }
+
+    return {
+      totalSlots: total,
+      shiftSlotCounts: counts,
+      validationError: err,
+      calculatedBreak: calcBreak,
+    };
   }, [shifts]);
 
   const handleSave = (e: React.FormEvent) => {
@@ -102,7 +133,16 @@ export default function EditWorkingHoursModal({
       setError(validationError);
       return;
     }
-    onSave({ shifts });
+    const breakTime = calculatedBreak
+      ? {
+          enabled: true,
+          start: calculatedBreak.start,
+          end: calculatedBreak.end,
+          label: BREAK_TIME_LABEL,
+        }
+      : undefined;
+
+    onSave({ shifts, breakTime });
     onClose();
   };
 
@@ -149,100 +189,124 @@ export default function EditWorkingHoursModal({
             const slots = shiftSlotCounts[shift.id] || 0;
 
             return (
-              <div
-                key={shift.id}
-                className={`p-4 rounded-2xl border transition-all duration-200 ${
-                  shift.enabled
-                    ? "bg-white border-slate-200 shadow-xs"
-                    : "bg-slate-50/70 border-slate-200/60 opacity-60"
-                }`}
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        isMorning
-                          ? "bg-amber-50 text-amber-500"
-                          : "bg-orange-50 text-orange-500"
-                      }`}
-                    >
-                      {isMorning ? (
-                        <Sun className="w-4 h-4" />
-                      ) : (
-                        <Sunset className="w-4 h-4" />
-                      )}
+              <React.Fragment key={shift.id}>
+                <div
+                  className={`p-4 rounded-2xl border transition-all duration-200 ${
+                    shift.enabled
+                      ? "bg-white border-slate-200 shadow-xs"
+                      : "bg-slate-50/70 border-slate-200/60 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isMorning
+                            ? "bg-amber-50 text-amber-500"
+                            : "bg-orange-50 text-orange-500"
+                        }`}
+                      >
+                        {isMorning ? (
+                          <Sun className="w-4 h-4" />
+                        ) : (
+                          <Sunset className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">
+                          {shift.label}
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          {shift.enabled
+                            ? `${slots} slots (30 min each)`
+                            : "Disabled"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">
-                        {shift.label}
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        {shift.enabled
-                          ? `${slots} slots (30 min each)`
-                          : "Disabled"}
-                      </p>
-                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shift.enabled}
+                        onChange={() => handleToggleShift(shift.id)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                   </div>
 
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={shift.enabled}
-                      onChange={() => handleToggleShift(shift.id)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
+                  {shift.enabled && (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                          Start Time
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={shift.start}
+                            onChange={(e) =>
+                              handleTimeChange(shift.id, "start", e.target.value)
+                            }
+                            className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                          >
+                            {TIME_OPTIONS_30M.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                          End Time
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={shift.end}
+                            onChange={(e) =>
+                              handleTimeChange(shift.id, "end", e.target.value)
+                            }
+                            className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                          >
+                            {TIME_OPTIONS_30M.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {shift.enabled && (
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                        Start Time
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={shift.start}
-                          onChange={(e) =>
-                            handleTimeChange(shift.id, "start", e.target.value)
-                          }
-                          className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
-                        >
-                          {TIME_OPTIONS_30M.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {/* Dynamic Break Time Preview between Morning and Evening */}
+                {isMorning && calculatedBreak && (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/70 text-amber-950">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 border border-amber-200">
+                        <Coffee className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                          <span>Break Time: {calculatedBreak.start12} – {calculatedBreak.end12}</span>
+                          <span className="text-[10px] font-semibold text-amber-700">({calculatedBreak.mins} min)</span>
+                        </div>
+                        <p className="text-[11px] text-amber-700/80 font-medium">
+                          Auto-calculated between shifts. Displayed in Day & Week calendar views.
+                        </p>
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                        End Time
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={shift.end}
-                          onChange={(e) =>
-                            handleTimeChange(shift.id, "end", e.target.value)
-                          }
-                          className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
-                        >
-                          {TIME_OPTIONS_30M.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-800 shadow-2xs">
+                      {BREAK_TIME_BADGE}
+                    </span>
                   </div>
                 )}
-              </div>
+              </React.Fragment>
             );
           })}
         </div>

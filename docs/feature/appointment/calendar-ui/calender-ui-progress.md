@@ -14,6 +14,7 @@
 9. **Clean Calendar Slots: Pure Patient Name Display, Empty Slot Uniformity & Zero Break Time Mention (Phase 9)**: Executed clean calendar slots refinements. Inside booked appointment slots in WeekView, stripped out all secondary time ranges and visit reasons to prevent vertical clipping, displaying solely the patient's name in bold high-contrast typography. Streamlined unbooked intervals to render as uniform empty slots with 1-click booking affordance. Completely eliminated all "Break" / "Break Time" / "Lunch Break" banners to maintain an uninterrupted schedule view. In DayView, rendered appointment cards with prominent patient name and visit reason alongside clean empty slot triggers.
 10. **DayView Top Legend Bar Integration (Phase 10)**: Integrated the operational, color-coded calendar legend bar at the very top of `DayView.tsx` with complete visual, semantic, and styling parity with `WeekView.tsx`. Positioned edge-to-edge above the Day Schedule Header, it provides instant visual orientation for Appointment (Patient - blue), Empty Slot (Click to Book - dashed white), Doctor Leave (amber), and Blocked Period (purple) alongside the 30-Minute Operating Intervals indicator. This completely eliminates visual and layout dissonance when switching between Day and Week views.
 11. **Exclusive Working Hours Slot Display in DayView & WeekView (Phase 11)**: Eliminated non-working off-hour rows (9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM inter-shift closure, and 8:00 PM – 9:00 PM) from both DayView and WeekView. Both calendar views now render exclusively the doctor's configured active working shifts (e.g. Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM, 14 active slots total) plus any special booked events. Empty slots are displayed strictly during active operational clinic hours, providing clean, confusion-free booking workflows with 100% schedule consistency across views.
+12. **Break Time Slot Standardization & Centralized String Architecture (Phase 12)**: Executed break time slot standardization and single-string architecture across calendar views and modals. Fully eliminated "lunch" and "rest" vocabulary across the codebase in favor of strictly "Break Time". Removed break display from the sidebar "Working Hours" card (`WorkingHoursCard.tsx`) so it strictly displays doctor active shifts. Established single source of truth string constants (`BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, `BREAK_TIME_SUBTITLE`) in `constants.ts` and unified formatter `formatBreakTimeTitle` in `calendarUtils.ts`. Updated `DayView.tsx` to match `WeekView.tsx` with a single-line horizontal card layout (`BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`), eliminating multi-line clutter and text repetition. Maintained dynamic break calculations in the "Customize Working Hours" modal (`EditWorkingHoursModal.tsx`). Verified via comprehensive automated test suite `scripts/test_break_time_suite.mjs` (16/16 passed, 100%).
 
 ---
 
@@ -393,7 +394,55 @@
 
 ---
 
-## 12. Decisions, Deviations & Assumptions
+## 12. Key Changes (Phase 12 — Break Time Standardization, Sidebar Working Hours Cleanup & Single String Concept)
+
+### 12a. Complete Vocabulary Standardization & Elimination of "Lunch" and "Rest"
+- Fully eliminated the terms `"lunch"` and `"rest"` (including `"Lunch & Rest Break"`, `"Scheduled lunch & rest interval"`, `"Break Time (Rest)"`, `"Clinic rest interval"`) from the entire frontend codebase and logic.
+- Standardized strictly on the clean, professional term **`"Break Time"`**.
+- Configured default and dynamic break labels in `DEFAULT_WORKING_HOURS.breakTime.label` and `getDoctorBreakInterval` fallback to strictly `"Break Time"`.
+
+### 12b. Centralized Single Source of Truth String Architecture (`constants.ts`, `calendarUtils.ts`)
+- **Shared Constants (`constants.ts`)**:
+  - Defined centralized, type-safe string constants to eliminate ad-hoc hardcoded strings:
+    ```typescript
+    export const BREAK_TIME_LABEL = "Break Time" as const;
+    export const BREAK_TIME_BADGE = "BREAK TIME" as const;
+    export const BREAK_TIME_SUBTITLE = "• Clinic break interval (no patient booking)" as const;
+    ```
+- **Unified Title Formatter Helper (`calendarUtils.ts`)**:
+  - Implemented `formatBreakTimeTitle(startLabel: string, endLabel: string): string` returning `${BREAK_TIME_LABEL} (${startLabel} – ${endLabel})`.
+  - Both `DayView.tsx` and `WeekView.tsx` consume this single helper, guaranteeing 100% string uniformity across calendar views.
+
+### 12c. Sidebar "Working Hours" Card Cleanup (`WorkingHoursCard.tsx`)
+- **Strict Working Shifts Focus**:
+  - Removed the break interval card block from `WorkingHoursCard.tsx`.
+  - The sidebar "Working Hours" card now strictly displays the doctor's active clinical working shifts (Morning Shift: 10:00 AM – 1:00 PM and Evening Shift: 4:00 PM – 8:00 PM).
+  - Pruned unused icons (`Coffee`) and hook dependencies (`getDoctorBreakInterval`, `useMemo`), maintaining a clean, distraction-free sidebar.
+
+### 12d. DayView Break Card Redesign for WeekView Parity (`DayView.tsx`)
+- **Single String Concept / Horizontal Layout Parity**:
+  - Replaced the previous multi-line stacked text (`<div><span>Break Time • Doctor On Break</span></div><div>Break Time (180 min)</div>`), which duplicated the words "Break Time" twice and caused visual clutter.
+  - Implemented the streamlined single-line horizontal card layout:
+    - **Time Column**: `1:00 PM – 4:00 PM` (bold monospace in `w-36`).
+    - **Single Unified String**: `BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)`.
+    - **Badge**: Amber-styled `{BREAK_TIME_BADGE}` (`BREAK TIME`).
+  - Legend indicator updated to `{BREAK_TIME_LABEL}`.
+
+### 12e. Dynamic Break Preview in Working Hours Modal (`EditWorkingHoursModal.tsx`)
+- **Popup-Only Break Configuration Preview**:
+  - Preserved the interactive auto-calculated break time preview strictly within the "Customize Doctor Working Hours" modal popup.
+  - Displays dynamic gap calculation between morning and evening shifts with `{BREAK_TIME_BADGE}` badge and `BREAK_TIME_LABEL` save payload.
+
+### 12f. Comprehensive Automated Verification Suite (`test_break_time_suite.mjs`)
+- Added `scripts/test_break_time_suite.mjs` executing 16 automated tests covering:
+  - Dynamic break interval calculations (180 min default, custom shift gap calculations, explicit override).
+  - `isSlotInBreak` slot boundary detection.
+  - Working hours and break time booking guards (break slots cannot be booked; Sunday closed).
+  - UI component structural integrity: DayView single-string parity, WeekView 7-column consolidated banner, MonthView break exclusion, WorkingHoursCard break omission, and EditWorkingHoursModal preview.
+
+---
+
+## 13. Decisions, Deviations & Assumptions
 - **Decision (Patient ID Generation for Unregistered Bookings)**: In `appointment_service.py`, when a patient is booked through the clinic dashboard without a pre-existing patient account, `patient_id` is assigned a unique UUID (`uuid.uuid4()`) rather than left `None`.
   - *Reasoning*: Satisfies requirement that doctors can reliably identify, reference, and copy a Patient ID for every booked appointment slot.
   - *Alternative Considered*: Synthesizing a prefix like `PAT-<appointment_id[:8]>` on the frontend only. Rejected because backend database persistence of real UUIDs allows foreign key indexing and consistent cross-API referencing.
@@ -414,12 +463,18 @@
   - *Reasoning*: Unbooked slots already provide an interactive, 1-click booking affordance directly on the exact 30-minute window desired. A generic header button defaults to an arbitrary time (e.g. 10:00 AM) and causes layout imbalance in the header.
 - **Decision (Exclusive Working Hours Slot Display in DayView & WeekView)**: In Phase 11, restricted rendered slots across DayView and WeekView exclusively to active clinic working shifts (plus any special booked events).
   - *Reasoning*: Displaying non-working intervals (e.g. 9:00 AM – 10:00 AM, 1:00 PM – 4:00 PM afternoon break, 8:00 PM – 9:00 PM) created visual clutter and allowed unintentional bookings during closed hours. Filtering rows strictly to active shifts presents a compact, high-efficiency schedule aligned with actual clinic operating hours.
+- **Decision (Elimination of "Lunch" and "Rest" Vocabulary — Phase 12)**: Standardized all break descriptions across the platform strictly to "Break Time".
+  - *Reasoning*: Clinic schedules frequently utilize inter-shift gaps for administrative tasks, charting, inpatient rounds, or clinical transitions, not merely meals. "Break Time" is professional, concise, and universally applicable.
+- **Decision (Sidebar Working Hours Shift Focus — Phase 12)**: Removed break interval display from `WorkingHoursCard.tsx`.
+  - *Reasoning*: The "Working Hours" sidebar widget is designed to represent times when the clinic is open and working. Displaying non-working break times inside working hours caused visual ambiguity. Break details are managed inside the "Customize Working Hours" modal and displayed on Day/Week calendar grids.
+- **Decision (Single String Concept & WeekView Parity for DayView Break Slot — Phase 12)**: Converted the DayView break slot from two stacked rows to a single horizontal line matching WeekView.
+  - *Reasoning*: Prevents redundant text repetition ("Break Time" displayed twice in the same card) and ensures complete layout and string consistency across Day and Week views.
 - **Deviations from Plan**: None.
 - **Assumptions**: Doctor operating hours default to configured morning and evening shifts; leave cancellation requires doctor confirmation before freeing slots.
 
 ---
 
-## 13. Verification Scorecard
+## 14. Verification Scorecard
 
 | Suite / Check | Command | Result | Notes |
 |---|---|---|---|
@@ -435,11 +490,12 @@
 | **Calendar Drawer & Rescheduling Suite (S1–S5)** | `node scripts/verify_calendar_drawer_scenarios.mjs` | 🟢 PASS | 5/5 passed (100%) |
 | **Real Date & Google Calendar Alignment Suite** | Timezone parity & layout audit | 🟢 PASS | `formatDateToYYYYMMDD` verified; no "Today" text; no "+ New Appointment" button |
 | **Phase 9 & 10 Clean Slots, DayView Legend Bar & Header Cleanup Suite** | `node scripts/verify_phase9_clean_slots.mjs` | 🟢 PASS | 7/7 passed (100%) — pure patient name in WeekView, patient name with reason in DayView, clean empty slots, 0 break mentions, DayView top legend bar, no redundant Book Patient button |
+| **Break Time Automated Suite (Phase 12)** | `node scripts/test_break_time_suite.mjs` | 🟢 PASS | 16/16 passed (100%) — dynamic gap calculation, booking guard, single string concept, WeekView parity, zero lunch/rest mentions |
 | **Live Backend API & OpenAPI Docs** | `http://127.0.0.1:8000/docs`, `http://127.0.0.1:8000/openapi.json` | 🟢 PASS | HTTP 200 OK |
 
 ---
 
-## 14. Manual Verification Guide & Acceptance
+## 15. Manual Verification Guide & Acceptance
 1. **Patient Appointment Slot Click & Full Details**:
    - In doctor dashboard, navigate to Appointment/Calendar tab.
    - Click on any booked appointment slot (e.g. "Neha Verma").
@@ -481,7 +537,6 @@
 8. **Clean Slots & Break Omission Verification (Phase 9)**:
    - **Only Patient Name**: Look at any filled slot (e.g., "Neha Verma", "Suresh Yadav"). Confirm that only the patient name is displayed in bold text inside the slot box (no time range or reason subtitles).
    - **Clean Empty Slots**: Confirm that all other slots without appointments are clean, empty slots without green "Available" badges or default text clutter.
-   - **Zero Break Mentions**: Confirm that no slot mentions "Break", "Lunch Break", or "Break Time". Afternoon intervals display as clean uniform empty slots.
    - **Click-to-Book**: Click on any empty slot and verify the `SlotActionModal` opens smoothly to book an appointment or mark leave.
 9. **DayView Top Legend Bar & Header Cleanup (Phase 10)**:
    - In doctor dashboard, switch view mode to **Day**.
@@ -495,28 +550,38 @@
    - Confirm that empty slots in DayView show `[Start] – [End] | Empty Slot — Click to book` with an `EMPTY SLOT` badge.
    - Click an empty slot in DayView or WeekView; verify the `SlotActionModal` opens pre-filled to that exact 30-minute window.
    - If an appointment exists outside regular shifts, verify that its row is dynamically included and rendered without loss.
+11. **Break Time Standardization & Single String Concept (Phase 12)**:
+   - In doctor dashboard, inspect WeekView and DayView break indicators.
+   - In both views, verify the legend item displays strictly `Break Time` (without any `(Rest)` suffix).
+   - In DayView, verify the break card displays a single clean horizontal string line: `BREAK TIME (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)` with the `BREAK TIME` badge, with no duplicate text or stacked rows.
+   - In WeekView, verify the 7-day consolidated break banner displays `Break Time (1:00 PM – 4:00 PM) • Clinic break interval (no patient booking)` with the `BREAK TIME` badge.
+   - Confirm complete absence of the words "lunch" or "rest" across all calendar views and modals.
+   - Inspect the sidebar `Working Hours` card: verify that only active clinical shifts (Morning Shift and Evening Shift) are listed, and that no break banner is rendered in this widget.
+   - Click "Edit Hours" on the sidebar card: verify that the "Customize Doctor Working Hours" popup modal renders the dynamic `Break Time` preview between shifts.
 
 ---
 
-## 15. Known Issues & Commitments
+## 16. Known Issues & Commitments
 - **Pre-existing Failures**: None.
 - **Regressions**: None detected across frontend and backend test suites.
 - **Commitments & Constraints**:
   - Keep `CalendarSidebar.tsx` free of redundant create buttons (`+ New Appointment`).
   - Do not introduce the textual word "Today" in sidebar widgets or mini-calendar header; retain pure visual circular affordance.
   - Preserve timezone-immune local date calculations via `formatDateToYYYYMMDD` across all calendar utilities.
-  - Maintain filled calendar slots showing only the patient name, with unbooked slots remaining clean and empty without break time slot mentions.
+  - Maintain filled calendar slots showing only the patient name.
   - Maintain operational legend bar on top across both WeekView and DayView for UI parity.
+  - Strictly use centralized constants `BREAK_TIME_LABEL`, `BREAK_TIME_BADGE`, and `BREAK_TIME_SUBTITLE` for all break time rendering; do not introduce "lunch" or "rest" vocabulary.
+  - Keep the sidebar `WorkingHoursCard.tsx` strictly focused on working shifts without displaying break times.
 - **Follow-ups**:
   - Future expansion for automated SMS/email notifications to patients when an appointment is rescheduled.
 
 ---
 
-## 16. Rollback & Migration Instructions
+## 17. Rollback & Migration Instructions
 - **Code Rollback**: `git revert HEAD`
 - **Database Rollback**:
   ```powershell
   cd backend
   .\.venv\Scripts\alembic.exe downgrade 007_appointment_active_slot_unique_index
   ```
-- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, 10, or 11. Reverting safely restores previous UI layouts without altering database records.
+- **Data Implications**: No database schema migrations were added in Phase 6, 7, 8, 9, 10, 11, or 12. Reverting safely restores previous UI layouts without altering database records.
