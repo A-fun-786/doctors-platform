@@ -148,9 +148,16 @@ def test_doctor_tenant_relationship(db_session):
     assert doctor.tenant.slug == "dr-jane-doe"
 
 
-def test_production_settings_validation():
+def test_production_settings_validation(monkeypatch):
     from app.core.config import Settings
     from pydantic import ValidationError
+
+    # Clear environment variables to test pure defaults without CI env pollution
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("ALLOW_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
 
     # Default secret must fail in production
     with pytest.raises(ValidationError, match="JWT_SECRET_KEY"):
