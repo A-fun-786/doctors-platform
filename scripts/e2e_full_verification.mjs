@@ -44,6 +44,15 @@ async function run() {
     assert.ok(html.includes("viewport"), "HTML must have responsive viewport meta tag");
   });
 
+  await record("Landing page (/) renders direct Sign Up and Login action elements", async () => {
+    const res = await fetch(`${FRONTEND_URL}/`);
+    assert.strictEqual(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes("Sign Up"), "Landing page must render direct Sign Up action");
+    assert.ok(html.includes("Login"), "Landing page must render direct Login action");
+    assert.ok(html.includes("/register"), "Landing page must contain /register link for doctors");
+  });
+
   await record("Login page (/login) renders with auth form elements", async () => {
     const res = await fetch(`${FRONTEND_URL}/login`);
     assert.strictEqual(res.status, 200);

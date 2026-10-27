@@ -66,6 +66,7 @@ const responsiveGrid = fs.readFileSync(path.join(projectRoot, "components", "lay
 const pageContainer = fs.readFileSync(path.join(projectRoot, "components", "layout", "PageContainer.tsx"), "utf-8");
 const toastUi = fs.readFileSync(path.join(projectRoot, "components", "ui", "Toast.tsx"), "utf-8");
 const publicSlugPage = fs.readFileSync(path.join(projectRoot, "app", "[slug]", "page.tsx"), "utf-8");
+const navbarLanding = fs.readFileSync(path.join(projectRoot, "components", "landing", "Navbar.tsx"), "utf-8");
 
 console.log("\n================================================================================");
 console.log("🏥 GoSmartClinic Platform - Production Responsive QA Automated Verification");
@@ -137,10 +138,13 @@ verifyCheck("B", 2, "Tablet collapsible sidebar", () => {
   assert.ok(dashboardShell.includes("w-20"), "Sidebar collapses to compact icon rail (w-20)");
 });
 
-verifyCheck("B", 3, "Mobile hamburger menu", () => {
-  assert.ok(dashboardShell.includes("<header className=\"md:hidden sticky top-0"), "Sticky mobile header present");
+verifyCheck("B", 3, "Mobile hamburger menu and mobile action navigation", () => {
+  assert.ok(dashboardShell.includes("<header className=\"md:hidden sticky top-0"), "Sticky mobile header present in DashboardShell");
   assert.ok(dashboardShell.includes("Menu"), "Hamburger Menu icon present in mobile topbar");
   assert.ok(dashboardShell.includes("aria-label=\"Open navigation menu\""), "Accessible hamburger menu button");
+  assert.ok(navbarLanding.includes("flex md:hidden items-center"), "Landing Navbar includes responsive mobile actions container");
+  assert.ok(navbarLanding.includes("Sign Up"), "Landing Navbar includes direct mobile Sign Up button");
+  assert.ok(navbarLanding.includes("href=\"/login\""), "Landing Navbar includes direct mobile Login link");
 });
 
 verifyCheck("B", 4, "Menu opens and closes correctly", () => {

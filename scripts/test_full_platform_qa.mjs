@@ -160,6 +160,15 @@ async function run() {
     assert.ok(content.includes("overflow-hidden") || content.includes("w-full"), "Calendar container must prevent overflow");
   });
 
+  await record("responsiveness", "Landing page Navbar implements direct mobile Login and Sign Up action buttons", async () => {
+    const navbarFile = path.join(rootDir, "components", "landing", "Navbar.tsx");
+    const content = fs.readFileSync(navbarFile, "utf-8");
+    assert.ok(content.includes('flex md:hidden items-center'), "Must include mobile actions container");
+    assert.ok(content.includes('Sign Up'), "Must include direct Sign Up action button on mobile");
+    assert.ok(content.includes('href="/login"'), "Must include direct Login action on mobile");
+    assert.ok(content.includes('href="/register"'), "Must route to /register for doctor signup");
+  });
+
   // ============================================================================
   // 3. ACCESSIBILITY (WCAG 2.1 AA) TESTING
   // ============================================================================
