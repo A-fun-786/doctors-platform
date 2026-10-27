@@ -32,10 +32,15 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("working_hours", sa.JSON(), nullable=True))
 
     default_json = json.dumps(DEFAULT_WORKING_HOURS)
-    # Using text SQL ensures compatibility with both online execution and offline --sql mode
-    op.execute(
-        sa.text("UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL").bindparams(val=default_json)
-    )
+    dialect_name = op.get_context().dialect.name
+    if dialect_name == "postgresql":
+        op.execute(
+            sa.text("UPDATE doctors SET working_hours = CAST(:val AS json) WHERE working_hours IS NULL").bindparams(val=default_json)
+        )
+    else:
+        op.execute(
+            sa.text("UPDATE doctors SET working_hours = :val WHERE working_hours IS NULL").bindparams(val=default_json)
+        )
 
 
 def downgrade() -> None:
