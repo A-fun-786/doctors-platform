@@ -905,3 +905,66 @@
 - **Command**: `node scripts/live_manual_test_comprehensive.mjs`
 - **Observed Result**: 62 passed, 0 failed, 0 skipped in 2.8s (exit code 0).
 - **Manual Steps Pending**: None.
+
+---
+
+## 25. Bug Resolution: Elimination of Production Demo Data Fallback in Calendar Hook (`useCalendarData.ts`)
+
+- **Issue Classification**: 🔴 Blocking / Patient Data Integrity Bug
+- **Affected File**: [`components/dashboard/calendar/hooks/useCalendarData.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/calendar/hooks/useCalendarData.ts)
+- **Problem & Symptoms**:
+  In `useCalendarData.ts`, `getEventsForDate` checked:
+  ```typescript
+  const liveEvents = apiCalendarData[dateStr];
+  if (liveEvents && liveEvents.length > 0) {
+    return liveEvents;
+  }
+  return DEMO_WEEK_EVENTS[dateStr] || []; // ← Buggy fallback
+  ```
+  When a doctor navigated to a day with 0 appointments, or if the backend returned no calendar entries for that day, `liveEvents && liveEvents.length > 0` evaluated to `false`, causing the hook to fall back to `DEMO_WEEK_EVENTS[dateStr]`.
+- **Clinical & Operational Impact**:
+  - **Fictional Patient Leakage**: On any empty day within the demo date range (Oct 19–25, 2026), the calendar UI rendered 9 fictional demo patients (`pat-demo-2001` through `pat-demo-2009`) with fabricated clinical vitals, residential addresses, and demo appointment IDs (`appt-demo-101`..`109`).
+  - **Trust & Compliance Violation**: Displaying fictional patient records in a live healthcare SaaS compromises doctor trust and introduces severe confusion during clinical scheduling.
+  - **Downstream Logic Distortion**: `WeekView`, `DayView`, `MonthView`, `generateMiniCalDays` (event indicator dots), `SlotActionModal` (conflict checks), and `CalendarDrawer` (patient vitals viewer) all consumed `getEventsForDate`, causing phantom slots to block bookings and show false event dots on empty days.
+- **Root Cause**:
+  Legacy scaffolding fallback from early offline prototype UI development was left active in production code when connecting the operational `/doctor/calendar` API.
+- **Fix Implementation**:
+  1. **Removed Mock Dependency**: Pruned `import { DEMO_WEEK_EVENTS } from "../constants";` from `useCalendarData.ts`.
+  2. **Clean Empty Day Return**: Updated `getEventsForDate` in `useCalendarData.ts` to strictly return `[]` when `liveEvents` has 0 items or is undefined:
+     ```typescript
+     // Get events for a specific date from live API data.
+     // Empty days cleanly return [] so fake demo patients never leak into the calendar.
+     const getEventsForDate = useCallback(
+       (dateStr: string): CalendarEvent[] => {
+         const liveEvents = apiCalendarData[dateStr];
+         if (liveEvents && liveEvents.length > 0) {
+           return liveEvents;
+         }
+         return [];
+       },
+       [apiCalendarData]
+     );
+     ```
+  3. **Updated Logger Notice**: Changed `fetchCalendar` fallback notice in `useCalendarData.ts` to reflect a clean empty calendar view rather than a mock fallback.
+  4. **Documentation Alignment**: Synchronized [`CALENDAR_UI_DOCUMENTATION.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/feature/appointment/calendar-ui/CALENDAR_UI_DOCUMENTATION.md) to formally specify that dates without events cleanly return `[]`.
+- **Testing & Verification**:
+  1. **Automated Test Suite ([`scripts/test_calendar_no_demo_fallback.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/scripts/test_calendar_no_demo_fallback.mjs))**:
+     - **Suite 1 (AST Inspection & Source Cleanliness)**: Asserts `useCalendarData.ts` does NOT import or reference `DEMO_WEEK_EVENTS` and returns `[]` as fallback.
+     - **Suite 2 (Behavioral Unit Simulation)**: Asserts `{}` map returns `[]`, explicit `[]` returns `[]`, dates Oct 19–25 return 0 events, and live appointments return intact.
+     - **Suite 3 (Security & Identity Guards)**: Asserts that 0 demo patient IDs (`pat-demo-2001` through `pat-demo-2009`) ever appear on empty calendar days.
+  2. **CI Test Runner Integration**: Added `scripts/test_calendar_no_demo_fallback.mjs` to `npm test` and added `"test:calendar:no-demo"` script in `package.json`.
+  3. **Regression & Build Checks**:
+     - `npm test`: 107/107 automated tests passed across all suites.
+     - `npx tsc --noEmit`: Clean TypeScript compilation (0 errors).
+     - `npm run lint`: 0 ESLint warnings or errors.
+     - `node scripts/live_manual_test_comprehensive.mjs`: 62/62 live scenarios passed against running FastAPI and Next.js servers.
+- **Verification Scorecard**:
+
+| Suite / Check | Command | Result | Notes |
+| :--- | :--- | :--- | :--- |
+| **No Demo Fallback Suite** | `node scripts/test_calendar_no_demo_fallback.mjs` | 🟢 PASS | 11/11 tests passed (AST, unit, security guards) |
+| **Full Combined Automated Suite** | `npm test` | 🟢 PASS | 107/107 tests passed (all 6 suites) |
+| **Comprehensive Live Manual Suite** | `node scripts/live_manual_test_comprehensive.mjs` | 🟢 PASS | 62/62 live scenarios passed |
+| **TypeScript Typecheck** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
+| **ESLint Check** | `npm run lint` | 🟢 PASS | 0 errors, 0 warnings |
+| **Next.js Production Build** | `npm run build` | 🟢 PASS | Production build compiled cleanly |

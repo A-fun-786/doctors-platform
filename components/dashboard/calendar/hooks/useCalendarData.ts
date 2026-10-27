@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { CalendarEvent, getDoctorCalendar } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { CalendarViewMode, WeekDayItem, MiniCalDayItem } from "../types";
-import { DEMO_WEEK_EVENTS } from "../constants";
 import {
   generateWeekDays,
   computeWeekRangeTitle,
@@ -53,14 +52,15 @@ export function useCalendarData() {
     return computeWeekRangeTitle(currentWeekDays);
   }, [currentWeekDays]);
 
-  // Merge backend events with visual demo schedule
+  // Get events for a specific date from live API data.
+  // Empty days cleanly return [] so fake demo patients never leak into the calendar.
   const getEventsForDate = useCallback(
     (dateStr: string): CalendarEvent[] => {
       const liveEvents = apiCalendarData[dateStr];
       if (liveEvents && liveEvents.length > 0) {
         return liveEvents;
       }
-      return DEMO_WEEK_EVENTS[dateStr] || [];
+      return [];
     },
     [apiCalendarData]
   );
@@ -89,7 +89,7 @@ export function useCalendarData() {
         totalEvents,
       });
     } catch (err: unknown) {
-      logger.warn("Calendar", "Backend calendar fetch notice, using fallback view", {
+      logger.warn("Calendar", "Backend calendar fetch notice, defaulting to empty calendar view", {
         error: err instanceof Error ? err.message : String(err),
       });
     } finally {

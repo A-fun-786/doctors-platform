@@ -164,7 +164,7 @@ DoctorCalendarResponse.dates[]
 apiCalendarData: Record<dateStr, CalendarEvent[]>
         │
         ├── If apiCalendarData[date] exists and non-empty → use live events
-        └── Else → fall back to DEMO_WEEK_EVENTS[date]
+        └── Else → return [] (clean empty day; strictly no demo fallback)
                 │
                 ↓
         getEventsForDate(dateStr): CalendarEvent[]
@@ -502,21 +502,20 @@ const getEventsForDate = (dateStr: string): CalendarEvent[] => {
   if (liveEvents && liveEvents.length > 0) {
     return liveEvents;                    // live API data
   }
-  return DEMO_WEEK_EVENTS[dateStr] || []; // demo fallback
+  return [];                              // clean empty day (no demo fallback)
 };
 ```
 
 The `fetchCalendar` function wraps the API call in try/catch. On failure it:
-- Logs a `console.warn` message
-- Does **not** clear `apiCalendarData` or throw to the UI
-- The demo data remains visible uninterrupted
+- Logs a `logger.warn` message
+- Does **not** throw to the UI
+- Empty days safely display empty slots without mock data intrusion
 
 This means:
-- Backend unavailable → demo data shown
-- Backend returns empty array for a date → demo data shown for that date
+- Backend unavailable → empty calendar grid shown gracefully
+- Backend returns empty array for a date → empty calendar grid shown for that date
 - Backend returns events for a date → live data shown for that date only
-
-`DEMO_WEEK_EVENTS` covers Oct 19–25, 2026 (matching the initial `selectedDate`). Any other week shows live data or empty cells.
+- Demo patient data is never leaked into the doctor calendar interface.
 
 ---
 
