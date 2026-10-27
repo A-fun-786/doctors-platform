@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -108,68 +108,98 @@ export default function OverviewTab({
         </div>
       )}
 
-      {/* Auto-Responsive Summary KPI Cards */}
-      <ResponsiveGrid minItemWidth={220} gap="md">
-        {/* Card 1: Today's Appointments */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Today&apos;s Appointments
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-            ) : (
-              <p className="text-2xl font-bold text-slate-900">{todayAppointments.length}</p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">Booked for today</p>
-          </div>
-        </div>
+      {/* ── Smart KPI Grid ──
+           3 cards → 3 cols (1 row)
+           4 cards → 2 cols (2×2)
+           5 cards → 3 cols (3+2)
+           6 cards → 3 cols (3×3)
+           Mobile  → 1 col, horizontal card layout
+      */}
+      {(() => {
+        const colorMap: Record<string, { bg: string; text: string }> = {
+          blue:    { bg: "bg-blue-50",    text: "text-blue-600"    },
+          indigo:  { bg: "bg-indigo-50",  text: "text-indigo-600"  },
+          emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
+          amber:   { bg: "bg-amber-50",   text: "text-amber-600"   },
+          rose:    { bg: "bg-rose-50",    text: "text-rose-600"    },
+          violet:  { bg: "bg-violet-50",  text: "text-violet-600"  },
+        };
 
-        {/* Card 2: Upcoming Bookings */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Upcoming Booked
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <ClipboardList className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-            ) : (
-              <p className="text-2xl font-bold text-slate-900">{totalBookedCount}</p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">Confirmed appointments</p>
-          </div>
-        </div>
+        const kpiCards = [
+          {
+            id: "today",
+            label: "Today's Appointments",
+            sublabel: "Booked for today",
+            value: todayAppointments.length,
+            Icon: Calendar,
+            color: "blue",
+          },
+          {
+            id: "booked",
+            label: "Upcoming Booked",
+            sublabel: "Confirmed appointments",
+            value: totalBookedCount,
+            Icon: ClipboardList,
+            color: "indigo",
+          },
+          {
+            id: "completed",
+            label: "Completed",
+            sublabel: "Consultations finished",
+            value: completedCount,
+            Icon: UserCheck,
+            color: "emerald",
+          },
+          // 👇 Future cards — uncomment to test layouts:
+          // { id: "cancelled", label: "Cancelled",  sublabel: "Appointments cancelled", value: 0, Icon: AlertCircle, color: "rose"   },
+          // { id: "noshow",    label: "No-shows",   sublabel: "Patients did not arrive", value: 0, Icon: UserCheck,   color: "amber"  },
+          // { id: "reschedule",label: "Rescheduled",sublabel: "Moved to new slot",       value: 0, Icon: CalendarDays,color: "violet" },
+        ];
 
-        {/* Card 3: Completed Appointments */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Completed
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <UserCheck className="w-5 h-5" />
-            </div>
+        const n = kpiCards.length;
+
+        // Same grid logic on ALL screens (mobile + desktop):
+        // 3 → 3 cols (1 row)
+        // 4 → 2 cols (2×2)
+        // 5 → 3 cols (3+2)
+        // 6 → 3 cols (3×3)
+        const colsClass = n === 4 ? "grid-cols-2" : "grid-cols-3";
+
+        return (
+          <div className={`grid ${colsClass} gap-2 sm:gap-4`}>
+            {kpiCards.map(({ id, label, sublabel, value, Icon, color }) => {
+              const { bg, text } = colorMap[color] ?? colorMap.blue;
+              return (
+                <div
+                  key={id}
+                  className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-xs
+                             p-2.5 sm:p-5
+                             flex flex-col items-center text-center gap-1 sm:gap-2"
+                >
+                  {/* Icon */}
+                  <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${bg} ${text} flex items-center justify-center shrink-0`}>
+                    <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                  </div>
+
+                  {/* Number */}
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  ) : (
+                    <p className="text-lg sm:text-3xl font-bold text-slate-900 tabular-nums leading-none">
+                      {value}
+                    </p>
+                  )}
+
+                  {/* Label */}
+                  <p className="text-[9px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wide leading-tight line-clamp-2">
+                    {label}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-          <div>
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-            ) : (
-              <p className="text-2xl font-bold text-slate-900">{completedCount}</p>
-            )}
-            <p className="text-xs text-slate-500 mt-1">Consultations finished</p>
-          </div>
-        </div>
-      </ResponsiveGrid>
+        );
+      })()}
 
       {/* Today's Appointments Section */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
@@ -234,7 +264,7 @@ export default function OverviewTab({
                         {appt.start_time} - {appt.end_time}
                       </td>
                       <td className="py-3 px-4 font-medium text-slate-900">{appt.patient_name}</td>
-                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "—"}</td>
+                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "â€”"}</td>
                       <td className="py-3 px-4 text-slate-500 max-w-xs truncate">{appt.reason || "General Consultation"}</td>
                       <td className="py-3 px-4">
                         <span
@@ -271,7 +301,7 @@ export default function OverviewTab({
                   </span>
                 </div>
                 <div className="text-xs text-slate-600 flex items-center justify-between">
-                  <span className="font-semibold text-brand-700">🕒 {appt.start_time} - {appt.end_time}</span>
+                  <span className="font-semibold text-brand-700">ðŸ•’ {appt.start_time} - {appt.end_time}</span>
                   <span className="text-slate-500">{appt.patient_contact || "No phone"}</span>
                 </div>
                 {appt.reason && (
