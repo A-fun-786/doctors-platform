@@ -200,11 +200,17 @@ describe("Behavioral Unit Simulation of getEventsForDate", () => {
 });
 
 describe("Patient Data & Identity Security Guard", () => {
-  test("Constants DEMO_WEEK_EVENTS contains demo patients that must never appear in live calendar", () => {
+  test("constants.ts has DEMO_WEEK_EVENTS completely removed", () => {
     const constantsCode = fs.readFileSync(constantsPath, "utf-8");
-    assert.ok(
+    assert.strictEqual(
+      constantsCode.includes("DEMO_WEEK_EVENTS"),
+      false,
+      "DEMO_WEEK_EVENTS must be completely purged from constants.ts"
+    );
+    assert.strictEqual(
       constantsCode.includes("pat-demo-2001"),
-      "Demo patient ID pat-demo-2001 exists in constants.ts as a fixture"
+      false,
+      "Demo patient ID pat-demo-2001 must not exist in constants.ts"
     );
   });
 
