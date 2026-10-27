@@ -394,7 +394,7 @@ export default function PatientDoctorPage() {
 
       {/* Sticky Services Navigation Tab Bar */}
       <nav className="sticky top-16 z-20 bg-white border-b border-slate-200 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-2 overflow-x-auto py-2.5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-2 overflow-x-auto custom-scrollbar py-2.5">
           <button
             type="button"
             onClick={() => navigateToTab("home")}
@@ -856,18 +856,18 @@ export default function PatientDoctorPage() {
                         <span className="font-mono font-bold text-slate-900">{inClinicSuccess}</span>. An appointment notification has been forwarded to {doctor.full_name}.
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => setInClinicSuccess(null)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                       >
                         <span>Book Another Appointment</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => navigateToTab("home")}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                       >
                         <Home className="w-3.5 h-3.5" />
                         <span>Return to Practice Home</span>
@@ -910,7 +910,7 @@ export default function PatientDoctorPage() {
                           No available slots on this date. Please choose another date.
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
                           {inClinicAvailableSlots.map((slot) => {
                             const slotLabel = format12Hour(slot.start);
                             return (
@@ -1004,7 +1004,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={inClinicSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {inClinicSubmitting ? (
                         <>
@@ -1105,25 +1105,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{videoSuccess}</span>. A secure consultation link will be dispatched via email and SMS prior to your appointment.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVideoSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Schedule Another Video Call</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setVideoSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Schedule Another Video Call</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1164,7 +1157,7 @@ export default function PatientDoctorPage() {
                           No available slots on this date. Please choose another date.
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
                           {videoAvailableSlots.map((slot) => {
                             const slotLabel = format12Hour(slot.start);
                             return (
@@ -1248,7 +1241,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={videoSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {videoSubmitting ? (
                         <>
@@ -1349,25 +1342,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{medSuccess}</span>. The pharmacy team will verify your prescription details and contact you for dispatch.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setMedSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Submit Another Medicine Request</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setMedSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Submit Another Medicine Request</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1438,7 +1424,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={medSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {medSubmitting ? (
                         <>
@@ -1539,25 +1525,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{repSuccess}</span>. Your uploaded diagnostic document has been attached to your clinical chart for {doctor.full_name}.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setRepSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Upload Another Report</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setRepSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Upload Another Report</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1658,7 +1637,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={repSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {repSubmitting ? (
                         <>

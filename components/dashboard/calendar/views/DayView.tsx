@@ -103,7 +103,7 @@ export default function DayView({
         </div>
       </div>
 
-      <div className="p-6 space-y-5">
+      <div className="p-3.5 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
         {/* Header */}
         <div className="pb-4 border-b border-slate-100">
           <h3 className="text-base font-bold text-slate-900">
@@ -115,7 +115,7 @@ export default function DayView({
         </div>
 
         {/* Summary Badges */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-2.5 sm:gap-3">
           <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
             <div className="text-lg font-black text-blue-900">{bookedCount}</div>
             <div className="text-[11px] font-medium text-blue-700">
@@ -154,15 +154,16 @@ export default function DayView({
                 return (
                   <div
                     key="break-time-slot-card"
-                    className="p-3.5 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 flex items-center justify-between shadow-2xs select-none"
+                    className="p-3 sm:p-3.5 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs select-none"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300/80">
-                        <Coffee className="w-4 h-4" />
-                      </div>
-
-                      <div className="font-mono text-xs font-bold text-amber-950 w-36 shrink-0">
-                        {breakInfo.startLabel} – {breakInfo.endLabel}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300/80">
+                          <Coffee className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
+                        <div className="font-mono text-xs font-bold text-amber-950 w-auto sm:w-36 shrink-0">
+                          {breakInfo.startLabel} – {breakInfo.endLabel}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 min-w-0">
@@ -175,7 +176,7 @@ export default function DayView({
                       </div>
                     </div>
 
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 shadow-2xs">
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 shadow-2xs self-start sm:self-auto">
                       {BREAK_TIME_BADGE}
                     </span>
                   </div>
@@ -212,20 +213,20 @@ export default function DayView({
                     <div
                       key={timeRow}
                       onClick={() => onEventClick(event, selectedDate)}
-                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:shadow-xs"
+                      className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:shadow-xs"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-auto sm:w-36 shrink-0">
                           {format12Hour(event.start)} – {format12Hour(event.end)}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                           <div className="font-semibold text-xs text-blue-950 flex items-center gap-1.5 flex-wrap">
                             <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-slate-900 truncate">
                               {event.patient_name || "Patient"}
                             </span>
-                            <span className="text-slate-500 font-normal">
+                            <span className="text-slate-500 font-normal truncate">
                               • {event.reason || "General Visit"}
                             </span>
                           </div>
@@ -234,7 +235,7 @@ export default function DayView({
 
                       <Badge
                         variant="default"
-                        className="text-[10px] font-bold uppercase tracking-wider"
+                        className="text-[10px] font-bold uppercase tracking-wider self-start sm:self-auto shrink-0"
                       >
                         {event.status || "BOOKED"}
                       </Badge>
@@ -250,15 +251,15 @@ export default function DayView({
                     <div
                       key={timeRow}
                       onClick={() => onEventClick(event, selectedDate)}
-                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xs"
+                      className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xs"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-auto sm:w-36 shrink-0">
                           {format12Hour(event.start)} – {format12Hour(event.end)}
                         </div>
 
-                        <div>
-                          <div className="font-semibold text-xs text-amber-950 flex items-center gap-1.5">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-xs text-amber-950 flex items-center gap-1.5 flex-wrap">
                             <Coffee className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                             <span>
                               {event.type === "LEAVE"
@@ -266,7 +267,7 @@ export default function DayView({
                                 : "Clinic Holiday"}
                             </span>
                             {event.reason && (
-                              <span className="text-amber-700 font-normal ml-1">
+                              <span className="text-amber-700 font-normal truncate">
                                 • {event.reason}
                               </span>
                             )}
@@ -276,7 +277,7 @@ export default function DayView({
 
                       <Badge
                         variant="warning"
-                        className="text-[10px] font-bold uppercase tracking-wider"
+                        className="text-[10px] font-bold uppercase tracking-wider self-start sm:self-auto shrink-0"
                       >
                         {event.type}
                       </Badge>
@@ -292,17 +293,17 @@ export default function DayView({
                     <div
                       key={timeRow}
                       onClick={() => onEventClick(event, selectedDate)}
-                      className="p-3.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer border-purple-200 bg-purple-50/40 hover:border-purple-400 hover:shadow-xs"
+                      className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer border-purple-200 bg-purple-50/40 hover:border-purple-400 hover:shadow-xs"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="font-mono text-xs font-bold text-slate-800 w-36 shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                        <div className="font-mono text-xs font-bold text-slate-800 w-auto sm:w-36 shrink-0">
                           {format12Hour(event.start)} – {format12Hour(event.end)}
                         </div>
 
-                        <div>
-                          <div className="font-semibold text-xs text-purple-950 flex items-center gap-1.5">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-xs text-purple-950 flex items-center gap-1.5 flex-wrap">
                             <Lock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span>
+                            <span className="truncate">
                               Blocked Interval:{" "}
                               {event.reason || "Doctor Duty / Personal"}
                             </span>
@@ -312,7 +313,7 @@ export default function DayView({
 
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-bold uppercase tracking-wider"
+                        className="text-[10px] font-bold uppercase tracking-wider self-start sm:self-auto shrink-0"
                       >
                         BLOCKED
                       </Badge>
@@ -332,15 +333,15 @@ export default function DayView({
                         onBookPatient();
                       }
                     }}
-                    className="p-3.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-blue-50/40 hover:border-blue-300 transition-all flex items-center justify-between cursor-pointer hover:shadow-xs group"
+                    className="p-3 sm:p-3.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-blue-50/40 hover:border-blue-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:shadow-xs group"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono text-xs font-bold text-slate-700 group-hover:text-blue-700 w-36 shrink-0 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+                      <div className="font-mono text-xs font-bold text-slate-700 group-hover:text-blue-700 w-auto sm:w-36 shrink-0 transition-colors">
                         {format12Hour(slotStart)} – {format12Hour(slotEnd)}
                       </div>
 
-                      <div>
-                        <div className="font-medium text-xs text-slate-600 flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-xs text-slate-600 flex items-center gap-2 flex-wrap">
                           <span className="w-2 h-2 rounded-full border border-slate-300 bg-white group-hover:border-blue-400 inline-block shrink-0 transition-colors" />
                           <span className="font-bold text-slate-700 group-hover:text-blue-800 transition-colors">
                             Empty Slot
@@ -354,7 +355,7 @@ export default function DayView({
 
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border-slate-300 bg-white group-hover:border-blue-300 group-hover:text-blue-700 transition-colors"
+                      className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border-slate-300 bg-white group-hover:border-blue-300 group-hover:text-blue-700 transition-colors self-start sm:self-auto shrink-0"
                     >
                       {"EMPTY SLOT"}
                     </Badge>

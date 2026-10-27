@@ -234,9 +234,9 @@ export default function OnboardingPage() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full flex-1">
+      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 w-full flex-1">
         {/* Step Progress Indicator */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-brand-600">
@@ -269,7 +269,7 @@ export default function OnboardingPage() {
 
         {/* STEP 1: DOCTOR & CLINIC DETAILS */}
         {step === 1 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 md:p-8 space-y-6">
             <div className="space-y-1">
               <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
                 Practice &amp; Doctor Details
@@ -450,10 +450,10 @@ export default function OnboardingPage() {
                 />
               </div>
 
-              <div className="pt-4 flex justify-end">
+              <div className="pt-4 flex flex-col sm:flex-row sm:justify-end">
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
                 >
                   <span>Continue to Services</span>
                   <ArrowRight className="w-4 h-4" />
@@ -465,7 +465,7 @@ export default function OnboardingPage() {
 
         {/* STEP 2: SERVICES SELECTION */}
         {step === 2 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 md:p-8 space-y-6">
             <div className="space-y-1">
               <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
                 Select Platform Services
@@ -631,11 +631,11 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+            <div className="pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-center"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back</span>
@@ -645,7 +645,7 @@ export default function OnboardingPage() {
                 type="button"
                 disabled={saving}
                 onClick={handleCompleteOnboarding}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer text-center"
               >
                 {saving ? (
                   <>
@@ -665,13 +665,13 @@ export default function OnboardingPage() {
 
         {/* STEP 3: SUCCESS & LAUNCH */}
         {step === 3 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8 text-center">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-8 md:p-10 space-y-6 sm:space-y-8 text-center">
             <div className="mx-auto w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
               <CheckCircle2 className="w-10 h-10" />
             </div>
 
             <div className="space-y-2 max-w-md mx-auto">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Practice Webpage is Live!
               </h1>
               <p className="text-sm text-slate-600">
@@ -684,7 +684,7 @@ export default function OnboardingPage() {
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2 text-left">
                 Your Public Patient Link
               </span>
-              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2.5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white border border-slate-200 rounded-lg p-2.5">
                 <input
                   type="text"
                   readOnly
@@ -694,7 +694,7 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={copyPatientLink}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors shrink-0"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors shrink-0 cursor-pointer text-center"
                 >
                   {copied ? (
                     <>
@@ -716,14 +716,14 @@ export default function OnboardingPage() {
               <Link
                 href={`/${tenantSlug}`}
                 target="_blank"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors text-center"
               >
                 <span>View Patient Webpage</span>
                 <ExternalLink className="w-4 h-4" />
               </Link>
               <Link
                 href="/dashboard"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition-colors text-center"
               >
                 <span>Go to Doctor Dashboard</span>
                 <ArrowRight className="w-4 h-4" />

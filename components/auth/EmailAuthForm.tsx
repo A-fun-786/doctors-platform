@@ -162,14 +162,14 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-3 sm:px-4 py-8 sm:py-12">
+      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-3">
           <BrandLogo size="md" />
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               {mode === "register" ? "Create your Doctor Account" : "Welcome Back, Doctor"}
             </h1>
             <p className="text-slate-600 text-sm mt-1">

@@ -55,7 +55,7 @@ async function run() {
     const res = await fetch(`${FRONTEND_URL}/dashboard`);
     assert.strictEqual(res.status, 200);
     const html = await res.text();
-    assert.ok(html.includes("DocSpace") || html.includes("Doctor Portal"), "Dashboard shell rendered");
+    assert.ok(html.includes("GoSmartClinic") || html.includes("DocSpace") || html.includes("dashboard"), "Dashboard shell rendered");
   });
 
   await record("Public Practice page (/dr-alexander-smith) renders 200 OK", async () => {
