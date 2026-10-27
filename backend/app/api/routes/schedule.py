@@ -16,7 +16,6 @@ from app.schemas.schedule import (
     ScheduleResponse,
     ScheduleListResponse,
     AvailableSlotResponse,
-    WorkingHoursShift,
     DoctorWorkingHoursUpdate,
     DoctorWorkingHoursResponse,
     DEFAULT_DOCTOR_WORKING_HOURS,

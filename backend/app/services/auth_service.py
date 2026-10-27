@@ -16,6 +16,7 @@ from app.schemas.auth import (
     AuthResponse,
     DoctorResponse,
     TenantResponse,
+    validate_email_id,
 )
 
 
@@ -165,11 +166,17 @@ class AuthService:
         Register a doctor using email and password.
         Atomically creates Doctor and Tenant records.
         """
-        email = email.lower().strip()
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is required",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
             )
         if not password or len(password) < 6:
             raise HTTPException(
@@ -237,11 +244,17 @@ class AuthService:
         """
         Authenticate a doctor using email and password.
         """
-        email = email.lower().strip()
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email and password are required",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
             )
 
         doctor = db.query(Doctor).filter(Doctor.email == email).first()
