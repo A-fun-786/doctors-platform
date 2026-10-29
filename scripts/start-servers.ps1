@@ -29,11 +29,10 @@ if ($backendConn) {
         $pythonExe = "python"
     }
     
-    $backendProcess = Start-Process -FilePath $pythonExe `
-        -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload" `
+    $backendProcess = Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/c", "`"$pythonExe`" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > `"$logsDir\backend.log`" 2>&1" `
         -WorkingDirectory $backendDir `
-        -RedirectStandardOutput (Join-Path $logsDir "backend.log") `
-        -RedirectStandardError (Join-Path $logsDir "backend-error.log") `
+        -WindowStyle Hidden `
         -PassThru
 
     Set-Content -Path (Join-Path $pidsDir "backend.pid") -Value $backendProcess.Id

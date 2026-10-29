@@ -200,8 +200,9 @@ export default function AnyNewFeatureScreen() {
 - **`components/dashboard/calendar/sidebar/CalendarSidebar.tsx`**:
   - Upgraded container to `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-5`. On tablet (`768px–1024px`), `MiniCalendar` and `WorkingHoursCard` sit side-by-side to eliminate wasted space, while stacking on desktop sidebar and mobile.
 - **`components/dashboard/calendar/views/DayView.tsx`**:
-  - Break time slot card converted to responsive layout (`flex-col sm:flex-row`, `w-auto sm:w-36`).
-  - Outer padding and summary badges converted to fluid layout (`p-3.5 sm:p-5 md:p-6`, `grid-cols-1 xs:grid-cols-3`) to prevent text squishing on narrow devices.
+  - Time intervals upgraded to `min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap` across all 5 slot types so full time displays in the same row without truncation (see Section 12).
+  - Break time slot card converted to responsive inline layout (`shrink-0 whitespace-nowrap`).
+  - Outer padding and summary badges converted to fluid layout (`p-3.5 sm:p-5 md:p-6`, `grid-cols-3` KPI cards matching OverviewTab) to prevent squishing on narrow devices.
 - **`app/[slug]/page.tsx`**:
   - Time slot selection pills upgraded to `grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2` for both In-Clinic and Video consultations.
   - Removed duplicate action button in Teleconsultation success state.
@@ -274,7 +275,24 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-## 🧪 12. Testing & Verification
+### 12. `components/dashboard/calendar/views/DayView.tsx` (Complete Time Row Display & Slot Alignment)
+- **Problem**:
+  - DayView ke 30-minute time slot cards par pehle `w-24 sm:w-36 shrink-0 truncate` classes lagi hui thi.
+  - Monospace font me `"10:00 AM – 10:30 AM"` jaise ~21-character time intervals `w-24` (96px) ya `w-36` (144px) container me fit nahi hote the, jiski wajah se mobile aur small screens par time cut ho kar `"10:00 AM – 1..."` dikhta tha.
+- **Solution & Implementation**:
+  - Narrow fixed widths aur `truncate` ko time container se hata kar `min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap` implement kiya gaya.
+  - **Full Time in Single Row**: Har slot card me time container ko `shrink-0 whitespace-nowrap` diya gaya taaki time kabhi bhi wrap ya truncate na ho aur same row me 100% visible rahe.
+  - **Neat Column Alignment**: `min-w-[130px] sm:min-w-[155px]` se time column sabhi rows me vertically align rehta hai, chahe single digit ho ya double digit time (`9:00 AM` ya `12:30 PM`).
+  - **Applied Across All 5 Slot Types**:
+    1. **Booked Appointments**: Full start-end time (`min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`), patient name with User icon (`min-w-0 flex-1 truncate`), aur status badge right side par.
+    2. **Doctor Leaves / Clinic Holidays**: Full start-end time, leave reason with Coffee icon, aur leave type badge in the same row.
+    3. **Blocked Periods**: Full start-end time, reason with Lock icon, aur BLOCKED badge in the same row.
+    4. **Empty Slots (Click to Book)**: Full slot interval, dot indicator with "Empty Slot" text, aur EMPTY badge in the same row.
+    5. **Doctor Break Time Row**: Full break interval (`breakInfo.startLabel – breakInfo.endLabel`) with `shrink-0 whitespace-nowrap`.
+
+---
+
+## 🧪 13. Testing & Verification
 
 1. **Mobile Calendar & Working Hours Integration Tests (`node scripts/test_mobile_calendar_view.mjs`)**:
    - Automated unit & integration verification suite for mobile calendar components and bottom sheets:
