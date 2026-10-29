@@ -1,6 +1,6 @@
 # 📱💻 Universal Responsive UI & Auto-Adaptive Layout System
 
-> **Documentation Date:** October 27, 2026  
+> **Documentation Date:** October 29, 2026  
 > **Status:** ✅ Implemented, Verified, & Production Ready  
 > **Target Devices:** Mobile (320px–640px), Tablet (641px–1023px), Laptop/Desktop (1024px–1440px), Ultrawide (1440px+)
 
@@ -223,20 +223,79 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-## 🧪 9. Testing & Verification
+### 9. `components/dashboard/calendar/mobile/` & `CalendarTab.tsx` (Mobile Calendar Experience & Adaptive Islands)
+- **Problem & Motivation**:
+  - Desktop par `CalendarSidebar` (Mini-Calendar + Working Hours Card) right side par 4-columns width leti thi. Mobile aur tablet screens (`< 1280px`) par yeh entire sidebar ya toh screen par bohot zyada vertical height consume kar leti thi ya phir main calendar schedule view ko block kar deti thi.
+  - Doctors ko mobile phone se schedule monitor karte waqt live clinic status dekhne (e.g. Clinic Open, Lunch Break, ya Closed), 7 din ke schedule me instant switch karne, aur working hours access karne ke liye touch-native interface ki zaroorat thi.
+- **Implementation**:
+  1. **`MobileClinicStatusCapsule.tsx` (`components/dashboard/calendar/mobile/MobileClinicStatusCapsule.tsx`)**:
+     - Real-time clinic status badge jo dynamically calculate karta hai doctor ke working shifts aur lunch/tea break intervals (`getDoctorBreakInterval`).
+     - **Dynamic Status Indicators**:
+       - 🟢 **Clinic Open (Active Shift)**: Pulse animation indicator (`animate-ping`) ke sath current shift timings show karta hai.
+       - 🟡 **Lunch / Tea Break**: Break interval ke timing ke sath automatic status shift.
+       - 🔵 **Shift Starting Soon**: Upcoming shift ka proactive timing alert.
+       - ⚪ **Clinic Closed Today / Closed for the Day**: Off-hours and weekly off indication.
+     - **Quick-Access Action**: Direct "View Shift Hours" button jo click karne par clinic timings ka Bottom Sheet trigger karta hai.
+  2. **`MobileHorizonDayStrip.tsx` (`components/dashboard/calendar/mobile/MobileHorizonDayStrip.tsx`)**:
+     - Modern, ultra-responsive 7-day horizontal touch strip jo mobile viewports par rapid date switching deta hai.
+     - **Smart Activity Dots**: Har date ke neeche appointment activity (`emerald-500`) aur leaves/blocked time (`rose-500`) ke live dot indicators display karta hai.
+     - **Active Highlight State**: Selected date ko prominent gradient background (`bg-brand-600 text-white shadow-md`) ke sath visually distinct banata hai.
+     - **Integrated "Full Month" Button**: Right-aligned touch button jo doctor ko instant month view pick karne ke liye MiniCalendar Bottom Sheet open karta hai.
+  3. **`MobileBottomSheet.tsx` (`components/dashboard/calendar/mobile/MobileBottomSheet.tsx`)**:
+     - Reusable, WCAG-compliant mobile bottom sheet modal (`xl:hidden`) with native touch feel.
+     - Top pull-down affordance pill indicator (`w-12 h-1.5 bg-slate-300 rounded-full`).
+     - Smooth backdrop blur (`backdrop-blur-sm bg-slate-900/60`).
+     - Slide-up bottom animation with maximum height bounding (`max-h-[85vh] overflow-y-auto`).
+     - Body scroll lock (`document.body.style.overflow = "hidden"`) during open state.
+     - ESC key and backdrop tap dismissal with smooth unmount transition.
+  4. **`CalendarSidebar.tsx` Responsive Optimization**:
+     - Desktop sidebar ko `hidden xl:grid` class di gayi taaki mobile (`< 1280px`) par redundant sidebar DOM hide ho sake aur mobile screen clean aur focused rahe.
+  5. **`CalendarTab.tsx` Orchestration**:
+     - Mobile-only Smart Controls Island (`xl:hidden space-y-3`) add kiya gaya jo `MobileClinicStatusCapsule` aur `MobileHorizonDayStrip` ko render karta hai.
+     - State management hook integration:
+       - `showMobileMiniCal` &rarr; Renders `<MiniCalendar>` inside `<MobileBottomSheet title="Select Date">`.
+       - `showMobileWorkingHours` &rarr; Renders `<WorkingHoursCard>` inside `<MobileBottomSheet title="Clinic Working Hours">` with seamless flow to edit working hours modal.
 
-1. **TypeScript Typecheck (`npx tsc --noEmit`)**:
+---
+
+### 10. `components/dashboard/OverviewTab.tsx` (Clinical Terminology Alignment & Card Polish)
+- **Clinical Alignment**: Clinical usability ke hisaab se dashboard navigation aur metric references me "Calendar" ko "Appointments" me rename kiya gaya taaki doctor workflows me clarity rahe.
+- **Card & Navigation Flow**: Today's appointments count, quick actions, aur tab routing ko seamless multi-device testing ke sath synchronize kiya gaya.
+
+---
+
+### 11. `scripts/start-servers.ps1` (Windows Server Automation & Local Dev Environment Parity)
+- **Problem**:
+  - Windows environment par `powershell -File scripts/start-servers.ps1` run karne par agar `.env.development.local` missing ho toh frontend remote/stale endpoints par fall back ho sakta tha.
+  - Next.js dev server execution me Windows local paths ke sath module resolution safe-guarding ki zaroorat thi.
+- **Enhancement**:
+  - `.env.development.local` auto-generation add kiya gaya (points automatically to `NEXT_PUBLIC_API_URL=http://localhost:8000`).
+  - Next.js dev process execution me explicit `NODE_PATH` support aur process lifecycle handling ensure ki gayi.
+
+---
+
+## 🧪 12. Testing & Verification
+
+1. **Mobile Calendar & Working Hours Integration Tests (`node scripts/test_mobile_calendar_view.mjs`)**:
+   - Automated unit & integration verification suite for mobile calendar components and bottom sheets:
+     - T1: MobileBottomSheet component rendering & backdrop blur
+     - T2: MobileClinicStatusCapsule live shift status & break interval calculations
+     - T3: MobileHorizonDayStrip 7-day touch navigation & activity dots
+     - T4: CalendarSidebar responsive visibility (`hidden xl:grid`)
+     - T5: CalendarTab mobile island controls & modal state integration
+   - Status: ✅ **5 / 5 Tests Passed (100%)**.
+2. **TypeScript Typecheck (`npx tsc --noEmit`)**:
    - Status: ✅ **0 Errors / 100% Type-safe**.
-2. **Automated Responsive QA Suite (`npm run test:responsive-qa`)**:
+3. **Automated Responsive QA Suite (`npm run test:responsive-qa`)**:
    - 50/50 Checks across Layout, Navigation, Components, Forms, Accessibility, and Performance.
    - Status: ✅ **50 / 50 Checks Passed (100%)**.
-3. **Comprehensive Platform QA Suite (`npm run test:qa`)**:
+4. **Comprehensive Platform QA Suite (`npm run test:qa`)**:
    - Automated checks for Functionality, Responsiveness, WCAG Accessibility, and Edge cases.
    - Status: ✅ **24 / 24 Checks Passed (100%)**.
-4. **Live E2E Verification Suite (`npm run test:e2e`)**:
+5. **Live E2E Verification Suite (`npm run test:e2e`)**:
    - Live HTTP validation for root landing page, mobile direct action buttons, doctor auth, and public booking.
    - Status: ✅ **13 / 13 Checks Passed (100%)**.
-5. **Full Platform Regression Suite (`npm test`)**:
+6. **Full Platform Regression Suite (`npm test`)**:
    - Appointments suite, calendar utils, break-time intervals, clean sidebar quick actions, dashboard shell, and responsive QA.
    - Status: ✅ **All Suites Passed (100%)**.
 
