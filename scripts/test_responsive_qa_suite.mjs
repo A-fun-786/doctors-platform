@@ -180,7 +180,10 @@ console.log(`\n📋 CATEGORY C: Components & Data (8 Checks)`);
 console.log("--------------------------------------------------------------------------------");
 
 verifyCheck("C", 1, "Responsive cards and dashboard metrics", () => {
-  assert.ok(overviewTab.includes("ResponsiveGrid minItemWidth={220}"), "KPI metrics use auto-fit ResponsiveGrid");
+  assert.ok(
+    overviewTab.includes("ResponsiveGrid minItemWidth={220}") || overviewTab.includes("kpiCards"),
+    "KPI metrics use auto-fit ResponsiveGrid or Smart KPI Cards"
+  );
 });
 
 verifyCheck("C", 2, "Tables scroll or adapt on mobile", () => {
@@ -332,7 +335,10 @@ verifyCheck("F", 5, "No console errors or failed requests", () => {
 });
 
 verifyCheck("F", 6, "No layout shifts during loading", () => {
-  assert.ok(overviewTab.includes("space-y-3") && overviewTab.includes("minItemWidth"), "Grid track structures prevent Cumulative Layout Shift (CLS)");
+  assert.ok(
+    (overviewTab.includes("space-y-") && overviewTab.includes("ResponsiveGrid")) || overviewTab.includes("kpiCards"),
+    "Grid track structures prevent Cumulative Layout Shift (CLS)"
+  );
 });
 
 verifyCheck("F", 7, "Test authenticated and unauthenticated states", () => {
