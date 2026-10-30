@@ -376,7 +376,11 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
             )}
 
             {error && (
-              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2.5">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2.5"
+              >
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <p className="leading-tight">{error}</p>
               </div>
@@ -463,7 +467,11 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
 
             {/* Error Alert */}
             {error && (
-              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2.5">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2.5"
+              >
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <p className="leading-tight">{error}</p>
               </div>

@@ -629,9 +629,11 @@ class AuthService:
                 created_at = created_at.replace(tzinfo=timezone.utc)
             seconds_elapsed = (now - created_at).total_seconds()
             if seconds_elapsed < 60:
+                remaining = max(1, int(60 - seconds_elapsed))
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Please wait at least 60 seconds before requesting another verification code.",
+                    headers={"Retry-After": str(remaining)},
                 )
 
         # Invalidate prior unused tokens
