@@ -65,6 +65,23 @@ class Settings(BaseSettings):
     S3_REGION_NAME: str = "auto"
     S3_PUBLIC_CUSTOM_DOMAIN: str = ""  # e.g. https://uploads.yourdomain.com
 
+    # Email Delivery Service
+    EMAIL_BACKEND: str = "console"  # "console", "memory", "smtp", "resend", "ses"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    RESEND_API_KEY: str = ""
+    AWS_SES_REGION: str = "us-east-1"
+    EMAIL_FROM: str = "noreply@gosmartclinic.com"
+    EMAIL_FROM_NAME: str = "GoSmartClinic"
+    EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
+    REQUIRE_EMAIL_VERIFICATION: bool = False
+    RATE_LIMIT_RESEND_VERIFICATION: str = "3/minute"
+    FRONTEND_URL: str = "http://localhost:3000"
+
     @field_validator("CORS_ORIGINS", mode="after")
 
     @classmethod

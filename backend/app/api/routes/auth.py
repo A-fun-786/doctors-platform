@@ -11,6 +11,9 @@ from app.schemas.auth import (
     GoogleAuthRequest,
     EmailRegisterRequest,
     EmailLoginRequest,
+    VerifyEmailRequest,
+    ResendVerificationRequest,
+    VerificationMessageResponse,
     AuthResponse,
     DoctorMeResponse,
     TenantResponse,
@@ -83,6 +86,45 @@ def email_login(
     )
 
 
+@router.post(
+    "/verify-email",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify Doctor Email Address",
+    description="Validate 6-digit OTP code or URL token to verify doctor email and activate platform access.",
+)
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def verify_email(
+    request: Request,
+    payload: VerifyEmailRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Verify email using OTP code or URL-safe token."""
+    raw_code = (payload.code or payload.token or "").strip()
+    return auth_service.verify_email(
+        db=db,
+        raw_code_or_token=raw_code,
+        email=payload.email,
+    )
+
+
+@router.post(
+    "/resend-verification",
+    response_model=VerificationMessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Resend Verification Code",
+    description="Resend a fresh email verification code with a 60-second rate-limiting cooldown.",
+)
+@limiter.limit(settings.RATE_LIMIT_RESEND_VERIFICATION)
+def resend_verification(
+    request: Request,
+    payload: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+) -> VerificationMessageResponse:
+    """Resend email verification token/OTP."""
+    result = auth_service.resend_verification(db=db, email=payload.email)
+    return VerificationMessageResponse(message=result["message"], email=payload.email)
+
 
 @router.get(
     "/me",
@@ -105,5 +147,7 @@ def get_me(
         bio=current_doctor.bio,
         onboarding_completed=current_doctor.onboarding_completed,
         auth_provider=current_doctor.auth_provider,
+        email_verified=current_doctor.email_verified,
+        email_verified_at=current_doctor.email_verified_at,
         tenant=TenantResponse.model_validate(current_doctor.tenant) if current_doctor.tenant else None,
     )

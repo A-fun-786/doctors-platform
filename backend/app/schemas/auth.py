@@ -1,5 +1,6 @@
 import re
 import uuid
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -231,6 +232,43 @@ class EmailLoginRequest(BaseModel):
         return validate_email_id(v)
 
 
+class VerifyEmailRequest(BaseModel):
+    """Payload to verify email address via 6-digit OTP or URL-safe token."""
+    email: Optional[str] = None
+    code: Optional[str] = None
+    token: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def check_email_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            return validate_email_id(v)
+        return v
+
+    @model_validator(mode="after")
+    def check_at_least_one_token_or_code(self) -> "VerifyEmailRequest":
+        raw = (self.code or self.token or "").strip()
+        if not raw:
+            raise ValueError("Verification code or token is required.")
+        return self
+
+
+class ResendVerificationRequest(BaseModel):
+    """Payload to request a fresh verification email / OTP."""
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def check_valid_email(cls, v: str) -> str:
+        return validate_email_id(v)
+
+
+class VerificationMessageResponse(BaseModel):
+    """Generic status response for verification events."""
+    message: str
+    email: Optional[str] = None
+
+
 class TenantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -247,6 +285,8 @@ class DoctorResponse(BaseModel):
     avatar_url: Optional[str] = None
     auth_provider: str = "google"
     onboarding_completed: bool = False
+    email_verified: bool = False
+    email_verified_at: Optional[datetime] = None
 
 
 class AuthResponse(BaseModel):
@@ -270,4 +310,7 @@ class DoctorMeResponse(BaseModel):
     bio: Optional[str] = None
     onboarding_completed: bool = False
     auth_provider: str = "google"
+    email_verified: bool = False
+    email_verified_at: Optional[datetime] = None
     tenant: Optional[TenantResponse] = None
+
