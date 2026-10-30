@@ -10,7 +10,9 @@ from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 from app.core.security import create_access_token
+from app.core.rate_limit import limiter
 from app.services.auth_service import generate_unique_tenant_slug, slugify
+from app.schemas.auth import validate_email_id
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -44,6 +46,14 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_limiter():
+    """Reset SlowAPI storage before/after tests to avoid rate-limit crosstalk."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 def test_slugify_helper():
@@ -331,4 +341,101 @@ def test_legacy_pbkdf2_compatibility_and_transparent_rehash(client, db_session):
         },
     )
     assert subsequent_resp.status_code == 200
+
+
+def test_validate_email_id_logic():
+    """Unit test for validate_email_id validator."""
+    valid_emails = [
+        "doctor@example.com",
+        "dr.ahmed@clinic.health",
+        "test.user+tag@domain.co.uk",
+        "doc123@hospital.org",
+        "  dr.smith@example.com  ",
+    ]
+    for email in valid_emails:
+        cleaned = validate_email_id(email)
+        assert "@" in cleaned
+        assert cleaned == email.strip().lower()
+
+    invalid_emails = [
+        "notanemail",
+        "doctor@",
+        "@example.com",
+        "doctor@localhost",
+        "doctor@example",
+        "doctor@.com",
+        "doctor@example..com",
+        "doctor name@example.com",
+        "",
+        "   ",
+    ]
+    for email in invalid_emails:
+        with pytest.raises(ValueError) as exc_info:
+            validate_email_id(email)
+        assert "Invalid email address format" in str(exc_info.value)
+
+
+def test_login_rejects_invalid_email_ids(client):
+    """Test that login endpoint rejects invalid email formats with 422 validation error."""
+    invalid_emails = [
+        "invalid-email",
+        "doctor@",
+        "doctor@domain",
+        "@missinguser.com",
+        "doctor space@example.com",
+    ]
+    for bad_email in invalid_emails:
+        resp = client.post(
+            "/api/v1/auth/login",
+            json={"email": bad_email, "password": "AnyPassword123!"},
+        )
+        assert resp.status_code == 422
+        assert "Invalid email address format" in str(resp.json())
+
+
+def test_register_rejects_invalid_email_ids(client):
+    """Test that register endpoint rejects invalid email formats with 422 validation error."""
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "not-a-valid-email", "password": "ValidPassword123!"},
+    )
+    assert resp.status_code == 422
+    assert "Invalid email address format" in str(resp.json())
+
+
+def test_login_authentication_with_valid_and_invalid_credentials(client, db_session):
+    """Test login authenticates valid email IDs and rejects unregistered/incorrect credentials."""
+    # Register valid doctor
+    reg_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "verified.doc@example.com", "password": "SecurePassword123!"},
+    )
+    assert reg_resp.status_code == 201
+
+    # Login with non-existent valid email ID returns 401 Unauthorized
+    not_found = client.post(
+        "/api/v1/auth/login",
+        json={"email": "nonexistent.doc@example.com", "password": "SecurePassword123!"},
+    )
+    assert not_found.status_code == 401
+    assert "Invalid email or password" in not_found.json()["detail"]
+
+    # Login with existing email ID but wrong password returns 401 Unauthorized
+    wrong_pw = client.post(
+        "/api/v1/auth/login",
+        json={"email": "verified.doc@example.com", "password": "WrongPassword999!"},
+    )
+    assert wrong_pw.status_code == 401
+    assert "Invalid email or password" in wrong_pw.json()["detail"]
+
+    # Login with mixed-case and padded whitespace succeeds (normalized properly)
+    success_resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": "  Verified.DOC@Example.Com  ", "password": "SecurePassword123!"},
+    )
+    assert success_resp.status_code == 200
+    data = success_resp.json()
+    assert "access_token" in data
+    assert data["doctor"]["email"] == "verified.doc@example.com"
+
 

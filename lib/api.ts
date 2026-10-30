@@ -414,10 +414,16 @@ export async function apiFetch<T = unknown>(
       try {
         const errorData = await response.json();
         if (errorData?.detail) {
-          errorDetail =
-            typeof errorData.detail === "string"
-              ? errorData.detail
+          if (typeof errorData.detail === "string") {
+            errorDetail = errorData.detail;
+          } else if (Array.isArray(errorData.detail) && errorData.detail.length > 0) {
+            const firstErr = errorData.detail[0];
+            errorDetail = firstErr?.msg
+              ? firstErr.msg.replace(/^Value error,\s*/i, "")
               : JSON.stringify(errorData.detail);
+          } else {
+            errorDetail = JSON.stringify(errorData.detail);
+          }
         }
       } catch {
         // Fallback to generic message

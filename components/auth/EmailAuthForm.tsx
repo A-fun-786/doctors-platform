@@ -27,6 +27,13 @@ interface EmailAuthFormProps {
   mode: "login" | "register";
 }
 
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email.trim().toLowerCase());
+}
+
 export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -113,14 +120,21 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = email.trim();
     logger.action("Auth", `User submitted ${mode} form`, {
-      email,
+      email: cleanEmail,
       mode,
     });
 
-    if (!email || !password) {
+    if (!cleanEmail || !password) {
       logger.warn("Auth", `Validation rejected empty credentials for ${mode}`);
       setError("Please fill in both email and password.");
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      logger.warn("Auth", `Validation rejected invalid email format: ${cleanEmail}`);
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -136,9 +150,9 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
 
       let authData;
       if (mode === "register") {
-        authData = await registerWithEmail(email, password);
+        authData = await registerWithEmail(cleanEmail.toLowerCase(), password);
       } else {
-        authData = await loginWithEmail(email, password);
+        authData = await loginWithEmail(cleanEmail.toLowerCase(), password);
       }
 
       logger.info("Auth", `Authentication successful via email (${mode})`, {
@@ -189,7 +203,7 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
         )}
 
         {/* Email & Password Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5" htmlFor="email">
               Email Address
@@ -201,7 +215,10 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="doctor@example.com"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white transition-all"
               />
@@ -219,7 +236,10 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                 type="password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder={mode === "register" ? "At least 6 characters" : "Enter your password"}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white transition-all"
               />

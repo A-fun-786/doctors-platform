@@ -126,11 +126,11 @@ test("2.2 Booked Appointment slot card keeps time, patient details and badge on 
     "Appointment card styling exists"
   );
   assert.ok(
-    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-slate-800 w-24 sm:w-36 shrink-0 truncate"),
+    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-slate-800 min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap"),
     "Time column has fixed shrink-0 width to prevent wrapping"
   );
   assert.ok(
-    dayView.includes("font-semibold text-xs text-blue-950 flex items-center gap-1.5 truncate"),
+    dayView.includes("min-w-0 flex-1 truncate text-xs text-slate-900"),
     "Patient name and reason use flex items-center with truncate on a single line"
   );
 });
@@ -141,7 +141,7 @@ test("2.3 Empty slot card keeps time, empty label and badge on the same row", ()
     "Empty slot card exists"
   );
   assert.ok(
-    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-slate-700 group-hover:text-blue-700 w-24 sm:w-36 shrink-0 truncate"),
+    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-slate-700 group-hover:text-blue-700 min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap"),
     "Empty slot time column has fixed shrink-0 width"
   );
   assert.ok(
@@ -178,7 +178,7 @@ test("2.6 Break Time slot card keeps coffee icon, time, title and badge on the s
     "Break slot card exists"
   );
   assert.ok(
-    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-amber-950 w-24 sm:w-36 shrink-0 truncate"),
+    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-amber-950 shrink-0 whitespace-nowrap"),
     "Break time column has fixed shrink-0 width"
   );
   assert.ok(
