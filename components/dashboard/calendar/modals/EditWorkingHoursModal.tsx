@@ -310,13 +310,13 @@ export default function EditWorkingHoursModal({
 
                 {/* Dynamic Break Time Preview between Morning and Evening */}
                 {isMorning && calculatedBreak && (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/70 text-amber-950">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/70 text-amber-950">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 border border-amber-200">
                         <Coffee className="w-4 h-4" />
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-amber-950 flex flex-wrap items-center gap-1.5 sm:gap-2">
                           <span>Break Time: {calculatedBreak.start12} – {calculatedBreak.end12}</span>
                           <span className="text-[10px] font-semibold text-amber-700">({calculatedBreak.mins} min)</span>
                         </div>
@@ -325,7 +325,7 @@ export default function EditWorkingHoursModal({
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-800 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-800 shadow-2xs self-start sm:self-auto shrink-0">
                       {BREAK_TIME_BADGE}
                     </span>
                   </div>
@@ -336,28 +336,28 @@ export default function EditWorkingHoursModal({
         </div>
 
         {/* Modal Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer text-center"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!!validationError || isSaving}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                <span>Saving...</span>
               </>
             ) : (
               <>
-                <Check className="w-4 h-4" />
-                Save Working Hours
+                <Check className="w-4 h-4 shrink-0" />
+                <span>Save Working Hours</span>
               </>
             )}
           </button>

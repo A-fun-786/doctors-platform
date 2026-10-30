@@ -706,22 +706,23 @@ All components in this directory are **server components by default** (no `"use 
 
 **Key content:**
 - `"use client"` directive → enables `useState` for `mobileMenuOpen` boolean
-- Desktop layout: logo left, nav links center-left, action buttons right
-- Mobile layout: hamburger button toggles a dropdown below the header
+- Desktop layout: logo left, nav links center-left, action buttons (`Login` + `Register as Doctor`) right
+- Mobile layout: BrandLogo with shrink-prevention, direct mobile action buttons (`Login` link + `Sign Up` button) next to the hamburger button (`Menu`/`X`), and an expandable dropdown menu below
 - Nav links use anchor hrefs (`#features`, `#how-it-works`) that scroll to sections
-- Action buttons use Next.js `<Link>` for route navigation
+- Action buttons use Next.js `<Link>` for route navigation (`/login`, `/register`)
 
 **Linkage:**
 - Imported in `app/page.tsx`
 - Nav anchor targets `#features` → must match `id="features"` in `Features.tsx`
 - Nav anchor target `#how-it-works` → must match `id="how-it-works"` in `HowItWorks.tsx`
 - Login button → routes to `app/login/page.tsx`
-- Register button → routes to `app/register/page.tsx`
+- Register / Sign Up button → routes to `app/register/page.tsx`
 
 **When to touch:**
 - Adding a new navigation link → add `<Link>` to both desktop nav and mobile dropdown
 - Changing the platform logo icon or name → edit logo JSX block
 - Making the mobile menu animated → add transition classes to the dropdown div
+- Adjusting mobile action CTA styling → edit mobile action group in `Navbar.tsx`
 
 ---
 

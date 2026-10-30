@@ -101,12 +101,15 @@ export default function WeekView({
           </div>
         </div>
 
-        {/* Sticky Day Header Row */}
-        <div
-          className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-white sticky top-0 z-20 shadow-2xs backdrop-blur-xs`}
-        >
-          {/* Top-left Time column label */}
-          <div className="p-2 border-r border-slate-200 text-center flex items-center justify-center bg-slate-50/70">
+        {/* Scrollable Container on Mobile/Tablet so 7 days remain legible */}
+        <div className="overflow-x-auto custom-scrollbar w-full">
+          <div className="min-w-[620px] md:min-w-0">
+            {/* Sticky Day Header Row */}
+            <div
+              className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-white sticky top-0 z-20 shadow-2xs backdrop-blur-xs`}
+            >
+              {/* Top-left Time column label */}
+              <div className="p-2 border-r border-slate-200 text-center flex items-center justify-center bg-slate-50/70">
             <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
               <Clock className="w-2.5 h-2.5 text-slate-500" />
               Time
@@ -364,6 +367,8 @@ export default function WeekView({
 
             return rows;
           })()}
+            </div>
+          </div>
         </div>
       </div>
     </div>

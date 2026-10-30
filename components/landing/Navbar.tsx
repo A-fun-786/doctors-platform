@@ -10,10 +10,10 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
-          <BrandLogo size="md" />
+          <BrandLogo size="md" className="shrink-0" textClassName="text-base sm:text-lg" />
 
           {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -53,12 +53,24 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex md:hidden">
+          {/* Mobile Action Buttons & Menu Button */}
+          <div className="flex md:hidden items-center gap-1.5 sm:gap-2">
+            <Link
+              href="/login"
+              className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-2 sm:px-2.5 py-1.5 rounded-md hover:bg-slate-100 active:scale-95 transition-all"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm transition-all whitespace-nowrap"
+            >
+              Sign Up
+            </Link>
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              className="p-1.5 sm:p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? (

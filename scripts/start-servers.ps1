@@ -12,6 +12,12 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host "  Starting DocSpace Platform Servers (Windows) " -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
+$envLocal = Join-Path $rootDir ".env.development.local"
+if (-not (Test-Path $envLocal)) {
+    Set-Content -Path $envLocal -Value "NEXT_PUBLIC_API_URL=http://localhost:8000"
+    Write-Host "[i] Created .env.development.local pointing to http://localhost:8000" -ForegroundColor Gray
+}
+
 # 1. Check Backend (Port 8000)
 $backendConn = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($backendConn) {
@@ -23,11 +29,10 @@ if ($backendConn) {
         $pythonExe = "python"
     }
     
-    $backendProcess = Start-Process -FilePath $pythonExe `
-        -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload" `
+    $backendProcess = Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/c", "`"$pythonExe`" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > `"$logsDir\backend.log`" 2>&1" `
         -WorkingDirectory $backendDir `
-        -RedirectStandardOutput (Join-Path $logsDir "backend.log") `
-        -RedirectStandardError (Join-Path $logsDir "backend-error.log") `
+        -WindowStyle Hidden `
         -PassThru
 
     Set-Content -Path (Join-Path $pidsDir "backend.pid") -Value $backendProcess.Id
@@ -42,7 +47,7 @@ if ($frontendConn) {
     Write-Host "[*] Starting Next.js Frontend on port 3000..." -ForegroundColor Green
     
     $frontendProcess = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/c", "npm run dev" `
+        -ArgumentList "/c", "set NODE_PATH=%CD%\node_modules&& npm run dev" `
         -WorkingDirectory $rootDir `
         -RedirectStandardOutput (Join-Path $logsDir "frontend.log") `
         -RedirectStandardError (Join-Path $logsDir "frontend-error.log") `

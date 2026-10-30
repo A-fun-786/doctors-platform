@@ -64,13 +64,13 @@ export default function CalendarDrawer({
       />
 
       {/* Slide-in Panel from the Right */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 pointer-events-none">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10 pointer-events-none w-full justify-end">
         <div
           ref={drawerRef}
-          className="w-screen max-w-md md:max-w-lg lg:w-[480px] pointer-events-auto bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300 ease-out"
+          className="w-full sm:w-auto sm:max-w-md md:max-w-lg lg:w-[480px] pointer-events-auto bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300 ease-out"
         >
           {/* Sticky Panel Header */}
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md px-6 py-4.5 border-b border-slate-100 flex items-start justify-between gap-4 shrink-0">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
             <div className="min-w-0 space-y-1">
               {categoryBadge && <div className="flex items-center">{categoryBadge}</div>}
               {typeof title === "string" ? (
@@ -90,7 +90,7 @@ export default function CalendarDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors shrink-0 cursor-pointer"
               aria-label="Close panel"
             >
               <X className="w-5 h-5" />
@@ -98,7 +98,7 @@ export default function CalendarDrawer({
           </div>
 
           {/* Scrollable Drawer Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 focus:outline-none">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 focus:outline-none custom-scrollbar pb-safe">
             {children}
           </div>
         </div>

@@ -138,25 +138,35 @@ async function run() {
     assert.ok(html.includes("viewport") || html.includes("width=device-width"), "Must configure device-width viewport");
   });
 
-  await record("responsiveness", "DashboardShell implements responsive breakpoints (flex-col md:flex-row)", async () => {
+  await record("responsiveness", "DashboardShell implements responsive breakpoints (md:flex desktop & md:hidden mobile)", async () => {
     const shellFile = path.join(rootDir, "components", "dashboard", "DashboardShell.tsx");
     const content = fs.readFileSync(shellFile, "utf-8");
-    assert.ok(content.includes("flex-col md:flex-row"), "Sidebar and content must stack on mobile and row on desktop");
-    assert.ok(content.includes("w-full md:w-60"), "Sidebar must be full width on mobile and fixed 240px on desktop");
-    assert.ok(content.includes("overflow-x-auto md:overflow-visible"), "Tab bar must scroll horizontally on mobile");
+    assert.ok(content.includes("hidden md:flex") || content.includes("md:block"), "Desktop sidebar hidden on mobile and flex on desktop");
+    assert.ok(content.includes("md:hidden"), "Mobile navigation drawer and sticky topbar hidden on desktop");
+    assert.ok(content.includes("fixed bottom-0"), "Mobile bottom nav fixed with touch-friendly layout");
   });
 
-  await record("responsiveness", "AppointmentTable implements responsive container with mobile horizontal scroll", async () => {
-    const tableFile = path.join(rootDir, "components", "dashboard", "appointments", "AppointmentTable.tsx");
-    const content = fs.readFileSync(tableFile, "utf-8");
-    assert.ok(content.includes("overflow-x-auto"), "Table wrapper must provide horizontal scroll on mobile");
-    assert.ok(content.includes("<table"), "Must render semantic table element");
+  await record("responsiveness", "AdaptiveDataView in OverviewTab implements dual desktop table & mobile cards", async () => {
+    const overviewFile = path.join(rootDir, "components", "dashboard", "OverviewTab.tsx");
+    const content = fs.readFileSync(overviewFile, "utf-8");
+    assert.ok(content.includes("AdaptiveDataView"), "AdaptiveDataView container used for responsive switching");
+    assert.ok(content.includes("<table"), "Must render semantic table element on desktop viewports");
+    assert.ok(content.includes("renderMobileCard"), "Must render mobile-optimized touch card views");
   });
 
   await record("responsiveness", "CalendarTab adapts across viewport bounds with responsive container", async () => {
     const calFile = path.join(rootDir, "components", "dashboard", "CalendarTab.tsx");
     const content = fs.readFileSync(calFile, "utf-8");
     assert.ok(content.includes("overflow-hidden") || content.includes("w-full"), "Calendar container must prevent overflow");
+  });
+
+  await record("responsiveness", "Landing page Navbar implements direct mobile Login and Sign Up action buttons", async () => {
+    const navbarFile = path.join(rootDir, "components", "landing", "Navbar.tsx");
+    const content = fs.readFileSync(navbarFile, "utf-8");
+    assert.ok(content.includes('flex md:hidden items-center'), "Must include mobile actions container");
+    assert.ok(content.includes('Sign Up'), "Must include direct Sign Up action button on mobile");
+    assert.ok(content.includes('href="/login"'), "Must include direct Login action on mobile");
+    assert.ok(content.includes('href="/register"'), "Must route to /register for doctor signup");
   });
 
   // ============================================================================

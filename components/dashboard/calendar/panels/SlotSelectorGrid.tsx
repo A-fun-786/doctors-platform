@@ -171,7 +171,7 @@ export default function SlotSelectorGrid({
       )}
 
       {/* Grid of 30-minute slot pills */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 max-h-56 overflow-y-auto custom-scrollbar p-1.5 border border-slate-200 rounded-xl bg-slate-50/50">
         {candidateSlots.map((slot) => {
           const isSelected = selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
 

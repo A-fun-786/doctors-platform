@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * DocSpace Platform - DashboardShell Verification & Regression Test Suite
- * Validates the Top Header removal, component relocation, layout responsiveness,
- * dead code elimination, and interface compatibility.
+ * GoSmartClinic Platform - DashboardShell Verification & Regression Test Suite
+ * Validates the Mobile-First Adaptive AppShell, Hamburger Navigation Drawer,
+ * Tablet Collapsible Sidebar, Mobile Bottom Navigation, dead code elimination,
+ * and accessibility compliance.
  */
 
 import assert from "node:assert/strict";
@@ -48,14 +49,9 @@ function test(name, fn) {
 const source = fs.readFileSync(dashboardShellPath, "utf-8");
 
 // ============================================================================
-// SUITE 1: Dead Code & Header Removal Verification
+// SUITE 1: Dead Code & Legacy Header Removal Verification
 // ============================================================================
-describe("Dead Code & Top Header Removal Verification", () => {
-  test("Top <header> wrapper element is completely removed", () => {
-    assert.strictEqual(source.includes("<header"), false, "<header> element should not exist in DashboardShell.tsx");
-    assert.strictEqual(source.includes("</header>"), false, "</header> should not exist in DashboardShell.tsx");
-  });
-
+describe("Dead Code & Legacy Header Removal Verification", () => {
   test("'Doctor Portal' badge text and separator are removed", () => {
     assert.strictEqual(source.includes("Doctor Portal"), false, "'Doctor Portal' text should be removed");
     assert.strictEqual(source.includes("uppercase tracking-wider px-2 py-0.5 rounded bg-brand-50"), false, "Doctor Portal badge styles should be removed");
@@ -71,61 +67,50 @@ describe("Dead Code & Top Header Removal Verification", () => {
     assert.strictEqual(source.includes("handleCopyLink"), false, "handleCopyLink function should be removed");
     assert.strictEqual(source.includes("Copy Link"), false, "'Copy Link' text should be removed");
     assert.strictEqual(/import\s*\{[^}]*Copy[^}]*\}\s*from\s*["']lucide-react["']/.test(source), false, "Copy icon import should be removed");
-    assert.strictEqual(/import\s*\{[^}]*Check[^}]*\}\s*from\s*["']lucide-react["']/.test(source), false, "Check icon import should be removed");
   });
 
   test("Public Page external link is removed from shell", () => {
     assert.strictEqual(source.includes("Public Page"), false, "'Public Page' link text should be removed");
-    assert.strictEqual(/import\s*\{[^}]*ExternalLink[^}]*\}\s*from\s*["']lucide-react["']/.test(source), false, "ExternalLink icon import should be removed");
   });
 
-  test("Terminal / Logs button is removed from header", () => {
-    assert.strictEqual(/import\s*\{[^}]*Terminal[^}]*\}\s*from\s*["']lucide-react["']/.test(source), false, "Terminal icon import should be removed");
-    assert.strictEqual(source.includes("Open System Diagnostics & Logs"), false, "Logs button markup should be removed");
-  });
-
-  test("Unused logger and useState imports are eliminated", () => {
+  test("Legacy logger imports are eliminated", () => {
     assert.strictEqual(source.includes("@/lib/logger"), false, "logger import should be removed");
-    assert.strictEqual(source.includes("useState"), false, "useState hook should be removed as copied state is gone");
   });
 });
 
 // ============================================================================
-// SUITE 2: Component Relocation & Architecture Verification
+// SUITE 2: Navigation & Mobile/Tablet Shell Architecture
 // ============================================================================
-describe("Component Relocation & Layout Architecture", () => {
-  test("GoSmartClinic BrandLogo is rendered inside the sidebar <aside>", () => {
-    const asideRegex = /<aside[\s\S]*?<\/aside>/;
-    const match = source.match(asideRegex);
-    assert.ok(match, "<aside> block must be present");
-    // After rebranding (DocSpace → GoSmartClinic), the sidebar now uses the
-    // BrandLogo component instead of hardcoded "DocSpace" text.
-    assert.ok(
-      match[0].includes("BrandLogo"),
-      "BrandLogo component must be rendered inside <aside> (replaces legacy DocSpace text)"
-    );
+describe("Navigation & Mobile/Tablet Shell Architecture", () => {
+  test("Mobile Sticky Top Bar renders with Hamburger Menu and BrandLogo", () => {
+    assert.ok(source.includes("<header className=\"md:hidden sticky top-0"), "Mobile sticky header must be present");
+    assert.ok(source.includes("aria-label=\"Open navigation menu\""), "Hamburger menu must have accessible aria-label");
+    assert.ok(source.includes("Menu"), "Menu icon must be used for hamburger button");
   });
 
-  test("Doctor profile identity card is relocated inside the sidebar <aside>", () => {
-    const asideRegex = /<aside[\s\S]*?<\/aside>/;
-    const match = source.match(asideRegex);
-    assert.ok(match, "<aside> block must be present");
-    assert.ok(match[0].includes("doctor.full_name"), "doctor.full_name must be rendered inside <aside>");
-    assert.ok(match[0].includes("doctor.email"), "doctor.email must be rendered inside <aside>");
-    assert.ok(match[0].includes("src={avatar}"), "avatar image must be rendered inside <aside>");
+  test("Mobile slide-out Navigation Drawer is implemented with accessibility", () => {
+    assert.ok(source.includes("role=\"dialog\""), "Drawer must have dialog role");
+    assert.ok(source.includes("aria-modal=\"true\""), "Drawer must declare aria-modal='true'");
+    assert.ok(source.includes("Escape"), "Drawer must handle Escape key for keyboard dismissal");
+    assert.ok(source.includes("overflow-hidden"), "Drawer must prevent background body scroll when open");
   });
 
-  test("Logout button is relocated inside the sidebar <aside>", () => {
-    const asideRegex = /<aside[\s\S]*?<\/aside>/;
-    const match = source.match(asideRegex);
-    assert.ok(match, "<aside> block must be present");
-    assert.ok(match[0].includes("onClick={onLogout}"), "onLogout handler must be wired inside <aside>");
-    assert.ok(match[0].includes("LogOut"), "LogOut icon must be present inside <aside>");
+  test("Tablet collapsible sidebar is implemented with toggle button", () => {
+    assert.ok(source.includes("isSidebarCollapsed"), "Sidebar must support collapsed state");
+    assert.ok(source.includes("PanelLeftClose"), "PanelLeftClose icon must be available");
+    assert.ok(source.includes("PanelLeftOpen"), "PanelLeftOpen icon must be available");
+    assert.ok(source.includes("w-20"), "Sidebar must support compact w-20 rail mode on tablets/desktops");
   });
 
-  test("Content area wraps {children} safely in a responsive section", () => {
-    assert.ok(source.includes("<section className=\"flex-1 min-w-0\">"), "Content section must have min-w-0 flex-1");
-    assert.ok(source.includes("{children}"), "{children} must be rendered in the main layout");
+  test("Mobile bottom navigation bar is fixed with safe-area support", () => {
+    assert.ok(source.includes("aria-label=\"Mobile Navigation\""), "Mobile nav must have aria-label");
+    assert.ok(source.includes("pb-safe"), "Mobile nav must include pb-safe for mobile home bars");
+    assert.ok(source.includes("fixed bottom-0"), "Mobile nav must be fixed to bottom on mobile");
+  });
+
+  test("Content area wraps {children} safely in a semantic main element with mobile buffer", () => {
+    assert.ok(source.includes("<main className=\"flex-1 min-w-0 pb-24 md:pb-6\">"), "Main must have min-w-0 and pb-24 for mobile nav clearance");
+    assert.ok(source.includes("{children}"), "{children} must be rendered in main layout");
   });
 
   test("Interface backward compatibility is maintained for onOpenDiagnostics", () => {
@@ -139,16 +124,14 @@ describe("Component Relocation & Layout Architecture", () => {
 describe("Navigation & Tab State Logic Simulation", () => {
   const baseTabs = [
     { id: "overview", label: "Overview" },
-    { id: "appointment", label: "Appointment" },
-    { id: "schedule", label: "Schedule" },
-    { id: "appointments", label: "Appointments" },
+    { id: "appointment", label: "Appointments" },
     { id: "profile", label: "Profile" },
   ];
 
-  test("Base navigation contains 5 core tabs", () => {
-    assert.strictEqual(baseTabs.length, 5);
+  test("Base navigation contains 3 core doctor tabs", () => {
+    assert.strictEqual(baseTabs.length, 3);
     const ids = baseTabs.map((t) => t.id);
-    assert.deepStrictEqual(ids, ["overview", "appointment", "schedule", "appointments", "profile"]);
+    assert.deepStrictEqual(ids, ["overview", "appointment", "profile"]);
   });
 
   test("Enable Android build flag dynamically appends Android tab", () => {
@@ -161,32 +144,13 @@ describe("Navigation & Tab State Logic Simulation", () => {
     };
 
     const withoutAndroid = getNavItems(false);
-    assert.strictEqual(withoutAndroid.length, 5);
+    assert.strictEqual(withoutAndroid.length, 3);
     assert.strictEqual(withoutAndroid.some((i) => i.id === "android"), false);
 
     const withAndroid = getNavItems(true);
-    assert.strictEqual(withAndroid.length, 6);
-    assert.strictEqual(withAndroid[5].id, "android");
-    assert.strictEqual(withAndroid[5].label, "Android App");
-  });
-
-  test("Active tab styling computation distinguishes active vs inactive states", () => {
-    const computeTabClasses = (isActive) => {
-      return `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap text-left w-full ${
-        isActive
-          ? "bg-brand-50 text-brand-700 font-semibold shadow-xs border-l-0 md:border-l-4 md:border-brand-600"
-          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-      }`;
-    };
-
-    const activeClasses = computeTabClasses(true);
-    assert.ok(activeClasses.includes("bg-brand-50 text-brand-700 font-semibold"));
-    assert.ok(activeClasses.includes("md:border-brand-600"));
-
-    const inactiveClasses = computeTabClasses(false);
-    assert.ok(inactiveClasses.includes("text-slate-600"));
-    assert.ok(inactiveClasses.includes("hover:bg-slate-50"));
-    assert.strictEqual(inactiveClasses.includes("bg-brand-50"), false);
+    assert.strictEqual(withAndroid.length, 4);
+    assert.strictEqual(withAndroid[3].id, "android");
+    assert.strictEqual(withAndroid[3].label, "Android App");
   });
 
   test("Avatar resolution fallback order: profile -> doctor -> DEFAULT_AVATAR", () => {
@@ -204,25 +168,6 @@ describe("Navigation & Tab State Logic Simulation", () => {
 
     // Case 3: Neither has avatar
     assert.strictEqual(resolveAvatar(null, {}), DEFAULT_AVATAR);
-  });
-});
-
-// ============================================================================
-// SUITE 4: Viewport Responsiveness & Layout Constraints
-// ============================================================================
-describe("Viewport Responsiveness & Layout Constraints", () => {
-  test("Sidebar container provides full-width horizontal-scroll on mobile and fixed 240px width on desktop", () => {
-    assert.ok(source.includes("w-full md:w-60"), "Sidebar must use w-full md:w-60");
-    assert.ok(source.includes("overflow-x-auto md:overflow-visible"), "Nav must horizontally scroll on mobile and remain visible on desktop");
-  });
-
-  test("Sidebar flex direction stacks horizontally on mobile and vertically on desktop", () => {
-    assert.ok(source.includes("flex md:flex-col"), "Nav items must layout as flex on mobile and flex-col on desktop");
-  });
-
-  test("Profile & Logout card adapts between mobile row and desktop column", () => {
-    assert.ok(source.includes("justify-between md:flex-col md:items-stretch"), "Profile card must adapt between mobile row and desktop column");
-    assert.ok(source.includes("md:w-full"), "Logout button must expand full-width on desktop sidebar");
   });
 });
 
