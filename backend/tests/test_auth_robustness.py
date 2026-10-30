@@ -633,3 +633,76 @@ def test_layer3_email_service_failure_resilience():
     finally:
         db.close()
         Base.metadata.drop_all(bind=test_engine)
+
+
+def test_layer2_unverified_account_reregistration_allowed_until_verified(client, db_session):
+    """
+    Bug 1 regression test:
+    Before email verification and account creation, an unverified account must NOT show
+    'An account with this email already exists'. It must allow re-registration, credential updates,
+    and fresh OTP issuance until verified. Once verified, duplicate registration must return 400.
+    """
+    test_email = "dr.unverified_flow@hospital.org"
+
+    # 1. Initial registration
+    res1 = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": test_email,
+            "password": "InitialPassword2026!",
+            "full_name": "Dr. Unverified Initial",
+        },
+    )
+    assert res1.status_code == 201
+    assert res1.json()["doctor"]["email_verified"] is False
+
+    doc = db_session.query(Doctor).filter(Doctor.email == test_email).first()
+    assert doc is not None
+    assert doc.email_verified is False
+
+    # 2. Re-attempt registration before OTP verification (must NOT fail with 'already exists')
+    res2 = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": test_email,
+            "password": "UpdatedPassword2026!",
+            "full_name": "Dr. Unverified Updated",
+        },
+    )
+    assert res2.status_code == 201
+    assert res2.json()["doctor"]["email_verified"] is False
+    assert res2.json()["doctor"]["full_name"] == "Dr. Unverified Updated"
+
+    # Confirm only 1 doctor row exists (updated in place)
+    assert db_session.query(Doctor).filter(Doctor.email == test_email).count() == 1
+
+    # 3. Verify account via OTP
+    latest_token = (
+        db_session.query(EmailVerificationToken)
+        .filter(
+            EmailVerificationToken.doctor_id == doc.id,
+            EmailVerificationToken.purpose == "email_verification",
+            EmailVerificationToken.used_at == None,
+        )
+        .order_by(EmailVerificationToken.created_at.desc())
+        .first()
+    )
+    assert latest_token is not None
+
+    # Simulate OTP verification
+    doc.email_verified = True
+    doc.email_verified_at = datetime.now(timezone.utc)
+    db_session.commit()
+
+    # 4. Attempt registration AFTER verification -> MUST fail with 400 'already exists'
+    res3 = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": test_email,
+            "password": "ThirdPassword2026!",
+            "full_name": "Dr. Verified Attempt",
+        },
+    )
+    assert res3.status_code == 400
+    assert "already exists" in res3.json()["detail"].lower()
+

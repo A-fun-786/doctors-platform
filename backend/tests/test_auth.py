@@ -228,7 +228,22 @@ def test_email_registration_and_login_flow(client, db_session):
     assert data["doctor"]["auth_provider"] == "email"
     assert "dr-smith" in data["tenant"]["slug"]
 
-    # 2. Duplicate registration should fail
+    # 2a. Re-registration before email verification succeeds (re-issues OTP without 'already exists' error)
+    re_reg_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "strongpassword123",
+        },
+    )
+    assert re_reg_response.status_code == 201
+
+    # Mark doctor as verified (completed account creation via OTP)
+    doctor = db_session.query(Doctor).filter(Doctor.email == "dr.smith@example.com").first()
+    doctor.email_verified = True
+    db_session.commit()
+
+    # 2b. Duplicate registration after account verification and creation fails with 400
     dup_response = client.post(
         "/api/v1/auth/register",
         json={

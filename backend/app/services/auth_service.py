@@ -241,63 +241,90 @@ class AuthService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="This account is registered with Google. Please sign in with Google or reset password.",
                 )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="An account with this email already exists",
-            )
+            if existing_doctor.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email already exists",
+                )
 
         # Derive clean doctor name if not provided
         if not full_name or not full_name.strip():
-            user_part = email.split("@")[0].replace(".", " ").replace("-", " ").replace("_", " ")
-            full_name = f"Dr. {user_part.title()}"
+            if existing_doctor and existing_doctor.full_name:
+                full_name = existing_doctor.full_name
+            else:
+                user_part = email.split("@")[0].replace(".", " ").replace("-", " ").replace("_", " ")
+                full_name = f"Dr. {user_part.title()}"
         else:
             full_name = full_name.strip()
 
         hashed_pw = hash_password(password)
 
         try:
-            doctor = Doctor(
-                email=email,
-                full_name=full_name,
-                phone=phone,
-                auth_provider="email",
-                hashed_password=hashed_pw,
-                is_active=True,
-                email_verified=False,
-            )
-            db.add(doctor)
-            db.flush()
+            if existing_doctor:
+                doctor = existing_doctor
+                doctor.hashed_password = hashed_pw
+                doctor.full_name = full_name
+                if phone:
+                    doctor.phone = phone
+                doctor.is_active = True
+                doctor.failed_login_attempts = 0
+                doctor.locked_until = None
+                db.flush()
+            else:
+                doctor = Doctor(
+                    email=email,
+                    full_name=full_name,
+                    phone=phone,
+                    auth_provider="email",
+                    hashed_password=hashed_pw,
+                    is_active=True,
+                    email_verified=False,
+                )
+                db.add(doctor)
+                db.flush()
 
-            # Retry slug generation with savepoints up to 5 attempts
-            tenant = None
-            base_slug = slugify(doctor.full_name)
-            for attempt in range(5):
-                slug = generate_unique_tenant_slug(db, doctor.full_name)
-                if attempt > 0:
-                    slug = f"{base_slug}-{attempt + 1}-{secrets.token_hex(2)}"
-                try:
-                    with db.begin_nested():
-                        tenant = Tenant(
-                            doctor_id=doctor.id,
-                            slug=slug,
-                            status="active",
-                        )
-                        db.add(tenant)
-                        db.flush()
-                    break
-                except IntegrityError as e:
-                    err_text = str(e).lower()
-                    if "slug" in err_text or "tenants" in err_text:
-                        tenant = None
-                        continue
-                    raise
+            # Ensure tenant workspace exists
+            tenant = doctor.tenant
+            if not tenant and doctor.id:
+                tenant = db.query(Tenant).filter(Tenant.doctor_id == doctor.id).first()
 
             if not tenant:
-                raise RuntimeError("Could not allocate a unique clinic slug.")
+                # Retry slug generation with savepoints up to 5 attempts
+                base_slug = slugify(doctor.full_name)
+                for attempt in range(5):
+                    slug = generate_unique_tenant_slug(db, doctor.full_name)
+                    if attempt > 0:
+                        slug = f"{base_slug}-{attempt + 1}-{secrets.token_hex(2)}"
+                    try:
+                        with db.begin_nested():
+                            tenant = Tenant(
+                                doctor_id=doctor.id,
+                                slug=slug,
+                                status="active",
+                            )
+                            db.add(tenant)
+                            db.flush()
+                        break
+                    except IntegrityError as e:
+                        err_text = str(e).lower()
+                        if "slug" in err_text or "tenants" in err_text:
+                            tenant = None
+                            continue
+                        raise
+
+                if not tenant:
+                    raise RuntimeError("Could not allocate a unique clinic slug.")
+
+            # Invalidate any pending verification tokens for this doctor
+            now = datetime.now(timezone.utc)
+            db.query(EmailVerificationToken).filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "email_verification",
+                EmailVerificationToken.used_at == None,
+            ).update({"used_at": now})
 
             # Create EmailVerificationTokens atomically
             otp, token = generate_verification_token()
-            now = datetime.now(timezone.utc)
             expires = now + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
 
             token_otp = EmailVerificationToken(
