@@ -8,7 +8,6 @@ from app.core.database import get_db
 from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
-import uuid
 
 
 # In-memory SQLite engine for fast testing
@@ -55,10 +54,13 @@ def test_root_health(client):
 def test_api_v1_health(client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "healthy",
-        "service": "doctor-platform-api",
-    }
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "doctor-platform-api"
+    assert "environment" in data
+    assert "sentry_enabled" in data
+    assert data["rate_limiting_enabled"] is True
+    assert "version" in data
 
 
 def test_api_v1_health_database_connected(client):
@@ -144,3 +146,70 @@ def test_doctor_tenant_relationship(db_session):
     assert tenant.id is not None
     assert tenant.doctor.full_name == "Dr. Jane Doe"
     assert doctor.tenant.slug == "dr-jane-doe"
+
+
+def test_production_settings_validation(monkeypatch):
+    from app.core.config import Settings
+    from pydantic import ValidationError
+
+    # Clear environment variables to test pure defaults without CI env pollution
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("ALLOW_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+
+    # Default secret must fail in production
+    with pytest.raises(ValidationError, match="JWT_SECRET_KEY"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Mock auth must fail in production
+    with pytest.raises(ValidationError, match="ALLOW_MOCK_AUTH"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=True,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Empty Google Client ID must fail in production
+    with pytest.raises(ValidationError, match="GOOGLE_CLIENT_ID"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # SQLite must fail in production
+    with pytest.raises(ValidationError, match="SQLite is not supported"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="sqlite:///./prod.db",
+        )
+
+    # Valid production settings pass
+    prod = Settings(
+        _env_file=None,
+        ENVIRONMENT="production",
+        ALLOW_MOCK_AUTH=False,
+        JWT_SECRET_KEY="a" * 32,
+        GOOGLE_CLIENT_ID="valid-id",
+        DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+    )
+    assert prod.ENVIRONMENT == "production"
+

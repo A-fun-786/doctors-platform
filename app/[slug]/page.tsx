@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 import {
-  Activity,
   Calendar,
   Video,
   Pill,
@@ -20,7 +20,6 @@ import {
   Loader2,
   UploadCloud,
   ChevronRight,
-  Send,
   User,
   Mail,
   Home,
@@ -34,18 +33,12 @@ import {
   bookPublicAppointment,
   uploadPublicReport,
   orderPublicMedicine,
+  getPublicAvailableSlots,
   PublicDoctorProfileResponse,
+  AvailableSlot,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
-
-const TIME_SLOTS = [
-  "09:00 AM",
-  "10:00 AM",
-  "11:30 AM",
-  "02:00 PM",
-  "03:30 PM",
-  "04:45 PM",
-];
+import { format12Hour } from "@/components/dashboard/calendar/calendarUtils";
 
 export default function PatientDoctorPage() {
   const params = useParams();
@@ -68,7 +61,9 @@ export default function PatientDoctorPage() {
 
   // In-Clinic Appointment form
   const [inClinicDate, setInClinicDate] = useState("");
-  const [inClinicSlot, setInClinicSlot] = useState(TIME_SLOTS[0]);
+  const [inClinicSlot, setInClinicSlot] = useState("");
+  const [inClinicAvailableSlots, setInClinicAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [inClinicSlotsLoading, setInClinicSlotsLoading] = useState(false);
   const [inClinicName, setInClinicName] = useState("");
   const [inClinicEmail, setInClinicEmail] = useState("");
   const [inClinicPhone, setInClinicPhone] = useState("");
@@ -78,7 +73,9 @@ export default function PatientDoctorPage() {
 
   // Video Consultation form
   const [videoDate, setVideoDate] = useState("");
-  const [videoSlot, setVideoSlot] = useState(TIME_SLOTS[1]);
+  const [videoSlot, setVideoSlot] = useState("");
+  const [videoAvailableSlots, setVideoAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [videoSlotsLoading, setVideoSlotsLoading] = useState(false);
   const [videoName, setVideoName] = useState("");
   const [videoEmail, setVideoEmail] = useState("");
   const [videoPhone, setVideoPhone] = useState("");
@@ -144,10 +141,86 @@ export default function PatientDoctorPage() {
     }
   }, [activeTab, doctor]);
 
+  // Load dynamic available slots on In-Clinic date change
+  useEffect(() => {
+    if (!slug || !inClinicDate) {
+      setInClinicAvailableSlots([]);
+      setInClinicSlot("");
+      return;
+    }
+    let isMounted = true;
+    setInClinicSlotsLoading(true);
+    getPublicAvailableSlots(slug, inClinicDate)
+      .then((slots) => {
+        if (isMounted) {
+          const list = slots || [];
+          setInClinicAvailableSlots(list);
+          if (list.length > 0) {
+            setInClinicSlot(format12Hour(list[0].start));
+          } else {
+            setInClinicSlot("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load in-clinic available slots:", err);
+        if (isMounted) {
+          setInClinicAvailableSlots([]);
+          setInClinicSlot("");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setInClinicSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, inClinicDate]);
+
+  // Load dynamic available slots on Video Consultation date change
+  useEffect(() => {
+    if (!slug || !videoDate) {
+      setVideoAvailableSlots([]);
+      setVideoSlot("");
+      return;
+    }
+    let isMounted = true;
+    setVideoSlotsLoading(true);
+    getPublicAvailableSlots(slug, videoDate)
+      .then((slots) => {
+        if (isMounted) {
+          const list = slots || [];
+          setVideoAvailableSlots(list);
+          if (list.length > 0) {
+            setVideoSlot(format12Hour(list[0].start));
+          } else {
+            setVideoSlot("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load video available slots:", err);
+        if (isMounted) {
+          setVideoAvailableSlots([]);
+          setVideoSlot("");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setVideoSlotsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, videoDate]);
+
   // Handle In-Clinic Appointment
   const handleInClinicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctor) return;
+    if (!inClinicSlot) {
+      alert("Please select an available time slot");
+      return;
+    }
     try {
       setInClinicSubmitting(true);
       const res = await bookPublicAppointment(slug, {
@@ -171,6 +244,10 @@ export default function PatientDoctorPage() {
   const handleVideoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctor) return;
+    if (!videoSlot) {
+      alert("Please select an available time slot");
+      return;
+    }
     try {
       setVideoSubmitting(true);
       const res = await bookPublicAppointment(slug, {
@@ -234,8 +311,8 @@ export default function PatientDoctorPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4">
-          <Activity className="w-6 h-6 animate-pulse" />
+        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4 p-2">
+          <BRAND_CONFIG.icon.component className="w-full h-full animate-pulse" />
         </div>
         <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
           <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
@@ -261,7 +338,7 @@ export default function PatientDoctorPage() {
           href="/"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
         >
-          <span>DocSpace Home</span>
+          <span>{BRAND_CONFIG.name} Home</span>
         </Link>
       </div>
     );
@@ -275,12 +352,7 @@ export default function PatientDoctorPage() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
-                <Activity className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-bold text-slate-900 tracking-tight">DocSpace</span>
-            </Link>
+            <BrandLogo size="sm" />
             <span className="text-slate-300">|</span>
             <button
               type="button"
@@ -322,7 +394,7 @@ export default function PatientDoctorPage() {
 
       {/* Sticky Services Navigation Tab Bar */}
       <nav className="sticky top-16 z-20 bg-white border-b border-slate-200 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-2 overflow-x-auto py-2.5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-2 overflow-x-auto custom-scrollbar py-2.5">
           <button
             type="button"
             onClick={() => navigateToTab("home")}
@@ -784,18 +856,18 @@ export default function PatientDoctorPage() {
                         <span className="font-mono font-bold text-slate-900">{inClinicSuccess}</span>. An appointment notification has been forwarded to {doctor.full_name}.
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => setInClinicSuccess(null)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                       >
                         <span>Book Another Appointment</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => navigateToTab("home")}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                       >
                         <Home className="w-3.5 h-3.5" />
                         <span>Return to Practice Home</span>
@@ -822,24 +894,42 @@ export default function PatientDoctorPage() {
                     {/* Time Slot Picker */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                        Available Time Slot <span className="text-red-500">*</span>
+                        Preferred Time Slot <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {TIME_SLOTS.map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setInClinicSlot(slot)}
-                            className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                              inClinicSlot === slot
-                                ? "bg-brand-600 text-white border-brand-600 shadow-sm"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
+                      {!inClinicDate ? (
+                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                          Please select a preferred date above to view available time slots.
+                        </div>
+                      ) : inClinicSlotsLoading ? (
+                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : inClinicAvailableSlots.length === 0 ? (
+                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please choose another date.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
+                          {inClinicAvailableSlots.map((slot) => {
+                            const slotLabel = format12Hour(slot.start);
+                            return (
+                              <button
+                                key={`${slot.start}-${slot.end}`}
+                                type="button"
+                                onClick={() => setInClinicSlot(slotLabel)}
+                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                  inClinicSlot === slotLabel
+                                    ? "bg-brand-600 text-white border-brand-600 shadow-sm"
+                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                {slotLabel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -914,7 +1004,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={inClinicSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {inClinicSubmitting ? (
                         <>
@@ -1015,25 +1105,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{videoSuccess}</span>. A secure consultation link will be dispatched via email and SMS prior to your appointment.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVideoSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Schedule Another Video Call</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setVideoSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Schedule Another Video Call</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1060,22 +1143,40 @@ export default function PatientDoctorPage() {
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                         Consultation Time Slot <span className="text-red-500">*</span>
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {TIME_SLOTS.map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setVideoSlot(slot)}
-                            className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                              videoSlot === slot
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
+                      {!videoDate ? (
+                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                          Please select a consultation date above to view available time slots.
+                        </div>
+                      ) : videoSlotsLoading ? (
+                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+                          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                          <span>Loading available slots...</span>
+                        </div>
+                      ) : videoAvailableSlots.length === 0 ? (
+                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
+                          No available slots on this date. Please choose another date.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
+                          {videoAvailableSlots.map((slot) => {
+                            const slotLabel = format12Hour(slot.start);
+                            return (
+                              <button
+                                key={`${slot.start}-${slot.end}`}
+                                type="button"
+                                onClick={() => setVideoSlot(slotLabel)}
+                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                                  videoSlot === slotLabel
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                {slotLabel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1140,7 +1241,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={videoSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {videoSubmitting ? (
                         <>
@@ -1241,25 +1342,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{medSuccess}</span>. The pharmacy team will verify your prescription details and contact you for dispatch.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setMedSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Submit Another Medicine Request</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setMedSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Submit Another Medicine Request</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1330,7 +1424,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={medSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {medSubmitting ? (
                         <>
@@ -1431,25 +1525,18 @@ export default function PatientDoctorPage() {
                       <span className="font-mono font-bold text-slate-900">{repSuccess}</span>. Your uploaded diagnostic document has been attached to your clinical chart for {doctor.full_name}.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setRepSuccess(null)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
-                  >
-                    <span>Upload Another Report</span>
-                  </button>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setRepSuccess(null)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <span>Upload Another Report</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigateToTab("home")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                     >
                       <Home className="w-3.5 h-3.5" />
                       <span>Return to Practice Home</span>
@@ -1550,7 +1637,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="submit"
                       disabled={repSubmitting}
-                      className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                     >
                       {repSubmitting ? (
                         <>
@@ -1577,7 +1664,7 @@ export default function PatientDoctorPage() {
       <footer className="bg-white border-t border-slate-200 py-8 text-center text-xs text-slate-500">
         <div className="max-w-6xl mx-auto px-4 space-y-2">
           <p className="font-medium text-slate-700">
-            {doctor.clinic_name || doctor.full_name} • Powered by DocSpace
+            {doctor.clinic_name || doctor.full_name} • {BRAND_CONFIG.poweredBy}
           </p>
           <p className="text-slate-400">
             For medical emergencies, please dial your local emergency services (e.g. 911 / 112) immediately.

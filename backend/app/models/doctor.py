@@ -1,11 +1,13 @@
 import uuid
-from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Boolean, String, Text, Uuid
+from typing import Optional, List, TYPE_CHECKING
+from sqlalchemy import Boolean, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.tenant import Tenant
+    from app.models.schedule import Schedule
+    from app.models.appointment import Appointment
 
 
 class Doctor(Base, TimestampMixin):
@@ -72,11 +74,28 @@ class Doctor(Base, TimestampMixin):
         default=True,
         nullable=False,
     )
+    working_hours: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+    )
 
     # 1:1 Relationship with Tenant
     tenant: Mapped[Optional["Tenant"]] = relationship(
         "Tenant",
         back_populates="doctor",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # 1:Many Relationships with Schedule and Appointment
+    schedules: Mapped[List["Schedule"]] = relationship(
+        "Schedule",
+        back_populates="doctor",
+        cascade="all, delete-orphan",
+    )
+
+    appointments: Mapped[List["Appointment"]] = relationship(
+        "Appointment",
+        back_populates="doctor",
         cascade="all, delete-orphan",
     )

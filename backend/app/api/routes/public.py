@@ -7,8 +7,6 @@ from app.models.tenant import Tenant
 from app.schemas.profile import (
     PublicDoctorProfileResponse,
     ServicesConfig,
-    AppointmentBookingRequest,
-    AppointmentBookingResponse,
     ReportUploadRequest,
     ReportUploadResponse,
     MedicineOrderRequest,
@@ -59,46 +57,6 @@ def get_public_doctor_profile(
         services=services,
     )
 
-
-@router.post(
-    "/tenants/{slug}/appointments",
-    response_model=AppointmentBookingResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def book_appointment(
-    slug: str,
-    payload: AppointmentBookingRequest,
-    db: Session = Depends(get_db),
-) -> AppointmentBookingResponse:
-    """Submit an in-clinic or video consultation appointment request from the patient page."""
-    tenant = _get_active_tenant_or_404(slug, db)
-
-    # Verify service is enabled
-    if payload.appointment_type == "video_consultation" and not tenant.service_video_consultation:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Video consultation is currently not offered by this practice.",
-        )
-    if payload.appointment_type == "in_clinic" and not tenant.service_appointment:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="In-clinic appointments are currently not offered by this practice.",
-        )
-
-    booking_id = f"APT-{uuid.uuid4().hex[:8].upper()}"
-
-    return AppointmentBookingResponse(
-        booking_id=booking_id,
-        status="confirmed",
-        message=f"Appointment successfully scheduled with {tenant.doctor.full_name}.",
-        details={
-            "patient_name": payload.patient_name,
-            "appointment_date": payload.appointment_date,
-            "appointment_time": payload.appointment_time,
-            "appointment_type": payload.appointment_type,
-            "clinic_name": tenant.clinic_name or "Doctor Clinic",
-        },
-    )
 
 
 @router.post(

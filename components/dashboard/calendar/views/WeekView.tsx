@@ -1,0 +1,376 @@
+"use client";
+
+import React, { useMemo } from "react";
+import { Clock, Coffee } from "lucide-react";
+import { CalendarEvent } from "@/lib/api";
+import { WeekDayItem } from "../types";
+import {
+  TIME_ROWS,
+  BREAK_TIME_LABEL,
+  BREAK_TIME_BADGE,
+  BREAK_TIME_SUBTITLE,
+} from "../constants";
+import {
+  format12Hour,
+  getTimeRowRange,
+  doesEventOverlapSlot,
+  getDayStatus,
+  getWorkingHoursTimeRows,
+  WorkingHoursConfig,
+  getDoctorBreakInterval,
+  formatBreakTimeTitle,
+  timeToMinutes,
+} from "../calendarUtils";
+
+interface WeekViewProps {
+  currentWeekDays: WeekDayItem[];
+  onSelectDate: (dateStr: string) => void;
+  getEventsForDate: (dateStr: string) => CalendarEvent[];
+  onEventClick: (event: CalendarEvent, date: string) => void;
+  onQuickAddSlot: (date: string, start: string, end: string) => void;
+  onEmptySlotClick?: (date: string, start: string, end: string) => void;
+  workingHoursConfig?: WorkingHoursConfig;
+}
+
+// Full-width grid definition without horizontal scroll: 68px for Time, all 7 days distributed equally
+const GRID_COLS_CLASS = "grid grid-cols-[68px_repeat(7,minmax(0,1fr))]";
+
+export default function WeekView({
+  currentWeekDays,
+  onSelectDate,
+  getEventsForDate,
+  onEventClick,
+  onQuickAddSlot,
+  onEmptySlotClick,
+  workingHoursConfig,
+}: WeekViewProps) {
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // Retrieve configured/calculated doctor break interval
+  const breakInfo = useMemo(() => {
+    return getDoctorBreakInterval(workingHoursConfig);
+  }, [workingHoursConfig]);
+
+  // Collect all events across visible week days
+  const allWeekEvents = useMemo(() => {
+    return currentWeekDays.flatMap((day) => getEventsForDate(day.dateStr));
+  }, [currentWeekDays, getEventsForDate]);
+
+  // Only show working hours slots (active shifts) or slots that contain scheduled events
+  const workingTimeRows = useMemo(() => {
+    return getWorkingHoursTimeRows(workingHoursConfig, allWeekEvents);
+  }, [workingHoursConfig, allWeekEvents]);
+
+  return (
+    <div className="w-full select-none">
+      <div className="w-full">
+        {/* Calendar Legend Bar on Top */}
+        <div className="p-2.5 border-b border-slate-200 bg-slate-50/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700 shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">Appointment (Patient)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs border border-dashed border-slate-300 bg-white shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">Empty Slot (Click to Book)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 border border-amber-600 shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">Doctor Leave</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-purple-500 border border-purple-600 shrink-0" />
+              <span className="font-semibold text-slate-700 text-[11px]">Blocked Period</span>
+            </div>
+            {breakInfo && breakInfo.enabled && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-xs bg-amber-100 border border-amber-300 shrink-0" />
+                <span className="font-semibold text-slate-700 text-[11px]">{BREAK_TIME_LABEL}</span>
+              </div>
+            )}
+          </div>
+          <div className="text-[11px] font-medium text-slate-500">
+            30-Minute Operating Intervals
+          </div>
+        </div>
+
+        {/* Scrollable Container on Mobile/Tablet so 7 days remain legible */}
+        <div className="overflow-x-auto custom-scrollbar w-full">
+          <div className="min-w-[620px] md:min-w-0">
+            {/* Sticky Day Header Row */}
+            <div
+              className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-white sticky top-0 z-20 shadow-2xs backdrop-blur-xs`}
+            >
+              {/* Top-left Time column label */}
+              <div className="p-2 border-r border-slate-200 text-center flex items-center justify-center bg-slate-50/70">
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+              <Clock className="w-2.5 h-2.5 text-slate-500" />
+              Time
+            </span>
+          </div>
+
+          {/* 7 Days Headers */}
+          {currentWeekDays.map((day) => {
+            const isToday = day.dateStr === todayStr;
+            return (
+              <div
+                key={day.dateStr}
+                onClick={() => onSelectDate(day.dateStr)}
+                className={`py-2 px-1 text-center border-r border-slate-200 last:border-r-0 cursor-pointer transition-all ${
+                  day.isSelected
+                    ? "bg-blue-50/70 shadow-inner"
+                    : isToday
+                    ? "bg-blue-50/25 hover:bg-blue-50/50"
+                    : "hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 mb-0.5">
+                  <span
+                    className={`text-[11px] uppercase tracking-wider font-bold truncate ${
+                      day.isSelected
+                        ? "text-blue-700"
+                        : isToday
+                        ? "text-blue-600"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {day.dayName}
+                  </span>
+                  {isToday && !day.isSelected && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block shrink-0"
+                      title="Today"
+                    />
+                  )}
+                </div>
+                <div
+                  className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    day.isSelected
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : isToday
+                      ? "border-2 border-blue-600 text-blue-600 bg-white font-black"
+                      : "text-slate-800 hover:bg-slate-200/70"
+                  }`}
+                >
+                  {day.dayNum}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* All-Day Clinic Status Row */}
+        <div
+          className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-slate-50/70`}
+        >
+          <div className="p-1 border-r border-slate-200 text-center flex items-center justify-center bg-slate-100/50">
+            <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+              Clinic
+            </span>
+          </div>
+          {currentWeekDays.map((day) => {
+            const status = getDayStatus(day.dateStr);
+            return (
+              <div
+                key={`status-${day.dateStr}`}
+                className="p-1 border-r border-slate-200 last:border-r-0 text-center flex items-center justify-center"
+              >
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border inline-block w-full max-w-[85px] truncate text-center shadow-2xs ${status.color}`}
+                >
+                  {status.text}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 30-Minute Time Slots Grid - Rendered Exclusively for Working Hours */}
+        <div className="divide-y divide-slate-100">
+          {(() => {
+            const breakStartM = breakInfo && breakInfo.enabled ? timeToMinutes(breakInfo.start) : -1;
+            let breakRendered = false;
+
+            const renderWeekBreakRow = () => {
+              if (!breakInfo || !breakInfo.enabled) return null;
+              return (
+                <div
+                  key="week-break-time-row"
+                  className={`${GRID_COLS_CLASS} min-h-[46px] border-y-2 border-amber-300/80 bg-amber-50/70 select-none shadow-2xs`}
+                >
+                  {/* Left Time Column */}
+                  <div className="p-1 border-r border-amber-200 bg-amber-100/60 flex flex-col items-center justify-center text-center">
+                    <Coffee className="w-3.5 h-3.5 text-amber-700 mb-0.5" />
+                    <span className="font-mono font-bold text-[9px] text-amber-950 leading-tight">
+                      {breakInfo.startLabel}
+                    </span>
+                    <span className="text-[9px] text-amber-700 leading-none my-0.5">–</span>
+                    <span className="font-mono font-bold text-[9px] text-amber-950 leading-tight">
+                      {breakInfo.endLabel}
+                    </span>
+                  </div>
+
+                  {/* 7 Day Columns - Consolidated Banner spanning all 7 days */}
+                  <div className="col-span-7 px-3 py-2 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 flex items-center justify-between gap-2 overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded-md bg-amber-200/80 text-amber-800 flex items-center justify-center shrink-0">
+                        <Coffee className="w-3 h-3" />
+                      </div>
+                      <span className="text-xs font-bold text-amber-900 tracking-wide uppercase truncate">
+                        {formatBreakTimeTitle(breakInfo.startLabel, breakInfo.endLabel)}
+                      </span>
+                      <span className="text-[11px] text-amber-700/80 font-medium hidden sm:inline truncate">
+                        {BREAK_TIME_SUBTITLE}
+                      </span>
+                    </div>
+
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 shadow-2xs">
+                      {BREAK_TIME_BADGE}
+                    </span>
+                  </div>
+                </div>
+              );
+            };
+
+            const rows: React.ReactNode[] = [];
+
+            workingTimeRows.forEach((timeRow) => {
+              const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
+              const currentSlotStartM = timeToMinutes(slotStart);
+
+              // Inject break row right at chronological point
+              if (breakInfo && breakInfo.enabled && !breakRendered && currentSlotStartM >= breakStartM) {
+                rows.push(renderWeekBreakRow());
+                breakRendered = true;
+              }
+
+              const isHour = timeRow.endsWith(":00 AM") || timeRow.endsWith(":00 PM");
+
+              rows.push(
+                <div
+                  key={timeRow}
+                  className={`${GRID_COLS_CLASS} min-h-[48px] ${
+                    isHour
+                      ? "border-t border-slate-200 bg-white"
+                      : "border-t border-dashed border-slate-200/70 bg-slate-50/20"
+                  }`}
+                >
+                  {/* Left Time Column - Bold Monospace Labels */}
+                  <div
+                    className={`p-1.5 border-r border-slate-200 flex items-center justify-end pr-2 select-none ${
+                      isHour ? "bg-slate-50/60" : "bg-slate-50/30"
+                    }`}
+                  >
+                    <span
+                      className={`font-mono font-bold tracking-tight text-[11px] whitespace-nowrap ${
+                        isHour ? "text-slate-900" : "text-slate-700"
+                      }`}
+                    >
+                      {timeRow}
+                    </span>
+                  </div>
+
+                  {/* 7 Day Columns - All Grid Slots Visible Without Scroll */}
+                  {currentWeekDays.map((day) => {
+                    const dayEvents = getEventsForDate(day.dateStr);
+
+                    // Find events overlapping this 30-minute window
+                    const cellEvents = dayEvents.filter((ev) =>
+                      doesEventOverlapSlot(ev, slotStart, slotEnd)
+                    );
+
+                    // Extract specific event types
+                    const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
+                    const leaveEvent = cellEvents.find(
+                      (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
+                    );
+                    const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+
+                    return (
+                      <div
+                        key={`${day.dateStr}-${timeRow}`}
+                        className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${
+                          day.isSelected ? "bg-blue-50/15" : "hover:bg-slate-50/60"
+                        }`}
+                      >
+                        {apptEvent ? (
+                          /* FILLED CALENDAR SLOT: ONLY PATIENT NAME SHOWN */
+                          <div
+                            onClick={() => onEventClick(apptEvent, day.dateStr)}
+                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-blue-50/95 border border-blue-200 border-l-[3px] border-l-blue-600 text-blue-950 hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt"
+                            title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
+                          >
+                            <span className="text-[11px] font-bold text-blue-950 truncate w-full">
+                              {apptEvent.patient_name || "Patient"}
+                            </span>
+                          </div>
+                        ) : leaveEvent ? (
+                          /* DOCTOR LEAVE / CLINIC HOLIDAY */
+                          <div
+                            onClick={() => onEventClick(leaveEvent, day.dateStr)}
+                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                            title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
+                          >
+                            <span className="text-[11px] font-bold text-amber-950 truncate w-full">
+                              {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
+                            </span>
+                          </div>
+                        ) : blockedEvent ? (
+                          /* BLOCKED PERIOD */
+                          <div
+                            onClick={() => onEventClick(blockedEvent, day.dateStr)}
+                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                            title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
+                          >
+                            <span className="text-[11px] font-bold text-purple-950 truncate w-full">
+                              {blockedEvent.reason || "Blocked Period"}
+                            </span>
+                          </div>
+                        ) : (
+                          /* OTHERWISE UNBOOKED / EMPTY SLOT */
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onEmptySlotClick) {
+                                onEmptySlotClick(day.dateStr, slotStart, slotEnd);
+                              } else {
+                                onQuickAddSlot(day.dateStr, slotStart, slotEnd);
+                              }
+                            }}
+                            className="w-full h-full min-h-[38px] rounded-md transition-all cursor-pointer hover:bg-blue-50/50 hover:border hover:border-dashed hover:border-blue-300 flex items-center justify-center group/slot"
+                            title={`Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`}
+                          >
+                            <span className="opacity-0 group-hover/slot:opacity-100 text-[10px] font-semibold text-blue-500 transition-opacity">
+                              +
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            });
+
+            // If break time is after all working slots
+            if (breakInfo && breakInfo.enabled && !breakRendered) {
+              rows.push(renderWeekBreakRow());
+              breakRendered = true;
+            }
+
+            return rows;
+          })()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

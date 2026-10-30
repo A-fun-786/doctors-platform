@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
 import { authenticateWithGoogle } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 declare global {
   interface Window {
@@ -35,21 +38,26 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
 
   // Handle Google Token Authentication
   const handleAuth = async (credential: string) => {
+    logger.action("Auth", `User initiated Google OAuth (${mode})`);
     try {
       setLoading(true);
       setError(null);
       const authData = await authenticateWithGoogle(credential);
+      logger.info("Auth", `Google OAuth successful (${mode})`, {
+        doctorId: authData?.doctor?.id,
+        email: authData?.doctor?.email,
+        onboardingCompleted: authData?.doctor?.onboarding_completed,
+      });
+
       if (authData?.doctor && !authData.doctor.onboarding_completed) {
         router.push("/onboarding");
       } else {
         router.push("/dashboard");
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Authentication failed. Please try again.");
-      }
+      const errMsg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      logger.error(`Google authentication failure (${mode})`, err, { mode }, "Auth");
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -59,11 +67,10 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
   useEffect(() => {
     if (!googleClientId) return;
 
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
+    let isMounted = true;
+
+    const renderGoogleButton = () => {
+      if (!isMounted) return;
       setIsGsiLoaded(true);
       if (window.google && googleButtonRef.current) {
         window.google.accounts.id.initialize({
@@ -80,12 +87,34 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
         });
       }
     };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]'
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", renderGoogleButton);
+      return () => {
+        isMounted = false;
+        existingScript.removeEventListener("load", renderGoogleButton);
+      };
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
     document.body.appendChild(script);
 
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleClientId, mode]);
@@ -97,16 +126,11 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-3 sm:px-4 py-8 sm:py-12">
+      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center space-x-2 text-brand-600 font-bold text-lg">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-sm">
-              <Activity className="w-5 h-5" />
-            </div>
-            <span className="text-slate-900 tracking-tight">DocSpace</span>
-          </Link>
+          <BrandLogo size="md" />
 
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
@@ -234,7 +258,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
               className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to DocSpace Home</span>
+              <span>{BRAND_CONFIG.backToHome}</span>
             </Link>
           </div>
         </div>

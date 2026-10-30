@@ -1,5 +1,4 @@
 import re
-import uuid
 from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,6 +8,7 @@ from app.core.security import (
     create_access_token,
     hash_password,
     verify_password,
+    needs_rehash,
 )
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
@@ -268,6 +268,11 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+
+        # Transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        if needs_rehash(doctor.hashed_password):
+            doctor.hashed_password = hash_password(password)
+            db.commit()
 
         tenant = doctor.tenant
         if not tenant:
