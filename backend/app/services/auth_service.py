@@ -9,6 +9,7 @@ from app.core.security import (
     hash_password,
     verify_password,
     needs_rehash,
+    DUMMY_BCRYPT_HASH,
 )
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
@@ -17,6 +18,9 @@ from app.schemas.auth import (
     DoctorResponse,
     TenantResponse,
     validate_email_id,
+    validate_password_strength,
+    sanitize_full_name,
+    sanitize_phone,
 )
 
 
@@ -178,11 +182,36 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             )
-        if not password or len(password) < 6:
+        if not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 6 characters long",
+                detail="Password is required",
             )
+        try:
+            password = validate_password_strength(password, email=email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        if full_name:
+            try:
+                full_name = sanitize_full_name(full_name)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
+
+        if phone:
+            try:
+                phone = sanitize_phone(phone)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
 
         # Check for existing doctor
         existing_doctor = db.query(Doctor).filter(Doctor.email == email).first()
@@ -259,6 +288,7 @@ class AuthService:
 
         doctor = db.query(Doctor).filter(Doctor.email == email).first()
         if not doctor:
+            verify_password(password, DUMMY_BCRYPT_HASH)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -271,6 +301,7 @@ class AuthService:
             )
 
         if not doctor.hashed_password:
+            verify_password(password, DUMMY_BCRYPT_HASH)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This account was registered using Google. Please sign in with Google or reset password.",

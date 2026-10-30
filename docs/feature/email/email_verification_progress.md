@@ -1,71 +1,88 @@
 # Email Registration & Verification Progress
 
 ## 1. Summary
-Implemented Phase 1 (Database Schema & Migration) of the Email Registration and Verification architecture. Extended the `Doctor` model with verification status (`email_verified`, `email_verified_at`) and lockout defense fields (`failed_login_attempts`, `locked_until`). Created the `EmailVerificationToken` entity and generated Alembic migration `010_add_email_verification_and_security` with backwards-compatible data backfilling and reversible downgrade logic.
+Implemented Phase 1 (Database Schema & Migration) and Phase 2 (Input Validation & Password Security Hardening) of the Email Registration and Verification architecture. In Phase 2, enforced RFC 5321 email constraints with disposable domain filtering, unicode homograph rejection, and SQL/XSS pattern defense. Implemented comprehensive password policy rules (8+ chars, 72-byte bcrypt truncation defense, 4-class complexity with NIST-aligned 16+ char passphrase exemption, email local-part exclusion, breached password blocklist), profile sanitization (`full_name` HTML/control-char stripping, E.164/clinic `phone` validation), startup `DUMMY_BCRYPT_HASH` constant-time verification for timing side-channel mitigation, and cryptographically secure token generation/hashing (`VerificationTokenPair`, SHA-256 with `compare_digest`, and JWT `jti`/`type` claims).
 
 ## 2. Plan Reference
 - **Plan Document**: `docs/feature/email/email_registration_plan.md`
-- **Base Commit SHA**: `73b5d873b40eea1abcfed32574aff84834bee07f`
+- **Base Commit SHA**: `73b5d873b40eea1abcfed32574aff84834bee07f` (Phase 1: `73a4d40cea6338c531217f2e97630a312b44ff32`)
 
 ## 3. Changes
-- `backend/app/models/doctor.py`: Added `email_verified`, `email_verified_at`, `failed_login_attempts`, `locked_until`, and `email_verification_tokens` relationship.
-- `backend/app/models/verification_token.py`: Created `EmailVerificationToken` model with SHA-256 token hash storage, expiration, and multi-purpose support (`email_verification`, `password_reset`).
-- `backend/app/models/__init__.py`: Exported `EmailVerificationToken` to standard package exports.
-- `backend/alembic/env.py`: Ensured all domain models (`app.models`) are imported so Alembic captures all metadata.
-- `backend/alembic/versions/010_add_email_verification_and_security.py`: Alembic migration adding doctor columns, backfilling existing active accounts to verified, and creating the tokens table with indexes.
-- `backend/tests/test_email_verification_models.py`: Unit and integration test suite validating schema definitions, relationship cascades, and Alembic upgrade/downgrade migration cycles.
+- `backend/app/models/doctor.py`: Added `email_verified`, `email_verified_at`, `failed_login_attempts`, `locked_until`, and `email_verification_tokens` relationship (Phase 1).
+- `backend/app/models/verification_token.py`: Created `EmailVerificationToken` model with SHA-256 token hash storage, expiration, and multi-purpose support (`email_verification`, `password_reset`) (Phase 1).
+- `backend/app/models/__init__.py`: Exported `EmailVerificationToken` to standard package exports (Phase 1).
+- `backend/alembic/env.py`: Ensured all domain models (`app.models`) are imported so Alembic captures all metadata (Phase 1).
+- `backend/alembic/versions/010_add_email_verification_and_security.py`: Alembic migration adding doctor columns, backfilling existing active accounts to verified, and creating the tokens table with indexes (Phase 1).
+- `backend/app/schemas/auth.py`: Implemented RFC-compliant `validate_email_id` (length bounds <=254 chars, local-part <=64, disposable domain blocking, homograph/XSS/SQL rejection), `validate_password_strength` (8-72 bytes, 4-class complexity or 16+ char passphrase, breached password blocklist, email local-part correlation check), `sanitize_full_name`, and `sanitize_phone` (Phase 2).
+- `backend/app/core/security.py`: Added pre-computed `DUMMY_BCRYPT_HASH`, `VerificationTokenPair`, `generate_verification_token` (6-digit OTP + 32-byte URL-safe token), `hash_token` (SHA-256 hex digest), `verify_token_hash` (`secrets.compare_digest`), and added `jti` and `type: "access"` claims to `create_access_token` (Phase 2).
+- `backend/app/services/auth_service.py`: Enforced defensive password strength and profile field validation in `register_email`; integrated `verify_password(password, DUMMY_BCRYPT_HASH)` on unknown user and Google-only logins to eliminate timing enumeration side-channels (Phase 2).
+- `backend/tests/test_email_verification_models.py`: Unit and integration test suite validating schema definitions, relationship cascades, and Alembic upgrade/downgrade migration cycles (Phase 1).
+- `backend/tests/test_auth_phase2.py`: Comprehensive test suite (14 tests) covering email RFC edge cases, password policy boundaries, profile sanitization, crypto helpers, timing mitigation, and API registration validation (Phase 2).
 
 ## 4. Decisions
-- **Decision**: Used `String(255)` for `token_hash` instead of fixing to 64 chars.
-  - *Reasoning*: Allows future adaptability (e.g., argon2id / salt prefixes) while safely containing SHA-256 hex digests (64 hex characters).
-  - *Alternatives considered*: `CHAR(64)` / `String(64)`. Rejected to maintain forward-compatibility if hashing format changes.
-  - *Consequences*: Negligible storage overhead; high flexibility.
-- **Decision**: Added batch mode support via `op.batch_alter_table` in Alembic migration.
-  - *Reasoning*: The platform supports PostgreSQL in production and SQLite in local/test environments; SQLite requires batch mode for table alteration.
-  - *Alternatives considered*: Raw `ALTER TABLE` statements. Rejected because it fails on SQLite.
-  - *Consequences*: Migration runs seamlessly across both PostgreSQL and SQLite.
-- **Decision**: Backfill existing active doctors to `email_verified=True` and `email_verified_at=CURRENT_TIMESTAMP`.
-  - *Reasoning*: Prevents locking out existing registered doctors when email verification is enforced in later phases.
-  - *Alternatives considered*: Leave existing doctors unverified. Rejected as it would break production access for existing users.
-  - *Consequences*: Existing active doctors remain unblocked.
+- **Decision**: Enforced ASCII-only email validation to eliminate Unicode homograph spoofing attacks.
+  - *Reasoning*: Healthcare platforms require deterministic identity resolution. Rejecting non-ASCII characters prevents homoglyphs (e.g., Cyrillic 'о' vs Latin 'o') without complex IDN/Punycode risks.
+  - *Alternatives considered*: Converting homoglyphs via unidecode or Punycode. Rejected because it can introduce ambiguous domain mappings.
+  - *Consequences*: Strict, unambiguous email addresses across the platform.
+- **Decision**: Passphrase exemption rule: passwords >= 16 characters bypass the 4-class complexity requirement.
+  - *Reasoning*: Aligns with NIST SP 800-63B guidelines; high-length passphrases provide superior entropy over shorter artificially complex passwords while improving user experience.
+  - *Alternatives considered*: Mandating uppercase/lowercase/digit/special characters unconditionally. Rejected as it discourages multi-word passphrases.
+  - *Consequences*: Users can choose either complex 8-15 character passwords or 16+ character passphrases.
+- **Decision**: 72-byte UTF-8 cap on passwords before hashing.
+  - *Reasoning*: Bcrypt silently truncates passwords after 72 bytes. Validating `len(password.encode("utf-8")) <= 72` prevents false security assumptions and DoS via oversized bcrypt inputs.
+  - *Alternatives considered*: Pre-hashing with SHA-256 before bcrypt. Rejected to preserve compatibility with existing database hashes.
+  - *Consequences*: Rejects passwords exceeding 72 bytes (including multi-byte emoji combinations) with a clear 422 error.
+- **Decision**: Pre-computed startup `DUMMY_BCRYPT_HASH` for constant-time login verification.
+  - *Reasoning*: Executing `verify_password(password, DUMMY_BCRYPT_HASH)` when an email does not exist ensures login latency remains ~100ms regardless of account existence, neutralizing timing side-channels.
+  - *Alternatives considered*: Returning immediately with 401 on missing email. Rejected because the ~1ms vs ~100ms discrepancy allows email enumeration.
+  - *Consequences*: Uniform response times across all failed authentication attempts.
+- **Decision**: Used `NamedTuple` `VerificationTokenPair(otp, token)` for verification token generation.
+  - *Reasoning*: Allows seamless tuple unpacking (`otp, token = generate_verification_token()`) while supporting named property access (`res.otp`, `res.token`).
+  - *Alternatives considered*: Plain dictionary or raw tuple. Rejected for lower type-safety and ergonomics.
+  - *Consequences*: Intuitive, strongly typed token generation.
 
 ## 5. Deviations from Plan
-None. Phase 1 was executed exactly according to specifications in `docs/feature/email/email_registration_plan.md`.
+None. Phase 2 was executed exactly according to specifications in `docs/feature/email/email_registration_plan.md`.
 
 ## 6. Assumptions
-- Existing active doctors (`is_active == True`) are considered pre-verified since they previously authenticated via Google OAuth or initial setup.
-- Lockout protection will be managed in application auth logic using `failed_login_attempts` and `locked_until` in Phases 2 and 3.
+- Passwords are encrypted exclusively with bcrypt (`$2b$`) in new flows, with backward compatibility for legacy hashes preserved.
+- Profile fields (`full_name`, `phone`) remain optional on registration schemas to maintain API backwards compatibility, but when provided are strictly sanitized.
 
 ## 7. Verification Results
 
 ### Baseline Comparison
-- **Pre-implementation baseline suite**: 153 tests passed, 0 failures (`pytest`, exit code 0).
-- **Post-implementation full suite**: 156 tests passed, 0 failures (`pytest`, exit code 0).
-- **Regressions**: None.
+- **Phase 0 baseline suite**: 156 tests passed, 0 failures (`pytest`, exit code 0).
+- **Post-Phase 2 full suite**: 170 tests passed, 0 failures (`pytest`, exit code 0).
+- **Regressions**: None (14 new tests added and passing).
 
 ### Verification Scenarios
 | Scenario | Type | Command / Actions | Expected | Observed | Evidence | Verdict |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Doctor Schema & Lockout Fields** | `AGENT_EXECUTABLE` | `pytest tests/test_email_verification_models.py::test_doctor_email_verification_and_lockout_fields` | Defaults: `email_verified=False`, `failed_login_attempts=0`, `locked_until=None`; updates persist cleanly | Fields initialize with defaults and persist timestamps and counts on update | Exit code 0, `PASSED` | `PASS` |
-| **Verification Token Lifecycle & Cascade** | `AGENT_EXECUTABLE` | `pytest tests/test_email_verification_models.py::test_email_verification_token_lifecycle_and_cascade` | Token created with foreign key to doctor; deleting doctor cascades and removes token | Token created, bidirectional relationships navigable, token deleted upon doctor deletion | Exit code 0, `PASSED` | `PASS` |
-| **Alembic 010 Migration & Backfill** | `AGENT_EXECUTABLE` | `pytest tests/test_email_verification_models.py::test_alembic_migration_010_upgrade_and_downgrade` | Upgrade 009 -> 010 adds columns, backfills active doctors to verified, downgrade 010 -> 009 drops table and columns | Backfill correctly set active doc `email_verified=1`, tokens table created, downgrade cleanly restored revision 009 schema | Exit code 0, `PASSED` | `PASS` |
-| **Alembic Local DB Upgrade** | `AGENT_EXECUTABLE` | `cd backend && alembic upgrade head && alembic current` | Applies migration 010 cleanly to local database | Output: `Running upgrade 009_add_working_hours_to_doctor -> 010_add_email_verification_and_security`, `010_add_email_verification_and_security (head)` | Exit code 0, head confirmed | `PASS` |
-| **Full Regression Test Suite** | `AGENT_EXECUTABLE` | `cd backend && pytest` | All 156 tests pass without error or regression | 156 passed, 1 warning (pre-existing starlette testclient warning) in 34.17s | Exit code 0, 156 passed | `PASS` |
-| **Live Server Startup & Health** | `AGENT_EXECUTABLE` | `./scripts/start-servers.sh --background && curl http://localhost:8000/health` | Fastapi backend and Next.js frontend boot cleanly; `/health` returns 200 `{"status":"healthy"}` | HTTP 200 OK, requestId & security headers present | Exit code 0, healthy status | `PASS` |
-| **Live API Registration & DB Schema Check** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` + SQLite inspection | Doctor registered (201 Created); DB record has `email_verified=0`, `failed_login_attempts=0`, `locked_until=None` | Doctor record `('manual_test_doc@example.com', 0, None, 0, None)` confirmed in DB | Exit code 0, 201 Created & DB verified | `PASS` |
-| **Tokens Table & Index Verification** | `AGENT_EXECUTABLE` | Python sqlite3 PRAGMA check on `doctor_platform.db` | Table `email_verification_tokens` and indexes on `token_hash` & `(doctor_id, purpose)` exist | Indexes `ix_email_verification_tokens_token_hash` and `ix_email_verification_tokens_doctor_purpose` present | Exit code 0, indexes verified | `PASS` |
-| **Live Frontend Route Verification** | `AGENT_EXECUTABLE` | `curl -I http://localhost:3000/login && curl -I http://localhost:3000/register` | Frontend auth pages respond with HTTP 200 | HTTP/1.1 200 OK on both `/login` and `/register` | Exit code 0, 200 OK | `PASS` |
+| **Email RFC & Boundary Cases** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_validate_email_id_valid_cases` & `::test_validate_email_id_rejections` | Accepts standard/subdomain/+tag emails; rejects >254 chars, local-part >64, consecutive dots, leading/trailing dots, unicode homographs, control/null chars, SQL/XSS, non-strings, disposable domains | All valid accepted and normalized; all attacks and boundaries rejected with clear errors | Exit code 0, `PASSED` | `PASS` |
+| **Password Policy Boundaries** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_validate_password_strength_valid` & `::test_validate_password_strength_rejections` | Accepts 8+ chars complex & 16+ char passphrases; rejects <8 chars, >72 bytes (UTF-8 emojis), missing classes, common breached passwords, email local-part matches | Correctly validates valid passwords and rejects violations with descriptive error messages | Exit code 0, `PASSED` | `PASS` |
+| **Profile Field Sanitization** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_sanitize_full_name` & `::test_sanitize_phone` | Strips script/style tags & contents, HTML tags, control chars; validates 2-120 chars; validates E.164 and clinic phone patterns <=25 chars | HTML and control characters stripped; invalid lengths and phone patterns rejected | Exit code 0, `PASSED` | `PASS` |
+| **Token Generation & Constant-Time Crypto** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_token_generation_and_hashing` & `::test_dummy_bcrypt_hash_constant_time` | Generates 6-digit OTP and URL-safe token; SHA-256 hash length 64 hex; `verify_token_hash` uses `compare_digest`; `DUMMY_BCRYPT_HASH` starts with `$2b$` | High-entropy tokens generated, deterministic SHA-256 hashes verified, dummy bcrypt constant-time confirmed | Exit code 0, `PASSED` | `PASS` |
+| **JWT Access Token Claims** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_jwt_access_token_claims` | JWT contains `sub`, `exp`, `iat`, `jti` (UUID), and `type: "access"` | Decoded payload includes valid UUID `jti` and `type == "access"` | Exit code 0, `PASSED` | `PASS` |
+| **Timing Side-Channel Neutralization** | `AGENT_EXECUTABLE` | `pytest tests/test_auth_phase2.py::test_auth_service_login_calls_dummy_hash_on_missing_user` & `::test_auth_service_login_calls_dummy_hash_for_google_account` | `login_email` invokes `verify_password(password, DUMMY_BCRYPT_HASH)` on non-existent doctor and Google-only doctor | `verify_password` mock confirmed called with `DUMMY_BCRYPT_HASH` on unknown and Google logins | Exit code 0, `PASSED` | `PASS` |
+| **Live Server Runtime Validation - Weak Password** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` with password `"weak"` | HTTP 422 Unprocessable Entity with password length error | HTTP 422: `"Value error, Password must be at least 8 characters long."` | Exit code 0, HTTP 422 | `PASS` |
+| **Live Server Runtime Validation - Email in Password** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` with email prefix in password | HTTP 422 Unprocessable Entity with email correlation error | HTTP 422: `"Value error, Password must not contain parts of your email address."` | Exit code 0, HTTP 422 | `PASS` |
+| **Live Server Runtime Validation - Disposable Email** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` with `spamdoc@mailinator.com` | HTTP 422 Unprocessable Entity with disposable email error | HTTP 422: `"Value error, Disposable or temporary email addresses are not allowed."` | Exit code 0, HTTP 422 | `PASS` |
+| **Live Server Runtime Validation - Invalid Phone** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` with phone `"invalid-phone"` | HTTP 422 Unprocessable Entity with phone format error | HTTP 422: `"Value error, Invalid phone number format."` | Exit code 0, HTTP 422 | `PASS` |
+| **Live Server Runtime Validation - Success & Sanitization** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/register` with `<b>Dr. Phase Two</b>` | HTTP 201 Created; full_name sanitized to `"Dr. Phase Two"`; JWT contains `jti` and `type: "access"` | HTTP 201 Created; full_name stripped; JWT decoded and verified | Exit code 0, HTTP 201 | `PASS` |
+| **Live Server Runtime Validation - Login** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/login` with created credentials | HTTP 200 OK with access token | HTTP 200 OK; access token returned | Exit code 0, HTTP 200 | `PASS` |
+| **Live Server Runtime Validation - Nonexistent Account Login** | `AGENT_EXECUTABLE` | `curl -X POST http://localhost:8000/api/v1/auth/login` with non-existent email | HTTP 401 Unauthorized with generic error message | HTTP 401: `{"detail":"Invalid email or password"}` | Exit code 0, HTTP 401 | `PASS` |
+| **Full Regression Suite** | `AGENT_EXECUTABLE` | `pytest` | All 170 tests pass without error or regression | 170 passed, 11 warnings in 87.50s | Exit code 0, 170 passed | `PASS` |
 
-**Final Phase 1 Verdict**: `VERIFIED`
+**Final Phase 2 Verdict**: `VERIFIED`
 
 ## 8. Manual Steps Pending
 None.
 
 ## 9. Known Issues and Follow-ups
-- Phase 2: Schema input validation and password strength enforcement (`EmailRegisterRequest`).
-- Phase 3: Transactional registration and token dispatch service (`AuthService.register_email`, `EmailService`).
+- Phase 3: Transactional Registration, Concurrency & Verification Service (`backend/app/services/email_service.py`, `backend/app/services/auth_service.py`, verification and resend endpoints).
+- Phase 4: Frontend Registration UX (`components/auth/EmailAuthForm.tsx`, `lib/api.ts`).
 
 ## 10. Rollback
 - Revert commit: `git revert <commit-sha>`
-- Alembic downgrade: `cd backend && alembic downgrade 009_add_working_hours_to_doctor`
-- Data implications: Dropping `email_verification_tokens` table deletes active tokens. Dropping columns on `doctors` removes verification timestamps and lockout counters without deleting doctor profiles.
+- Data implications: No database migration or table modifications in Phase 2; pure schema and security hardening rollback without data loss.
+
