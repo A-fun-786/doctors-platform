@@ -34,6 +34,8 @@ export interface Doctor {
   speciality?: string | null;
   bio?: string | null;
   onboarding_completed: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   auth_provider: string;
 }
 
@@ -53,6 +55,8 @@ export interface DoctorMeResponse {
   speciality?: string | null;
   bio?: string | null;
   onboarding_completed: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   auth_provider: string;
   tenant?: Tenant | null;
 }
@@ -424,9 +428,27 @@ export async function apiFetch<T = unknown>(
           } else {
             errorDetail = JSON.stringify(errorData.detail);
           }
+        } else if (errorData?.error && typeof errorData.error === "string") {
+          errorDetail = errorData.error;
         }
       } catch {
         // Fallback to generic message
+      }
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After") || response.headers.get("retry-after");
+        let cooldownMsg = "";
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter, 10);
+          if (!isNaN(seconds) && seconds > 0) {
+            cooldownMsg = `Please wait ${seconds} second${seconds === 1 ? "" : "s"} before trying again.`;
+          }
+        }
+        if (errorDetail.startsWith("Request failed with status 429")) {
+          errorDetail = cooldownMsg || "Too many requests. Please wait a moment before trying again.";
+        } else if (cooldownMsg && !errorDetail.toLowerCase().includes("wait") && !errorDetail.toLowerCase().includes("second")) {
+          errorDetail = `${errorDetail}. ${cooldownMsg}`;
+        }
       }
 
       logger.api(
@@ -478,24 +500,98 @@ export async function authenticateWithGoogle(credential: string): Promise<AuthRe
   return data;
 }
 
+export interface RegisterWithEmailPayload {
+  email: string;
+  password: string;
+  fullName?: string;
+  full_name?: string;
+}
+
 /**
  * Register a new doctor using email and password.
+ * Supports either positional parameters (email, password, fullName) or an options object.
  */
 export async function registerWithEmail(
-  email: string,
-  password: string,
+  emailOrPayload: string | RegisterWithEmailPayload,
+  password?: string,
   fullName?: string
 ): Promise<AuthResponse> {
+  let emailValue = "";
+  let passwordValue = "";
+  let fullNameValue: string | undefined;
+
+  if (typeof emailOrPayload === "object") {
+    emailValue = emailOrPayload.email;
+    passwordValue = emailOrPayload.password;
+    fullNameValue = emailOrPayload.fullName || emailOrPayload.full_name;
+  } else {
+    emailValue = emailOrPayload;
+    passwordValue = password || "";
+    fullNameValue = fullName;
+  }
+
   const data = await apiFetch<AuthResponse>("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({
-      email,
-      password,
-      full_name: fullName,
+      email: emailValue.trim().toLowerCase(),
+      password: passwordValue,
+      full_name: fullNameValue?.trim() || undefined,
     }),
   });
-  setAuthToken(data.access_token);
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
   return data;
+}
+
+export interface VerifyEmailPayload {
+  email?: string;
+  code?: string;
+  token?: string;
+}
+
+/**
+ * Verify doctor email address via 6-digit OTP code or URL token.
+ * Supports verifyEmail(email, code) or verifyEmail({ email, code, token }).
+ */
+export async function verifyEmail(
+  emailOrPayload: string | VerifyEmailPayload,
+  code?: string
+): Promise<AuthResponse> {
+  let bodyPayload: VerifyEmailPayload;
+  if (typeof emailOrPayload === "object") {
+    bodyPayload = emailOrPayload;
+  } else if (code !== undefined) {
+    bodyPayload = {
+      email: emailOrPayload.trim().toLowerCase(),
+      code: code.trim(),
+    };
+  } else {
+    bodyPayload = {
+      code: emailOrPayload.trim(),
+    };
+  }
+
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify(bodyPayload),
+  });
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
+  return data;
+}
+
+/**
+ * Request a fresh verification code / email with 60s cooldown.
+ */
+export async function resendVerificationEmail(
+  email: string
+): Promise<{ message: string; email?: string }> {
+  return apiFetch<{ message: string; email?: string }>("/api/v1/auth/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
 }
 
 /**
