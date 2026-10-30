@@ -393,6 +393,7 @@ def test_layer2_brute_force_and_rate_limiting(client, db_session, memory_email_b
     past_time = datetime.now(timezone.utc) - timedelta(seconds=65)
     for tok in db_session.query(EmailVerificationToken).filter(EmailVerificationToken.doctor_id == doc.id).all():
         tok.created_at = past_time
+        tok.sent_at = past_time
     db_session.commit()
 
     # Now resend succeeds (200)
@@ -705,4 +706,129 @@ def test_layer2_unverified_account_reregistration_allowed_until_verified(client,
     )
     assert res3.status_code == 400
     assert "already exists" in res3.json()["detail"].lower()
+
+
+def test_registration_delivery_status_success(client, db_session):
+    """
+    Registration with successful email delivery returns verification_email_sent=True
+    and records sent_at timestamp on the tokens.
+    """
+    test_email = f"dr.success.{uuid.uuid4().hex[:6]}@example.com"
+    with patch.object(email_service, "send_verification_email", return_value=True) as mock_send:
+        res = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": test_email,
+                "password": "StrongPassword123!",
+                "full_name": "Dr. Success Delivery",
+            },
+        )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["verification_email_sent"] is True
+    assert mock_send.called
+
+    doctor = db_session.query(Doctor).filter(Doctor.email == test_email).first()
+    tokens = db_session.query(EmailVerificationToken).filter(EmailVerificationToken.doctor_id == doctor.id).all()
+    assert len(tokens) == 2
+    for tok in tokens:
+        assert tok.sent_at is not None
+
+
+def test_registration_delivery_status_provider_failure_and_exception(client, db_session, caplog):
+    """
+    Registration with a provider False result or exception returns verification_email_sent=False,
+    preserves successful account creation, leaves sent_at as None, and does not leak OTP in logs.
+    """
+    test_email_false = f"dr.fail.false.{uuid.uuid4().hex[:6]}@example.com"
+    with patch.object(email_service, "send_verification_email", return_value=False):
+        res1 = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": test_email_false,
+                "password": "StrongPassword123!",
+                "full_name": "Dr. Fail False",
+            },
+        )
+    assert res1.status_code == 201
+    data1 = res1.json()
+    assert data1["verification_email_sent"] is False
+    assert data1["access_token"] is not None
+
+    doc1 = db_session.query(Doctor).filter(Doctor.email == test_email_false).first()
+    tokens1 = db_session.query(EmailVerificationToken).filter(EmailVerificationToken.doctor_id == doc1.id).all()
+    for tok in tokens1:
+        assert tok.sent_at is None
+
+    test_email_exc = f"dr.fail.exc.{uuid.uuid4().hex[:6]}@example.com"
+    with patch.object(email_service, "send_verification_email", side_effect=RuntimeError("Resend API down")):
+        res2 = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": test_email_exc,
+                "password": "StrongPassword123!",
+                "full_name": "Dr. Fail Exception",
+            },
+        )
+    assert res2.status_code == 201
+    data2 = res2.json()
+    assert data2["verification_email_sent"] is False
+    assert data2["access_token"] is not None
+
+    doc2 = db_session.query(Doctor).filter(Doctor.email == test_email_exc).first()
+    tokens2 = db_session.query(EmailVerificationToken).filter(EmailVerificationToken.doctor_id == doc2.id).all()
+    for tok in tokens2:
+        assert tok.sent_at is None
+
+
+def test_resend_verification_provider_failure_returns_503_and_preserves_code(client, db_session):
+    """
+    Resend failure returns 503, preserves earlier usable tokens, and allows immediate retry without cooldown.
+    """
+    test_email = f"dr.resend.fail.{uuid.uuid4().hex[:6]}@example.com"
+    with patch.object(email_service, "send_verification_email", return_value=True):
+        reg_res = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": test_email,
+                "password": "StrongPassword123!",
+                "full_name": "Dr. Resend Fail",
+            },
+        )
+    assert reg_res.status_code == 201
+    doc = db_session.query(Doctor).filter(Doctor.email == test_email).first()
+
+    # Fast forward initial sent_at to clear cooldown
+    past_time = datetime.now(timezone.utc) - timedelta(seconds=65)
+    initial_tokens = db_session.query(EmailVerificationToken).filter(EmailVerificationToken.doctor_id == doc.id).all()
+    for tok in initial_tokens:
+        tok.created_at = past_time
+        tok.sent_at = past_time
+    db_session.commit()
+
+    # Resend attempt fails at provider
+    limiter.reset()
+    with patch.object(email_service, "send_verification_email", return_value=False):
+        fail_res = client.post(
+            "/api/v1/auth/resend-verification",
+            json={"email": test_email},
+        )
+    assert fail_res.status_code == 503
+    assert "could not be sent" in fail_res.json()["detail"].lower()
+
+    # Verify initial tokens were NOT invalidated
+    for tok in initial_tokens:
+        db_session.refresh(tok)
+        assert tok.used_at is None
+
+    # Immediate retry does not trigger 429 cooldown because delivery failed
+    limiter.reset()
+    with patch.object(email_service, "send_verification_email", return_value=True):
+        retry_res = client.post(
+            "/api/v1/auth/resend-verification",
+            json={"email": test_email},
+        )
+    assert retry_res.status_code == 200
+    assert "sent successfully" in retry_res.json()["message"]
+
 

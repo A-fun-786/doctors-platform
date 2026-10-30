@@ -322,8 +322,15 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
         // Transition to verify view if verification is pending
         if (authData?.doctor && !authData.doctor.email_verified) {
           setStep("verify");
-          setCooldown(60);
-          setInfoMessage(`We've sent a 6-digit verification code to ${cleanEmail}. Please enter it below to activate your practice.`);
+          if (authData.verification_email_sent) {
+            setCooldown(60);
+            setError(null);
+            setInfoMessage(`We've sent a 6-digit verification code to ${cleanEmail}. Please enter it below to activate your practice.`);
+          } else {
+            setCooldown(0);
+            setInfoMessage(null);
+            setError("Your account was created, but we couldn’t send the verification email. Please try resending the code.");
+          }
           return;
         }
       } else {

@@ -195,6 +195,65 @@ def test_production_settings_validation():
             DATABASE_URL="sqlite:///./prod.db",
         )
 
+    # Production must reject console email backend
+    with pytest.raises(ValidationError, match="not permitted in production"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="console",
+        )
+
+    # Production must reject memory email backend
+    with pytest.raises(ValidationError, match="not permitted in production"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="memory",
+        )
+
+    # Any environment must reject unknown email backend
+    with pytest.raises(ValidationError, match="Unknown EMAIL_BACKEND"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="development",
+            EMAIL_BACKEND="invalid_provider",
+        )
+
+    # Production resend backend requires RESEND_API_KEY
+    with pytest.raises(ValidationError, match="RESEND_API_KEY must be set"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="",
+        )
+
+    # Production requires valid sender address
+    with pytest.raises(ValidationError, match="Invalid or missing sender address"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="re_test_key",
+            EMAIL_FROM="invalid-email-address",
+        )
+
     # Valid production settings pass
     prod = Settings(
         _env_file=None,
@@ -203,6 +262,26 @@ def test_production_settings_validation():
         JWT_SECRET_KEY="a" * 32,
         GOOGLE_CLIENT_ID="valid-id",
         DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        EMAIL_BACKEND="resend",
+        RESEND_API_KEY="re_valid_test_key",
+        EMAIL_FROM="noreply@gosmartclinic.com",
     )
     assert prod.ENVIRONMENT == "production"
+    assert prod.EMAIL_BACKEND == "resend"
+
+    # Development environment permits console and memory backends
+    dev_console = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMAIL_BACKEND="console",
+    )
+    assert dev_console.EMAIL_BACKEND == "console"
+
+    dev_memory = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMAIL_BACKEND="memory",
+    )
+    assert dev_memory.EMAIL_BACKEND == "memory"
+
 

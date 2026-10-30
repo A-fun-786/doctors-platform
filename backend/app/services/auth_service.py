@@ -370,20 +370,33 @@ class AuthService:
             )
 
         # Dispatch verification email outside transaction
+        verification_email_sent = False
         try:
-            email_service.send_verification_email(
+            sent = email_service.send_verification_email(
                 to_email=doctor.email,
                 doctor_name=doctor.full_name,
                 otp=otp,
                 token=token,
                 tenant_slug=tenant.slug,
             )
+            verification_email_sent = bool(sent)
+            if verification_email_sent:
+                sent_now = datetime.now(timezone.utc)
+                token_otp.sent_at = sent_now
+                token_link.sent_at = sent_now
+                db.commit()
+            else:
+                logger.error(
+                    "Verification email delivery returned False on registration",
+                    email=doctor.email,
+                )
         except Exception as exc:
             logger.error(
                 "Failed to dispatch verification email on registration",
                 email=doctor.email,
-                exc_info=True,
+                error=str(exc),
             )
+            verification_email_sent = False
 
         access_token = create_access_token(subject=str(doctor.id))
 
@@ -392,6 +405,7 @@ class AuthService:
             token_type="bearer",
             doctor=DoctorResponse.model_validate(doctor),
             tenant=TenantResponse.model_validate(tenant),
+            verification_email_sent=verification_email_sent,
         )
 
     @staticmethod
@@ -640,21 +654,22 @@ class AuthService:
 
         now = datetime.now(timezone.utc)
 
-        # 60s cooldown per doctor
-        latest_token = (
+        # 60s cooldown per doctor based on the last successfully sent email
+        latest_sent_token = (
             db.query(EmailVerificationToken)
             .filter(
                 EmailVerificationToken.doctor_id == doctor.id,
                 EmailVerificationToken.purpose == "email_verification",
+                EmailVerificationToken.sent_at.isnot(None),
             )
-            .order_by(EmailVerificationToken.created_at.desc())
+            .order_by(EmailVerificationToken.sent_at.desc())
             .first()
         )
-        if latest_token and latest_token.created_at:
-            created_at = latest_token.created_at
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            seconds_elapsed = (now - created_at).total_seconds()
+        if latest_sent_token and latest_sent_token.sent_at:
+            sent_at = latest_sent_token.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            seconds_elapsed = (now - sent_at).total_seconds()
             if seconds_elapsed < 60:
                 remaining = max(1, int(60 - seconds_elapsed))
                 raise HTTPException(
@@ -663,46 +678,65 @@ class AuthService:
                     headers={"Retry-After": str(remaining)},
                 )
 
-        # Invalidate prior unused tokens
+        # Generate fresh token pair
+        otp, token = generate_verification_token()
+        expires = now + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+
+        # Dispatch email before invalidating existing tokens or committing new ones
+        delivered = False
+        try:
+            delivered = bool(
+                email_service.send_verification_email(
+                    to_email=doctor.email,
+                    doctor_name=doctor.full_name,
+                    otp=otp,
+                    token=token,
+                    tenant_slug=doctor.tenant.slug if doctor.tenant else None,
+                )
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch resent verification email",
+                email=doctor.email,
+                error=str(exc),
+            )
+            delivered = False
+
+        if not delivered:
+            logger.error(
+                "Verification email resend failed or was rejected by provider",
+                email=doctor.email,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Verification email could not be sent. Please try again later.",
+            )
+
+        # Invalidate prior unused tokens ONLY after email is successfully accepted by provider
+        send_time = datetime.now(timezone.utc)
         db.query(EmailVerificationToken).filter(
             EmailVerificationToken.doctor_id == doctor.id,
             EmailVerificationToken.purpose == "email_verification",
             EmailVerificationToken.used_at == None,
-        ).update({"used_at": now})
+        ).update({"used_at": send_time})
 
-        # Generate fresh token pair
-        otp, token = generate_verification_token()
-        expires = now + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+        # Add replacement tokens with sent_at timestamp
         db.add(EmailVerificationToken(
             doctor_id=doctor.id,
             token_hash=hash_token(otp),
             purpose="email_verification",
             expires_at=expires,
+            sent_at=send_time,
         ))
         db.add(EmailVerificationToken(
             doctor_id=doctor.id,
             token_hash=hash_token(token),
             purpose="email_verification",
             expires_at=expires,
+            sent_at=send_time,
         ))
         doctor.failed_login_attempts = 0
         db.commit()
-
-        # Send email
-        try:
-            email_service.send_verification_email(
-                to_email=doctor.email,
-                doctor_name=doctor.full_name,
-                otp=otp,
-                token=token,
-                tenant_slug=doctor.tenant.slug if doctor.tenant else None,
-            )
-        except Exception as exc:
-            logger.error(
-                "Failed to dispatch resent verification email",
-                email=doctor.email,
-                exc_info=True,
-            )
 
         return {"message": "Verification email sent successfully."}
 

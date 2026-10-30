@@ -40,6 +40,10 @@ class EmailVerificationToken(Base, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
     )
+    sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_email_verification_tokens_doctor_purpose", "doctor_id", "purpose"),

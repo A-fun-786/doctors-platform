@@ -44,6 +44,7 @@ export interface AuthResponse {
   token_type: string;
   doctor: Doctor;
   tenant: Tenant;
+  verification_email_sent?: boolean;
 }
 
 export interface DoctorMeResponse {

@@ -262,6 +262,7 @@ def test_resend_verification_cooldown_and_invalidation(client, db_session, memor
     past_time = datetime.now(timezone.utc) - timedelta(seconds=65)
     for tok in initial_tokens:
         tok.created_at = past_time
+        tok.sent_at = past_time
     db_session.commit()
 
     # Resend after cooldown expires

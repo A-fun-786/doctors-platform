@@ -74,13 +74,43 @@ None. Phase 5 was executed in strict accordance with the testing and robustness 
   2. For unverified accounts (`not existing_doctor.email_verified`), allow re-registration: update password hash, full name, reset failed login attempts, invalidate prior unused tokens, issue a fresh 6-digit OTP and token, dispatch verification email, and return `HTTP 201 Created`.
   3. Added regression test `test_layer2_unverified_account_reregistration_allowed_until_verified` to `backend/tests/test_auth_robustness.py` and updated `backend/tests/test_auth.py::test_email_registration_and_login_flow`.
 
-## 9. Manual Steps Pending
-None.
+## 9. Bug Fix 2: OTP Email Delivery Configuration and Resend Resilience
+- **Confirmed Runtime Cause**:
+  Inspection of the Railway backend production environment confirmed that `EMAIL_BACKEND` was unset (`null`). The application defaulted to `EMAIL_BACKEND="console"`, which logs outgoing emails to stdout rather than delivering them via an email service provider. `RESEND_API_KEY` was also unset.
+- **Provider Configuration Requirements (Non-Secret)**:
+  Configured in Railway production:
+  - `EMAIL_BACKEND=resend`
+  - `EMAIL_FROM=noreply@gosmartclinic.com`
+  - `EMAIL_FROM_NAME=GoSmartClinic`
+  - `REQUIRE_EMAIL_VERIFICATION=true`
+  - Secret requirement: `RESEND_API_KEY` must be configured as a private secret in Railway.
+- **Code and Migration Changes**:
+  - `backend/app/core/config.py`: Added fail-fast validation in `validate_production_settings` rejecting `console` or `memory` backends in production, rejecting unknown backend identifiers, enforcing `RESEND_API_KEY` when Resend is selected, and validating sender address format (`EMAIL_FROM`).
+  - `backend/app/models/verification_token.py`: Added nullable `sent_at: Mapped[Optional[datetime]]` to `EmailVerificationToken`.
+  - `backend/alembic/versions/011_add_sent_at_to_verification_tokens.py`: Created migration adding `sent_at` column with bidirectional upgrade/downgrade support.
+  - `backend/app/schemas/auth.py`: Added optional `verification_email_sent: Optional[bool] = None` to `AuthResponse`.
+  - `backend/app/services/auth_service.py`:
+    - Updated `register_email` to record `sent_at` when delivery succeeds and return `verification_email_sent` in `AuthResponse`. Suppresses leaks of OTP/tokens in logs or responses on failure.
+    - Updated `resend_verification` to base the 60-second cooldown on the last successfully sent email (`sent_at.isnot(None)`), deliver the replacement email before invalidating existing codes, return `HTTP 503` on provider error/rejection, preserve still-valid existing tokens on failure, and allow immediate retry without cooldown.
+  - `lib/api.ts`: Updated `AuthResponse` interface to include optional `verification_email_sent?: boolean`.
+  - `components/auth/EmailAuthForm.tsx`: After registration, transitions to verify view; activates the 60s cooldown and success notice only when `verification_email_sent` is true; when false, presents an accessible error alert explaining delivery failure and enables immediate code resending.
+- **Automated and Live Verification Results**:
+  - Full backend test suite: 195/195 tests passed (100% green, 0 regressions).
+  - Next.js production build: passed with zero type or lint errors.
+  - `scripts/verify_phase4_auth_ux.mjs`: 15/15 tests passed.
+  - Alembic migration upgrade/downgrade: verified.
 
-## 10. Known Issues and Follow-ups
-None. All 192 backend tests and all client-side validation, robustness, and concurrency suites pass cleanly.
+## 10. Manual Steps Pending
+1. Configure `RESEND_API_KEY` secret in the Railway backend service (e.g. `railway variable set RESEND_API_KEY=<key> --service backend --environment production`).
+2. Verify domain DNS records (`gosmartclinic.com`) in the Resend provider dashboard.
+3. Deploy backend to Railway and trigger end-to-end registration verification with a live mailbox.
 
-## 11. Rollback
+## 11. Known Issues and Follow-ups
+None. The app rejects invalid or insecure production email configurations at startup, provides explicit delivery status, and gracefully isolates delivery failures.
+
+## 12. Rollback
 - Revert commit: `git revert <commit-sha>`
-- Data implications: Zero database migrations required; changes are backward-compatible. Reverting restores prior unconditional duplicate email rejection.
+- Database downgrade: `alembic downgrade -1` (drops `sent_at` column from `email_verification_tokens`).
+- Railway config downgrade: set `EMAIL_BACKEND=console`.
+
 

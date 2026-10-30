@@ -295,6 +295,7 @@ class AuthResponse(BaseModel):
     token_type: str = "bearer"
     doctor: DoctorResponse
     tenant: TenantResponse
+    verification_email_sent: Optional[bool] = None
 
 
 class DoctorMeResponse(BaseModel):

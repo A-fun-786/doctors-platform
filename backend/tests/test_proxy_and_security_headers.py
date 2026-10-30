@@ -54,6 +54,9 @@ def test_production_cors_validation():
         GOOGLE_CLIENT_ID="valid-id",
         DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
         CORS_ORIGINS="https://doctors.example.com, https://admin.example.com",
+        EMAIL_BACKEND="resend",
+        RESEND_API_KEY="re_test_key_placeholder",
+        EMAIL_FROM="noreply@gosmartclinic.com",
     )
     assert prod_settings.CORS_ORIGINS == [
         "https://doctors.example.com",
