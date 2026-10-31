@@ -309,8 +309,8 @@ export default function AnyNewFeatureScreen() {
   3. **Zero Break Clutter & Dark Border System on Time Discontinuity**:
      - **No Extra Rows or Break Banners**: Completely avoided rendering synthetic off-duty rows or break banners between operating sessions.
      - **Time Continuity Detection (`isDiscontinuous`)**: Calendar computes `currentSlotStartM > prevSlotEndM` dynamically across the operating slots stream.
-     - **`DayView.tsx` Dark Border Divider**: When time jumps non-continuously (e.g. from 1:00 PM to 4:00 PM), a solid dark border divider (`border-t-2 border-slate-700/80 my-3 rounded-full`) is injected immediately prior to the new session block without any disruptive text banners.
-     - **`WeekView.tsx` Full-Width Dark Grid Border**: The row where time discontinuity occurs receives a prominent top border (`border-t-[3px] border-slate-700/90 shadow-2xs`), clearly delineating the new schedule window across all 7 weekday columns.
+     - **`DayView.tsx` Schedule Divider**: When transitioning between distinct schedule sessions (e.g. Schedule 1 to Schedule 2), a clean full-width divider (`border-t border-slate-200 py-2.5`) is injected immediately prior to the new session block without any disruptive text banners.
+     - **`WeekView.tsx` Full-Width Dark Grid Border**: The row where time discontinuity occurs (`isDiscontinuous = prevSlotEndM !== null && currentSlotStartM > prevSlotEndM`) receives a prominent top border (`border-t-[3px] border-slate-700/90 shadow-2xs`), clearly delineating the new schedule window across all 7 weekday columns.
      - **`MobileClinicStatusCapsule.tsx`**: Removed the "In Break" state; status now cleanly displays active operating session, next upcoming window, or clinic closed.
      - **`WorkingHoursCard.tsx`**: Updated sidebar card to list active schedule sessions with slot count and clean clock icons without rigid morning/evening icons.
      - **`calendarUtils.ts`**: Safely updated `DEFAULT_WORKING_HOURS` (removed `breakTime`), set `getDoctorBreakInterval` to return `null`, and streamlined `isSlotWithinWorkingHours`.

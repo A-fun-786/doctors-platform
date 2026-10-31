@@ -84,8 +84,36 @@ export default function EditWorkingHoursModal({
 
     if (lastShift) {
       const lastEndM = timeToMinutes(lastShift.end);
-      const nextStartM = Math.min(lastEndM + 60, 20 * 60);
-      const nextEndM = Math.min(nextStartM + 4 * 60, 22 * 60);
+      let nextStartM = 14 * 60;
+      let nextEndM = 18 * 60;
+
+      if (lastEndM < 20 * 60) {
+        nextStartM = Math.min(lastEndM + 60, 20 * 60);
+        nextEndM = Math.min(nextStartM + 4 * 60, 22 * 60);
+      } else if (lastEndM < 21 * 60 + 30) {
+        // Prevent clamping down to 20:00 when last shift ends at or after 20:00
+        nextStartM = lastEndM + 30;
+        nextEndM = Math.min(nextStartM + 2 * 60, 22 * 60);
+      } else {
+        // Evening window is full; find the first available morning/afternoon slot without overlap
+        const isOverlapping = (sM: number, eM: number) =>
+          shifts.some((s) => sM < timeToMinutes(s.end) && eM > timeToMinutes(s.start));
+
+        let found = false;
+        for (let sM = 8 * 60; sM + 60 <= 22 * 60; sM += 30) {
+          const eM = Math.min(sM + 2 * 60, 22 * 60);
+          if (!isOverlapping(sM, eM)) {
+            nextStartM = sM;
+            nextEndM = eM;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          nextStartM = 8 * 60;
+          nextEndM = 9 * 60;
+        }
+      }
 
       const sH = Math.floor(nextStartM / 60).toString().padStart(2, "0");
       const sM = (nextStartM % 60).toString().padStart(2, "0");

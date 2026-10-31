@@ -201,11 +201,17 @@ export default function WeekView({
         <div className="divide-y divide-slate-100">
           {(() => {
             const rows: React.ReactNode[] = [];
+            let prevSlotEndM: number | null = null;
 
             workingTimeRows.forEach((timeRow) => {
               const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
               const currentSlotStartM = timeToMinutes(slotStart);
+              const currentSlotEndM = timeToMinutes(slotEnd);
               const prefStyles = getSlotShiftTheme(slotStart, workingHoursConfig);
+
+              const isDiscontinuous =
+                prevSlotEndM !== null && currentSlotStartM > prevSlotEndM;
+              prevSlotEndM = currentSlotEndM;
 
               // Break row removed for clean uninterrupted schedule flow
 
@@ -215,7 +221,9 @@ export default function WeekView({
                 <div
                   key={timeRow}
                   className={`${GRID_COLS_CLASS} min-h-[48px] ${
-                    isHour
+                    isDiscontinuous
+                      ? "border-t-[3px] border-slate-700/90 shadow-2xs"
+                      : isHour
                       ? "border-t border-slate-200 bg-white"
                       : "border-t border-dashed border-slate-200/70 bg-slate-50/20"
                   }`}

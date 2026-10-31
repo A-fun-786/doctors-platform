@@ -504,72 +504,7 @@ export function getWorkingHoursTimeRows(
   return sortedMinutes.map((m) => format12Hour(minutesToTime24(m)));
 }
 
-export interface ShiftSlotGroup {
-  id: string;
-  label: string;
-  start: string;
-  end: string;
-  enabled: boolean;
-  timeRows: string[];
-}
 
-export interface GroupedWorkingHoursSlots {
-  groups: ShiftSlotGroup[];
-  extraTimeRows: string[];
-}
-
-/**
- * Group 30-minute time rows strictly by doctor working shifts (Schedules),
- * while capturing any off-hours slots that contain active scheduled events.
- */
-export function getGroupedWorkingHoursSlots(
-  config?: WorkingHoursConfig,
-  additionalEvents?: CalendarEvent[]
-): GroupedWorkingHoursSlots {
-  const activeConfig = config || DEFAULT_WORKING_HOURS;
-  const groups: ShiftSlotGroup[] = [];
-  const coveredMinutes = new Set<number>();
-
-  activeConfig.shifts.forEach((shift, index) => {
-    if (!shift.enabled) return;
-    const startM = timeToMinutes(shift.start);
-    const endM = timeToMinutes(shift.end);
-    const timeRows: string[] = [];
-
-    for (let m = startM; m + 30 <= endM; m += 30) {
-      timeRows.push(format12Hour(minutesToTime24(m)));
-      coveredMinutes.add(m);
-    }
-
-    groups.push({
-      id: shift.id || `shift_${index + 1}`,
-      label: shift.label || `Schedule ${index + 1}`,
-      start: shift.start,
-      end: shift.end,
-      enabled: shift.enabled,
-      timeRows,
-    });
-  });
-
-  // Check if any scheduled events fall outside configured shifts
-  const extraMinutesSet = new Set<number>();
-  if (additionalEvents && Array.isArray(additionalEvents)) {
-    additionalEvents.forEach((ev) => {
-      if (ev.status === "CANCELLED" || !ev.start) return;
-      const evStartM = timeToMinutes(ev.start);
-      const slotM = Math.floor(evStartM / 30) * 30;
-      if (!coveredMinutes.has(slotM)) {
-        extraMinutesSet.add(slotM);
-      }
-    });
-  }
-
-  const extraTimeRows = Array.from(extraMinutesSet)
-    .sort((a, b) => a - b)
-    .map((m) => format12Hour(minutesToTime24(m)));
-
-  return { groups, extraTimeRows };
-}
 
 export interface ShiftThemeStyle {
   name: string;
