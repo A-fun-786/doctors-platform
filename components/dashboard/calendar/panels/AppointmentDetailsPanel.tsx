@@ -151,7 +151,7 @@ export default function AppointmentDetailsPanel({
     if (!text) return;
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(text).catch(() => {});
+        navigator.clipboard.writeText(text).catch(() => { });
       }
     } catch {
       // Defensive handling for unsupported or insecure HTTP contexts
@@ -222,11 +222,11 @@ export default function AppointmentDetailsPanel({
             <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
               {currentEvent.patient_name
                 ? currentEvent.patient_name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()
                 : "PT"}
             </div>
             <div>
@@ -326,68 +326,68 @@ export default function AppointmentDetailsPanel({
         currentEvent.patient_blood_group ||
         currentEvent.patient_height ||
         currentEvent.patient_weight) && (
-        <div className="space-y-2">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Patient Demographics & Vitals
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Patient Demographics & Vitals
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {currentEvent.patient_age !== undefined && (
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    Age
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {currentEvent.patient_age} yrs
+                  </span>
+                </div>
+              )}
+
+              {currentEvent.patient_gender && (
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    Gender
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {currentEvent.patient_gender}
+                  </span>
+                </div>
+              )}
+
+              {currentEvent.patient_blood_group && (
+                <div className="p-2.5 bg-rose-50/60 rounded-xl border border-rose-100 text-center">
+                  <span className="text-[10px] text-rose-500 uppercase font-semibold block">
+                    Blood Group
+                  </span>
+                  <span className="text-xs font-bold text-rose-700">
+                    {currentEvent.patient_blood_group}
+                  </span>
+                </div>
+              )}
+
+              {currentEvent.patient_height && (
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    Height
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {currentEvent.patient_height}
+                  </span>
+                </div>
+              )}
+
+              {currentEvent.patient_weight && (
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    Weight
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {currentEvent.patient_weight}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {currentEvent.patient_age !== undefined && (
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                  Age
-                </span>
-                <span className="text-xs font-bold text-slate-800">
-                  {currentEvent.patient_age} yrs
-                </span>
-              </div>
-            )}
-
-            {currentEvent.patient_gender && (
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                  Gender
-                </span>
-                <span className="text-xs font-bold text-slate-800">
-                  {currentEvent.patient_gender}
-                </span>
-              </div>
-            )}
-
-            {currentEvent.patient_blood_group && (
-              <div className="p-2.5 bg-rose-50/60 rounded-xl border border-rose-100 text-center">
-                <span className="text-[10px] text-rose-500 uppercase font-semibold block">
-                  Blood Group
-                </span>
-                <span className="text-xs font-bold text-rose-700">
-                  {currentEvent.patient_blood_group}
-                </span>
-              </div>
-            )}
-
-            {currentEvent.patient_height && (
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                  Height
-                </span>
-                <span className="text-xs font-bold text-slate-800">
-                  {currentEvent.patient_height}
-                </span>
-              </div>
-            )}
-
-            {currentEvent.patient_weight && (
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-                  Weight
-                </span>
-                <span className="text-xs font-bold text-slate-800">
-                  {currentEvent.patient_weight}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
       {/* 3. Appointment Details Card */}
       <div className="space-y-2.5">
@@ -562,7 +562,7 @@ export default function AppointmentDetailsPanel({
               className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5 shrink-0" />
-              <span>Edit / Reschedule Appointment</span>
+              <span>Edit / Reschedule</span>
             </button>
           )}
         </div>
