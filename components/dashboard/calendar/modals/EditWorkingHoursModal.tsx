@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Clock, Sun, Sunset, Coffee, Check, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Clock, Plus, Trash2, Check, AlertCircle, Sparkles, Loader2, Calendar } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { TIME_OPTIONS_30M, BREAK_TIME_LABEL, BREAK_TIME_BADGE } from "../constants";
+import { TIME_OPTIONS_30M } from "../constants";
 import {
   WorkingHoursConfig,
   WorkingHoursShift,
   calculateShiftSlotCount,
-  format12Hour,
   saveDoctorWorkingHours,
   timeToMinutes,
 } from "../calendarUtils";
@@ -27,14 +26,25 @@ export default function EditWorkingHoursModal({
   config,
   onSave,
 }: EditWorkingHoursModalProps) {
-  const [shifts, setShifts] = useState<WorkingHoursShift[]>(config.shifts);
+  const [shifts, setShifts] = useState<WorkingHoursShift[]>(config.shifts || []);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync with prop when modal opens
   useEffect(() => {
     if (isOpen) {
-      setShifts(config.shifts.map((s) => ({ ...s })));
+      const initialShifts = (config.shifts && config.shifts.length > 0)
+        ? config.shifts.map((s) => ({ ...s }))
+        : [
+          {
+            id: "shift_1",
+            label: "Schedule 1",
+            start: "09:00",
+            end: "13:00",
+            enabled: true,
+          },
+        ];
+      setShifts(initialShifts);
       setError(null);
     }
   }, [isOpen, config]);
@@ -55,8 +65,62 @@ export default function EditWorkingHoursModal({
     );
   };
 
+  const handleLabelChange = (shiftId: string, value: string) => {
+    setShifts((prev) =>
+      prev.map((s) => (s.id === shiftId ? { ...s, label: value } : s))
+    );
+  };
+
+  const handleAddSchedule = () => {
+    if (shifts.length >= 4) {
+      setError("Maximum 4 schedule sessions allowed per day.");
+      return;
+    }
+
+    // Determine smart default start and end based on last shift
+    const lastShift = shifts[shifts.length - 1];
+    let defStart = "14:00";
+    let defEnd = "18:00";
+
+    if (lastShift) {
+      const lastEndM = timeToMinutes(lastShift.end);
+      const nextStartM = Math.min(lastEndM + 60, 20 * 60);
+      const nextEndM = Math.min(nextStartM + 4 * 60, 22 * 60);
+
+      const sH = Math.floor(nextStartM / 60).toString().padStart(2, "0");
+      const sM = (nextStartM % 60).toString().padStart(2, "0");
+      const eH = Math.floor(nextEndM / 60).toString().padStart(2, "0");
+      const eM = (nextEndM % 60).toString().padStart(2, "0");
+
+      if (nextEndM > nextStartM) {
+        defStart = `${sH}:${sM}`;
+        defEnd = `${eH}:${eM}`;
+      }
+    }
+
+    const newShift: WorkingHoursShift = {
+      id: `shift_${Date.now()}`,
+      label: `Schedule ${shifts.length + 1}`,
+      start: defStart,
+      end: defEnd,
+      enabled: true,
+    };
+
+    setShifts((prev) => [...prev, newShift]);
+    setError(null);
+  };
+
+  const handleRemoveSchedule = (shiftId: string) => {
+    if (shifts.length <= 1) {
+      setError("At least one schedule session is required.");
+      return;
+    }
+    setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+    setError(null);
+  };
+
   // Validation & Slot calculation
-  const { totalSlots, shiftSlotCounts, validationError, calculatedBreak } = useMemo(() => {
+  const { totalSlots, shiftSlotCounts, validationError } = useMemo(() => {
     let total = 0;
     const counts: Record<string, number> = {};
     let err: string | null = null;
@@ -67,7 +131,7 @@ export default function EditWorkingHoursModal({
         const endM = timeToMinutes(shift.end);
 
         if (endM <= startM) {
-          err = `${shift.label}: End time must be after start time`;
+          err = `${shift.label || "Schedule"}: End time must be after start time`;
         }
         const count = calculateShiftSlotCount(shift.start, shift.end);
         counts[shift.id] = count;
@@ -90,35 +154,9 @@ export default function EditWorkingHoursModal({
           const s2End = timeToMinutes(s2.end);
 
           if (s1Start < s2End && s1End > s2Start) {
-            err = `Conflict: ${s1.label} and ${s2.label} overlap in time`;
+            err = `Conflict: ${s1.label || "Schedule " + (i + 1)} and ${s2.label || "Schedule " + (j + 1)} overlap in time`;
           }
         }
-      }
-    }
-
-    // Calculate dynamic break interval between shifts
-    let calcBreak: {
-      start: string;
-      end: string;
-      start12: string;
-      end12: string;
-      mins: number;
-    } | null = null;
-
-    if (enabledShifts.length >= 2 && !err) {
-      const sorted = [...enabledShifts].sort(
-        (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start)
-      );
-      const s1End = timeToMinutes(sorted[0].end);
-      const s2Start = timeToMinutes(sorted[1].start);
-      if (s2Start > s1End) {
-        calcBreak = {
-          start: sorted[0].end,
-          end: sorted[1].start,
-          start12: format12Hour(sorted[0].end),
-          end12: format12Hour(sorted[1].start),
-          mins: s2Start - s1End,
-        };
       }
     }
 
@@ -126,7 +164,6 @@ export default function EditWorkingHoursModal({
       totalSlots: total,
       shiftSlotCounts: counts,
       validationError: err,
-      calculatedBreak: calcBreak,
     };
   }, [shifts]);
 
@@ -138,18 +175,10 @@ export default function EditWorkingHoursModal({
     }
     setIsSaving(true);
     setError(null);
-    const breakTime = calculatedBreak
-      ? {
-          enabled: true,
-          start: calculatedBreak.start,
-          end: calculatedBreak.end,
-          label: BREAK_TIME_LABEL,
-        }
-      : undefined;
 
+    // Save purely shifts without any breakTime field
     const newConfig: WorkingHoursConfig = {
       shifts,
-      breakTime,
       closed_days: config.closed_days ?? [0],
     };
 
@@ -157,7 +186,8 @@ export default function EditWorkingHoursModal({
       const updated = await updateDoctorWorkingHours(newConfig);
       const merged: WorkingHoursConfig = {
         ...updated,
-        breakTime,
+        shifts,
+        closed_days: config.closed_days ?? [0],
       };
       saveDoctorWorkingHours(merged);
       onSave(merged);
@@ -175,27 +205,42 @@ export default function EditWorkingHoursModal({
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div>
-          <h2 className="text-base font-bold text-slate-900">
-            Customize Doctor Working Hours
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configure shifts to dynamically recalculate 30-minute calendar slots
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Doctor Working Hours & Schedule
+            </h2>
+            <p className="text-xs text-slate-500">
+              Configure daily operating sessions, start & end timings, and slot capacity
+            </p>
+          </div>
         </div>
       }
       maxWidth="lg"
     >
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-4">
         {/* Total Slot Capacity Banner */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 text-blue-900">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 border border-blue-100 text-blue-900">
+          <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-            <span className="text-xs font-semibold">Total Daily Capacity</span>
+            <div>
+              <span className="text-xs font-bold text-slate-900">Daily Operating Capacity</span>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {shifts.filter((s) => s.enabled).length} Active {shifts.filter((s) => s.enabled).length === 1 ? "Session" : "Sessions"}
+              </p>
+            </div>
           </div>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-xs">
-            {totalSlots} slots ({totalSlots * 30} min)
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
+              {totalSlots} slots
+            </span>
+            <span className="text-[11px] font-semibold text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-slate-200/80">
+              {Math.floor((totalSlots * 30) / 60)}h {(totalSlots * 30) % 60}m
+            </span>
+          </div>
         </div>
 
         {/* Validation Error Banner */}
@@ -206,134 +251,137 @@ export default function EditWorkingHoursModal({
           </div>
         )}
 
-        {/* Shifts List */}
-        <div className="space-y-4">
-          {shifts.map((shift) => {
-            const isMorning = shift.id === "morning";
+        {/* Schedules List */}
+        <div className="space-y-3 max-h-[58vh] overflow-y-auto pr-1">
+          {shifts.map((shift, index) => {
             const slots = shiftSlotCounts[shift.id] || 0;
+            const canDelete = shifts.length > 1;
+            const startM = timeToMinutes(shift.start);
+            const endM = timeToMinutes(shift.end);
+            const durationM = Math.max(0, endM - startM);
+            const durH = Math.floor(durationM / 60);
+            const durRemM = durationM % 60;
 
             return (
-              <React.Fragment key={shift.id}>
-                <div
-                  className={`p-4 rounded-2xl border transition-all duration-200 ${
-                    shift.enabled
-                      ? "bg-white border-slate-200 shadow-xs"
-                      : "bg-slate-50/70 border-slate-200/60 opacity-60"
+              <div
+                key={shift.id}
+                className={`p-3.5 rounded-2xl border transition-all duration-200 ${shift.enabled
+                    ? "bg-white border-slate-200 shadow-xs hover:border-blue-200"
+                    : "bg-slate-50/70 border-slate-200/60 opacity-60"
                   }`}
-                >
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                          isMorning
-                            ? "bg-amber-50 text-amber-500"
-                            : "bg-orange-50 text-orange-500"
-                        }`}
-                      >
-                        {isMorning ? (
-                          <Sun className="w-4 h-4" />
-                        ) : (
-                          <Sunset className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">
-                          {shift.label}
-                        </h4>
-                        <p className="text-[11px] text-slate-500">
-                          {shift.enabled
-                            ? `${slots} slots (30 min each)`
-                            : "Disabled"}
-                        </p>
-                      </div>
+              >
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 mb-2.5 gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 font-bold text-xs">
+                      {index + 1}
                     </div>
+                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={shift.label}
+                        onChange={(e) => handleLabelChange(shift.id, e.target.value)}
+                        placeholder={`Schedule ${index + 1}`}
+                        className="text-xs font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-400 focus:border-blue-600 focus:outline-hidden w-full max-w-[200px] transition-all py-0.5"
+                      />
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${
+                        shift.enabled
+                          ? "bg-blue-50 text-blue-700 border border-blue-100"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {shift.enabled ? `${slots} slots (${durH}h${durRemM ? ` ${durRemM}m` : ""})` : "Disabled"}
+                      </span>
+                    </div>
+                  </div>
 
-                    <label className="relative inline-flex items-center cursor-pointer">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Toggle Switch */}
+                    <label className="relative inline-flex items-center cursor-pointer" title={shift.enabled ? "Disable schedule" : "Enable schedule"}>
                       <input
                         type="checkbox"
                         checked={shift.enabled}
                         onChange={() => handleToggleShift(shift.id)}
                         className="sr-only peer"
                       />
-                      <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
+
+                    {/* Delete Session Button */}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSchedule(shift.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                        title="Remove schedule window"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
-
-                  {shift.enabled && (
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                          Start Time
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={shift.start}
-                            onChange={(e) =>
-                              handleTimeChange(shift.id, "start", e.target.value)
-                            }
-                            className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
-                          >
-                            {TIME_OPTIONS_30M.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                          <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                          End Time
-                        </label>
-                        <div className="relative">
-                          <select
-                            value={shift.end}
-                            onChange={(e) =>
-                              handleTimeChange(shift.id, "end", e.target.value)
-                            }
-                            className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
-                          >
-                            {TIME_OPTIONS_30M.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                          <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Dynamic Break Time Preview between Morning and Evening */}
-                {isMorning && calculatedBreak && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/70 text-amber-950">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 border border-amber-200">
-                        <Coffee className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-amber-950 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <span>Break Time: {calculatedBreak.start12} – {calculatedBreak.end12}</span>
-                          <span className="text-[10px] font-semibold text-amber-700">({calculatedBreak.mins} min)</span>
-                        </div>
-                        <p className="text-[11px] text-amber-700/80 font-medium">
-                          Auto-calculated between shifts. Displayed in Day & Week calendar views.
-                        </p>
+                {shift.enabled && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                        Start Time
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={shift.start}
+                          onChange={(e) =>
+                            handleTimeChange(shift.id, "start", e.target.value)
+                          }
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                        >
+                          {TIME_OPTIONS_30M.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-800 shadow-2xs self-start sm:self-auto shrink-0">
-                      {BREAK_TIME_BADGE}
-                    </span>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                        End Time
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={shift.end}
+                          onChange={(e) =>
+                            handleTimeChange(shift.id, "end", e.target.value)
+                          }
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                        >
+                          {TIME_OPTIONS_30M.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
                 )}
-              </React.Fragment>
+              </div>
             );
           })}
         </div>
+
+        {/* Add Another Schedule Window Button - Strictly 1 Plus Icon */}
+        {shifts.length < 4 && (
+          <button
+            type="button"
+            onClick={handleAddSchedule}
+            className="w-full py-2.5 px-3 rounded-xl border border-dashed border-blue-300 bg-blue-50/40 hover:bg-blue-50 text-blue-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>+ Add Another Schedule Window ({shifts.length}/4)</span>
+          </button>
+        )}
 
         {/* Modal Actions */}
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
