@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Clock, Plus, Trash2, Check, AlertCircle, Sparkles, Loader2, Calendar } from "lucide-react";
+import { Clock, Plus, Trash2, Check, AlertCircle, Loader2, Calendar } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { TIME_OPTIONS_30M } from "../constants";
 import {
@@ -225,7 +225,7 @@ export default function EditWorkingHoursModal({
         {/* Total Slot Capacity Banner */}
         <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 border border-blue-100 text-blue-900">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
             <div>
               <span className="text-xs font-bold text-slate-900">Daily Operating Capacity</span>
               <p className="text-[11px] text-slate-500 font-medium">

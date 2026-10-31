@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Clock, Edit2, Sparkles } from "lucide-react";
+import { Clock, Edit2 } from "lucide-react";
 import {
   WorkingHoursConfig,
   DEFAULT_WORKING_HOURS,
@@ -109,7 +109,7 @@ export default function WorkingHoursCard({
       {enabledShifts.length > 0 && (
         <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-medium px-0.5">
           <span className="flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-blue-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             Total Capacity:
           </span>
           <span className="font-bold text-slate-800">

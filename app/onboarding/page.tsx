@@ -20,7 +20,7 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Sparkles,
+
   Loader2,
   ShieldCheck,
   Upload,
@@ -655,7 +655,7 @@ export default function OnboardingPage() {
                 ) : (
                   <>
                     <span>Publish &amp; Launch Webpage</span>
-                    <Sparkles className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
