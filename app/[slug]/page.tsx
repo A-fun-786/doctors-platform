@@ -24,7 +24,7 @@ import {
   Mail,
   Home,
   ArrowLeft,
-  Sparkles,
+
   HeartPulse,
   Stethoscope,
 } from "lucide-react";
@@ -603,7 +603,7 @@ export default function PatientDoctorPage() {
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                   <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
+                    <HeartPulse className="w-4 h-4" />
                   </div>
                   <h3 className="text-xs font-bold text-slate-900">Integrated Digital Care</h3>
                   <p className="text-[11px] text-slate-600 leading-normal">

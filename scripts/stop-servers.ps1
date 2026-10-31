@@ -14,10 +14,11 @@ function Stop-PortProcess([int]$port, [string]$name) {
         $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique
         foreach ($procId in $pids) {
             try {
+                & taskkill /PID $procId /T /F 2>$null | Out-Null
+                Write-Host "   [OK] Terminated $name process tree (PID: $procId)" -ForegroundColor Green
+            } catch {
                 Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
                 Write-Host "   [OK] Terminated $name process (PID: $procId)" -ForegroundColor Green
-            } catch {
-                Write-Host "   [!] Could not terminate PID $procId : $_" -ForegroundColor Red
             }
         }
     } else {

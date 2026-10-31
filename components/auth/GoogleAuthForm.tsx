@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft, ShieldCheck, UserCheck } from "lucide-react";
 import { authenticateWithGoogle } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -194,7 +194,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span className="flex items-center gap-1 font-medium text-slate-600">
-                <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+                <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                 Quick Demo Accounts
               </span>
               <span>1-click onboarding</span>
