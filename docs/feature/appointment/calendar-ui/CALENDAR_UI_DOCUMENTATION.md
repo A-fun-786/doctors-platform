@@ -341,7 +341,7 @@ Renders when `viewMode === "month"`. Uses the same `miniCalDays` memo as the sid
 ### Follow-up / Blocked Cards (Purple)
 - **Condition:** `event.type === "BLOCKED"` OR `event.reason` contains the word "follow" (case-insensitive)
 - **Style:** `bg-purple-50 border-purple-200`
-- **Icon:** `<Sparkles />`
+- **Icon:** `<Clock />`
 - **Content:** `event.reason` (or "Follow-up" fallback) + time range
 - **Click:** Opens Event Detail modal
 

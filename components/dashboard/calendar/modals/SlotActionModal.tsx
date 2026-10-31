@@ -13,7 +13,6 @@ import {
   HeartPulse,
   MapPin,
   Clock,
-  Sparkles,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { CalendarEvent } from "@/lib/api";

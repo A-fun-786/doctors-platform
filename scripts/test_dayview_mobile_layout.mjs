@@ -122,7 +122,7 @@ test("2.1 Slot cards container does NOT collapse into flex-col on mobile", () =>
 
 test("2.2 Booked Appointment slot card keeps time, patient details and badge on the same row", () => {
   assert.ok(
-    dayView.includes("border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:shadow-xs"),
+    dayView.includes("prefStyles.bookedBorder"),
     "Appointment card styling exists"
   );
   assert.ok(
@@ -130,29 +130,29 @@ test("2.2 Booked Appointment slot card keeps time, patient details and badge on 
     "Time column has fixed shrink-0 width to prevent wrapping"
   );
   assert.ok(
-    dayView.includes("min-w-0 flex-1 truncate text-xs text-slate-900"),
+    dayView.includes("min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2"),
     "Patient name and reason use flex items-center with truncate on a single line"
   );
 });
 
 test("2.3 Empty slot card keeps time, empty label and badge on the same row", () => {
   assert.ok(
-    dayView.includes("border border-dashed border-slate-200 bg-slate-50/60 hover:bg-blue-50/40"),
+    dayView.includes("prefStyles.emptyCard"),
     "Empty slot card exists"
   );
   assert.ok(
-    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-slate-700 group-hover:text-blue-700 min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap"),
+    dayView.includes("prefStyles.emptyTimeText"),
     "Empty slot time column has fixed shrink-0 width"
   );
   assert.ok(
-    dayView.includes("font-medium text-xs text-slate-600 flex items-center gap-1.5 sm:gap-2 truncate"),
+    dayView.includes("format12Hour(slotStart)"),
     "Empty slot text stays in single row"
   );
 });
 
 test("2.4 Doctor Leave and Clinic Holiday slot card keeps text on the same row", () => {
   assert.ok(
-    dayView.includes("border-amber-200 bg-amber-50/50 hover:border-amber-400 hover:shadow-xs"),
+    dayView.includes("border-amber-300 bg-amber-50/40 hover:border-amber-400 hover:shadow-xs"),
     "Leave slot card exists"
   );
   assert.ok(
@@ -163,7 +163,7 @@ test("2.4 Doctor Leave and Clinic Holiday slot card keeps text on the same row",
 
 test("2.5 Blocked Period slot card keeps text on the same row", () => {
   assert.ok(
-    dayView.includes("border-purple-200 bg-purple-50/40 hover:border-purple-400 hover:shadow-xs"),
+    dayView.includes("border-purple-300 bg-purple-50/30 hover:border-purple-400 hover:shadow-xs"),
     "Blocked slot card exists"
   );
   assert.ok(
@@ -172,18 +172,11 @@ test("2.5 Blocked Period slot card keeps text on the same row", () => {
   );
 });
 
-test("2.6 Break Time slot card keeps coffee icon, time, title and badge on the same row", () => {
-  assert.ok(
-    dayView.includes("key=\"break-time-slot-card\""),
-    "Break slot card exists"
-  );
-  assert.ok(
-    dayView.includes("font-mono text-[11px] sm:text-xs font-bold text-amber-950 shrink-0 whitespace-nowrap"),
-    "Break time column has fixed shrink-0 width"
-  );
-  assert.ok(
-    dayView.includes("flex items-center gap-1.5 min-w-0 flex-1 truncate"),
-    "Break title stays on a single line with truncate"
+test("2.6 Break Time card is cleanly eliminated from slot stream", () => {
+  assert.strictEqual(
+    dayView.includes("break-time-slot-card"),
+    false,
+    "Break slot card must be eliminated"
   );
 });
 

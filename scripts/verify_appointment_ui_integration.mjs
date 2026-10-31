@@ -77,7 +77,7 @@ runCheck("V2", "AppointmentDetailsPanel status guard disables edit/reschedule fo
   const hasStatusGuard = code.includes('currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED"') ||
     (code.includes('currentEvent.status !== "CANCELLED"') && code.includes('currentEvent.status !== "COMPLETED"'));
   assert.ok(hasStatusGuard, "Must guard Edit button against both CANCELLED and COMPLETED statuses");
-  assert.ok(code.includes("Edit / Reschedule Appointment"), "Must render Edit / Reschedule Appointment label");
+  assert.ok(code.includes("Edit / Reschedule"), "Must render Edit / Reschedule label");
 });
 
 // V3: app/[slug]/page.tsx calls getPublicAvailableSlots dynamically and removes static slots

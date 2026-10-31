@@ -42,7 +42,7 @@ runTest("T1: MobileBottomSheet.tsx exists and is readable", () => {
 runTest("T2: MobileClinicStatusCapsule.tsx exists and computes live shift statuses", () => {
   assert.strictEqual(fs.existsSync(statusCapsulePath), true);
   const content = fs.readFileSync(statusCapsulePath, "utf-8");
-  assert.ok(content.includes("getDoctorBreakInterval"), "Inspects break interval");
+  assert.ok(content.includes("enabledShifts"), "Inspects active shift intervals");
   assert.ok(content.includes("animate-ping"), "Includes pulse animation for live shift");
   assert.ok(content.includes("onOpenHoursSheet"), "Has trigger to open bottom sheet");
 });
