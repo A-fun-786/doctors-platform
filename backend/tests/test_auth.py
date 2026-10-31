@@ -13,6 +13,7 @@ from app.core.security import create_access_token
 from app.core.rate_limit import limiter
 from app.services.auth_service import generate_unique_tenant_slug, slugify
 from app.schemas.auth import validate_email_id
+from app.services.email_service import email_service, MemoryEmailBackend
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -21,6 +22,15 @@ test_engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def setup_memory_email():
+    """Ensure tests run hermetically with memory email backend."""
+    prev_backend = email_service.backend
+    email_service.set_backend(MemoryEmailBackend())
+    yield
+    email_service.set_backend(prev_backend)
 
 
 @pytest.fixture(scope="function")
@@ -327,6 +337,7 @@ def test_legacy_pbkdf2_compatibility_and_transparent_rehash(client, db_session):
         auth_provider="email",
         hashed_password=legacy_hash,
         is_active=True,
+        email_verified=True,
     )
     db_session.add(legacy_doc)
     db_session.commit()
@@ -426,6 +437,11 @@ def test_login_authentication_with_valid_and_invalid_credentials(client, db_sess
         json={"email": "verified.doc@example.com", "password": "SecurePassword123!"},
     )
     assert reg_resp.status_code == 201
+
+    # Mark doctor as verified so login credentials test can authenticate
+    doc = db_session.query(Doctor).filter(Doctor.email == "verified.doc@example.com").first()
+    doc.email_verified = True
+    db_session.commit()
 
     # Login with non-existent valid email ID returns 401 Unauthorized
     not_found = client.post(

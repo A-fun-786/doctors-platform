@@ -310,9 +310,9 @@ export default function PatientDoctorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4 p-2">
-          <BRAND_CONFIG.icon.component className="w-full h-full animate-pulse" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+        <div className="mb-4">
+          <BrandLogo size="lg" href={null} />
         </div>
         <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
           <Loader2 className="w-4 h-4 animate-spin text-brand-600" />

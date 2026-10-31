@@ -178,6 +178,7 @@ class ResendEmailBackend(BaseEmailBackend):
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": f"{self.settings.BRAND_NAME}/1.0",
         }
         payload: Dict[str, Any] = {
             "from": f"{self.settings.EMAIL_FROM_NAME} <{self.settings.EMAIL_FROM}>",

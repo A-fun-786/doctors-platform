@@ -100,15 +100,29 @@ None. Phase 5 was executed in strict accordance with the testing and robustness 
   - `scripts/verify_phase4_auth_ux.mjs`: 15/15 tests passed.
   - Alembic migration upgrade/downgrade: verified.
 
-## 10. Manual Steps Pending
-1. Configure `RESEND_API_KEY` secret in the Railway backend service (e.g. `railway variable set RESEND_API_KEY=<key> --service backend --environment production`).
-2. Verify domain DNS records (`gosmartclinic.com`) in the Resend provider dashboard.
-3. Deploy backend to Railway and trigger end-to-end registration verification with a live mailbox.
+## 10. Bug 3: Onboarding Screen Logo Layout & Resend User-Agent
+- **Issue**: After completing email verification, entering `/onboarding` displayed a disoriented, oversized icon.
+- **Root Cause**:
+  1. `app/onboarding/page.tsx` loading state nested `BRAND_CONFIG.icon.component` (which already contains a rounded squircle badge) inside another `rounded-xl bg-brand-600` wrapper with `p-2`, creating a distorted double-badge.
+  2. `components/brand/StethoscopeHeartPulseIcon.tsx` rendered `<svg>` without explicit `width`/`height` attributes, relying solely on CSS classes. Before CSS hydration or under unconstrained flex, the SVG could blow up to viewport dimensions.
+  3. `components/brand/BrandLogo.tsx` lacked explicit pixel dimensions and inline styles on the icon container, allowing parent flex layouts to stretch/squash the icon.
+  4. Resend API Cloudflare protection required standard `User-Agent` headers (`backend/app/services/email_service.py`).
+- **Fix**:
+  1. Updated `components/brand/StethoscopeHeartPulseIcon.tsx` to set `width`, `height`, and `style={{ maxWidth: "100%", maxHeight: "100%" }}` on the SVG.
+  2. Updated `components/brand/BrandLogo.tsx` to define `iconPixelSizes` (`sm: 28px`, `md: 32px`, `lg: 40px`), lock container `width`/`height` styles, pass `size` to `icon.component`, and apply `whitespace-nowrap` on brand text.
+  3. Replaced ad-hoc raw icon loading states in `app/onboarding/page.tsx` and `app/[slug]/page.tsx` with `<BrandLogo size="lg" href={null} />`.
+  4. Added `"User-Agent": f"{self.settings.BRAND_NAME}/1.0"` to `ResendEmailBackend.send` requests in `backend/app/services/email_service.py`.
+  5. Isolated `test_auth.py` by adding an autouse `MemoryEmailBackend` fixture and `email_verified=True` for login credentials tests.
 
-## 11. Known Issues and Follow-ups
-None. The app rejects invalid or insecure production email configurations at startup, provides explicit delivery status, and gracefully isolates delivery failures.
+## 11. Manual Steps Pending
+1. Configure `RESEND_API_KEY` secret in Railway backend service (completed).
+2. Complete domain DNS records (`gosmartclinic.com`) propagation in Hostinger/Resend dashboard.
+3. Deploy backend to Railway and trigger live end-to-end registration verification.
 
-## 12. Rollback
+## 12. Known Issues and Follow-ups
+None.
+
+## 13. Rollback
 - Revert commit: `git revert <commit-sha>`
 - Database downgrade: `alembic downgrade -1` (drops `sent_at` column from `email_verification_tokens`).
 - Railway config downgrade: set `EMAIL_BACKEND=console`.

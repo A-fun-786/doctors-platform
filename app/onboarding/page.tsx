@@ -208,9 +208,9 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4 p-2">
-          <BRAND_CONFIG.icon.component className="w-full h-full animate-pulse" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+        <div className="mb-4">
+          <BrandLogo size="lg" href={null} />
         </div>
         <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
           <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
@@ -225,7 +225,7 @@ export default function OnboardingPage() {
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <BrandLogo size="md" />
+          <BrandLogo size="md" className="shrink-0" />
           <div className="flex items-center gap-2 text-xs font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Practice Onboarding</span>

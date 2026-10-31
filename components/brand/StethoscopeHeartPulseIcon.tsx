@@ -10,11 +10,18 @@ export function StethoscopeHeartPulseIcon({
   size,
 }: StethoscopeHeartPulseIconProps) {
   const gradientId = useId();
-  const style = size ? { width: size, height: size } : undefined;
+  const pixelSize = size || undefined;
+  const style: React.CSSProperties = {
+    ...(pixelSize ? { width: pixelSize, height: pixelSize } : {}),
+    maxWidth: "100%",
+    maxHeight: "100%",
+  };
 
   return (
     <svg
       viewBox="0 0 100 100"
+      width={pixelSize || "100%"}
+      height={pixelSize || "100%"}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
