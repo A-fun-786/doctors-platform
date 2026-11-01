@@ -183,9 +183,66 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 6. Additional Completed Screens
-- **`components/dashboard/ProfileTab.tsx`**:
-  - Responsive container padding (`p-4 sm:p-6 md:p-8`), adaptive header, and full-width save button on mobile.
+### 6. `components/dashboard/ProfileTab.tsx` (Doctor Practice Profile: Dual-Mode Architecture & Touch UX)
+
+- **Problem & Previous Limitations**:
+  - Pehle profile page par form inputs direct render hote the, chahe data pehle se saved ho ya na ho. Isse screen ek generic registration form jaisi lagti thi aur saved information ko review karna inconvenient tha.
+  - Mobile screens par profile image, form fields aur action buttons overflow hote the ya horizontal alignment break karte the.
+  - Action buttons mobile screen par small touch targets the, jisse misclicks hote the.
+
+- **Dual-Mode UI Architecture (View Mode vs. Edit Mode)**:
+  1. **Clean View Mode (`!isEditing`) — Production Display**:
+     - **Doctor Practice Profile Summary Card**: High-contrast white card (`rounded-2xl border border-slate-200 shadow-xs`) with clean responsive padding (`p-5 sm:p-7 md:p-8`).
+     - **Card Header with Dedicated Edit CTA**: Dynamic header with subtitle and prominent "Edit Profile" button (`inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs min-h-[42px]`) positioned on top-right for desktop and full-width/stacked on mobile.
+     - **Doctor Identity Block**:
+       - Avatar thumbnail (`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl`) with verification badge (`ShieldCheck` icon, emerald badge) when onboarding is complete.
+       - Interactive hover/tap overlay with Camera icon (`group-hover:opacity-100`) triggering Edit Mode on click.
+       - Formatted Doctor Full Name with dynamic "Verified Doctor" pill.
+       - Speciality display with `Stethoscope` icon (`text-brand-600 font-semibold`).
+       - Clinic / Hospital name with `Building2` icon.
+     - **Contact & Practice Location Grid**:
+       - 3-column responsive grid (`grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4`) with distinct card styling (`bg-slate-50 border border-slate-100 rounded-xl p-3.5`).
+       - Displays Practice Location (`MapPin`), Contact Phone (`Phone`), and Registered Email (`Mail`) with uppercase tracking labels and fallback formatting for unset values.
+     - **Professional Bio & Philosophy Section**:
+       - Rich bio display container (`bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed whitespace-pre-line`).
+       - Inline `+ Add Bio` shortcut button if bio has not yet been filled.
+     - **Patient Practice Services Status Display**:
+       - 4-card responsive status grid (`grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3`).
+       - Shows active vs. disabled state pills for:
+         - *In-Clinic Visits* (Calendar icon, Blue badge)
+         - *Video Consultation* (Video icon, Indigo badge)
+         - *Medicine Orders* (Pill icon, Emerald badge)
+         - *Lab Reports Portal* (FileText icon, Purple badge)
+       - Top-right "Configure Services" link allowing quick jump into service toggle editing.
+
+  2. **Interactive Edit Mode (`isEditing`) — Practice Customization Form**:
+     - **Header Actions**: Form title with `Edit3` icon and dual top CTA buttons (`Cancel` and `Save Profile` with animated `Loader2` spinner during API submission).
+     - **Doctor Profile Photo Uploader**:
+       - Hidden file input ref connected to a custom styled upload trigger.
+       - Integrated with `uploadDoctorAvatar` API.
+       - Enforces strict file validation (PNG, JPG, WebP only) and a 2MB maximum file size limit with immediate error toast.
+       - Includes a "Reset" CTA to revert back to `DEFAULT_DOCTOR_AVATAR`.
+     - **Form Grid & Touch-Optimized Inputs**:
+       - 2-column responsive layout (`grid-cols-1 md:grid-cols-2 gap-5`) for Doctor Full Name (required with red asterisk), Speciality / Qualifications, Clinic / Hospital Name, Practice Location / City, and Contact Phone.
+       - Left icon adornments (`User`, `Stethoscope`, `Building2`, `MapPin`, `Phone`) with focused ring states (`focus:ring-2 focus:ring-brand-500`).
+       - Touch targets adhere strictly to mobile usability standards with `min-h-[44px]` height.
+     - **Professional Bio Textarea**:
+       - Multi-line textarea with dynamic character counter (`{bio.length} characters`).
+     - **Interactive Services Toggle Cards**:
+       - 2-column interactive grid (`grid-cols-1 sm:grid-cols-2 gap-3.5`).
+       - Clickable service card containers with active border transitions, distinctive icon containers, toggle checkboxes, and explanatory subtitles.
+     - **Form Action Footer**:
+       - Responsive layout: Full-width stacked buttons on mobile (`flex-col sm:flex-row w-full sm:w-auto min-h-[44px]`).
+       - Dual CTAs: `Cancel & Discard` (reverts changes to initial profile) and `Save Practice Profile` (submits payload to `updateDoctorProfile`).
+
+  3. **Toast Feedback & Dynamic Synchronization**:
+     - Instant feedback toasts with auto-dismiss (4000ms timer) for both successful profile updates and avatar changes.
+     - Error banners with dismiss (`X`) buttons for validation failures or network drops.
+     - Prop synchronization via `onProfileUpdated(updated)` ensures the top bar profile pill and user identity update in real-time across the entire application shell without page reloads.
+
+---
+
+### 7. Additional Completed Screens
 - **`components/dashboard/AndroidAppTab.tsx`**:
   - Responsive download / compile buttons, safe-area console container, and fluid banner layouts.
 - **`components/auth/EmailAuthForm.tsx`**:
@@ -197,7 +254,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 7. Phase 4 Polish & Edge Case Optimizations
+### 8. Phase 4 Polish & Edge Case Optimizations
 - **`components/ui/Toast.tsx`**:
   - Repositioned from rigid `bottom-6 right-6` to `bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md mx-auto sm:mx-0`. Floats above the fixed mobile bottom navigation bar (`h-16 pb-safe`) without overlapping.
 - **`components/auth/GoogleAuthForm.tsx`**:
@@ -216,7 +273,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 8. `components/landing/Navbar.tsx` (Mobile Action Navigation & Direct CTA Access)
+### 9. `components/landing/Navbar.tsx` (Mobile Action Navigation & Direct CTA Access)
 - **Problem**:
   - Pehle mobile screens (< 768px) par `Login` aur `Register as Doctor` buttons desktop flex me hide ho jate the, aur mobile screen par sirf hamburger menu icon (`☰`) dikhta tha.
   - Users ko signup ya login karne ke liye pehle drawer open karna padta tha, jisse conversion drop hoti thi.
@@ -229,7 +286,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 9. `components/dashboard/calendar/mobile/` & `CalendarTab.tsx` (Mobile Calendar Experience & Adaptive Islands)
+### 10. `components/dashboard/calendar/mobile/` & `CalendarTab.tsx` (Mobile Calendar Experience & Adaptive Islands)
 - **Problem & Motivation**:
   - Desktop par `CalendarSidebar` (Mini-Calendar + Working Hours Card) right side par 4-columns width leti thi. Mobile aur tablet screens (`< 1280px`) par yeh entire sidebar ya toh screen par bohot zyada vertical height consume kar leti thi ya phir main calendar schedule view ko block kar deti thi.
   - Doctors ko mobile phone se schedule monitor karte waqt live clinic status dekhne (e.g. Clinic Open, Lunch Break, ya Closed), 7 din ke schedule me instant switch karne, aur working hours access karne ke liye touch-native interface ki zaroorat thi.
@@ -264,13 +321,13 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 10. `components/dashboard/OverviewTab.tsx` (Clinical Terminology Alignment & Card Polish)
+### 11. `components/dashboard/OverviewTab.tsx` (Clinical Terminology Alignment & Card Polish)
 - **Clinical Alignment**: Clinical usability ke hisaab se dashboard navigation aur metric references me "Calendar" ko "Appointments" me rename kiya gaya taaki doctor workflows me clarity rahe.
 - **Card & Navigation Flow**: Today's appointments count, quick actions, aur tab routing ko seamless multi-device testing ke sath synchronize kiya gaya.
 
 ---
 
-### 11. `scripts/start-servers.ps1` & `scripts/stop-servers.ps1` (Windows Server Automation & Process Reliability)
+### 12. `scripts/start-servers.ps1` & `scripts/stop-servers.ps1` (Windows Server Automation & Process Reliability)
 - **Problem**:
   - Windows environment par `powershell -File scripts/start-servers.ps1` run karne par agar `.env.development.local` missing ho toh frontend remote/stale endpoints par fall back ho sakta tha.
   - Next.js dev server execution me Windows local paths ke sath module resolution aur shell-wrapping (`cmd.exe /c npm run dev`) issues the, causing unexpected subshell terminates.
@@ -284,7 +341,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 12. `components/dashboard/calendar/views/DayView.tsx` (Complete Time Row Display & Slot Alignment)
+### 13. `components/dashboard/calendar/views/DayView.tsx` (Complete Time Row Display & Slot Alignment)
 - **Problem**:
   - DayView ke 30-minute time slot cards par pehle `w-24 sm:w-36 shrink-0 truncate` classes lagi hui thi.
   - Monospace font me `"10:00 AM – 10:30 AM"` jaise ~21-character time intervals `w-24` (96px) ya `w-36` (144px) container me fit nahi hote the, jiski wajah se mobile aur small screens par time cut ho kar `"10:00 AM – 1..."` dikhta tha.
@@ -301,7 +358,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 13. Working Hours Overhaul: Break Removal & Dynamic Schedule Windows (`EditWorkingHoursModal.tsx` & Calendar Views)
+### 14. Working Hours Overhaul: Break Removal & Dynamic Schedule Windows (`EditWorkingHoursModal.tsx` & Calendar Views)
 - **Problem & User Requirement**:
   - Previously, the system forced an artificial "Break Time" / Coffee banner between Morning and Evening shifts.
   - Break indicators cluttered the calendar legend bar, injected unwanted break rows into DayView and WeekView, and locked the schedule into rigid predefined shifts.
@@ -332,7 +389,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 14. Icon Normalization & Clinical Brand Refinements
+### 15. Icon Normalization & Clinical Brand Refinements
 - **Problem**:
   - Inconsistent visual presentation where generic AI sparkles and conflicting icon glyphs were used in medical appointment cards, onboarding, and sidebar widgets.
 - **Solution & Standardization**:
@@ -341,7 +398,7 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 15. PR Review Feedback & Hygiene Refactorings
+### 16. PR Review Feedback & Hygiene Refactorings
 - Cleaned up obsolete temporary migration and assertion scripts (`append_shift_themes.mjs`, `apply_dayview_cleanups.mjs`, `fix_dayview_imports.mjs`, `fix_import_now.mjs`, `update_dayview_schedule_borders.mjs`, `update_weekview_schedule_borders.mjs`).
 - Refined `calendarUtils.ts` exports, eliminating legacy unused helper artifacts and maintaining zero unused dead code.
 - Polished `EditWorkingHoursModal.tsx` schedule validations, capacity computations, and day/week view boundary definitions.
@@ -399,6 +456,7 @@ export default function AnyNewFeatureScreen() {
 | Area / Feature | Viewport / Breakpoint | Test Method | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Desktop Top Bar & Profile Pill** | Laptop / Desktop (>= 768px) | Manual + Script | Top bar displays active section title, formatted doctor pill (`Dr. [Name]`), speciality, and red logout CTA; sidebar omits Android App tab. | ✅ Verified & Tested |
+| **Doctor Practice Profile (Dual-Mode)** | All Viewports (Mobile & Desktop) | Manual + Form Test | Clean View Mode displays only saved doctor details with contact grid, verified badge, bio, and 4-service pills; Edit Mode provides image uploader with format/size limits, bio textarea with char counter, services toggles, and min-h-44px touch targets; toast notifications confirm saves. | ✅ Verified & Tested |
 | **Icon Normalization** | All Viewports | Visual Audit | Standard clinical Lucide icons used across app; ambiguous AI sparkle glyphs replaced with enterprise clinical markers. | ✅ Verified & Tested |
 | **DayView Time Slot Cards** | Mobile (<640px) | Manual + Script | Time intervals (`10:00 AM – 10:30 AM`) remain strictly on single row without wrapping or truncation; patient names truncate cleanly. | ✅ Verified & Tested |
 | **Dynamic Schedule Windows** | Desktop & Mobile | Manual + Live API | Doctors can configure 1 to 4 customizable schedule windows (`Start Time` to `End Time`) via modal; slot capacity recalculates in real-time. | ✅ Verified & Tested |
