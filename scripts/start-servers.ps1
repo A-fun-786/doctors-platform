@@ -30,7 +30,7 @@ if ($backendConn) {
     }
     
     $backendProcess = Start-Process -FilePath $pythonExe `
-        -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" `
+        -ArgumentList "-m", "uvicorn", "app.main:app", "--app-dir", "`"$backendDir`"", "--host", "0.0.0.0", "--port", "8000", "--reload" `
         -WorkingDirectory $backendDir `
         -RedirectStandardOutput (Join-Path $logsDir "backend.log") `
         -RedirectStandardError (Join-Path $logsDir "backend-error.log") `
@@ -48,8 +48,11 @@ if ($frontendConn) {
 } else {
     Write-Host "[*] Starting Next.js Frontend on port 3000..." -ForegroundColor Green
     
-    $frontendProcess = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/c", "npm", "run", "dev" `
+    $npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+    if (-not $npmCmd) { $npmCmd = "npm.cmd" }
+    
+    $frontendProcess = Start-Process -FilePath $npmCmd `
+        -ArgumentList "run", "dev" `
         -WorkingDirectory $rootDir `
         -RedirectStandardOutput (Join-Path $logsDir "frontend.log") `
         -RedirectStandardError (Join-Path $logsDir "frontend-error.log") `

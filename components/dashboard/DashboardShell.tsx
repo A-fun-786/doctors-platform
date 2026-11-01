@@ -46,17 +46,33 @@ export default function DashboardShell({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  const navItems: { id: DashboardTabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  // Desktop sidebar navigation: Android App is excluded
+  const desktopNavItems: {
+    id: DashboardTabId;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
     { id: "profile", label: "Profile", icon: User },
   ];
+
+  // Mobile navigation: Preserves Android App if enabled
+  const navItems: {
+    id: DashboardTabId;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [...desktopNavItems];
 
   if (enableAndroidBuild) {
     navItems.push({ id: "android", label: "Android App", icon: Smartphone });
   }
 
   const avatar = profile?.avatar_url || doctor.avatar_url || DEFAULT_DOCTOR_AVATAR;
+  const doctorDisplayName = doctor.full_name?.trim() || "Doctor";
+  const formattedDoctorName = doctorDisplayName.toLowerCase().startsWith("dr.")
+    ? doctorDisplayName
+    : `Dr. ${doctorDisplayName}`;
 
   // Close mobile drawer on Escape key
   useEffect(() => {
@@ -266,7 +282,7 @@ export default function DashboardShell({
             aria-label="Main Navigation"
             className="bg-white rounded-2xl border border-slate-200 shadow-xs p-2 flex flex-col gap-1.5"
           >
-            {navItems.map((item) => {
+            {desktopNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -291,41 +307,6 @@ export default function DashboardShell({
               );
             })}
           </nav>
-
-          {/* User Profile & Logout Box in Desktop Sidebar */}
-          <div className="mt-auto bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 flex flex-col gap-3">
-            <div className={`flex items-center min-w-0 ${isSidebarCollapsed ? "justify-center" : "space-x-3"}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={avatar}
-                alt={doctor.full_name || "Doctor"}
-                className="w-10 h-10 rounded-full border border-slate-200 object-cover shrink-0"
-              />
-              {!isSidebarCollapsed && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900 truncate">
-                    {doctor.full_name || "Doctor"}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">{doctor.email}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-1 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={onLogout}
-                className={`inline-flex items-center justify-center rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 ${
-                  isSidebarCollapsed ? "w-full p-2" : "w-full gap-1.5 px-3 py-2"
-                }`}
-                title="Logout"
-                aria-label="Logout"
-              >
-                <LogOut className="w-4 h-4 text-red-500" />
-                {!isSidebarCollapsed && <span>Logout</span>}
-              </button>
-            </div>
-          </div>
         </aside>
 
         {/* =========================================================================
@@ -333,6 +314,50 @@ export default function DashboardShell({
             Padding added at bottom on mobile (pb-24) to avoid bottom-nav overlap
             ========================================================================= */}
         <main className="flex-1 min-w-0 pb-24 md:pb-6">
+          {/* =========================================================================
+              LAPTOP / DESKTOP TOP BAR (>= md)
+              Profile & Logout at the top on laptop screens
+              ========================================================================= */}
+          <div className="hidden md:flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-3.5 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-slate-900 tracking-tight capitalize">
+                {activeTab}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Doctor Profile Pill */}
+              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-2xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar}
+                  alt={doctor.full_name || "Doctor"}
+                  className="w-8 h-8 rounded-full border border-slate-200 object-cover shrink-0"
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-sm font-bold text-slate-800 leading-tight max-w-[200px] truncate">
+                    {formattedDoctorName}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium truncate max-w-[200px]">
+                    {profile?.speciality || "Physician"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-xl transition-all shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 shrink-0"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+
           {children}
         </main>
       </div>

@@ -1,6 +1,6 @@
 # 📱💻 Universal Responsive UI & Auto-Adaptive Layout System
 
-> **Documentation Date:** October 29, 2026  
+> **Documentation Date:** November 01, 2026 (Updated)  
 > **Status:** ✅ Implemented, Verified, & Production Ready  
 > **Target Devices:** Mobile (320px–640px), Tablet (641px–1023px), Laptop/Desktop (1024px–1440px), Ultrawide (1440px+)
 
@@ -93,12 +93,17 @@ graph TD
 
 ---
 
-### 3. `components/dashboard/DashboardShell.tsx` (Adaptive App Shell)
+### 3. `components/dashboard/DashboardShell.tsx` (Adaptive App Shell & Desktop Top Bar Refactor)
 - **Laptop / Desktop (`>= md`)**:
-  - Fixed 240px Left Sidebar with Brand Logo, Navigation Tabs with active border accents, Doctor profile badge, Diagnostics button, aur Logout.
+  - **Streamlined Left Sidebar**: Fixed 240px Left Sidebar with Brand Logo and core operational navigation tabs (`desktopNavItems`: Overview, Appointments, Profile). The Android App tab is intentionally excluded from the desktop sidebar to preserve clean enterprise aesthetics.
+  - **Elevated Desktop Top Bar (`hidden md:flex`)**:
+    - Relocated user profile badge and logout action from the bottom of the sidebar into a dedicated top navigation bar spanning the main content viewport.
+    - **Dynamic Section Title**: Displays the current active tab (`Overview`, `Appointments`, `Profile`) dynamically with bold, capitalized typography.
+    - **Doctor Profile Pill**: Renders doctor avatar, auto-prefixed clinical title (`Dr. [Name]`), and medical speciality badge (`rounded-full bg-slate-50 border border-slate-200 shadow-2xs`).
+    - **Prominent Logout CTA**: Styled in red accents (`bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200`) with smooth transitions and keyboard accessibility.
 - **Mobile Devices (`< md`)**:
   - **Sticky Top Bar**: Compact header with brand logo, doctor avatar badge, and quick logout button.
-  - **Fixed Bottom Navigation Bar**: Modern native mobile bottom navigation bar (Overview, Appointments, Profile, Android App) with active pills, touch feedback, aur `pb-safe` bottom padding.
+  - **Fixed Bottom Navigation Bar**: Modern native mobile bottom navigation bar (Overview, Appointments, Profile, and Android App if enabled) with active pills, touch feedback, and `pb-safe` bottom padding.
   - **Viewport Content Buffer**: Added `pb-24` to content area so bottom navigation bar content ko cover na kare.
 
 ---
@@ -265,13 +270,17 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-### 11. `scripts/start-servers.ps1` (Windows Server Automation & Local Dev Environment Parity)
+### 11. `scripts/start-servers.ps1` & `scripts/stop-servers.ps1` (Windows Server Automation & Process Reliability)
 - **Problem**:
   - Windows environment par `powershell -File scripts/start-servers.ps1` run karne par agar `.env.development.local` missing ho toh frontend remote/stale endpoints par fall back ho sakta tha.
-  - Next.js dev server execution me Windows local paths ke sath module resolution safe-guarding ki zaroorat thi.
+  - Next.js dev server execution me Windows local paths ke sath module resolution aur shell-wrapping (`cmd.exe /c npm run dev`) issues the, causing unexpected subshell terminates.
+  - FastAPI uvicorn execution me relative module resolution (`app.main:app`) root directory switch hone par break ho sakti thi.
 - **Enhancement**:
-  - `.env.development.local` auto-generation add kiya gaya (points automatically to `NEXT_PUBLIC_API_URL=http://localhost:8000`).
+  - Added `--app-dir "$backendDir"` to `uvicorn` invocation for guaranteed reload reliability and module resolution regardless of execution shell working directory.
+  - Upgraded frontend launcher to execute `npm.cmd` directly via `(Get-Command npm.cmd -ErrorAction SilentlyContinue).Source` instead of wrapping inside `cmd.exe`.
+  - Added `.env.development.local` auto-generation (points automatically to `NEXT_PUBLIC_API_URL=http://localhost:8000`).
   - Next.js dev process execution me explicit `NODE_PATH` support aur process lifecycle handling ensure ki gayi.
+  - `stop-servers.ps1` updated with robust port kill detection across 8000 and 3000 to cleanly eliminate orphaned node and python processes.
 
 ---
 
@@ -322,7 +331,25 @@ export default function AnyNewFeatureScreen() {
      - All 153 backend test cases in `backend/tests` pass with 100% success rate.
 
 ---
-## 🧪 14. Automated Testing & Verification Suite
+
+### 14. Icon Normalization & Clinical Brand Refinements
+- **Problem**:
+  - Inconsistent visual presentation where generic AI sparkles and conflicting icon glyphs were used in medical appointment cards, onboarding, and sidebar widgets.
+- **Solution & Standardization**:
+  - Replaced ambiguous AI/sparkle icons across `app/[slug]/page.tsx`, `app/not-found.tsx`, `app/onboarding/page.tsx`, `components/auth/GoogleAuthForm.tsx`, `AppointmentDetailsPanel.tsx`, `WorkingHoursCard.tsx`, and `Hero.tsx`.
+  - Standardized on industry-recognized clinical Lucide icons (`Activity`, `Calendar`, `Clock`, `Stethoscope`, `ShieldCheck`, `FileText`), ensuring patient trust and high-clarity clinical UI semantics.
+
+---
+
+### 15. PR Review Feedback & Hygiene Refactorings
+- Cleaned up obsolete temporary migration and assertion scripts (`append_shift_themes.mjs`, `apply_dayview_cleanups.mjs`, `fix_dayview_imports.mjs`, `fix_import_now.mjs`, `update_dayview_schedule_borders.mjs`, `update_weekview_schedule_borders.mjs`).
+- Refined `calendarUtils.ts` exports, eliminating legacy unused helper artifacts and maintaining zero unused dead code.
+- Polished `EditWorkingHoursModal.tsx` schedule validations, capacity computations, and day/week view boundary definitions.
+- Aligned test assertions for shortened action button labels (`Edit / Reschedule`).
+
+---
+
+## 🧪 16. Automated Testing & Verification Suite
 
 1. **TypeScript Static Typecheck (`npx tsc --noEmit`)**:
    - Status: ✅ **0 Errors / 100% Type-safe**.
@@ -367,10 +394,12 @@ export default function AnyNewFeatureScreen() {
 
 ---
 
-## 📱 15. Manual Testing Verification Matrix
+## 📱 17. Manual Testing Verification Matrix
 
 | Area / Feature | Viewport / Breakpoint | Test Method | Expected Behavior | Verification Status |
 | :--- | :--- | :--- | :--- | :--- |
+| **Desktop Top Bar & Profile Pill** | Laptop / Desktop (>= 768px) | Manual + Script | Top bar displays active section title, formatted doctor pill (`Dr. [Name]`), speciality, and red logout CTA; sidebar omits Android App tab. | ✅ Verified & Tested |
+| **Icon Normalization** | All Viewports | Visual Audit | Standard clinical Lucide icons used across app; ambiguous AI sparkle glyphs replaced with enterprise clinical markers. | ✅ Verified & Tested |
 | **DayView Time Slot Cards** | Mobile (<640px) | Manual + Script | Time intervals (`10:00 AM – 10:30 AM`) remain strictly on single row without wrapping or truncation; patient names truncate cleanly. | ✅ Verified & Tested |
 | **Dynamic Schedule Windows** | Desktop & Mobile | Manual + Live API | Doctors can configure 1 to 4 customizable schedule windows (`Start Time` to `End Time`) via modal; slot capacity recalculates in real-time. | ✅ Verified & Tested |
 | **Zero Break Clutter** | DayView & WeekView | Manual + Automated | No synthetic coffee/break rows or banners; schedule discontinuities indicated via clean divider borders. | ✅ Verified & Tested |
