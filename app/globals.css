@@ -7,6 +7,28 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+
+  /* Master Hospital Single Color Scale (Clinical Teal) */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #0d9488;
+  --brand-600: #0f766e;
+  --brand-700: #115e59;
+  --brand-800: #134e4a;
+  --brand-900: #0f3e3a;
+  --brand-950: #042f2e;
+
+  /* Hospital Surfaces & Clean Slates */
+  --hospital-surface: #f8fafc;
+  --hospital-card: #ffffff;
+  --hospital-border: #e2e8f0;
+  --hospital-border-dark: #cbd5e1;
+  --hospital-text-main: #0f172a;
+  --hospital-text-muted: #475569;
+  --hospital-text-subtle: #64748b;
 }
 
 html {
@@ -57,4 +79,3 @@ body {
 .min-w-0 {
   min-width: 0;
 }
-
