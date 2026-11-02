@@ -26,16 +26,16 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 bg-white border-t border-slate-200">
+    <section id="how-it-works" className="py-20 bg-white border-t border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="text-xs font-semibold text-brand-600 uppercase tracking-widest">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold uppercase tracking-wider">
             Streamlined Setup
-          </h2>
-          <p className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
             How It Works
-          </p>
+          </h2>
           <p className="text-base sm:text-lg text-slate-600">
             Launch your branded online healthcare presence in three simple steps.
           </p>
@@ -44,7 +44,7 @@ export default function HowItWorks() {
         {/* Steps Flow */}
         <div className="relative">
           {/* Connector Line (Desktop) */}
-          <div className="hidden lg:block absolute top-1/2 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-brand-200 via-brand-400 to-brand-200 -translate-y-12 z-0" />
+          <div className="hidden lg:block absolute top-1/2 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-emerald-200 via-emerald-400 to-emerald-200 -translate-y-12 z-0" />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
             {steps.map((item, idx) => {
@@ -52,17 +52,17 @@ export default function HowItWorks() {
               return (
                 <div
                   key={idx}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center relative flex flex-col items-center hover:bg-slate-100/60 transition-colors"
+                  className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-8 text-center relative flex flex-col items-center hover:bg-white hover:border-emerald-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                 >
                   {/* Step Number Badge */}
-                  <span className="absolute top-4 right-4 text-xs font-bold text-slate-400 font-mono">
+                  <span className="absolute top-4 right-4 text-xs font-bold text-emerald-800/60 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded font-mono">
                     STEP {item.step}
                   </span>
 
                   {/* Icon with Ring */}
-                  <div className="w-16 h-16 rounded-full bg-white border-2 border-brand-500 shadow-sm flex items-center justify-center text-brand-600 mb-6 relative">
+                  <div className="w-16 h-16 rounded-full bg-white border-2 border-brand-500 shadow-md shadow-brand-500/10 flex items-center justify-center text-brand-600 mb-6 relative">
                     <Icon className="w-7 h-7" />
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center text-white text-[10px]">
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center text-white text-[10px] shadow-sm">
                       <CheckCircle className="w-3.5 h-3.5" />
                     </div>
                   </div>

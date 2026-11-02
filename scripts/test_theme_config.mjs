@@ -21,19 +21,23 @@ function isValidHex(hex) {
 
 // 2. Validate Brand Scale (50 - 950)
 const requiredBrandKeys = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
+const brandTokens = {};
 for (const key of requiredBrandKeys) {
   const match = fileContent.match(new RegExp(`${key}:\\s*"([^"]+)"`));
   assert.ok(match, `Brand token ${key} must be defined`);
   assert.ok(isValidHex(match[1]), `Brand token ${key} (${match[1]}) must be a valid 6-char hex`);
+  brandTokens[key] = match[1];
 }
 console.log("  ✅ [PASS] Brand scale (50 - 950) complete with valid hex codes");
 
 // 3. Validate Hospital Core Tokens
 const requiredHospitalKeys = ["navy", "navyDark", "cyan", "surfaceBg", "cardBg", "border", "borderDark", "textMain", "textMuted", "textSubtle"];
+const hospitalTokens = {};
 for (const key of requiredHospitalKeys) {
   const match = fileContent.match(new RegExp(`${key}:\\s*"([^"]+)"`));
   assert.ok(match, `Hospital token ${key} must be defined`);
   assert.ok(isValidHex(match[1]), `Hospital token ${key} (${match[1]}) must be a valid 6-char hex`);
+  hospitalTokens[key] = match[1];
 }
 console.log("  ✅ [PASS] Hospital structural tokens (navy, surfaces, borders, text) validated");
 
@@ -71,21 +75,20 @@ function getContrastRatio(hex1, hex2) {
 }
 
 // Brand-700 on white / light surface must pass WCAG AA (>= 4.5:1)
-const contrastBrand700 = getContrastRatio("#115e59", "#ffffff");
+const contrastBrand700 = getContrastRatio(brandTokens["700"], "#ffffff");
 assert.ok(contrastBrand700 >= 4.5, `Brand-700 contrast ratio (${contrastBrand700.toFixed(2)}) must be >= 4.5`);
-console.log(`  ✅ [PASS] Accessible brand text contrast (#115e59 on #ffffff) = ${contrastBrand700.toFixed(2)}:1 (WCAG AA passed)`);
+console.log(`  ✅ [PASS] Accessible brand text contrast (${brandTokens["700"]} on #ffffff) = ${contrastBrand700.toFixed(2)}:1 (WCAG AA passed)`);
 
-// TextMain (#0f172a) on white must pass WCAG AAA (>= 7.0:1)
-const contrastTextMain = getContrastRatio("#0f172a", "#ffffff");
+// TextMain on white must pass WCAG AAA (>= 7.0:1)
+const contrastTextMain = getContrastRatio(hospitalTokens["textMain"], "#ffffff");
 assert.ok(contrastTextMain >= 7.0, `TextMain contrast ratio (${contrastTextMain.toFixed(2)}) must be >= 7.0`);
-console.log(`  ✅ [PASS] Primary text contrast (#0f172a on #ffffff) = ${contrastTextMain.toFixed(2)}:1 (WCAG AAA passed)`);
+console.log(`  ✅ [PASS] Primary text contrast (${hospitalTokens["textMain"]} on #ffffff) = ${contrastTextMain.toFixed(2)}:1 (WCAG AAA passed)`);
 
-// Hospital Navy (#0c4a6e) on white must pass WCAG AA
-const contrastNavy = getContrastRatio("#0c4a6e", "#ffffff");
+// Hospital Navy on white must pass WCAG AA
+const contrastNavy = getContrastRatio(hospitalTokens["navy"], "#ffffff");
 assert.ok(contrastNavy >= 4.5, `Hospital Navy contrast ratio (${contrastNavy.toFixed(2)}) must be >= 4.5`);
-console.log(`  ✅ [PASS] Hospital Navy contrast (#0c4a6e on #ffffff) = ${contrastNavy.toFixed(2)}:1 (WCAG AA passed)`);
+console.log(`  ✅ [PASS] Hospital Navy contrast (${hospitalTokens["navy"]} on #ffffff) = ${contrastNavy.toFixed(2)}:1 (WCAG AA passed)`);
 
 console.log("============================================================");
 console.log("🎉 ALL AUTOMATED THEME & CONTRAST TESTS PASSED (100%)");
 console.log("============================================================");
-

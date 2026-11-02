@@ -1,47 +1,52 @@
 # 🏥 Hospital UI Theme Transformation — Master Plan & Progress Tracker
 
 ## 1. Executive Summary & Objective
-Transform the entire project UI from generic blue styling into an authentic, **Hospital-Centric** medical platform aesthetic.
+Transform the entire project UI into an authentic, **Hospital-Centric** medical platform aesthetic.
 
-### 🌟 Core Architectural Decision: 100% Single Unified Color Harmony (Monochromatic Scale)
+### 🌟 Active Theme: Option 2 — Clinical Emerald & Vitality Mint (Fresh Healing Theme)
 Per strict design principles, there is **no multi-color clutter** (no conflicting mix of separate blues, teals, and cyans). The entire application is architected around a **Single Source of Truth (SSOT)**:
 - All colors are declared as string variables in [`config/theme.config.ts`](../config/theme.config.ts).
-- The platform is driven by **one unified Clinical Teal color scale (`50` to `950`)**:
-  - `brand[900]` / `brand[800]`: Deep authority headers & high-contrast titles.
-  - `brand[600]` (`#0f766e`): Primary action CTAs, active highlights & main buttons.
-  - `brand[700]` (`#115e59`): Interactive hover feedback & WCAG AAA accessible text.
-  - `brand[100]` / `brand[50]`: Calming mint tints for active tabs, selected patient rows, and subtle badge backgrounds.
-  - `brand[200]`: Crisp clinical borders and dividers.
+- The platform is driven by **one unified Clinical Emerald & Vitality Mint color scale (`50` to `950`)**:
+  - `brand[950]` / `brand[900]` (`#022c22` / `#064e3b`): Deep clinical forest headers, high-contrast dark accents & CTA surfaces.
+  - `brand[600]` (`#059669`): **Primary Brand Color** — CTA action buttons, active navigation indicators, and primary links.
+  - `brand[700]` (`#047857`): Interactive hover feedback & WCAG AA accessible text (contrast 5.48:1).
+  - `brand[500]` / `brand[400]` (`#10b981` / `#34d399`): Vitality mint accents, icon highlights, and animated live indicator pulses.
+  - `brand[100]` / `brand[50]` (`#d1fae5` / `#ecfdf5`): Calming mint tints for badges, active tabs, and subtle pill backgrounds.
+  - `brand[200]` (`#a7f3d0`): Crisp clinical borders, pill boundaries, and heartbeat ECG pulse highlights.
   - Clinical surfaces: Sterile pure white (`#ffffff`) and clean clinical ward slate (`#f8fafc`).
 
 ---
 
-## 2. Color Palette & Token Design (Clinical Teal Family)
+## 2. Color Palette & Token Design (Active Clinical Emerald Scale)
 
 ### A. Primary Brand Scale (50 - 950)
 | Token | Hex | Role / Usage in UI |
 | :--- | :--- | :--- |
-| `brand[50]` | `#f0fdfa` | Lightest mint tint for subtle active backgrounds & badge tints |
-| `brand[100]` | `#ccfbf1` | Light mint borders, pill backgrounds, selection states |
-| `brand[200]` | `#99f6e4` | Secondary borders, pill hover states |
-| `brand[300]` | `#5eead4` | Accent mint indicators, progress markers |
-| `brand[400]` | `#2dd4bf` | Active highlights, focus accents |
-| `brand[500]` | `#0d9488` | Base medical teal, interactive hover highlights |
-| `brand[600]` | `#0f766e` | **Primary Hospital Teal** — action buttons, active navigation, key CTAs |
-| `brand[700]` | `#115e59` | Pressed button state, high-contrast accessible text (WCAG AA >= 4.5:1) |
-| `brand[800]` | `#134e4a` | Deep clinical headings & high-contrast dark accents |
-| `brand[900]` | `#0f3e3a` | Midnight hospital header background |
-| `brand[950]` | `#042f2e` | Deepest contrast accents |
+| `brand[50]` | `#ecfdf5` | Ultra-light clinical background tint, subtle badge backgrounds |
+| `brand[100]` | `#d1fae5` | Soft mint highlights, selection pills, subtle hover fills |
+| `brand[200]` | `#a7f3d0` | Crisp secondary borders, pill outlines, ECG wave stroke |
+| `brand[300]` | `#6ee7b7` | Active indicator glow & soft accent rings |
+| `brand[400]` | `#34d399` | Vitality mint accent, dark-mode text highlights |
+| `brand[500]` | `#10b981` | Secondary action buttons, badge accents, vitality mint icons |
+| `brand[600]` | `#059669` | **★ Primary Brand Color** — main buttons, active tabs, key links |
+| `brand[700]` | `#047857` | Button hover state, accessible text on white (WCAG AA >= 4.5:1) |
+| `brand[800]` | `#065f46` | Deep forest emerald, dark tab active fill, authority titles |
+| `brand[900]` | `#064e3b` | Dark clinical header element, deep container backgrounds |
+| `brand[950]` | `#022c22` | Deepest Forest Emerald boundary, high-contrast footer & dark CTA |
 
-### B. Hospital Surfaces & Structure
+### B. Hospital Structural & Surface Tokens
 | Token | Hex | Role / Usage |
 | :--- | :--- | :--- |
-| `hospital.navy` | `#0c4a6e` | Deep Trust Navy — top bar branding, doctor title accents |
-| `hospital.surface` | `#f8fafc` | Clean hospital ward background (slate-50) |
-| `hospital.card` | `#ffffff` | Pure clinical white surface for cards and modals |
-| `hospital.border` | `#e2e8f0` | Crisp sterile dividers and card borders |
-| `hospital.textMain` | `#0f172a` | High-contrast body text (WCAG AAA >= 7.0:1) |
-| `hospital.textMuted` | `#475569` | Secondary metadata and timestamps |
+| `hospital.navy` | `#064e3b` | Deep Medical Forest Authority — doctor credentials & high-contrast titles |
+| `hospital.navyDark` | `#022c22` | Midnight clinical dark for headers and high-contrast boundaries |
+| `hospital.cyan` | `#10b981` | Diagnostic Vitality Mint accent |
+| `hospital.surfaceBg` | `#f8fafc` | Clean clinic ward background (Slate 50 / subtle off-white) |
+| `hospital.cardBg` | `#ffffff` | Sterile Pure White card and modal backgrounds |
+| `hospital.border` | `#e2e8f0` | Crisp sterile card & table divider border (Slate 200) |
+| `hospital.borderDark`| `#cbd5e1` | Stronger input and boundary border (Slate 300) |
+| `hospital.textMain` | `#0f172a` | Deep slate navy (WCAG AAA primary text, 17.85:1 contrast) |
+| `hospital.textMuted` | `#475569` | Clinical slate secondary text / timestamps |
+| `hospital.textSubtle`| `#64748b` | Tertiary metadata / helper captions |
 
 ### C. Clinical Triage Indicators (Standardized Medical Statuses)
 | Medical Status | Solid | Background Tint | Border | Usage |
@@ -49,7 +54,7 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | **Confirmed** | `#059669` (Emerald) | `#ecfdf5` | `#a7f3d0` | Booked & confirmed appointments |
 | **Reschedule / Attention**| `#d97706` (Amber) | `#fffbeb` | `#fde68a` | Needs rescheduling / doctor attention |
 | **Emergency / Cancelled** | `#e11d48` (Crimson) | `#fff1f2` | `#fecdd3` | Cancelled, emergency, or slot blocked |
-| **Teleconsultation** | `#0284c7` (Sky) | `#f0f9ff` | `#bae6fd` | Video & remote consultation mode |
+| **Teleconsultation** | `#10b981` (Mint) | `#f0fdf4` | `#a7f3d0` | Video & remote consultation mode |
 
 ---
 
@@ -59,11 +64,12 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | :--- | :--- | :--- | :---: |
 | **Phase 1** | **Master Theme Configuration & Automated Unit Tests** | `config/theme.config.ts`, `scripts/test_theme_config.mjs` | ✅ **DONE** |
 | **Phase 2** | **Tailwind & CSS Variable Binding** | `tailwind.config.ts`, `app/globals.css` | ✅ **DONE** |
-| **Phase 3** | **Brand Identity & SVG Elements** | `components/brand/BrandLogo.tsx`, `components/brand/StethoscopeHeartPulseIcon.tsx` | ⏳ Pending Next |
-| **Phase 4** | **Doctor Dashboard & Calendar** | `components/dashboard/DashboardShell.tsx`, `OverviewTab.tsx`, `CalendarTab.tsx`, `DayView.tsx` | ⏳ Pending |
-| **Phase 5** | **Patient Booking & Clinic Profile** | `app/[slug]/page.tsx`, `app/dr/[slug]/page.tsx` | ⏳ Pending |
-| **Phase 6** | **Landing, Auth & Onboarding** | `components/landing/*`, `app/login/page.tsx`, `app/onboarding/page.tsx` | ⏳ Pending |
-| **Phase 7** | **Automated QA & Regression Verification** | `npm run test` (All 10 test suites) | ⏳ Pending |
+| **Phase 3** | **Brand Identity & SVG Elements** | `components/brand/BrandLogo.tsx`, `StethoscopeHeartPulseIcon.tsx` | ✅ **DONE** |
+| **Phase 4** | **Landing Page Revamp (Home Page)** | `components/landing/Navbar.tsx`, `Hero.tsx`, `Features.tsx`, `HowItWorks.tsx`, `PreviewSection.tsx`, `CTA.tsx` | ✅ **DONE** |
+| **Phase 5** | **Doctor Dashboard & Calendar** | `components/dashboard/DashboardShell.tsx`, `OverviewTab.tsx`, `CalendarTab.tsx`, `DayView.tsx` | ⏳ Pending Next |
+| **Phase 6** | **Patient Booking & Clinic Profile** | `app/[slug]/page.tsx`, `app/dr/[slug]/page.tsx` | ⏳ Pending |
+| **Phase 7** | **Auth & Onboarding** | `app/login/page.tsx`, `app/register/page.tsx`, `app/onboarding/page.tsx` | ⏳ Pending |
+| **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npx tsc --noEmit` | ✅ **100% PASS** |
 
 ---
 
@@ -71,35 +77,53 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 
 ### ✅ Phase 1: Master Theme Configuration (Completed)
 - Created [`config/theme.config.ts`](../config/theme.config.ts) containing typed brand scales, hospital surfaces, and clinical triage status tokens.
-- Created [`scripts/test_theme_config.mjs`](../scripts/test_theme_config.mjs) automated test suite verifying hex formats and WCAG 2.1 AA/AAA contrast ratios.
-- Integrated `npm run test:theme` into root `npm test`.
+- Created [`scripts/test_theme_config.mjs`](../scripts/test_theme_config.mjs) automated test suite verifying hex formats and dynamic WCAG 2.1 AA/AAA contrast ratios.
+- Integrated `npm run test:theme` into root test suite.
 
 ### ✅ Phase 2: Tailwind CSS & Global CSS Bindings (Completed)
-- **Tailwind Binding:** Updated [`tailwind.config.ts`](../tailwind.config.ts) to import `HOSPITAL_THEME_COLORS` directly from `config/theme.config.ts`, replacing legacy generic SaaS blue (`#2563eb`) with unified `brand` (50–950 Clinical Teal) and `hospital` surface tokens.
+- **Tailwind Binding:** Updated [`tailwind.config.ts`](../tailwind.config.ts) to import `HOSPITAL_THEME_COLORS` directly from `config/theme.config.ts`, replacing legacy blue with unified `brand` (50–950) and `hospital` surface tokens.
 - **Global CSS Binding:** Updated [`app/globals.css`](../app/globals.css) to expose `:root` CSS custom properties (`--brand-50` through `--brand-950`, `--hospital-surface`, `--hospital-card`, `--hospital-border`, etc.) for seamless reactivity in SVGs and inline styling.
-- **Regression Testing:** Executed full test suite (`npm test`) across all 10 suites (30 unit tests + 50 responsive checks) with 100% pass rate.
+
+### ✅ Phase 3: Brand Identity & SVG Elements (Completed)
+- **Brand Logo Icon:** Updated [`components/brand/StethoscopeHeartPulseIcon.tsx`](../components/brand/StethoscopeHeartPulseIcon.tsx) SVG squircle container to use a vibrant clinical gradient (`#10B981` Vitality Mint ➔ `#047857` Deep Emerald) with `#A7F3D0` ECG pulse line.
+- Verified dynamic logo rendering in [`components/brand/BrandLogo.tsx`](../components/brand/BrandLogo.tsx).
+
+### ✅ Phase 4: Landing Page UI Revamp (Home Page) (Completed)
+Updated all landing page components to reflect Option 2 (Clinical Emerald & Vitality Mint):
+- **Navbar ([`Navbar.tsx`](../components/landing/Navbar.tsx)):**
+  - Frosted glassmorphism header (`bg-white/90 backdrop-blur-md border-emerald-100/70`).
+  - Active button shadow glow (`shadow-brand-600/25`) and smooth emerald hover states.
+- **Hero Section ([`Hero.tsx`](../components/landing/Hero.tsx)):**
+  - Ambient radial background glow (`from-emerald-200/35 via-teal-100/20 to-transparent`).
+  - Multi-tenant healthcare badge with animated pulsing live indicator dot.
+  - Dual-tone gradient text highlight for *"Built Around You."*
+  - Interactive doctor profile and mobile app mockup preview with soft emerald accents and borders.
+- **Features ([`Features.tsx`](../components/landing/Features.tsx)):**
+  - Feature icon containers with emerald tints and hover inversion (`group-hover:bg-brand-600 group-hover:text-white`).
+  - Card hover elevation with `hover:border-brand-300` and soft shadow glow.
+- **How It Works ([`HowItWorks.tsx`](../components/landing/HowItWorks.tsx)):**
+  - Streamlined setup badge and gradient step connector line (`from-emerald-200 via-emerald-400 to-emerald-200`).
+  - Step counter badges with `bg-emerald-50 border-emerald-100 text-emerald-800`.
+- **CTA Banner ([`CTA.tsx`](../components/landing/CTA.tsx)):**
+  - Rich dark gradient (`from-brand-950 via-brand-900 to-slate-950`).
+  - Emerald dot grid mesh (`bg-[radial-gradient(#10b981_1px,transparent_1px)]`).
+  - Soft ambient center glow (`bg-emerald-500/10 blur-[100px]`) and high-contrast white CTA button.
+- **Preview Section ([`PreviewSection.tsx`](../components/landing/PreviewSection.tsx)):**
+  - Unified with the active `brand-*` emerald tokens for all mockup components and tags.
 
 ---
 
 ## 5. Verification Protocols & Results
 
-### A. Automated Verification (`npm run test:theme` & `npm test`)
+### A. Automated Verification (`npm run test:theme` & `npx tsc --noEmit`)
 * **Checks Conducted:**
   * ✅ **File Integrity:** Verifies `config/theme.config.ts` exists and exports typed tokens.
   * ✅ **Hex Code Validity:** Every brand token (50–950), surface token, and status color strictly validated against `^#[0-9A-Fa-f]{6}$`.
-  * ✅ **WCAG 2.1 Contrast Ratio Verification:**
-    * Accessible brand text (`#115e59` on white `#ffffff`): **7.58:1** (Passes WCAG AA >= 4.5:1)
+  * ✅ **WCAG 2.1 Contrast Ratio Verification (Dynamic Calculation):**
+    * Accessible brand text (`#047857` on white `#ffffff`): **5.48:1** (Passes WCAG AA >= 4.5:1)
     * Primary text (`#0f172a` on white `#ffffff`): **17.85:1** (Passes WCAG AAA >= 7.0:1)
-    * Hospital Navy (`#0c4a6e` on white `#ffffff`): **9.46:1** (Passes WCAG AA >= 4.5:1)
-  * ✅ **All 10 Suites Pass:** Zero failures across functionality, mobile responsiveness, calendar logic, and layout bounds.
-
-### B. Manual Verification Checklist (Browser Testing)
-1. **Interactive Preview Artifact:**
-   * Open the generated generative UI preview artifact (`unified_color_system_ui.html`) in browser to inspect real rendered color harmony.
-2. **Single Point of Control Test:**
-   * Open `config/theme.config.ts`.
-   * Change `brand[600]` temporarily.
-   * Verify that Next.js hot-reload updates the primary elements immediately without touching component files.
+    * Hospital Navy (`#064e3b` on white `#ffffff`): **9.72:1** (Passes WCAG AAA >= 7.0:1)
+  * ✅ **TypeScript Compiler:** `npx tsc --noEmit` passed with 0 errors across the entire codebase.
 
 ---
 
@@ -107,5 +131,5 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 
 To change any color across the entire application in the future:
 1. Open [`config/theme.config.ts`](../config/theme.config.ts).
-2. Edit the string variable (e.g. change `brand[600]`).
+2. Edit the string variable (e.g., change `brand[600]`).
 3. Save the file — the application will automatically reflect the change across all components, Tailwind classes, and pages without needing manual file-by-file edits.
