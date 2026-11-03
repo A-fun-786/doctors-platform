@@ -1340,6 +1340,8 @@ These are implicit contracts between files. Breaking them causes silent visual, 
 | `android:name` in `AndroidManifest.xml` must be `com.docspace.template.MainActivity` | `AndroidManifest.xml` | App crashes with `ClassNotFoundException` on launch |
 | APK download endpoint (`/download/{task_id}`) must remain unauthenticated | `backend/app/api/routes/app_build.py` | Patients receive 401 Unauthorized when clicking shared download links |
 | `builds/apks/` naming pattern must be `{clinic}_{build_id[:8]}.apk` | `app_build_service.py` `run_gradle_build` ↔ `get_latest_doctor_apk` | APK caching breaks — dashboard can't find previously built APKs |
+| `overflow-x: clip` in root styles (`html, body`) | `app/globals.css` | Switching back to `overflow-x: hidden` causes WebKit/Blink to break `position: sticky` on floating headers and sidebar rails |
+| Floating header wrapper must use `pointer-events-none` | `DashboardShell.tsx`, `Navbar.tsx` | Removing `pointer-events-none` causes the transparent margins of the floating container to block user clicks on scrolling content underneath |
 
 ---
 
@@ -1384,3 +1386,14 @@ When future phases are implemented, here are the exact extension points:
 14. **Keep the template offline-first** — do not add network API calls; all doctor data comes from compiled `DoctorConfig.kt` constants
 15. **Use Material3 and DocSpace theme colors** from `Color.kt` — never hardcode hex values in Compose composables
 16. **Test template compilation** via `./gradlew assembleRelease` in `android-template/` after any template changes
+
+---
+
+## 10. Specialized Architecture & Feature Documentation
+
+For deep-dive technical specifications and design systems, refer to the following companion architecture guides:
+
+- **[Floating Header Architecture & Design System](file:///Users/emanur/doctors-platform/docs/FLOATING_HEADER_ARCHITECTURE.md)**: Specifications for the Shiha Wellness-style glassmorphic floating pill headers (`DashboardShell.tsx`, `Navbar.tsx`), the `useScrolled` custom hook, `pointer-events` click containment, and `overflow-x: clip` browser engine compatibility.
+- **[DashboardShell Refactoring Guide](file:///Users/emanur/doctors-platform/docs/DASHBOARDSHELL_REFACTOR.md)**: Historical transition and verification suite for the desktop sidebar and mobile shell.
+- **[Appointment System Specification](file:///Users/emanur/doctors-platform/docs/APPOINTMENT_SYSTEM.md)**: Complete guide to calendar slot calculations, status transitions, demographics generation, and clinic scheduling.
+
