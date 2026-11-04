@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
+  Users,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -21,6 +22,7 @@ import BrandLogo from "@/components/brand/BrandLogo";
 export type DashboardTabId =
   | "overview"
   | "appointment"
+  | "staff"
   | "profile"
   | "android";
 
@@ -210,6 +212,7 @@ export default function DashboardShell({
   }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
+    { id: "staff", label: "Manage Staff", icon: Users },
   ];
 
   // Mobile navigation: Preserves Android App if enabled

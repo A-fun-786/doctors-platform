@@ -917,3 +917,99 @@ export async function getAppBuildLogs(taskId: string): Promise<{ task_id: string
 }
 
 
+
+// ==========================================
+// Manage Staff (Roster & Personnel Directory)
+// ==========================================
+
+export interface StaffMember {
+  id: string;
+  doctor_id: string;
+  full_name: string;
+  email?: string | null;
+  phone: string;
+  role: string;
+  department: string;
+  employment_type: string;
+  status: string;
+  joining_date: string;
+  base_salary_paise: number;
+  emergency_contact?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StaffMemberCreatePayload {
+  full_name: string;
+  email?: string;
+  phone: string;
+  role: string;
+  department?: string;
+  employment_type?: string;
+  status?: string;
+  joining_date?: string;
+  base_salary_paise: number;
+  emergency_contact?: string;
+  notes?: string;
+}
+
+export interface StaffMemberUpdatePayload {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  department?: string;
+  employment_type?: string;
+  status?: string;
+  joining_date?: string;
+  base_salary_paise?: number;
+  emergency_contact?: string;
+  notes?: string;
+}
+
+export async function listStaff(params?: {
+  department?: string;
+  role?: string;
+  status?: string;
+  search?: string;
+}): Promise<StaffMember[]> {
+  const query = new URLSearchParams();
+  if (params?.department) query.set("department", params.department);
+  if (params?.role) query.set("role", params.role);
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  const qs = query.toString();
+  return apiFetch<StaffMember[]>(`/api/v1/staff${qs ? `?${qs}` : ""}`, {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function createStaffMember(payload: StaffMemberCreatePayload): Promise<StaffMember> {
+  return apiFetch<StaffMember>("/api/v1/staff", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    requireAuth: true,
+  });
+}
+
+export async function updateStaffMember(
+  staffId: string,
+  payload: StaffMemberUpdatePayload
+): Promise<StaffMember> {
+  return apiFetch<StaffMember>(`/api/v1/staff/${encodeURIComponent(staffId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    requireAuth: true,
+  });
+}
+
+export async function deleteStaffMember(staffId: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/staff/${encodeURIComponent(staffId)}`, {
+    method: "DELETE",
+    requireAuth: true,
+  });
+}
