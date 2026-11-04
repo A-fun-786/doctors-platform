@@ -115,6 +115,32 @@ As explicitly directed, `DayView` and `WeekView` calendar slots preserve their e
 
 ---
 
+### 4.5. Calendar Header View Switcher (`components/dashboard/calendar/views/CalendarHeader.tsx`)
+
+| UI Element / Selector | Current Legacy Class | New Clinical Theme Class | Visual Rationale |
+| :--- | :--- | :--- | :--- |
+| **Day / Week / Month Active Pill** | `bg-blue-600 text-white shadow-xs` | `bg-brand-600 hover:bg-brand-700 text-white shadow-xs` | Unifies view toggles with primary clinical emerald branding |
+| **Day / Week / Month Inactive Hover** | `text-slate-600 hover:text-slate-900 hover:bg-slate-50` | `text-slate-600 hover:text-brand-700 hover:bg-brand-50/70` | Subtle mint hover feedback consistent with dashboard tabs |
+| **Keyboard Focus State** | N/A | `focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500` | WCAG AA compliance with visible brand focus indicator |
+
+---
+
+### 4.6. Calendar Current Date ("Today") UI Migration (`WeekView.tsx`, `MobileHorizonDayStrip.tsx`, `MonthView.tsx`)
+
+> **Note:** Calendar slot appointments and shift theme colors (`SHIFT_THEME_PALETTES`) are strictly preserved. Only current date headers and badges are migrated.
+
+| UI Element / Selector | Current Legacy Class | New Clinical Theme Class | Visual Rationale |
+| :--- | :--- | :--- | :--- |
+| **WeekView Today Date Badge (Unselected)** | `border-2 border-blue-600 text-blue-600 bg-white` | `border-2 border-brand-600 text-brand-600 bg-brand-50/50 shadow-2xs hover:bg-brand-100/60` | High-contrast clinical emerald current-date indicator |
+| **WeekView Selected Date Badge** | `bg-blue-600 text-white shadow-xs` | `bg-brand-600 text-white shadow-xs` | Solid clinical emerald selected date circle |
+| **WeekView Today Indicator Dot** | `bg-blue-600` | `bg-brand-600` | Cohesive clinical emerald today dot |
+| **WeekView Today Day Name** | `text-blue-600` | `text-brand-600` | Clean high-contrast day name |
+| **WeekView Today Column Header Tint** | `bg-blue-50/25 hover:bg-blue-50/50` | `bg-brand-50/30 hover:bg-brand-50/60` | Soothing mint header background |
+| **Mobile Horizon Strip Today Chip** | `border border-blue-400 bg-blue-50/60 text-blue-900` | `border border-brand-300 bg-brand-50/60 text-brand-900` | Mobile current day capsule matching brand palette |
+| **MonthView Today Cell Circle** | `bg-blue-600 text-white` | `bg-brand-600 text-white` | High-contrast today date badge in monthly grid |
+
+---
+
 ## 5. Accessibility & Contrast Compliance (WCAG AA / AAA)
 
 All Working Hours UI color combinations meet or exceed WCAG requirements:

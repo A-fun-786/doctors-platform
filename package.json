@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node scripts/test_theme_config.mjs && node scripts/test_appointments_comprehensive.mjs && node scripts/test_calendar_utils.mjs && node scripts/test_break_time_suite.mjs && node scripts/test_sidebar_quick_actions_clean.mjs && node scripts/verify_appointment_ui_integration.mjs && node scripts/test_dashboard_shell.mjs && node scripts/test_responsive_qa_suite.mjs && node scripts/test_dayview_mobile_layout.mjs && node scripts/test_calendar_no_demo_fallback.mjs && node scripts/test_calendar_sidebar_theme.mjs",
+    "test": "node scripts/test_theme_config.mjs && node scripts/test_appointments_comprehensive.mjs && node scripts/test_calendar_utils.mjs && node scripts/test_break_time_suite.mjs && node scripts/test_sidebar_quick_actions_clean.mjs && node scripts/verify_appointment_ui_integration.mjs && node scripts/test_dashboard_shell.mjs && node scripts/test_responsive_qa_suite.mjs && node scripts/test_dayview_mobile_layout.mjs && node scripts/test_calendar_no_demo_fallback.mjs && node scripts/test_calendar_sidebar_theme.mjs && node scripts/test_calendar_view_switcher_theme.mjs && node scripts/test_calendar_today_date_theme.mjs",
     "test:theme": "node scripts/test_theme_config.mjs",
     "test:calendar:sidebar": "node scripts/test_calendar_sidebar_theme.mjs",
     "test:dayview": "node scripts/test_dayview_mobile_layout.mjs",
@@ -33,7 +33,9 @@
     "servers:restart": "./scripts/stop-servers.sh && ./scripts/start-servers.sh",
     "servers:logs": "tail -f logs/backend.log logs/frontend.log",
     "tunnel": "npx localtunnel --port 3000 --local-host 127.0.0.1",
-    "tunnel:pinggy": "./scripts/start-tunnel.sh"
+    "tunnel:pinggy": "./scripts/start-tunnel.sh",
+    "test:calendar:header": "node scripts/test_calendar_view_switcher_theme.mjs",
+    "test:calendar:today": "node scripts/test_calendar_today_date_theme.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.4.0",

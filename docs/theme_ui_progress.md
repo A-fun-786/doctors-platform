@@ -69,9 +69,11 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | **Phase 4** | **Landing Page Revamp (Home Page)** | `components/landing/Navbar.tsx`, `Hero.tsx`, `Features.tsx`, `HowItWorks.tsx`, `PreviewSection.tsx`, `CTA.tsx` | ✅ **DONE** |
 | **Phase 5** | **Doctor Dashboard & Calendar (including Sidebar)** | `components/dashboard/DashboardShell.tsx`, `OverviewTab.tsx`, `CalendarTab.tsx`, `DayView.tsx`, `sidebar/*` | ✅ **DONE** |
 | **Phase 5.1** | **Doctor Working Hours Management UI Migration** | `EditWorkingHoursModal.tsx`, `MobileClinicStatusCapsule.tsx`, `WorkingHoursCard.tsx` (DayView/WeekView slots preserved) | ✅ **DONE** |
+| **Phase 5.2** | **Calendar View Switcher (Day / Week / Month) Migration** | `components/dashboard/calendar/views/CalendarHeader.tsx`, `scripts/test_calendar_view_switcher_theme.mjs` | ✅ **DONE** |
+| **Phase 5.3** | **Calendar Current Date ("Today") UI Migration** | `WeekView.tsx`, `MobileHorizonDayStrip.tsx`, `MonthView.tsx`, `scripts/test_calendar_today_date_theme.mjs` | ✅ **DONE** |
 | **Phase 6** | **Patient Booking & Clinic Profile** | `app/[slug]/page.tsx`, `app/dr/[slug]/page.tsx` | ⏳ Pending |
 | **Phase 7** | **Auth & Onboarding** | `app/login/page.tsx`, `app/register/page.tsx`, `app/onboarding/page.tsx` | ✅ **DONE** |
-| **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npm run test:calendar:sidebar`, `npx tsc --noEmit` | ✅ **100% PASS** |
+| **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npm run test:calendar:header`, `npm run test:calendar:today`, `npm run test:calendar:sidebar`, `npx tsc --noEmit` | ✅ **100% PASS** |
 
 ---
 
@@ -127,6 +129,34 @@ Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.
 - **Preserved DayView & WeekView Calendar Slot Colors:**
   - `DayView.tsx`, `WeekView.tsx`, and `SHIFT_THEME_PALETTES` in `calendarUtils.ts` preserve their original colors (Shift 1 Warm Amber, Shift 2 Sky Blue, Shift 3 Emerald Green, Shift 4 Royal Violet) per explicit design instruction.
 
+### ✅ Phase 5.2: Calendar View Mode Switcher (Day / Week / Month) Migration (Completed)
+Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.md#L117-L127), the view mode toggles in `CalendarHeader.tsx` were migrated to the Clinical Emerald & Vitality Mint palette:
+- **Calendar Header View Switcher ([`CalendarHeader.tsx`](../components/dashboard/calendar/views/CalendarHeader.tsx)):**
+  - **Eliminated 100% of legacy `blue-*` classes** from the view switcher.
+  - **Active State:** Migrated from hardcoded `bg-blue-600 text-white shadow-xs` to `bg-brand-600 hover:bg-brand-700 text-white shadow-xs` (Clinical Emerald `#059669`).
+  - **Inactive Hover State:** Updated to `text-slate-600 hover:text-brand-700 hover:bg-brand-50/70` for soft clinical mint feedback.
+  - **Accessibility Focus Indicator:** Added `focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500` for WCAG AA compliance.
+- **Dedicated Automated Verification Suite:** Created [`scripts/test_calendar_view_switcher_theme.mjs`](../scripts/test_calendar_view_switcher_theme.mjs) and registered `npm run test:calendar:header`.
+
+### ✅ Phase 5.3: Calendar Current Date ("Today") UI Migration (Completed)
+Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.md#L127-L140), the current date indicators across all calendar views were migrated to the Clinical Emerald & Vitality Mint palette, keeping calendar appointment slot palettes strictly preserved:
+- **WeekView Date Headers ([`WeekView.tsx`](../components/dashboard/calendar/views/WeekView.tsx)):**
+  - **Today Date Badge (Unselected):** Updated to `border-2 border-brand-600 text-brand-600 bg-brand-50/50 font-black shadow-2xs hover:bg-brand-100/60`.
+  - **Selected Date Badge:** Updated to `bg-brand-600 text-white shadow-xs font-bold`.
+  - **Today Indicator Dot:** Updated to `bg-brand-600`.
+  - **Today Day Name:** Updated to `text-brand-600` (Today) and `text-brand-700` (Selected).
+  - **Today Header Column Tint:** Updated to `bg-brand-50/30 hover:bg-brand-50/60`.
+- **Mobile Horizon Day Strip ([`MobileHorizonDayStrip.tsx`](../components/dashboard/calendar/mobile/MobileHorizonDayStrip.tsx)):**
+  - **Today Chip:** Updated to `border border-brand-300 bg-brand-50/60 text-brand-900 font-semibold hover:bg-brand-100/50`.
+  - **Today Day Label:** Updated to `text-brand-600`.
+  - **Full Month CTA:** Updated to `text-brand-600 hover:text-brand-700 active:bg-brand-50` with `ChevronDown text-brand-500`.
+- **MonthView ([`MonthView.tsx`](../components/dashboard/calendar/views/MonthView.tsx)):**
+  - **Today Cell Container:** Updated to `border-brand-300 bg-brand-50/30`.
+  - **Today Date Number Circle:** Updated to `bg-brand-600 text-white shadow-xs`.
+  - **Booked Appointments Badge:** Updated to `bg-brand-100 text-brand-800`.
+- **Preserved Calendar Slots:** Slot appointment preferences, border colors, and doctor shift cards in `WeekView` and `DayView` are retained 100% intact.
+- **Dedicated Automated Verification Suite:** Created [`scripts/test_calendar_today_date_theme.mjs`](../scripts/test_calendar_today_date_theme.mjs) and registered `npm run test:calendar:today`.
+
 ---
 
 ## 5. Verification Protocols & Test Execution Results
@@ -165,16 +195,57 @@ Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.
 ============================================================
 ```
 
-### C. Comprehensive Full-Suite Test Execution (`npm test`)
-Executed 11 test suites covering 30+ test cases across application logic, edge cases, responsiveness, and calendar utilities:
+### C. Calendar View Switcher (Day / Week / Month) Theme Suite (`npm run test:calendar:header`)
+```
+============================================================
+🗓️  CALENDAR VIEW SWITCHER (DAY / WEEK / MONTH) THEME TEST
+============================================================
+  ✅ [PASS] CalendarHeader.tsx exists on disk
+  ✅ [PASS] CalendarHeader.tsx has 0 legacy blue-* classes
+  ✅ [PASS] Day button uses active brand-600/700 emerald tokens
+  ✅ [PASS] Week button uses active brand-600/700 emerald tokens
+  ✅ [PASS] Month button uses active brand-600/700 emerald tokens
+  ✅ [PASS] Inactive buttons use clinical mint hover (text-brand-700, bg-brand-50/70)
+  ✅ [PASS] WCAG AA focus-visible rings (focus-visible:ring-brand-500) verified on all 3 buttons
+============================================================
+🎉 ALL CALENDAR VIEW SWITCHER THEME TESTS PASSED (100%)
+============================================================
+```
+
+### D. Calendar Current Date ("Today") Theme Suite (`npm run test:calendar:today`)
+```
+============================================================
+🗓️  CALENDAR TODAY CURRENT DATE THEME VERIFICATION SUITE
+============================================================
+  ✅ [PASS] All calendar view files exist on disk
+  ✅ [PASS] WeekView today unselected badge uses brand-600 border and brand-50 background
+  ✅ [PASS] WeekView selected date badge uses solid brand-600 emerald
+  ✅ [PASS] WeekView today indicator dot uses bg-brand-600
+  ✅ [PASS] WeekView day name label uses text-brand-600 for today
+  ✅ [PASS] WeekView today header column uses subtle brand-50 tint
+  ✅ [PASS] MobileHorizonDayStrip today chip uses brand-300 border and brand-50 tint
+  ✅ [PASS] MobileHorizonDayStrip today label uses text-brand-600
+  ✅ [PASS] MonthView today cell uses border-brand-300 and bg-brand-50/30
+  ✅ [PASS] MonthView today date circle uses bg-brand-600 text-white
+  ✅ [PASS] WeekView calendar slot appointment and shift themes are preserved intact
+============================================================
+🎉 ALL CALENDAR TODAY CURRENT DATE THEME TESTS PASSED (100%)
+============================================================
+```
+
+### E. Comprehensive Full-Suite Test Execution (`npm test`)
+Executed 13 test suites covering 40+ test cases across application logic, edge cases, responsiveness, and calendar utilities:
 - **Suite 1:** Comprehensive Appointments & Data Filtering (30/30 Passed - 100%)
 - **Suite 2:** Responsiveness & Mobile Viewport Constraints (Passed - 100%)
 - **Suite 3:** Break Time & Working Hours Guard Suites (Passed - 100%)
 - **Suite 4:** DayView Mobile Single-Row Layout & KPI Cards (10/10 Passed - 100%)
 - **Suite 5:** Calendar No-Demo Fallback Security & Data Isolation (11/11 Passed - 100%)
 - **Suite 6:** Production Responsive QA Audit (50/50 Checks Passed - 100%)
+- **Suite 7:** Calendar Sidebar & MiniCalendar Theme Suite (Passed - 100%)
+- **Suite 8:** Calendar View Switcher (Day / Week / Month) Theme Suite (Passed - 100%)
+- **Suite 9:** Calendar Current Date ("Today") Theme Suite (Passed - 100%)
 
-### D. TypeScript Static Typecheck (`npx tsc --noEmit`)
+### F. TypeScript Static Typecheck (`npx tsc --noEmit`)
 - Result: **0 Errors**. Full type safety verified across all components, modals, and helper utilities.
 
 ---
