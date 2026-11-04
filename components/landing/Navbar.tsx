@@ -35,8 +35,8 @@ export default function Navbar() {
       <div
         className={`pointer-events-auto rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between transition-all duration-300 border ${
           isScrolled
-            ? "bg-white/90 backdrop-blur-xl border-slate-200/90 shadow-[0_14px_35px_-5px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.95)]"
-            : "bg-white/80 backdrop-blur-lg border-slate-200/70 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.85)]"
+            ? "bg-white/90 backdrop-blur-xl border-emerald-100/80 shadow-[0_14px_35px_-5px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.95)]"
+            : "bg-white/80 backdrop-blur-lg border-emerald-100/60 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.85)]"
         }`}
       >
         {/* Brand Logo */}
@@ -74,7 +74,7 @@ export default function Navbar() {
           </Link>
           <Link
             href="/register"
-            className="text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-full shadow-xs hover:shadow-md transition-all hover:scale-[1.02] active:scale-95"
+            className="text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-full shadow-xs shadow-brand-600/25 hover:shadow-md transition-all hover:scale-[1.02] active:scale-95"
           >
             Register as Doctor
           </Link>
@@ -90,7 +90,7 @@ export default function Navbar() {
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-full shadow-2xs transition-all whitespace-nowrap"
+            className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-full shadow-2xs shadow-brand-600/25 transition-all whitespace-nowrap"
           >
             Sign Up
           </Link>
@@ -111,26 +111,26 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden pointer-events-auto mt-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/80 shadow-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden pointer-events-auto mt-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-emerald-100/80 shadow-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col space-y-1">
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors"
+              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-emerald-50/50 hover:text-brand-600 transition-colors"
             >
               Home
             </Link>
             <Link
               href="#features"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors"
+              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-emerald-50/50 hover:text-brand-600 transition-colors"
             >
               Features
             </Link>
             <Link
               href="#how-it-works"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-slate-50 hover:text-brand-600 transition-colors"
+              className="px-3.5 py-2.5 rounded-xl text-base font-medium text-slate-700 hover:bg-emerald-50/50 hover:text-brand-600 transition-colors"
             >
               How It Works
             </Link>
@@ -146,7 +146,7 @@ export default function Navbar() {
             <Link
               href="/register"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-xs transition-colors"
+              className="w-full text-center px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-xs shadow-brand-600/20 transition-colors"
             >
               Register as Doctor
             </Link>
