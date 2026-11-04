@@ -71,9 +71,10 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | **Phase 5.1** | **Doctor Working Hours Management UI Migration** | `EditWorkingHoursModal.tsx`, `MobileClinicStatusCapsule.tsx`, `WorkingHoursCard.tsx` (DayView/WeekView slots preserved) | ✅ **DONE** |
 | **Phase 5.2** | **Calendar View Switcher (Day / Week / Month) Migration** | `components/dashboard/calendar/views/CalendarHeader.tsx`, `scripts/test_calendar_view_switcher_theme.mjs` | ✅ **DONE** |
 | **Phase 5.3** | **Calendar Current Date ("Today") UI Migration** | `WeekView.tsx`, `MobileHorizonDayStrip.tsx`, `MonthView.tsx`, `scripts/test_calendar_today_date_theme.mjs` | ✅ **DONE** |
+| **Phase 5.4** | **Calendar Legend Indicator Dots Migration** | `WeekView.tsx`, `DayView.tsx`, `scripts/test_calendar_legend_theme.mjs` (DayView KPI icon preserved) | ✅ **DONE** |
 | **Phase 6** | **Patient Booking & Clinic Profile** | `app/[slug]/page.tsx`, `app/dr/[slug]/page.tsx` | ⏳ Pending |
 | **Phase 7** | **Auth & Onboarding** | `app/login/page.tsx`, `app/register/page.tsx`, `app/onboarding/page.tsx` | ✅ **DONE** |
-| **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npm run test:calendar:header`, `npm run test:calendar:today`, `npm run test:calendar:sidebar`, `npx tsc --noEmit` | ✅ **100% PASS** |
+| **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npm run test:calendar:header`, `npm run test:calendar:today`, `npm run test:calendar:legend`, `npm run test:calendar:sidebar`, `npx tsc --noEmit` | ✅ **100% PASS** |
 
 ---
 
@@ -157,6 +158,17 @@ Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.
 - **Preserved Calendar Slots:** Slot appointment preferences, border colors, and doctor shift cards in `WeekView` and `DayView` are retained 100% intact.
 - **Dedicated Automated Verification Suite:** Created [`scripts/test_calendar_today_date_theme.mjs`](../scripts/test_calendar_today_date_theme.mjs) and registered `npm run test:calendar:today`.
 
+### ✅ Phase 5.4: Calendar Legend Indicator Dots Migration (Completed)
+Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.md#L141-L157), the appointment legend indicator dots across WeekView and DayView were migrated to the Clinical Emerald & Vitality Mint palette:
+- **WeekView Legend Indicator Dot ([`WeekView.tsx`](../components/dashboard/calendar/views/WeekView.tsx)):**
+  - Updated Appointment Legend Dot from legacy `w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700` to `w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700` (Clinical Emerald `#059669`).
+- **DayView Legend Patient Dot ([`DayView.tsx`](../components/dashboard/calendar/views/DayView.tsx)):**
+  - Updated Patient Appointment Legend Dot from `w-1.5 h-1.5 rounded-full bg-blue-500` to `w-1.5 h-1.5 rounded-full bg-brand-500` (Diagnostic Mint `#10b981`).
+- **Explicit Preservation (No Changes):**
+  - **Summary KPI Card Icon:** In [`DayView.tsx`](../components/dashboard/calendar/views/DayView.tsx) Line 108, the Calendar Icon (`bg-blue-50 text-blue-600`) was **strictly preserved** without modification per explicit user instruction.
+  - **Calendar Slot Themes:** `DayView` and `WeekView` shift slot styling and preferences remain 100% preserved.
+- **Dedicated Automated Verification Suite:** Created [`scripts/test_calendar_legend_theme.mjs`](../scripts/test_calendar_legend_theme.mjs) and registered `npm run test:calendar:legend`.
+
 ---
 
 ## 5. Verification Protocols & Test Execution Results
@@ -233,8 +245,22 @@ Detailed in [`docs/doctor_dashboard_theme_plan.md`](doctor_dashboard_theme_plan.
 ============================================================
 ```
 
-### E. Comprehensive Full-Suite Test Execution (`npm test`)
-Executed 13 test suites covering 40+ test cases across application logic, edge cases, responsiveness, and calendar utilities:
+### E. Calendar Legend Theme Suite (`npm run test:calendar:legend`)
+```
+============================================================
+🗓️  CALENDAR LEGEND THEME VERIFICATION SUITE
+============================================================
+  ✅ [PASS] Calendar view files exist on disk
+  ✅ [PASS] WeekView appointment legend dot correctly uses Clinical Emerald (brand-600)
+  ✅ [PASS] DayView patient appointment legend dot correctly uses Diagnostic Mint (brand-500)
+  ✅ [PASS] DayView Summary KPI Icon strictly preserved as bg-blue-50 text-blue-600 per specification
+============================================================
+🎉 ALL CALENDAR LEGEND THEME TESTS PASSED (100%)
+============================================================
+```
+
+### F. Comprehensive Full-Suite Test Execution (`npm test`)
+Executed 14 test suites covering 40+ test cases across application logic, edge cases, responsiveness, and calendar utilities:
 - **Suite 1:** Comprehensive Appointments & Data Filtering (30/30 Passed - 100%)
 - **Suite 2:** Responsiveness & Mobile Viewport Constraints (Passed - 100%)
 - **Suite 3:** Break Time & Working Hours Guard Suites (Passed - 100%)
@@ -244,8 +270,9 @@ Executed 13 test suites covering 40+ test cases across application logic, edge c
 - **Suite 7:** Calendar Sidebar & MiniCalendar Theme Suite (Passed - 100%)
 - **Suite 8:** Calendar View Switcher (Day / Week / Month) Theme Suite (Passed - 100%)
 - **Suite 9:** Calendar Current Date ("Today") Theme Suite (Passed - 100%)
+- **Suite 10:** Calendar Legend Indicator Dots Theme Suite (Passed - 100%)
 
-### F. TypeScript Static Typecheck (`npx tsc --noEmit`)
+### G. TypeScript Static Typecheck (`npx tsc --noEmit`)
 - Result: **0 Errors**. Full type safety verified across all components, modals, and helper utilities.
 
 ---

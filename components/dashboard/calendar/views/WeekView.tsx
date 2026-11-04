@@ -89,7 +89,7 @@ export default function WeekView({
             <div className="h-3 w-px bg-slate-200 mx-1 hidden sm:block" />
 
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700 shrink-0" />
               <span className="font-semibold text-slate-700 text-[11px]">Appointment</span>
             </div>
             <div className="flex items-center gap-1.5">

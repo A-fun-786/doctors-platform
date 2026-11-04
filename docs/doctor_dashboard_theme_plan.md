@@ -141,6 +141,22 @@ As explicitly directed, `DayView` and `WeekView` calendar slots preserve their e
 
 ---
 
+### 4.7. Calendar Legend Indicator Dots Migration Plan (`WeekView.tsx`, `DayView.tsx`)
+
+> [!IMPORTANT]
+> **Explicit User Preservation Requirement:**
+> 1. In `DayView.tsx`, the **Summary KPI Card Calendar Icon** (`bg-blue-50 text-blue-600` on Line 108) is **STRICTLY PRESERVED** and **WILL NOT BE CHANGED**.
+> 2. The appointment slot palettes (`SHIFT_THEME_PALETTES`) across DayView and WeekView remain preserved as-is.
+> 3. Only the specific legend indicator dots for patient appointments are migrated to Clinical Emerald (`brand-*`).
+
+| UI Element / File | Location | Current Legacy Class | New Clinical Theme Class | Visual Rationale & Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **WeekView Legend Appointment Dot**<br>[`WeekView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/WeekView.tsx) | Line 92 | `w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700` | `w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700` | Replaces legacy blue square dot with Clinical Emerald (`brand-600`) indicator matching confirmed appointment branding. |
+| **DayView Legend Patient Dot**<br>[`DayView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/DayView.tsx) | Line 84 | `w-1.5 h-1.5 rounded-full bg-blue-500` | `w-1.5 h-1.5 rounded-full bg-brand-500` | Harmonizes small patient appointment legend dot with Diagnostic Mint (`brand-500`). |
+| **DayView Summary KPI Icon**<br>[`DayView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/DayView.tsx) | Line 108 | `bg-blue-50 text-blue-600` | `bg-blue-50 text-blue-600` | 🔒 **PRESERVED AS-IS (NO CHANGE):** Explicit user instruction to retain original blue styling for KPI card icon. |
+
+---
+
 ## 5. Accessibility & Contrast Compliance (WCAG AA / AAA)
 
 All Working Hours UI color combinations meet or exceed WCAG requirements:
@@ -160,6 +176,10 @@ All Working Hours UI color combinations meet or exceed WCAG requirements:
 1. **Step 1: `EditWorkingHoursModal.tsx` Migrated** — Verified 0 legacy `blue-*` classes.
 2. **Step 2: `MobileClinicStatusCapsule.tsx` Migrated** — Verified 0 legacy `blue-*` classes.
 3. **Step 3: `DayView.tsx` and `WeekView.tsx` Calendar Slots** — Preserved in original colors per user preference.
-4. **Step 4: Automated Verification**
+4. **Step 4: Legend Indicator Dots Migration:**
+   - Update `WeekView.tsx` Line 92: `bg-blue-600 border border-blue-700` → `bg-brand-600 border border-brand-700`.
+   - Update `DayView.tsx` Line 84: `bg-blue-500` → `bg-brand-500`.
+   - 🔒 **Preserved:** `DayView.tsx` Line 108 Summary KPI icon (`bg-blue-50 text-blue-600`) remains strictly unchanged.
+5. **Step 5: Automated Verification**
    - Run `npx tsc --noEmit` — 0 errors.
    - Run `npm test` & `npm run test:calendar:sidebar` — 100% tests pass.
