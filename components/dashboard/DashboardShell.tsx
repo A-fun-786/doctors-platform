@@ -129,7 +129,7 @@ export default function DashboardShell({
           <img
             src={avatar}
             alt={doctor.full_name || "Doctor"}
-            className="w-8 h-8 rounded-full border border-slate-200 object-cover shrink-0"
+            className="w-8 h-8 rounded-full border-2 border-brand-200 object-cover shrink-0"
           />
           <button
             type="button"
@@ -182,7 +182,7 @@ export default function DashboardShell({
               <img
                 src={avatar}
                 alt={doctor.full_name || "Doctor"}
-                className="w-10 h-10 rounded-full border border-slate-200 object-cover shrink-0"
+                className="w-10 h-10 rounded-full border-2 border-brand-200 object-cover shrink-0"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-slate-900 truncate">
@@ -204,7 +204,7 @@ export default function DashboardShell({
                     onClick={() => handleTabSelect(item.id)}
                     className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
                       isActive
-                        ? "bg-brand-50 text-brand-700 font-bold border-l-4 border-brand-600 shadow-2xs"
+                        ? "bg-brand-50 text-brand-800 font-bold border-l-4 border-brand-600 shadow-2xs"
                         : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
@@ -297,7 +297,7 @@ export default function DashboardShell({
                       : "gap-3 px-3.5 py-2.5"
                   } ${
                     isActive
-                      ? "bg-brand-50 text-brand-700 font-semibold shadow-2xs border-l-4 border-brand-600"
+                      ? "bg-brand-50 text-brand-800 font-bold shadow-2xs border-l-4 border-brand-600"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
@@ -320,6 +320,7 @@ export default function DashboardShell({
               ========================================================================= */}
           <div className="hidden md:flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-3.5 mb-6">
             <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
               <span className="text-base font-bold text-slate-900 tracking-tight capitalize">
                 {activeTab}
               </span>
@@ -332,13 +333,13 @@ export default function DashboardShell({
                 <img
                   src={avatar}
                   alt={doctor.full_name || "Doctor"}
-                  className="w-8 h-8 rounded-full border border-slate-200 object-cover shrink-0"
+                  className="w-8 h-8 rounded-full border-2 border-brand-200 object-cover shrink-0"
                 />
                 <div className="flex flex-col text-left">
                   <span className="text-sm font-bold text-slate-800 leading-tight max-w-[200px] truncate">
                     {formattedDoctorName}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-medium truncate max-w-[200px]">
+                  <span className="text-[11px] text-brand-700 font-medium truncate max-w-[200px]">
                     {profile?.speciality || "Physician"}
                   </span>
                 </div>
@@ -381,7 +382,7 @@ export default function DashboardShell({
                 onClick={() => onTabChange(item.id)}
                 className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
                   isActive
-                    ? "text-brand-600 font-semibold"
+                    ? "text-brand-700 font-bold"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
