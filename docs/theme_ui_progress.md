@@ -66,7 +66,7 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | **Phase 2** | **Tailwind & CSS Variable Binding** | `tailwind.config.ts`, `app/globals.css` | ✅ **DONE** |
 | **Phase 3** | **Brand Identity & SVG Elements** | `components/brand/BrandLogo.tsx`, `StethoscopeHeartPulseIcon.tsx` | ✅ **DONE** |
 | **Phase 4** | **Landing Page Revamp (Home Page)** | `components/landing/Navbar.tsx`, `Hero.tsx`, `Features.tsx`, `HowItWorks.tsx`, `PreviewSection.tsx`, `CTA.tsx` | ✅ **DONE** |
-| **Phase 5** | **Doctor Dashboard & Calendar** | `components/dashboard/DashboardShell.tsx`, `OverviewTab.tsx`, `CalendarTab.tsx`, `DayView.tsx` | ✅ **DONE** |
+| **Phase 5** | **Doctor Dashboard & Calendar (including Sidebar)** | `components/dashboard/DashboardShell.tsx`, `OverviewTab.tsx`, `CalendarTab.tsx`, `DayView.tsx`, `sidebar/*` | ✅ **DONE** |
 | **Phase 6** | **Patient Booking & Clinic Profile** | `app/[slug]/page.tsx`, `app/dr/[slug]/page.tsx` | ⏳ Pending |
 | **Phase 7** | **Auth & Onboarding** | `app/login/page.tsx`, `app/register/page.tsx`, `app/onboarding/page.tsx` | ✅ **DONE** |
 | **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npx tsc --noEmit` | ✅ **100% PASS** |
@@ -110,6 +110,21 @@ Updated all landing page components to reflect Option 2 (Clinical Emerald & Vita
   - Soft ambient center glow (`bg-emerald-500/10 blur-[100px]`) and high-contrast white CTA button.
 - **Preview Section ([`PreviewSection.tsx`](../components/landing/PreviewSection.tsx)):**
   - Unified with the active `brand-*` emerald tokens for all mockup components and tags.
+
+### ✅ Phase 5: Doctor Dashboard & Calendar Tab (Completed)
+Updated the Doctor Dashboard shell, main views, and calendar sidebar components to the Clinical Emerald & Vitality Mint palette:
+- **Dashboard Shell ([`DashboardShell.tsx`](../components/dashboard/DashboardShell.tsx)):**
+  - Clinical hospital sidebar styling with active brand pills (`bg-brand-600` / `bg-brand-50 border-brand-200 text-brand-700`).
+  - Standardized hospital surface tokens and high-contrast clinical header authority.
+- **Overview Tab ([`OverviewTab.tsx`](../components/dashboard/OverviewTab.tsx)):**
+  - Standardized KPI cards, clinical action buttons, and appointment list badges.
+- **Calendar Tab & Day View ([`CalendarTab.tsx`](../components/dashboard/CalendarTab.tsx), [`DayView.tsx`](../components/dashboard/calendar/DayView.tsx)):**
+  - Unified view switcher, single-row responsive appointment slots, and standardized medical status tags.
+- **Calendar Sidebar Components ([`MiniCalendar.tsx`](../components/dashboard/calendar/sidebar/MiniCalendar.tsx), [`WorkingHoursCard.tsx`](../components/dashboard/calendar/sidebar/WorkingHoursCard.tsx), [`CalendarSidebar.tsx`](../components/dashboard/calendar/sidebar/CalendarSidebar.tsx)):**
+  - **MiniCalendar:** Today + Selected date uses `bg-brand-600 text-white font-bold`, Today (unselected) uses `border-2 border-brand-600 text-brand-600 bg-brand-50/50 hover:bg-brand-100/60`, other selected dates use `bg-brand-100 text-brand-800 hover:bg-brand-200/80`, and appointment indicator dots use `bg-brand-600` / `bg-brand-700`. Completely eliminated legacy `blue-*` classes.
+  - **WorkingHoursCard:** Header clock icon uses `bg-brand-50 text-brand-600 border-brand-100`, "Edit" CTA button updated to `text-brand-700 hover:text-brand-800 bg-brand-50/80 hover:bg-brand-100/80 border-brand-200`, shift item hover state updated to `hover:bg-brand-50/30 hover:border-brand-200`, shift slot count badges use `bg-brand-50 text-brand-800 border-brand-200`, and total capacity dot uses `bg-brand-500`.
+  - **CalendarSidebar:** Verified wrapper layout grid and prop forwarding.
+  - **Automated Regression Suite:** Created and integrated [`scripts/test_calendar_sidebar_theme.mjs`](../scripts/test_calendar_sidebar_theme.mjs) into `npm run test` and `npm run test:calendar:sidebar`.
 
 ### ✅ Phase 7: Auth & Onboarding Flow (Completed)
 Updated authentication and onboarding components to fully align with Option 2 (Clinical Emerald & Vitality Mint):
