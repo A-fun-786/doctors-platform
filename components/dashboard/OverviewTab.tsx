@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -10,7 +10,7 @@ import {
   UserCheck,
   AlertCircle,
   Loader2,
-  ExternalLink,
+  User,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -342,14 +342,14 @@ export default function OverviewTab({
         >
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Practice Profile &amp; Services
+              Admin Profile
             </h3>
             <p className="text-xs text-slate-500">
               Update clinic address, consultation fees, bio, services offered, and photo.
             </p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <ExternalLink className="w-4 h-4" />
+            <User className="w-4 h-4" />
           </div>
         </button>
       </ResponsiveGrid>
