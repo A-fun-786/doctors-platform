@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Clock, ChevronRight, Sun, Sunset, Coffee } from "lucide-react";
+import { Clock, ChevronRight, Sun, Sunset, Calendar } from "lucide-react";
 import {
   WorkingHoursConfig,
   DEFAULT_WORKING_HOURS,
   format12Hour,
   timeToMinutes,
-  getDoctorBreakInterval,
 } from "../calendarUtils";
 
 interface MobileClinicStatusCapsuleProps {
@@ -45,28 +44,11 @@ export default function MobileClinicStatusCapsule({
       if (currentMins >= startM && currentMins < endM) {
         return {
           type: "active",
-          label: `In Shift: ${shift.label || (shift.id === "morning" ? "Morning Shift" : "Evening Shift")}`,
+          label: `In Shift: ${shift.label || "Operating Hours"}`,
           subtext: `${format12Hour(shift.start)} – ${format12Hour(shift.end)}`,
           badgeColor: "bg-emerald-500",
           pulse: true,
           icon: shift.id === "morning" ? Sun : Sunset,
-        };
-      }
-    }
-
-    // Check if in break
-    const breakInterval = getDoctorBreakInterval(config);
-    if (breakInterval && breakInterval.enabled) {
-      const bStart = timeToMinutes(breakInterval.start);
-      const bEnd = timeToMinutes(breakInterval.end);
-      if (currentMins >= bStart && currentMins < bEnd) {
-        return {
-          type: "break",
-          label: "In Break",
-          subtext: `${breakInterval.startLabel} – ${breakInterval.endLabel}`,
-          badgeColor: "bg-amber-500",
-          pulse: false,
-          icon: Coffee,
         };
       }
     }
@@ -76,11 +58,11 @@ export default function MobileClinicStatusCapsule({
     if (upcoming) {
       return {
         type: "upcoming",
-        label: `Next: ${upcoming.label || (upcoming.id === "morning" ? "Morning Shift" : "Evening Shift")}`,
+        label: `Next: ${upcoming.label || "Schedule Window"}`,
         subtext: `Starts ${format12Hour(upcoming.start)}`,
         badgeColor: "bg-blue-500",
         pulse: false,
-        icon: upcoming.id === "morning" ? Sun : Sunset,
+        icon: Calendar,
       };
     }
 
@@ -93,7 +75,7 @@ export default function MobileClinicStatusCapsule({
       pulse: false,
       icon: Clock,
     };
-  }, [shifts, config]);
+  }, [shifts]);
 
   const StatusIcon = statusInfo.icon;
 

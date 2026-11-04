@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * DocSpace Platform - Calendar Break Time Feature Automated Test Suite
+ * DocSpace Platform - Calendar Schedule & Break-Removal Automated Test Suite
  * Validates:
- * 1. Break Interval Calculations (Dynamic shift gap & custom override)
- * 2. Slot In Break Detection & Conflict Prevention
- * 3. Working Hours Enforcement (Break slot non-bookability)
- * 4. UI Structure Verification (DayView, WeekView, MonthView exclusion, Sidebar & Modal)
+ * 1. Schedule Interval Engine (Operating shifts without forced break entities)
+ * 2. Working Hours Enforcement (Non-scheduled gap non-bookability)
+ * 3. UI Structure Verification (DayView, WeekView, MonthView, Sidebar & Modal Break-free integrity)
  */
 
 import assert from "node:assert/strict";
@@ -70,122 +69,47 @@ const {
   getDoctorBreakInterval,
   isSlotInBreak,
   isSlotWithinWorkingHours,
-  timeToMinutes,
-  format12Hour,
 } = utils;
 
 // ============================================================================
-// SUITE 1: Break Interval Calculation Logic
+// SUITE 1: Break Removal Engine Logic
 // ============================================================================
-describe("Break Interval Calculation Logic (A/C Working Hours)", () => {
-  test("Default working hours calculates break interval between 1:00 PM and 4:00 PM (180 min)", () => {
+describe("Schedule Engine (Operating Windows Without Forced Breaks)", () => {
+  test("getDoctorBreakInterval safely returns null (breaks removed per specification)", () => {
     const breakInfo = getDoctorBreakInterval(DEFAULT_WORKING_HOURS);
-    assert.ok(breakInfo, "Break info should not be null");
-    assert.strictEqual(breakInfo.enabled, true);
-    assert.strictEqual(breakInfo.start, "13:00");
-    assert.strictEqual(breakInfo.end, "16:00");
-    assert.strictEqual(breakInfo.startLabel, "1:00 PM");
-    assert.strictEqual(breakInfo.endLabel, "4:00 PM");
-    assert.strictEqual(breakInfo.durationMinutes, 180);
-    assert.strictEqual(breakInfo.label, "Break Time");
+    assert.strictEqual(breakInfo, null, "Break info must be null as breaks are removed");
   });
 
-  test("Calculates break interval dynamically when shifts are customized", () => {
-    const customConfig = {
-      shifts: [
-        { id: "morning", label: "Morning", start: "09:00", end: "12:00", enabled: true },
-        { id: "evening", label: "Evening", start: "17:00", end: "21:00", enabled: true },
-      ],
-    };
-    const breakInfo = getDoctorBreakInterval(customConfig);
-    assert.ok(breakInfo);
-    assert.strictEqual(breakInfo.start, "12:00");
-    assert.strictEqual(breakInfo.end, "17:00");
-    assert.strictEqual(breakInfo.startLabel, "12:00 PM");
-    assert.strictEqual(breakInfo.endLabel, "5:00 PM");
-    assert.strictEqual(breakInfo.durationMinutes, 300);
-  });
-
-  test("Explicit breakTime overrides shift gap if explicitly configured", () => {
-    const customWithBreak = {
-      shifts: [
-        { id: "morning", label: "Morning", start: "10:00", end: "13:00", enabled: true },
-        { id: "evening", label: "Evening", start: "16:00", end: "20:00", enabled: true },
-      ],
-      breakTime: {
-        enabled: true,
-        start: "13:30",
-        end: "14:30",
-        label: "Midday Power Nap",
-      },
-    };
-    const breakInfo = getDoctorBreakInterval(customWithBreak);
-    assert.ok(breakInfo);
-    assert.strictEqual(breakInfo.start, "13:30");
-    assert.strictEqual(breakInfo.end, "14:30");
-    assert.strictEqual(breakInfo.label, "Midday Power Nap");
-    assert.strictEqual(breakInfo.durationMinutes, 60);
-  });
-
-  test("Returns null when only 1 shift is enabled and no explicit break is set", () => {
-    const singleShiftConfig = {
-      shifts: [
-        { id: "morning", label: "Morning", start: "10:00", end: "18:00", enabled: true },
-        { id: "evening", label: "Evening", start: "19:00", end: "21:00", enabled: false },
-      ],
-    };
-    const breakInfo = getDoctorBreakInterval(singleShiftConfig);
-    assert.strictEqual(breakInfo, null, "Should return null when no shift gap exists");
+  test("isSlotInBreak consistently returns false", () => {
+    assert.strictEqual(isSlotInBreak("13:00", "13:30", DEFAULT_WORKING_HOURS), false);
+    assert.strictEqual(isSlotInBreak("14:00", "15:00", DEFAULT_WORKING_HOURS), false);
   });
 });
 
 // ============================================================================
-// SUITE 2: isSlotInBreak Detection
+// SUITE 2: isSlotWithinWorkingHours Operating Shift Guard
 // ============================================================================
-describe("isSlotInBreak Detection", () => {
-  test("Slots before break return false", () => {
-    assert.strictEqual(isSlotInBreak("10:00", "10:30", DEFAULT_WORKING_HOURS), false);
-    assert.strictEqual(isSlotInBreak("12:00", "12:30", DEFAULT_WORKING_HOURS), false);
-    assert.strictEqual(isSlotInBreak("12:30", "13:00", DEFAULT_WORKING_HOURS), false);
-  });
-
-  test("Slots completely or partially within break return true", () => {
-    assert.strictEqual(isSlotInBreak("13:00", "13:30", DEFAULT_WORKING_HOURS), true);
-    assert.strictEqual(isSlotInBreak("14:00", "14:30", DEFAULT_WORKING_HOURS), true);
-    assert.strictEqual(isSlotInBreak("15:30", "16:00", DEFAULT_WORKING_HOURS), true);
-    assert.strictEqual(isSlotInBreak("12:45", "13:15", DEFAULT_WORKING_HOURS), true); // partial boundary overlap
-  });
-
-  test("Slots after break return false", () => {
-    assert.strictEqual(isSlotInBreak("16:00", "16:30", DEFAULT_WORKING_HOURS), false);
-    assert.strictEqual(isSlotInBreak("19:30", "20:00", DEFAULT_WORKING_HOURS), false);
-  });
-});
-
-// ============================================================================
-// SUITE 3: isSlotWithinWorkingHours Enforcement & Hard-Block
-// ============================================================================
-describe("Working Hours & Break Time Booking Guard", () => {
-  test("Valid morning slot is permitted on weekday", () => {
+describe("Operating Hours Booking Guard (Start to End Time Boundaries)", () => {
+  test("Slots within active Schedule 1 (10:00 - 13:00) are permitted on weekday", () => {
     const monday = "2026-10-19";
     assert.strictEqual(isSlotWithinWorkingHours(monday, "10:00", "10:30", DEFAULT_WORKING_HOURS), true);
     assert.strictEqual(isSlotWithinWorkingHours(monday, "12:30", "13:00", DEFAULT_WORKING_HOURS), true);
   });
 
-  test("Valid evening slot is permitted on weekday", () => {
+  test("Slots within active Schedule 2 (16:00 - 20:00) are permitted on weekday", () => {
     const monday = "2026-10-19";
     assert.strictEqual(isSlotWithinWorkingHours(monday, "16:00", "16:30", DEFAULT_WORKING_HOURS), true);
     assert.strictEqual(isSlotWithinWorkingHours(monday, "19:30", "20:00", DEFAULT_WORKING_HOURS), true);
   });
 
-  test("Slot during break time is strictly REJECTED (cannot book)", () => {
+  test("Slots in gap outside active schedules (e.g. 13:00 - 16:00) are naturally REJECTED", () => {
     const monday = "2026-10-19";
     assert.strictEqual(isSlotWithinWorkingHours(monday, "13:00", "13:30", DEFAULT_WORKING_HOURS), false);
     assert.strictEqual(isSlotWithinWorkingHours(monday, "14:00", "14:30", DEFAULT_WORKING_HOURS), false);
     assert.strictEqual(isSlotWithinWorkingHours(monday, "15:30", "16:00", DEFAULT_WORKING_HOURS), false);
   });
 
-  test("Sunday slots are strictly REJECTED regardless of time", () => {
+  test("Sunday slots are strictly REJECTED when closed_days contains Sunday", () => {
     const sunday = "2026-10-25";
     assert.strictEqual(isSlotWithinWorkingHours(sunday, "10:00", "10:30", DEFAULT_WORKING_HOURS), false);
     assert.strictEqual(isSlotWithinWorkingHours(sunday, "16:00", "16:30", DEFAULT_WORKING_HOURS), false);
@@ -193,70 +117,52 @@ describe("Working Hours & Break Time Booking Guard", () => {
 });
 
 // ============================================================================
-// SUITE 4: UI Structure Verification (DayView, WeekView, MonthView exclusion)
+// SUITE 3: UI Structure Verification (DayView, WeekView, MonthView, Modal)
 // ============================================================================
-describe("UI Component Structural Integrity", () => {
-  test("DayView.tsx matches WeekView format with shared formatBreakTimeTitle and BREAK_TIME constants", () => {
+describe("UI Component Break-Free Structural Integrity", () => {
+  test("DayView.tsx does NOT render intrusive break cards or break banners", () => {
     const dayViewSrc = fs.readFileSync(dayViewPath, "utf-8");
-    assert.ok(dayViewSrc.includes("break-time-slot-card"), "DayView must have break-time-slot-card key");
-    assert.ok(dayViewSrc.includes("getDoctorBreakInterval"), "DayView must call getDoctorBreakInterval");
-    assert.ok(dayViewSrc.includes("BREAK_TIME_LABEL"), "DayView must use BREAK_TIME_LABEL constant");
-    assert.ok(dayViewSrc.includes("formatBreakTimeTitle"), "DayView must use formatBreakTimeTitle helper (WeekView parity)");
-    assert.ok(dayViewSrc.includes("BREAK_TIME_SUBTITLE"), "DayView must use BREAK_TIME_SUBTITLE constant");
-    assert.ok(dayViewSrc.includes("BREAK_TIME_BADGE"), "DayView must use BREAK_TIME_BADGE constant");
-    assert.strictEqual(dayViewSrc.includes("lunch"), false, "DayView must NOT include 'lunch'");
-    assert.strictEqual(dayViewSrc.includes("Rest"), false, "DayView must NOT include 'Rest'");
-    assert.strictEqual(dayViewSrc.includes("Doctor On Break"), false, "DayView must NOT contain duplicate 'Doctor On Break'");
-    assert.ok(dayViewSrc.includes("Coffee"), "DayView must include Coffee icon");
+    assert.strictEqual(dayViewSrc.includes("break-time-slot-card"), false, "DayView must NOT have break-time-slot-card");
+    assert.strictEqual(dayViewSrc.includes("renderBreakSlotCard"), false, "DayView must NOT call renderBreakSlotCard");
+    assert.strictEqual(dayViewSrc.includes("BREAK_TIME_LABEL"), false, "DayView must NOT import BREAK_TIME_LABEL");
   });
 
-  test("WeekView.tsx includes consolidated Option A break row with shared formatBreakTimeTitle and constants", () => {
+  test("WeekView.tsx does NOT render 7-day break row banner", () => {
     const weekViewSrc = fs.readFileSync(weekViewPath, "utf-8");
-    assert.ok(weekViewSrc.includes("week-break-time-row"), "WeekView must have week-break-time-row key");
-    assert.ok(weekViewSrc.includes("getDoctorBreakInterval"), "WeekView must call getDoctorBreakInterval");
-    assert.ok(weekViewSrc.includes("BREAK_TIME_LABEL"), "WeekView must use BREAK_TIME_LABEL constant");
-    assert.ok(weekViewSrc.includes("formatBreakTimeTitle"), "WeekView must use formatBreakTimeTitle helper");
-    assert.ok(weekViewSrc.includes("BREAK_TIME_SUBTITLE"), "WeekView must use BREAK_TIME_SUBTITLE constant");
-    assert.ok(weekViewSrc.includes("BREAK_TIME_BADGE"), "WeekView must use BREAK_TIME_BADGE constant");
-    assert.strictEqual(weekViewSrc.includes("lunch"), false, "WeekView must NOT include 'lunch'");
-    assert.strictEqual(weekViewSrc.includes("rest"), false, "WeekView must NOT include 'rest'");
-    assert.ok(weekViewSrc.includes("col-span-7"), "WeekView break row must span all 7 day columns");
+    assert.strictEqual(weekViewSrc.includes("week-break-time-row"), false, "WeekView must NOT have week-break-time-row");
+    assert.strictEqual(weekViewSrc.includes("renderWeekBreakRow"), false, "WeekView must NOT call renderWeekBreakRow");
+    assert.strictEqual(weekViewSrc.includes("BREAK_TIME_LABEL"), false, "WeekView must NOT import BREAK_TIME_LABEL");
   });
 
   test("MonthView.tsx does NOT render break slots or break icons", () => {
     const monthViewSrc = fs.readFileSync(monthViewPath, "utf-8");
     assert.strictEqual(monthViewSrc.includes("break-time"), false, "MonthView must NOT render break time slots");
     assert.strictEqual(monthViewSrc.includes("getDoctorBreakInterval"), false, "MonthView must NOT query break intervals");
-    assert.strictEqual(monthViewSrc.includes("BREAK TIME"), false, "MonthView must NOT display BREAK TIME");
   });
 
-  test("WorkingHoursCard.tsx does NOT render break time, only working shifts", () => {
+  test("WorkingHoursCard.tsx renders operating shifts cleanly without break icons", () => {
     const cardSrc = fs.readFileSync(workingHoursCardPath, "utf-8");
     assert.strictEqual(cardSrc.includes("getDoctorBreakInterval"), false, "WorkingHoursCard must NOT query break intervals");
     assert.strictEqual(cardSrc.includes("Coffee"), false, "WorkingHoursCard must NOT include Coffee icon");
-    assert.strictEqual(cardSrc.includes("breakInfo"), false, "WorkingHoursCard must NOT display breakInfo");
   });
 
-  test("EditWorkingHoursModal.tsx calculates dynamic break and displays Break Time preview in popup", () => {
+  test("EditWorkingHoursModal.tsx provides '+ Add Another Schedule Window' and has NO breakTime preview", () => {
     const modalSrc = fs.readFileSync(editWorkingHoursModalPath, "utf-8");
-    assert.ok(modalSrc.includes("calculatedBreak"), "EditWorkingHoursModal must compute calculatedBreak");
-    assert.ok(modalSrc.includes("breakTime"), "EditWorkingHoursModal must include breakTime in save");
-    assert.ok(modalSrc.includes("Break Time:"), "EditWorkingHoursModal must display Break Time preview");
-    assert.strictEqual(modalSrc.includes("Lunch & Rest Break"), false, "EditWorkingHoursModal must NOT contain 'Lunch & Rest Break'");
+    assert.strictEqual(modalSrc.includes("calculatedBreak"), false, "EditWorkingHoursModal must NOT compute calculatedBreak");
+    assert.strictEqual(modalSrc.includes("Break Time:"), false, "EditWorkingHoursModal must NOT display Break Time banner");
+    assert.ok(modalSrc.includes("handleAddSchedule"), "EditWorkingHoursModal must support adding schedules");
+    assert.ok(modalSrc.includes("+ Add Another Schedule Window"), "EditWorkingHoursModal must include Add Another Schedule CTA");
   });
 });
 
 console.log(`\n============================================================`);
-console.log(`🏁 BREAK TIME TEST SCORECARD`);
+console.log(`🏁 SCHEDULE ENGINE TEST SCORECARD`);
 console.log(`============================================================`);
 console.log(`  Total Test Cases : ${stats.total}`);
 console.log(`  Passed           : ${stats.passed} (${Math.round((stats.passed / stats.total) * 100)}%)`);
 console.log(`  Failed           : ${stats.failed}`);
 console.log(`  Suites Executed  : ${stats.suites}/${stats.suites}`);
-console.log(`============================================================\n`);
 
 if (stats.failed > 0) {
   process.exit(1);
-} else {
-  console.log(`🎉 ALL BREAK TIME AUTOMATED TEST CASES PASSED WITH 100% SUCCESS!\n`);
 }

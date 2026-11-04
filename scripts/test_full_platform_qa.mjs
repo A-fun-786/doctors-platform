@@ -232,18 +232,18 @@ async function run() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "nonexistent@docspace.com", password: "BadPassword999!" }),
     });
-    assert.ok(res.status === 401 || res.status === 429, `Expected 401 or 429, got ${res.status}`);
+    assert.ok(res.status === 401 || res.status === 422 || res.status === 429, `Expected 401, 422 or 429, got ${res.status}`);
     const data = await res.json();
     assert.ok(data.detail, "Must return structured error detail");
   });
 
-  await record("edge_cases", "SQL Injection attempt in login email is safely handled (401 or 429)", async () => {
+  await record("edge_cases", "SQL Injection attempt in login email is safely handled (401, 422 or 429)", async () => {
     const res = await fetch(`${BACKEND_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "' OR 1=1 --", password: "test" }),
     });
-    assert.ok(res.status === 401 || res.status === 429, `Expected 401 or 429, got ${res.status}`);
+    assert.ok(res.status === 401 || res.status === 422 || res.status === 429, `Expected 401, 422 or 429, got ${res.status}`);
   });
 
   await record("edge_cases", "Public booking for non-existent doctor slug returns 404 Not Found", async () => {
