@@ -1,6 +1,21 @@
+import re
 import uuid
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+EMAIL_REGEX = re.compile(
+    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
+)
+
+
+def validate_email_id(email: str) -> str:
+    """Validate that the provided string is a well-formed, RFC-compliant email address."""
+    if not isinstance(email, str):
+        raise ValueError("Invalid email address format. Please provide a valid email ID.")
+    cleaned = email.strip().lower()
+    if not cleaned or not EMAIL_REGEX.match(cleaned):
+        raise ValueError("Invalid email address format. Please provide a valid email ID.")
+    return cleaned
 
 
 class GoogleAuthRequest(BaseModel):
@@ -14,11 +29,21 @@ class EmailRegisterRequest(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
 
+    @field_validator("email")
+    @classmethod
+    def check_valid_email(cls, v: str) -> str:
+        return validate_email_id(v)
 
-# Extensible schema for future email/password login
+
+# Extensible schema for email/password login
 class EmailLoginRequest(BaseModel):
     email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def check_valid_email(cls, v: str) -> str:
+        return validate_email_id(v)
 
 
 class TenantResponse(BaseModel):

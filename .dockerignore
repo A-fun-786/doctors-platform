@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+build
+.git
+.gitignore
+.env
+.env*.local
+*.log
+backend/
+android-template/
+docs/
+logs/
+.pytest_cache/
+

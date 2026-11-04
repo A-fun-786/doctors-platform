@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+from app.core.storage import get_storage
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 
@@ -67,8 +68,12 @@ def prepare_project_workspace(
     if target_workspace.exists():
         shutil.rmtree(target_workspace)
 
-    # 1. Copy android-template into isolated build workspace
-    shutil.copytree(TEMPLATE_DIR, target_workspace)
+    # 1. Copy android-template into isolated build workspace (excluding build caches & temp files)
+    shutil.copytree(
+        TEMPLATE_DIR,
+        target_workspace,
+        ignore=shutil.ignore_patterns(".gradle", ".idea", ".kotlin", "build", "*.dex", "*.class"),
+    )
 
     # 2. Inject values into app/build.gradle.kts
     app_gradle_file = target_workspace / "app" / "build.gradle.kts"
@@ -137,11 +142,19 @@ def prepare_project_workspace(
 
     # 5. Handle Custom App Icon if available
     icon_to_use = custom_icon_path or doctor.app_icon_url
-    if icon_to_use and Path(icon_to_use).exists():
+    if icon_to_use:
         try:
-            # Copy to drawable or replace mipmaps
             dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
-            shutil.copy2(icon_to_use, dest_icon)
+            dest_icon.parent.mkdir(parents=True, exist_ok=True)
+            if Path(icon_to_use).exists():
+                shutil.copy2(icon_to_use, dest_icon)
+            else:
+                # Resolve via storage abstraction (stripping /uploads/ prefix if present)
+                clean_key = icon_to_use.split("?")[0].replace("/uploads/", "").lstrip("/")
+                storage = get_storage()
+                data, _ = storage.get_file(clean_key)
+                with open(dest_icon, "wb") as f:
+                    f.write(data)
         except Exception as e:
             print(f"Warning: Could not copy custom icon: {e}")
 
@@ -186,7 +199,7 @@ def run_gradle_build(build_id: str, workspace_path: Path, identity: Dict[str, st
         # Execute build command streaming to log file
         cmd = ["./gradlew", "assembleRelease", "--no-daemon", "--stacktrace"]
         with open(log_file_path, "w", encoding="utf-8") as log_f:
-            log_f.write(f"=== DocSpace Build Engine v1.0 ===\n")
+            log_f.write("=== DocSpace Build Engine v1.0 ===\n")
             log_f.write(f"Target App: {identity['app_name']}\n")
             log_f.write(f"Package: {identity['package_name']}\n")
             log_f.write(f"JAVA_HOME: {env.get('JAVA_HOME', 'default')}\n")

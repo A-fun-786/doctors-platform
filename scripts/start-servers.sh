@@ -10,6 +10,32 @@ LOG_DIR="$ROOT_DIR/logs"
 
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
+# 1. Ensure Local Frontend points to Local Backend (protects against vercel env pull)
+if [ ! -f "$ROOT_DIR/.env.development.local" ]; then
+  echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > "$ROOT_DIR/.env.development.local"
+  echo "ℹ️  Created .env.development.local pointing to http://localhost:8000"
+fi
+
+# 2. Ensure Backend .env exists with local defaults
+if [ ! -f "$ROOT_DIR/backend/.env" ] && [ -f "$ROOT_DIR/backend/.env.example" ]; then
+  cp "$ROOT_DIR/backend/.env.example" "$ROOT_DIR/backend/.env"
+  echo "ℹ️  Initialized backend/.env from backend/.env.example"
+fi
+
+# 3. Check Database availability (if postgres is down, fallback to SQLite)
+if [ -f "$ROOT_DIR/backend/.env" ]; then
+  if grep -q "postgresql+psycopg" "$ROOT_DIR/backend/.env"; then
+    if ! lsof -iTCP:5432 -sTCP:LISTEN -P -n > /dev/null 2>&1; then
+      echo "⚠️  PostgreSQL is not listening on port 5432. Falling back backend to SQLite..."
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' 's|^DATABASE_URL=postgresql.*|DATABASE_URL=sqlite:///./doctor_platform.db|' "$ROOT_DIR/backend/.env"
+      else
+        sed -i 's|^DATABASE_URL=postgresql.*|DATABASE_URL=sqlite:///./doctor_platform.db|' "$ROOT_DIR/backend/.env"
+      fi
+    fi
+  fi
+fi
+
 echo "=================================================="
 echo "  🩺 Starting DocSpace Platform Servers"
 echo "=================================================="

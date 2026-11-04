@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertCircle, Loader2, ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft, ShieldCheck, UserCheck } from "lucide-react";
 import { authenticateWithGoogle } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 declare global {
   interface Window {
@@ -35,21 +38,26 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
 
   // Handle Google Token Authentication
   const handleAuth = async (credential: string) => {
+    logger.action("Auth", `User initiated Google OAuth (${mode})`);
     try {
       setLoading(true);
       setError(null);
       const authData = await authenticateWithGoogle(credential);
+      logger.info("Auth", `Google OAuth successful (${mode})`, {
+        doctorId: authData?.doctor?.id,
+        email: authData?.doctor?.email,
+        onboardingCompleted: authData?.doctor?.onboarding_completed,
+      });
+
       if (authData?.doctor && !authData.doctor.onboarding_completed) {
         router.push("/onboarding");
       } else {
         router.push("/dashboard");
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Authentication failed. Please try again.");
-      }
+      const errMsg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
+      logger.error(`Google authentication failure (${mode})`, err, { mode }, "Auth");
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -59,11 +67,10 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
   useEffect(() => {
     if (!googleClientId) return;
 
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
+    let isMounted = true;
+
+    const renderGoogleButton = () => {
+      if (!isMounted) return;
       setIsGsiLoaded(true);
       if (window.google && googleButtonRef.current) {
         window.google.accounts.id.initialize({
@@ -80,12 +87,34 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
         });
       }
     };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]'
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", renderGoogleButton);
+      return () => {
+        isMounted = false;
+        existingScript.removeEventListener("load", renderGoogleButton);
+      };
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
     document.body.appendChild(script);
 
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleClientId, mode]);
@@ -97,19 +126,17 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(16,185,129,0.12),rgba(248,250,252,0))] px-3 sm:px-4 py-8 sm:py-12">
+      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200/90 shadow-sm shadow-emerald-950/5 p-5 sm:p-8 space-y-6 relative overflow-hidden">
+        {/* Subtle top clinical accent bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-700" />
+
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center space-x-2 text-brand-600 font-bold text-lg">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-sm">
-              <Activity className="w-5 h-5" />
-            </div>
-            <span className="text-slate-900 tracking-tight">DocSpace</span>
-          </Link>
+          <BrandLogo size="md" />
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               {mode === "register" ? "Create your Doctor Account" : "Welcome Back, Doctor"}
             </h1>
             <p className="text-slate-600 text-sm mt-1">
@@ -170,7 +197,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span className="flex items-center gap-1 font-medium text-slate-600">
-                <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+                <UserCheck className="w-3.5 h-3.5 text-brand-600" />
                 Quick Demo Accounts
               </span>
               <span>1-click onboarding</span>
@@ -181,7 +208,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
                 type="button"
                 disabled={loading}
                 onClick={() => handleQuickDemoLogin("Dr. Ahmed Khan", "dr.ahmed.khan@example.com")}
-                className="text-left px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 text-xs font-medium text-slate-700 transition-colors disabled:opacity-50"
+                className="text-left px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50/70 hover:border-brand-300 hover:text-brand-800 text-xs font-semibold text-slate-700 transition-all disabled:opacity-50"
               >
                 Dr. Ahmed Khan
                 <span className="block text-[10px] text-slate-500 font-normal truncate">dr-ahmed-khan</span>
@@ -191,7 +218,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
                 type="button"
                 disabled={loading}
                 onClick={() => handleQuickDemoLogin("Dr. Sarah Connor", "dr.sarah.connor@example.com")}
-                className="text-left px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 text-xs font-medium text-slate-700 transition-colors disabled:opacity-50"
+                className="text-left px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-brand-50/70 hover:border-brand-300 hover:text-brand-800 text-xs font-semibold text-slate-700 transition-all disabled:opacity-50"
               >
                 Dr. Sarah Connor
                 <span className="block text-[10px] text-slate-500 font-normal truncate">dr-sarah-connor</span>
@@ -201,8 +228,8 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
         </div>
 
         {/* Security / Workspace Assurance */}
-        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="bg-brand-50/60 rounded-xl p-3 border border-brand-100 flex items-start gap-2.5 text-xs text-slate-700">
+          <ShieldCheck className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
           <span>
             {mode === "register"
               ? "Each doctor automatically receives an isolated tenant workspace with a unique practice slug."
@@ -215,14 +242,14 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
           {mode === "register" ? (
             <p className="text-slate-600">
               Already registered?{" "}
-              <Link href="/login" className="text-brand-600 font-medium hover:underline">
+              <Link href="/login" className="text-brand-600 font-semibold hover:text-brand-700 hover:underline">
                 Sign in here
               </Link>
             </p>
           ) : (
             <p className="text-slate-600">
               New doctor?{" "}
-              <Link href="/register" className="text-brand-600 font-medium hover:underline">
+              <Link href="/register" className="text-brand-600 font-semibold hover:text-brand-700 hover:underline">
                 Register practice
               </Link>
             </p>
@@ -234,7 +261,7 @@ export default function GoogleAuthForm({ mode }: GoogleAuthFormProps) {
               className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to DocSpace Home</span>
+              <span>{BRAND_CONFIG.backToHome}</span>
             </Link>
           </div>
         </div>

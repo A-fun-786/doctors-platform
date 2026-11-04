@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { HOSPITAL_THEME_COLORS } from "./config/theme.config";
 
 const config: Config = {
   content: [
@@ -9,18 +10,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
-          950: "#172554",
+        brand: HOSPITAL_THEME_COLORS.brand,
+        hospital: {
+          navy: HOSPITAL_THEME_COLORS.hospital.navy,
+          navyDark: HOSPITAL_THEME_COLORS.hospital.navyDark,
+          cyan: HOSPITAL_THEME_COLORS.hospital.cyan,
+          surface: HOSPITAL_THEME_COLORS.hospital.surfaceBg,
+          card: HOSPITAL_THEME_COLORS.hospital.cardBg,
+          border: HOSPITAL_THEME_COLORS.hospital.border,
+          borderDark: HOSPITAL_THEME_COLORS.hospital.borderDark,
+          textMain: HOSPITAL_THEME_COLORS.hospital.textMain,
+          textMuted: HOSPITAL_THEME_COLORS.hospital.textMuted,
+          textSubtle: HOSPITAL_THEME_COLORS.hospital.textSubtle,
         },
       },
     },

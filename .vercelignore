@@ -1,0 +1,14 @@
+backend
+android-template
+screenshots
+docs
+nginx
+proxy
+scripts
+.git
+.agents
+*.db
+uploads
+logs
+node_modules
+.next
