@@ -12,6 +12,7 @@ import {
   Loader2,
   ExternalLink,
   Pill,
+  Receipt,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -351,6 +352,24 @@ export default function OverviewTab({
           </div>
           <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
             <Pill className="w-4 h-4" />
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigateTab("billing")}
+          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
+        >
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+              Billing &amp; Invoices
+            </h3>
+            <p className="text-xs text-slate-500">
+              Manage patient billing, record split payments, and print GST tax invoices &amp; receipts.
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Receipt className="w-4 h-4" />
           </div>
         </button>
 

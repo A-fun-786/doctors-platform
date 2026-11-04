@@ -4,6 +4,15 @@ from app.models.tenant import Tenant
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.pharmacy import MedicineItem, MedicineOrder
+from app.models.billing import (
+    ClinicServiceCatalog,
+    ClinicInvoiceSequence,
+    Invoice,
+    InvoiceItem,
+    Payment,
+    Refund,
+    BillingAuditLog,
+)
 
 __all__ = [
     "Base",
@@ -14,4 +23,11 @@ __all__ = [
     "Appointment",
     "MedicineItem",
     "MedicineOrder",
+    "ClinicServiceCatalog",
+    "ClinicInvoiceSequence",
+    "Invoice",
+    "InvoiceItem",
+    "Payment",
+    "Refund",
+    "BillingAuditLog",
 ]

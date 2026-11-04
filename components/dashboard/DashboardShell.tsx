@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   Activity,
   Pill,
+  Receipt,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -22,6 +23,7 @@ export type DashboardTabId =
   | "overview"
   | "appointment"
   | "pharmacy"
+  | "billing"
   | "profile"
   | "android";
 
@@ -54,6 +56,7 @@ export default function DashboardShell({
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
     { id: "pharmacy", label: "Pharmacy & Stock", icon: Pill },
+    { id: "billing", label: "Billing & Invoices", icon: Receipt },
     { id: "profile", label: "Profile", icon: User },
   ];
 

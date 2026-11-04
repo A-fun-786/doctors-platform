@@ -1110,4 +1110,273 @@ export async function updatePharmacyOrderStatus(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Billing & Invoicing / Accounting Module
+// ---------------------------------------------------------------------------
+
+export interface ServiceCatalogItem {
+  id: string;
+  tenant_id: string;
+  name: string;
+  category: string;
+  description?: string | null;
+  unit_price_paise: number;
+  tax_rate_percent: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceCatalogItemCreateInput {
+  name: string;
+  category?: string;
+  description?: string;
+  unit_price_paise: number;
+  tax_rate_percent?: number;
+  is_active?: boolean;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_id: string;
+  source_module: string;
+  source_ref_id?: string | null;
+  description: string;
+  quantity: number;
+  unit_price_paise: number;
+  discount_paise: number;
+  tax_rate_percent: number;
+  tax_amount_paise: number;
+  line_total_paise: number;
+  created_at: string;
+}
+
+export interface InvoiceItemCreateInput {
+  source_module?: string;
+  source_ref_id?: string;
+  description: string;
+  quantity: number;
+  unit_price_paise: number;
+  discount_paise?: number;
+  tax_rate_percent?: number;
+}
+
+export interface Payment {
+  id: string;
+  invoice_id: string;
+  tenant_id: string;
+  doctor_id: string;
+  amount_paise: number;
+  method: string;
+  reference_number?: string | null;
+  notes?: string | null;
+  status: string;
+  gateway?: string | null;
+  gateway_order_id?: string | null;
+  gateway_payment_id?: string | null;
+  created_at: string;
+}
+
+export interface Refund {
+  id: string;
+  payment_id: string;
+  invoice_id: string;
+  tenant_id: string;
+  doctor_id: string;
+  amount_paise: number;
+  reason?: string | null;
+  refund_reference: string;
+  status: string;
+  created_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  tenant_id: string;
+  doctor_id: string;
+  invoice_number: string;
+  appointment_id?: string | null;
+  patient_name: string;
+  patient_contact?: string | null;
+  patient_email?: string | null;
+  status: "draft" | "issued" | "partially_paid" | "paid" | "cancelled" | "refunded";
+  issue_date?: string | null;
+  due_date?: string | null;
+  subtotal_paise: number;
+  discount_paise: number;
+  tax_paise: number;
+  total_amount_paise: number;
+  paid_amount_paise: number;
+  balance_due_paise: number;
+  notes?: string | null;
+  terms?: string | null;
+  created_at: string;
+  updated_at: string;
+  items: InvoiceItem[];
+  payments: Payment[];
+}
+
+export interface InvoiceCreateInput {
+  patient_name: string;
+  patient_contact?: string;
+  patient_email?: string;
+  appointment_id?: string;
+  issue_date?: string;
+  due_date?: string;
+  notes?: string;
+  terms?: string;
+  discount_paise?: number;
+  auto_issue?: boolean;
+  items: InvoiceItemCreateInput[];
+}
+
+export interface InvoiceUpdateInput {
+  patient_name?: string;
+  patient_contact?: string;
+  patient_email?: string;
+  due_date?: string;
+  notes?: string;
+  terms?: string;
+  discount_paise?: number;
+  items?: InvoiceItemCreateInput[];
+}
+
+export interface PaymentCreateInput {
+  amount_paise: number;
+  method: "cash" | "upi" | "card" | "online" | "other";
+  reference_number?: string;
+  notes?: string;
+  gateway?: string;
+  idempotency_key?: string;
+}
+
+export interface RefundCreateInput {
+  payment_id: string;
+  amount_paise: number;
+  reason?: string;
+}
+
+export interface BillingStats {
+  total_billed_paise: number;
+  total_collected_today_paise: number;
+  total_outstanding_paise: number;
+  total_invoices_count: number;
+  paid_invoices_count: number;
+  unpaid_invoices_count: number;
+  payment_methods_breakdown: Record<string, number>;
+  source_module_breakdown: Record<string, number>;
+}
+
+export async function getBillingStats(): Promise<BillingStats> {
+  return apiFetch<BillingStats>("/api/v1/doctor/billing/stats", {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function getInvoices(params?: {
+  status?: string;
+  search?: string;
+}): Promise<{ invoices: Invoice[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== "all") query.append("status_filter", params.status);
+  if (params?.search) query.append("search", params.search);
+  const qStr = query.toString() ? `?${query.toString()}` : "";
+
+  return apiFetch<{ invoices: Invoice[]; total: number }>(
+    `/api/v1/doctor/billing/invoices${qStr}`,
+    {
+      method: "GET",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function getInvoice(id: string): Promise<Invoice> {
+  return apiFetch<Invoice>(`/api/v1/doctor/billing/invoices/${encodeURIComponent(id)}`, {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function createInvoice(payload: InvoiceCreateInput): Promise<Invoice> {
+  return apiFetch<Invoice>("/api/v1/doctor/billing/invoices", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInvoice(id: string, payload: InvoiceUpdateInput): Promise<Invoice> {
+  return apiFetch<Invoice>(`/api/v1/doctor/billing/invoices/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function issueInvoice(id: string): Promise<Invoice> {
+  return apiFetch<Invoice>(`/api/v1/doctor/billing/invoices/${encodeURIComponent(id)}/issue`, {
+    method: "POST",
+    requireAuth: true,
+  });
+}
+
+export async function cancelInvoice(id: string, reason?: string): Promise<Invoice> {
+  return apiFetch<Invoice>(`/api/v1/doctor/billing/invoices/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function recordInvoicePayment(
+  invoiceId: string,
+  payload: PaymentCreateInput
+): Promise<Payment> {
+  return apiFetch<Payment>(
+    `/api/v1/doctor/billing/invoices/${encodeURIComponent(invoiceId)}/payments`,
+    {
+      method: "POST",
+      requireAuth: true,
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function refundPayment(payload: RefundCreateInput): Promise<Refund> {
+  return apiFetch<Refund>("/api/v1/doctor/billing/refunds", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getServiceCatalog(): Promise<ServiceCatalogItem[]> {
+  return apiFetch<ServiceCatalogItem[]>("/api/v1/doctor/billing/catalog", {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function createServiceCatalogItem(
+  payload: ServiceCatalogItemCreateInput
+): Promise<ServiceCatalogItem> {
+  return apiFetch<ServiceCatalogItem>("/api/v1/doctor/billing/catalog", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function seedDefaultCatalog(): Promise<{ message: string; seeded_count: number }> {
+  return apiFetch<{ message: string; seeded_count: number }>(
+    "/api/v1/doctor/billing/catalog/seed-defaults",
+    {
+      method: "POST",
+      requireAuth: true,
+    }
+  );
+}
+
 
