@@ -14,6 +14,7 @@ import {
 import DashboardShell, { DashboardTabId } from "@/components/dashboard/DashboardShell";
 import OverviewTab from "@/components/dashboard/OverviewTab";
 import CalendarTab from "@/components/dashboard/CalendarTab";
+import PharmacyTab from "@/components/dashboard/PharmacyTab";
 import ProfileTab from "@/components/dashboard/ProfileTab";
 import AndroidAppTab from "@/components/dashboard/AndroidAppTab";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
@@ -158,6 +159,10 @@ export default function DashboardPage() {
 
           {activeTab === "appointment" && (
             <CalendarTab doctor={doctor} onNavigateTab={handleTabChange} />
+          )}
+
+          {activeTab === "pharmacy" && (
+            <PharmacyTab doctor={doctor} onNavigateTab={handleTabChange} />
           )}
 
           {activeTab === "profile" && (

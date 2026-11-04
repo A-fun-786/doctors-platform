@@ -916,4 +916,198 @@ export async function getAppBuildLogs(taskId: string): Promise<{ task_id: string
   });
 }
 
+// =========================================================================
+// Pharmacy & Medicine Inventory Types and Endpoints
+// =========================================================================
+
+export interface MedicineItem {
+  id: string;
+  doctor_id: string;
+  tenant_id?: string | null;
+  name: string;
+  generic_name?: string | null;
+  category: string;
+  dosage_form: string;
+  strength?: string | null;
+  sku?: string | null;
+  batch_number?: string | null;
+  stock_quantity: number;
+  min_stock_alert: number;
+  unit_price: number;
+  expiry_date?: string | null;
+  manufacturer?: string | null;
+  description?: string | null;
+  status: "in_stock" | "low_stock" | "out_of_stock" | "discontinued" | string;
+  is_expiring_soon: boolean;
+  is_expired: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicineItemCreateInput {
+  name: string;
+  generic_name?: string;
+  category?: string;
+  dosage_form?: string;
+  strength?: string;
+  sku?: string;
+  batch_number?: string;
+  stock_quantity?: number;
+  min_stock_alert?: number;
+  unit_price?: number;
+  expiry_date?: string | null;
+  manufacturer?: string;
+  description?: string;
+}
+
+export interface MedicineItemUpdateInput {
+  name?: string;
+  generic_name?: string;
+  category?: string;
+  dosage_form?: string;
+  strength?: string;
+  sku?: string;
+  batch_number?: string;
+  stock_quantity?: number;
+  min_stock_alert?: number;
+  unit_price?: number;
+  expiry_date?: string | null;
+  manufacturer?: string;
+  description?: string;
+  status?: string;
+}
+
+export interface PharmacyOrder {
+  id: string;
+  doctor_id: string;
+  tenant_id?: string | null;
+  order_number: string;
+  patient_name: string;
+  patient_phone: string;
+  delivery_address: string;
+  medicines_text: string;
+  status: "received" | "processing" | "dispensed" | "completed" | "cancelled" | string;
+  total_price?: number | null;
+  doctor_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PharmacyStats {
+  total_medicines: number;
+  total_units_in_stock: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  expiring_soon_count: number;
+  pending_orders_count: number;
+  total_orders_count: number;
+}
+
+export async function getPharmacyStats(): Promise<PharmacyStats> {
+  return apiFetch<PharmacyStats>("/api/v1/doctor/pharmacy/stats", {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function getMedicineInventory(params?: {
+  search?: string;
+  category?: string;
+  status?: string;
+}): Promise<{ items: MedicineItem[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.category) query.set("category", params.category);
+  if (params?.status) query.set("status", params.status);
+
+  const qs = query.toString();
+  return apiFetch<{ items: MedicineItem[]; total: number }>(
+    `/api/v1/doctor/pharmacy/medicines${qs ? `?${qs}` : ""}`,
+    {
+      method: "GET",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function createMedicineItem(
+  payload: MedicineItemCreateInput
+): Promise<MedicineItem> {
+  return apiFetch<MedicineItem>("/api/v1/doctor/pharmacy/medicines", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMedicineItem(
+  id: string,
+  payload: MedicineItemUpdateInput
+): Promise<MedicineItem> {
+  return apiFetch<MedicineItem>(`/api/v1/doctor/pharmacy/medicines/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMedicineItem(id: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/doctor/pharmacy/medicines/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    requireAuth: true,
+  });
+}
+
+export async function adjustMedicineStock(
+  id: string,
+  adjustment: number,
+  reason?: string
+): Promise<MedicineItem> {
+  return apiFetch<MedicineItem>(
+    `/api/v1/doctor/pharmacy/medicines/${encodeURIComponent(id)}/adjust-stock`,
+    {
+      method: "POST",
+      requireAuth: true,
+      body: JSON.stringify({ adjustment, reason }),
+    }
+  );
+}
+
+export async function seedSampleMedicines(): Promise<{ items: MedicineItem[]; total: number }> {
+  return apiFetch<{ items: MedicineItem[]; total: number }>(
+    "/api/v1/doctor/pharmacy/seed-samples",
+    {
+      method: "POST",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function getPharmacyOrders(
+  status?: string
+): Promise<{ orders: PharmacyOrder[]; total: number }> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiFetch<{ orders: PharmacyOrder[]; total: number }>(
+    `/api/v1/doctor/pharmacy/orders${query}`,
+    {
+      method: "GET",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function updatePharmacyOrderStatus(
+  orderId: string,
+  payload: { status: string; doctor_notes?: string; total_price?: number }
+): Promise<PharmacyOrder> {
+  return apiFetch<PharmacyOrder>(
+    `/api/v1/doctor/pharmacy/orders/${encodeURIComponent(orderId)}/status`,
+    {
+      method: "PATCH",
+      requireAuth: true,
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
 

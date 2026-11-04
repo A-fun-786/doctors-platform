@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
+  Pill,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -332,6 +333,24 @@ export default function OverviewTab({
           </div>
           <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
             <Calendar className="w-4 h-4" />
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigateTab("pharmacy")}
+          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
+        >
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+              Pharmacy &amp; Inventory
+            </h3>
+            <p className="text-xs text-slate-500">
+              Manage dispensary stock, monitor low-stock warnings, and fulfill prescription deliveries.
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+            <Pill className="w-4 h-4" />
           </div>
         </button>
 

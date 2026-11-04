@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Activity,
+  Pill,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -20,6 +21,7 @@ import { useScrolled } from "@/hooks/useScrolled";
 export type DashboardTabId =
   | "overview"
   | "appointment"
+  | "pharmacy"
   | "profile"
   | "android";
 
@@ -51,6 +53,7 @@ export default function DashboardShell({
   const navItems: { id: DashboardTabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
+    { id: "pharmacy", label: "Pharmacy & Stock", icon: Pill },
     { id: "profile", label: "Profile", icon: User },
   ];
 
