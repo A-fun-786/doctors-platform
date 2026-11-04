@@ -3,6 +3,7 @@ from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
+from app.models.pharmacy import MedicineItem, MedicineOrder
 
 __all__ = [
     "Base",
@@ -11,4 +12,6 @@ __all__ = [
     "Tenant",
     "Schedule",
     "Appointment",
+    "MedicineItem",
+    "MedicineOrder",
 ]

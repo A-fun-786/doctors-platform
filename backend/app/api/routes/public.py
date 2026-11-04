@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.tenant import Tenant
+from app.services import pharmacy_service
 from app.schemas.profile import (
     PublicDoctorProfileResponse,
     ServicesConfig,
@@ -106,10 +107,17 @@ def order_medicine(
             detail="Medicine order service is not active for this practice.",
         )
 
-    order_id = f"MED-{uuid.uuid4().hex[:8].upper()}"
+    order = pharmacy_service.create_public_order(
+        tenant=tenant,
+        patient_name=payload.patient_name,
+        patient_phone=payload.patient_phone,
+        delivery_address=payload.delivery_address,
+        medicines_text=payload.medicines,
+        db=db,
+    )
 
     return MedicineOrderResponse(
-        order_id=order_id,
+        order_id=order.order_number,
         status="received",
-        message=f"Medicine request order #{order_id} received. The pharmacy team will prepare your order.",
+        message=f"Medicine request order #{order.order_number} received. The pharmacy team will prepare your order.",
     )
