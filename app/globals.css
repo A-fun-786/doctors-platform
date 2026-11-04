@@ -8,18 +8,18 @@
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Master Hospital Single Color Scale (Clinical Teal) */
-  --brand-50: #f0fdfa;
-  --brand-100: #ccfbf1;
-  --brand-200: #99f6e4;
-  --brand-300: #5eead4;
-  --brand-400: #2dd4bf;
-  --brand-500: #0d9488;
-  --brand-600: #0f766e;
-  --brand-700: #115e59;
-  --brand-800: #134e4a;
-  --brand-900: #0f3e3a;
-  --brand-950: #042f2e;
+  /* Master Hospital Single Color Scale (Clinical Emerald & Vitality Mint) */
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-950: #022c22;
 
   /* Hospital Surfaces & Clean Slates */
   --hospital-surface: #f8fafc;
