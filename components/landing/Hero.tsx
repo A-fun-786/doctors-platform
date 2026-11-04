@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-
   Globe,
   Smartphone,
   Calendar,
@@ -13,19 +12,30 @@ import {
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28 bg-gradient-to-b from-slate-50 via-white to-white">
+    <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28 bg-gradient-to-b from-emerald-50/50 via-slate-50/20 to-white">
+      {/* Ambient background soft glow */}
+      <div 
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-200/35 via-teal-100/20 to-transparent pointer-events-none -z-10" 
+        aria-hidden="true"
+      />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
           {/* Left Column: Value Proposition & CTAs */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold tracking-wide uppercase">
-              <span className="w-2 h-2 rounded-full bg-brand-600" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/90 text-emerald-800 text-xs font-semibold tracking-wide uppercase shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+              </span>
               <span>Multi-Tenant Healthcare Platform</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
               Your Digital Healthcare Presence,{" "}
-              <span className="text-brand-600">Built Around You.</span>
+              <span className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 bg-clip-text text-transparent">
+                Built Around You.
+              </span>
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
@@ -39,21 +49,21 @@ export default function Hero() {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
               <Link
                 href="/register"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-md hover:shadow-lg transition-all text-base"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-md shadow-brand-600/25 hover:shadow-lg hover:shadow-brand-600/35 transition-all text-base"
               >
                 <span>Create Your Digital Presence</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <a
                 href="#features"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold border border-slate-300 shadow-sm transition-colors text-base"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-lg bg-white hover:bg-emerald-50/40 text-slate-700 hover:text-emerald-800 font-semibold border border-slate-300 hover:border-emerald-200 shadow-sm transition-all text-base"
               >
                 Explore Platform
               </a>
             </div>
 
             {/* Quick Benefits / Trust Badges */}
-            <div className="pt-6 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+            <div className="pt-6 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
               <div className="flex items-center gap-2 text-slate-600 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
                 <span>Custom Domain & Brand</span>
@@ -73,19 +83,19 @@ export default function Hero() {
           <div className="lg:col-span-5 relative">
             <div className="relative mx-auto max-w-md lg:max-w-none">
               {/* Decorative subtle backdrop glow */}
-              <div className="absolute -inset-1.5 bg-gradient-to-r from-brand-100 to-slate-100 rounded-2xl blur-lg opacity-70 -z-10" />
+              <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-200/70 via-teal-100/50 to-emerald-100/60 rounded-2xl blur-xl opacity-80 -z-10" />
 
               {/* Website Mockup Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden mb-6 transform -rotate-1 hover:rotate-0 transition-transform duration-300">
+              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xl overflow-hidden mb-6 transform -rotate-1 hover:rotate-0 transition-transform duration-300">
                 {/* Browser Top Bar */}
-                <div className="bg-slate-100 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                <div className="bg-slate-100/80 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center space-x-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
                   </div>
                   <div className="bg-white px-3 py-0.5 rounded text-[11px] text-slate-500 font-mono flex items-center gap-1 border border-slate-200">
-                    <Globe className="w-3 h-3 text-slate-400" />
+                    <Globe className="w-3 h-3 text-emerald-600" />
                     <span>drsarahjohnson.platform.com</span>
                   </div>
                   <div className="w-6" />
@@ -94,7 +104,7 @@ export default function Hero() {
                 {/* Website Inner Content Preview */}
                 <div className="p-4 bg-white">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-brand-100 border-2 border-brand-500 flex items-center justify-center text-brand-700 font-bold text-base shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 border-2 border-brand-200 flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm">
                       SJ
                     </div>
                     <div className="flex-1 min-w-0">
@@ -117,11 +127,11 @@ export default function Hero() {
 
                   {/* Quick service pills */}
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 text-[11px]">
-                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-slate-50 border border-slate-100 text-slate-700 font-medium">
+                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-emerald-50/50 border border-emerald-100 text-slate-700 font-medium">
                       <Video className="w-3 h-3 text-brand-600" />
                       <span>Online Consult</span>
                     </div>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-slate-50 border border-slate-100 text-slate-700 font-medium">
+                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-emerald-50/50 border border-emerald-100 text-slate-700 font-medium">
                       <Calendar className="w-3 h-3 text-brand-600" />
                       <span>Clinic Visit</span>
                     </div>
@@ -138,13 +148,13 @@ export default function Hero() {
                 <div className="bg-white rounded-xl p-3 text-slate-900 space-y-2.5">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                     <span className="text-[11px] font-bold text-brand-700 flex items-center gap-1">
-                      <Smartphone className="w-3 h-3" /> Dr. Johnson App
+                      <Smartphone className="w-3 h-3 text-brand-600" /> Dr. Johnson App
                     </span>
                     <span className="text-[9px] text-slate-400">9:41 AM</span>
                   </div>
 
                   <div className="text-center py-1">
-                    <div className="w-8 h-8 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mx-auto mb-1">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-xs font-bold flex items-center justify-center mx-auto mb-1 shadow-sm">
                       SJ
                     </div>
                     <p className="text-xs font-bold text-slate-800">
