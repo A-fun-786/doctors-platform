@@ -9,6 +9,7 @@ import CalendarHeader from "./calendar/views/CalendarHeader";
 import WeekView from "./calendar/views/WeekView";
 import DayView from "./calendar/views/DayView";
 import MonthView from "./calendar/views/MonthView";
+import AgendaView from "./calendar/views/AgendaView";
 import CalendarSidebar from "./calendar/sidebar/CalendarSidebar";
 import MiniCalendar from "./calendar/sidebar/MiniCalendar";
 import WorkingHoursCard from "./calendar/sidebar/WorkingHoursCard";
@@ -23,8 +24,9 @@ import { useCalendarDrawer } from "./calendar/hooks/useCalendarDrawer";
 import CalendarDrawer from "./calendar/panels/CalendarDrawer";
 import AppointmentDetailsPanel from "./calendar/panels/AppointmentDetailsPanel";
 import LeaveDetailsPanel from "./calendar/panels/LeaveDetailsPanel";
-import { format12Hour, saveDoctorWorkingHours } from "./calendar/calendarUtils";
-import { getDoctorWorkingHours } from "@/lib/api";
+import { format12Hour, saveDoctorWorkingHours, parseYYYYMMDD, formatDateToYYYYMMDD } from "./calendar/calendarUtils";
+import { getDoctorWorkingHours, getClinicPractitioners, Practitioner } from "@/lib/api";
+import { logger } from "@/lib/logger";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
   // Calendar data & date state hook
@@ -45,7 +47,27 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     handleGoToToday,
     getEventsForDate,
     refreshCurrentWeek,
+    practitionerFilter,
+    setPractitionerFilter,
   } = useCalendarData();
+
+  const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getClinicPractitioners()
+      .then((list) => {
+        if (isMounted && list) {
+          setPractitioners(list);
+        }
+      })
+      .catch((err) => {
+        logger.warn("CalendarTab", "Could not load clinic practitioners for calendar", { error: String(err) });
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Modals management hook
   const {
@@ -77,6 +99,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setNewPatientContact,
     newApptReason,
     setNewApptReason,
+    selectedStaffId,
+    setSelectedStaffId,
     blockType,
     setBlockType,
     blockReason,
@@ -133,19 +157,65 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     [setSelectedDate, setViewMode]
   );
 
+  // Intelligent step navigation: 1 day for Agenda/Day, 7 days for Week view
+  const handleStepPrev = useCallback(() => {
+    if (viewMode === "week") {
+      handlePrevWeek();
+    } else {
+      const cur = parseYYYYMMDD(selectedDate);
+      cur.setDate(cur.getDate() - 1);
+      const newDate = formatDateToYYYYMMDD(cur);
+      setSelectedDate(newDate);
+      setMiniCalMonth((prev) => {
+        if (prev.getFullYear() !== cur.getFullYear() || prev.getMonth() !== cur.getMonth()) {
+          return new Date(cur.getFullYear(), cur.getMonth(), 1);
+        }
+        return prev;
+      });
+    }
+  }, [viewMode, handlePrevWeek, selectedDate, setSelectedDate, setMiniCalMonth]);
+
+  const handleStepNext = useCallback(() => {
+    if (viewMode === "week") {
+      handleNextWeek();
+    } else {
+      const cur = parseYYYYMMDD(selectedDate);
+      cur.setDate(cur.getDate() + 1);
+      const newDate = formatDateToYYYYMMDD(cur);
+      setSelectedDate(newDate);
+      setMiniCalMonth((prev) => {
+        if (prev.getFullYear() !== cur.getFullYear() || prev.getMonth() !== cur.getMonth()) {
+          return new Date(cur.getFullYear(), cur.getMonth(), 1);
+        }
+        return prev;
+      });
+    }
+  }, [viewMode, handleNextWeek, selectedDate, setSelectedDate, setMiniCalMonth]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Toast Feedback */}
       <Toast message={toastMessage} type="success" />
 
-      {/* Top Header Bar */}
-      <CalendarHeader
-        weekRangeTitle={weekRangeTitle}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onPrevWeek={handlePrevWeek}
-        onNextWeek={handleNextWeek}
-      />
+      {/* Top Header Bar (Fixed / Sticky on scroll) */}
+      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md pt-0.5 pb-2 -mt-1">
+        <CalendarHeader
+          weekRangeTitle={weekRangeTitle}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onPrevWeek={handleStepPrev}
+          onNextWeek={handleStepNext}
+          onToday={handleGoToToday}
+          onBookAppointment={() =>
+            openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+          }
+          practitioners={practitioners}
+          selectedPractitionerId={practitionerFilter}
+          onPractitionerChange={setPractitionerFilter}
+        />
+      </div>
 
       {/* Mobile-Only Smart Controls Island (Visible on < xl) */}
       <div className="xl:hidden space-y-3">
@@ -162,10 +232,26 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         />
       </div>
 
-      {/* Main 2-Column Dashboard Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Calendar Main Grid */}
-        <div className="xl:col-span-9 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Main Full-Width Dashboard Layout */}
+      <div className="w-full">
+        {/* Full-Width Calendar & Appointments Grid */}
+        <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          {viewMode === "agenda" && (
+            <AgendaView
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              currentWeekDays={currentWeekDays}
+              getEventsForDate={getEventsForDate}
+              onEventClick={openEventDrawer}
+              onBookAppointment={() =>
+                openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+              }
+              practitioners={practitioners}
+              selectedPractitionerId={practitionerFilter}
+              onPractitionerChange={setPractitionerFilter}
+            />
+          )}
+
           {viewMode === "week" && (
             <WeekView
               currentWeekDays={currentWeekDays}
@@ -203,14 +289,16 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         </div>
 
         {/* Right Column: Mini Calendar & Working Hours Schedule */}
-        <CalendarSidebar
-          miniCalMonth={miniCalMonth}
-          setMiniCalMonth={setMiniCalMonth}
-          miniCalDays={miniCalDays}
-          onSelectDate={setSelectedDate}
-          workingHoursConfig={workingHoursConfig}
-          onEditWorkingHours={openEditWorkingHours}
-        />
+        <div className="hidden" aria-hidden="true">
+          <CalendarSidebar
+            miniCalMonth={miniCalMonth}
+            setMiniCalMonth={setMiniCalMonth}
+            miniCalDays={miniCalDays}
+            onSelectDate={setSelectedDate}
+            workingHoursConfig={workingHoursConfig}
+            onEditWorkingHours={openEditWorkingHours}
+          />
+        </div>
       </div>
 
       {/* MODAL: Slot Action (Empty slot click -> Book Patient or Doctor Leave) */}
@@ -223,6 +311,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         initialTab={slotActionInitialTab}
         submitting={modalSubmitting}
         existingEvents={getEventsForDate(modalDate)}
+        selectedStaffId={selectedStaffId}
+        setSelectedStaffId={setSelectedStaffId}
         onBookPatient={(formData) =>
           handleSlotBookingSubmit(
             formData,
@@ -267,6 +357,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         setReason={setNewApptReason}
         submitting={modalSubmitting}
         existingEvents={getEventsForDate(modalDate)}
+        selectedStaffId={selectedStaffId}
+        setSelectedStaffId={setSelectedStaffId}
         onSubmit={(e) =>
           handleAddAppointmentSubmit(
             e,
