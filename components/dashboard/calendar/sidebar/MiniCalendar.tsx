@@ -80,20 +80,20 @@ export default function MiniCalendar({
         {miniCalDays.map((item, idx) => {
           // Google Calendar Date Button Styling
           let buttonClasses = "text-slate-700 hover:bg-slate-100 font-medium";
-          let dotColor = "bg-blue-600";
+          let dotColor = "bg-brand-600";
 
           if (item.isToday && item.isSelected) {
             // Today and Selected: Solid Google blue with white text
-            buttonClasses = "bg-blue-600 text-white font-bold shadow-xs scale-105";
+            buttonClasses = "bg-brand-600 text-white font-bold shadow-xs scale-105";
             dotColor = "bg-white";
           } else if (item.isToday && !item.isSelected) {
             // Today but another date selected: Highlighted Today indicator circle
-            buttonClasses = "border-2 border-blue-600 text-blue-600 font-extrabold bg-blue-50/50 shadow-2xs hover:bg-blue-100/60";
-            dotColor = "bg-blue-600";
+            buttonClasses = "border-2 border-brand-600 text-brand-600 font-extrabold bg-brand-50/50 shadow-2xs hover:bg-brand-100/60";
+            dotColor = "bg-brand-600";
           } else if (!item.isToday && item.isSelected) {
             // Selected date (not today): Google Calendar soft blue selection circle
-            buttonClasses = "bg-blue-100 text-blue-800 font-bold hover:bg-blue-200/80 shadow-2xs";
-            dotColor = "bg-blue-700";
+            buttonClasses = "bg-brand-100 text-brand-800 font-bold hover:bg-brand-200/80 shadow-2xs";
+            dotColor = "bg-brand-700";
           } else if (!item.isCurrentMonth) {
             // Outside current month
             buttonClasses = "text-slate-400 hover:bg-slate-100 hover:text-slate-600 font-normal";
