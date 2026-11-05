@@ -32,7 +32,7 @@ export default function WorkingHoursCard({
       {/* Card Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+          <div className="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
             <Clock className="w-3.5 h-3.5" />
           </div>
           <div>
@@ -48,7 +48,7 @@ export default function WorkingHoursCard({
           <button
             type="button"
             onClick={onEditHours}
-            className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 px-2.5 py-1 rounded-lg border border-blue-100 transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-800 bg-brand-50/80 hover:bg-brand-100/80 px-2.5 py-1 rounded-lg border border-brand-200 transition-all cursor-pointer shadow-2xs"
             title="Edit Working Hours"
           >
             <Edit2 className="w-3 h-3" />
@@ -75,7 +75,7 @@ export default function WorkingHoursCard({
             return (
               <div
                 key={shift.id || index}
-                className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 hover:bg-blue-50/30 border border-slate-100 hover:border-blue-200 transition-all duration-150"
+                className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 hover:bg-brand-50/30 border border-slate-100 hover:border-brand-200 transition-all duration-150"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-6 h-6 rounded-md bg-white text-slate-700 border border-slate-200/80 flex items-center justify-center shrink-0 text-[10px] font-bold">
@@ -92,7 +92,7 @@ export default function WorkingHoursCard({
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100 block">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200 block">
                     {slots} slots
                   </span>
                   <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
@@ -109,7 +109,7 @@ export default function WorkingHoursCard({
       {enabledShifts.length > 0 && (
         <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-medium px-0.5">
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
             Total Capacity:
           </span>
           <span className="font-bold text-slate-800">
