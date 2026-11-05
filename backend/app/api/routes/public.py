@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,8 @@ from app.schemas.profile import (
     MedicineOrderRequest,
     MedicineOrderResponse,
 )
+from app.schemas.appointment import PractitionerResponse
+from app.services import appointment_service
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -57,6 +60,24 @@ def get_public_doctor_profile(
         services=services,
     )
 
+
+@router.get(
+    "/tenants/{slug}/practitioners",
+    response_model=List[PractitionerResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Public List of Clinic Practitioners",
+)
+def get_public_practitioners(
+    slug: str,
+    db: Session = Depends(get_db),
+) -> List[PractitionerResponse]:
+    """Retrieve active practitioners and specialists available at this practice."""
+    tenant = _get_active_tenant_or_404(slug, db)
+    practitioners = appointment_service.list_practitioners(
+        doctor_id=tenant.doctor.id,
+        db=db,
+    )
+    return [PractitionerResponse(**p) for p in practitioners]
 
 
 @router.post(

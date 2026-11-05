@@ -1,7 +1,7 @@
 import collections
 import uuid
 from datetime import date
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
@@ -14,6 +14,8 @@ def get_doctor_calendar(
     from_date: date,
     to_date: date,
     db: Session,
+    staff_id: Optional[uuid.UUID] = None,
+    primary_only: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Composes schedules and appointments into a unified, time-ordered calendar view.
@@ -40,7 +42,7 @@ def get_doctor_calendar(
         .all()
     )
 
-    appointments = (
+    apt_query = (
         db.query(Appointment)
         .filter(
             Appointment.doctor_id == doctor_id,
@@ -48,6 +50,14 @@ def get_doctor_calendar(
             Appointment.date <= to_date,
             Appointment.status.in_(["BOOKED", "COMPLETED"]),
         )
+    )
+    if primary_only:
+        apt_query = apt_query.filter(Appointment.staff_id.is_(None))
+    elif staff_id is not None:
+        apt_query = apt_query.filter(Appointment.staff_id == staff_id)
+
+    appointments = (
+        apt_query
         .order_by(Appointment.date.asc(), Appointment.start_time.asc())
         .all()
     )
@@ -131,6 +141,12 @@ def get_doctor_calendar(
                 ev["reason"] = a.reason
             if a.notes:
                 ev["notes"] = a.notes
+            if a.staff_id:
+                ev["staff_id"] = str(a.staff_id)
+            if a.staff_name:
+                ev["staff_name"] = a.staff_name
+            if a.doctor_name:
+                ev["doctor_name"] = a.doctor_name
             events.append(ev)
 
         # Step D: Sort chronologically by start time, then end time

@@ -138,16 +138,18 @@ def delete_doctor_schedule(
 )
 def get_doctor_available_slots(
     date: date = Query(..., description="Query date for available slots"),
+    staff_id: Optional[str] = Query(None, description="Query slots for specific practitioner (UUID or 'primary')"),
     current_doctor: Doctor = Depends(get_current_doctor),
     db: Session = Depends(get_db),
 ):
     """
-    Generate available 30-minute booking slots for the authenticated doctor.
+    Generate available 30-minute booking slots for the authenticated doctor practice or specific practitioner.
     """
     slots = schedule_service.generate_available_slots(
         doctor_id=current_doctor.id,
         query_date=date,
         db=db,
+        staff_id=staff_id,
     )
     return [AvailableSlotResponse(**slot) for slot in slots]
 
@@ -163,11 +165,11 @@ def get_public_available_slots(
     request: Request,
     slug: str,
     date: date = Query(..., description="Query date for available slots"),
+    staff_id: Optional[str] = Query(None, description="Query slots for specific practitioner (UUID or 'primary')"),
     db: Session = Depends(get_db),
 ):
     """
-    Public, rate-limited endpoint returning available 30-minute slots for a tenant practice.
-    Employs an in-memory TTL cache to alleviate high-frequency database reads.
+    Public, rate-limited endpoint returning available 30-minute slots for a tenant practice or specific doctor.
     """
     tenant = (
         db.query(Tenant)
@@ -180,16 +182,19 @@ def get_public_available_slots(
             detail=f"Doctor practice with link '{slug}' was not found.",
         )
 
-    cached_slots = get_cached_slots(tenant.doctor.id, date)
-    if cached_slots is not None:
-        return [AvailableSlotResponse(**slot) for slot in cached_slots]
+    if staff_id is None:
+        cached_slots = get_cached_slots(tenant.doctor.id, date)
+        if cached_slots is not None:
+            return [AvailableSlotResponse(**slot) for slot in cached_slots]
 
     slots = schedule_service.generate_available_slots(
         doctor_id=tenant.doctor.id,
         query_date=date,
         db=db,
+        staff_id=staff_id,
     )
-    set_cached_slots(tenant.doctor.id, date, slots)
+    if staff_id is None:
+        set_cached_slots(tenant.doctor.id, date, slots)
     return [AvailableSlotResponse(**slot) for slot in slots]
 
 

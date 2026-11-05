@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.schemas.appointment import (
     AppointmentRescheduleRequest,
     AppointmentResponse,
     AppointmentListResponse,
+    PractitionerResponse,
 )
 from app.services import appointment_service
 
@@ -62,6 +63,27 @@ def create_appointment(
 
 
 @router.get(
+    "/doctor/practitioners",
+    response_model=List[PractitionerResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Clinic Practitioners (Doctors & Clinical Specialists)",
+)
+def list_practitioners(
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """
+    List all active doctors/practitioners for the clinic (Primary Doctor + Staff Doctors).
+    Used by booking modals to select which doctor the appointment is booked under.
+    """
+    practitioners = appointment_service.list_practitioners(
+        doctor_id=current_doctor.id,
+        db=db,
+    )
+    return [PractitionerResponse(**p) for p in practitioners]
+
+
+@router.get(
     "/doctor/appointments",
     response_model=AppointmentListResponse,
     status_code=status.HTTP_200_OK,
@@ -70,6 +92,8 @@ def create_appointment(
 def list_appointments(
     request: Request,
     status: Optional[str] = Query(None, description="Filter by status (BOOKED, COMPLETED, CANCELLED)"),
+    staff_id: Optional[uuid.UUID] = Query(None, description="Filter by staff doctor UUID"),
+    primary_only: Optional[bool] = Query(None, description="Filter by primary doctor only"),
     from_date: Optional[date] = Query(None, alias="from", description="Filter from date"),
     to_date: Optional[date] = Query(None, alias="to", description="Filter to date"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -83,6 +107,8 @@ def list_appointments(
     items, total = appointment_service.list_appointments(
         doctor_id=current_doctor.id,
         status_filter=status,
+        staff_id=staff_id,
+        primary_only=primary_only,
         from_date=from_date,
         to_date=to_date,
         page=page,
