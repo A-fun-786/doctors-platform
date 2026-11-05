@@ -309,7 +309,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         onClose={closeDrawer}
         categoryBadge={
           drawerState.type === "appointment" ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-800 bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded-full">
               Patient Appointment
             </span>
           ) : (
