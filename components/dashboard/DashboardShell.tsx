@@ -253,7 +253,7 @@ export default function DashboardShell({
             Persistent, collapsible (compact icon-rail or full width) navigation panel
             ========================================================================= */}
         <aside
-          className={`hidden md:flex shrink-0 flex-col gap-4 transition-all duration-200 ease-in-out ${
+          className={`hidden md:flex shrink-0 flex-col gap-4 sticky top-6 self-start transition-all duration-200 ease-in-out ${
             isSidebarCollapsed ? "w-20" : "w-64"
           }`}
         >
