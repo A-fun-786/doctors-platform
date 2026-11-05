@@ -48,6 +48,7 @@ The database layer utilizes SQLAlchemy 2.0 mapped models backed by Alembic versi
 ### 3.1 Migration History
 - `010_staff_management`: Provisions the foundational `staff_members` table with doctor tenant foreign keys, contact details, department, employment type, salary in integer paise, and indexing.
 - `011_staff_authentication`: Adds authentication columns (`can_login`, `hashed_password`, `must_change_password`, `last_login_at`) and creates an indexed lookup on `staff_members.email`.
+- `012_multi_doctor_appointments`: Adds nullable foreign key `staff_id REFERENCES staff_members(id) ON DELETE SET NULL` to `appointments` and converts the global slot unique index into two partial unique indexes (`uq_primary_doctor_active_slot` where `staff_id IS NULL` and `uq_staff_doctor_active_slot` where `staff_id IS NOT NULL`), unlocking concurrent multi-doctor bookings in a clinic.
 
 ### 3.2 `staff_members` Table Definition
 
