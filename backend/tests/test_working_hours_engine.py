@@ -423,7 +423,7 @@ def test_4_precedence_explicit_available_wins(db_session, test_doctor):
     }
     db_session.add(test_doctor)
 
-    target_date = date(2026, 11, 5)  # Thursday
+    target_date = date(2026, 11, 12)  # Future Thursday to avoid past-slot time-of-day filtering
     # Add an explicit one-off AVAILABLE window 08:00 - 09:00 (2 slots)
     explicit_schedule = Schedule(
         doctor_id=test_doctor.id,

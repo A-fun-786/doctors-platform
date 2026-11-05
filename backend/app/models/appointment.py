@@ -7,6 +7,7 @@ from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.doctor import Doctor
+    from app.models.staff import StaffMember
 
 
 class Appointment(Base, TimestampMixin):
@@ -24,6 +25,12 @@ class Appointment(Base, TimestampMixin):
         ForeignKey("doctors.id", ondelete="CASCADE"),
         index=True,
         nullable=False,
+    )
+    staff_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("staff_members.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     patient_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid,
@@ -93,19 +100,47 @@ class Appointment(Base, TimestampMixin):
 
     __table_args__ = (
         Index(
-            "uq_doctor_active_appointment_slot",
+            "uq_primary_doctor_active_slot",
             "doctor_id",
             "date",
             "start_time",
             unique=True,
-            postgresql_where=text("status != 'CANCELLED'"),
-            sqlite_where=text("status != 'CANCELLED'"),
+            postgresql_where=text("status != 'CANCELLED' AND staff_id IS NULL"),
+            sqlite_where=text("status != 'CANCELLED' AND staff_id IS NULL"),
+        ),
+        Index(
+            "uq_staff_doctor_active_slot",
+            "doctor_id",
+            "staff_id",
+            "date",
+            "start_time",
+            unique=True,
+            postgresql_where=text("status != 'CANCELLED' AND staff_id IS NOT NULL"),
+            sqlite_where=text("status != 'CANCELLED' AND staff_id IS NOT NULL"),
         ),
         Index("ix_appointments_doctor_date", "doctor_id", "date"),
         Index("ix_appointments_doctor_status", "doctor_id", "status"),
+        Index("ix_appointments_doctor_staff", "doctor_id", "staff_id"),
     )
 
     doctor: Mapped["Doctor"] = relationship(
         "Doctor",
         back_populates="appointments",
     )
+    staff_member: Mapped[Optional["StaffMember"]] = relationship(
+        "StaffMember",
+        foreign_keys=[staff_id],
+        lazy="joined",
+    )
+
+    @property
+    def staff_name(self) -> Optional[str]:
+        return self.staff_member.full_name if self.staff_member else None
+
+    @property
+    def doctor_name(self) -> Optional[str]:
+        if self.staff_member:
+            return self.staff_member.full_name
+        if self.doctor:
+            return self.doctor.full_name
+        return None

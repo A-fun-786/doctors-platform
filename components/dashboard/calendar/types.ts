@@ -1,7 +1,7 @@
 import { DoctorMeResponse, CalendarEvent } from "@/lib/api";
 import { DashboardTabId } from "../DashboardShell";
 
-export type CalendarViewMode = "day" | "week" | "month";
+export type CalendarViewMode = "agenda" | "day" | "week" | "month";
 
 export type BlockType = "LEAVE" | "HOLIDAY" | "BLOCKED";
 

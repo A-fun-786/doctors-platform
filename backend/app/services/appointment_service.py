@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
+from app.models.staff import StaffMember
 from app.models.schedule import Schedule
 from app.schemas.appointment import (
     AppointmentCreateRequest,
@@ -25,6 +26,7 @@ def _validate_slot_against_schedule(
     end_time: time,
     db: Session,
     is_reschedule: bool = False,
+    staff_id: Optional[uuid.UUID] = None,
 ) -> None:
     """
     Validate that [start_time, end_time) falls cleanly within an AVAILABLE window
@@ -104,12 +106,14 @@ def _validate_slot_against_schedule(
             )
 
     # 2. Check exclusions: LEAVE, HOLIDAY, BLOCKED
+    # If staff_id is set, only clinic-wide HOLIDAY blocks; LEAVE/BLOCKED belong to primary doctor
+    exclusion_types = ["HOLIDAY"] if staff_id is not None else ["LEAVE", "HOLIDAY", "BLOCKED"]
     exclusions = (
         db.query(Schedule)
         .filter(
             Schedule.doctor_id == doctor_id,
             Schedule.date == slot_date,
-            Schedule.type.in_(["LEAVE", "HOLIDAY", "BLOCKED"]),
+            Schedule.type.in_(exclusion_types),
         )
         .all()
     )
@@ -146,11 +150,38 @@ def create_appointment(
 ) -> Appointment:
     """
     Create a new appointment:
+    - Validate staff_id belongs to doctor tenant if provided and doctor is active
     - Validate schedule availability and absence of exclusions
-    - Validate slot is not already BOOKED
+    - Validate slot is not already BOOKED for this specific doctor
     - Insert with status = BOOKED
     - Catch race-condition IntegrityError from unique index and return 409
     """
+    staff = None
+    if payload.staff_id is not None:
+        staff = (
+            db.query(StaffMember)
+            .filter(
+                StaffMember.id == payload.staff_id,
+                StaffMember.doctor_id == doctor_id,
+            )
+            .first()
+        )
+        if not staff:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Selected staff doctor was not found",
+            )
+        if staff.status == "on_leave":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Dr. {staff.full_name} is currently on leave",
+            )
+        if staff.status != "active":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Staff member is {staff.status} and cannot accept appointments",
+            )
+
     _validate_slot_against_schedule(
         doctor_id=doctor_id,
         slot_date=payload.date,
@@ -158,10 +189,11 @@ def create_appointment(
         end_time=payload.end_time,
         db=db,
         is_reschedule=False,
+        staff_id=payload.staff_id,
     )
 
-    # Check existing BOOKED appointment at same slot
-    existing = (
+    # Check existing BOOKED appointment at same slot for THIS doctor
+    conflict_query = (
         db.query(Appointment)
         .filter(
             Appointment.doctor_id == doctor_id,
@@ -169,16 +201,23 @@ def create_appointment(
             Appointment.start_time == payload.start_time,
             Appointment.status == "BOOKED",
         )
-        .first()
     )
+    if payload.staff_id is not None:
+        conflict_query = conflict_query.filter(Appointment.staff_id == payload.staff_id)
+    else:
+        conflict_query = conflict_query.filter(Appointment.staff_id.is_(None))
+
+    existing = conflict_query.first()
     if existing:
+        doc_label = staff.full_name if staff else "Primary Doctor"
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Slot already booked",
+            detail=f"Slot already booked for {doc_label}",
         )
 
     appointment = Appointment(
         doctor_id=doctor_id,
+        staff_id=payload.staff_id,
         patient_id=uuid.uuid4(),
         patient_name=payload.patient_name,
         patient_contact=payload.patient_contact,
@@ -204,7 +243,7 @@ def create_appointment(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Slot already booked",
+            detail="Slot already booked for this doctor",
         )
 
 
@@ -304,7 +343,7 @@ def reschedule_appointment(
     Reschedule an existing appointment:
     - Verify doctor ownership and status == BOOKED
     - Validate new slot availability and exclusion absence
-    - Verify new slot is not occupied by another BOOKED appointment
+    - Verify new slot is not occupied by another BOOKED appointment for target doctor
     - Update date, start_time, end_time while status remains BOOKED
     """
     appointment = (
@@ -324,6 +363,22 @@ def reschedule_appointment(
             detail="Only BOOKED appointments can be rescheduled",
         )
 
+    target_staff_id = payload.staff_id if payload.staff_id is not None else appointment.staff_id
+    if payload.staff_id is not None and payload.staff_id != appointment.staff_id:
+        staff = (
+            db.query(StaffMember)
+            .filter(
+                StaffMember.id == payload.staff_id,
+                StaffMember.doctor_id == doctor_id,
+            )
+            .first()
+        )
+        if not staff or staff.status != "active":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selected staff doctor is not available",
+            )
+
     _validate_slot_against_schedule(
         doctor_id=doctor_id,
         slot_date=payload.date,
@@ -331,9 +386,10 @@ def reschedule_appointment(
         end_time=payload.end_time,
         db=db,
         is_reschedule=True,
+        staff_id=target_staff_id,
     )
 
-    conflict = (
+    conflict_query = (
         db.query(Appointment)
         .filter(
             Appointment.doctor_id == doctor_id,
@@ -342,17 +398,24 @@ def reschedule_appointment(
             Appointment.status == "BOOKED",
             Appointment.id != appointment_id,
         )
-        .first()
     )
+    if target_staff_id is not None:
+        conflict_query = conflict_query.filter(Appointment.staff_id == target_staff_id)
+    else:
+        conflict_query = conflict_query.filter(Appointment.staff_id.is_(None))
+
+    conflict = conflict_query.first()
     if conflict:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Target slot already occupied",
+            detail="Target slot already occupied for this doctor",
         )
 
     appointment.date = payload.date
     appointment.start_time = payload.start_time
     appointment.end_time = payload.end_time
+    if payload.staff_id is not None:
+        appointment.staff_id = payload.staff_id
     try:
         db.commit()
         db.refresh(appointment)
@@ -361,7 +424,7 @@ def reschedule_appointment(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Target slot already occupied",
+            detail="Target slot already occupied for this doctor",
         )
 
 
@@ -394,12 +457,18 @@ def list_appointments(
     page: int,
     page_size: int,
     db: Session,
+    staff_id: Optional[uuid.UUID] = None,
+    primary_only: Optional[bool] = None,
 ) -> Tuple[List[Appointment], int]:
     """
-    Retrieve paginated appointments for doctor with optional status and date filters.
+    Retrieve paginated appointments for doctor with optional status, date, and staff filters.
     """
     query = db.query(Appointment).filter(Appointment.doctor_id == doctor_id)
 
+    if primary_only:
+        query = query.filter(Appointment.staff_id.is_(None))
+    elif staff_id is not None:
+        query = query.filter(Appointment.staff_id == staff_id)
     if status_filter is not None:
         query = query.filter(Appointment.status == status_filter)
     if from_date is not None:
@@ -414,3 +483,71 @@ def list_appointments(
     items = query.offset(offset).limit(page_size).all()
 
     return items, total
+
+
+def list_practitioners(
+    doctor_id: uuid.UUID,
+    db: Session,
+) -> List[dict]:
+    """
+    List all practitioners available for appointments in the clinic:
+    - Primary doctor (practice owner)
+    - Active staff members who are doctors, consultants, physicians, or clinical personnel
+    """
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        return []
+
+    practitioners = [
+        {
+            "id": None,
+            "name": doctor.full_name,
+            "role": "Primary Doctor (Owner)",
+            "speciality": doctor.speciality or "General Practice",
+            "department": "Clinical",
+            "is_primary": True,
+        }
+    ]
+
+    staff_members = (
+        db.query(StaffMember)
+        .filter(
+            StaffMember.doctor_id == doctor_id,
+            StaffMember.status == "active",
+        )
+        .order_by(StaffMember.full_name.asc())
+        .all()
+    )
+
+    doctor_keywords = [
+        "doctor",
+        "physician",
+        "specialist",
+        "consultant",
+        "surgeon",
+        "pediatrician",
+        "cardiologist",
+        "dermatologist",
+        "gynecologist",
+        "orthopedic",
+        "neurologist",
+        "dentist",
+        "practitioner",
+    ]
+
+    for s in staff_members:
+        is_doctor = (
+            any(kw in s.role.lower() for kw in doctor_keywords)
+            or s.department == "Clinical"
+        )
+        if is_doctor:
+            practitioners.append({
+                "id": s.id,
+                "name": s.full_name,
+                "role": s.role,
+                "speciality": s.role,
+                "department": s.department,
+                "is_primary": False,
+            })
+
+    return practitioners

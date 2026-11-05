@@ -97,16 +97,36 @@ export function doesEventOverlapSlot(
 }
 
 /**
- * Find conflicting booked appointments or doctor leaves that collide with a target window
+ * Find conflicting booked appointments or doctor leaves that collide with a target window.
+ * When targetStaffId is provided (or "" / null for primary doctor), only conflicts for the
+ * selected doctor are returned, allowing multiple doctors to have concurrent bookings!
  */
 export function findConflictingEvents(
   start: string,
   end: string,
-  events: CalendarEvent[]
+  events: CalendarEvent[],
+  targetStaffId?: string | null
 ): CalendarEvent[] {
   return events.filter((ev) => {
     if (ev.status === "CANCELLED") return false;
-    return isIntervalOverlapping(start, end, ev.start, ev.end);
+    if (!isIntervalOverlapping(start, end, ev.start, ev.end)) return false;
+
+    // If target doctor is specified, only flag conflicts with that specific doctor
+    if (targetStaffId !== undefined) {
+      const target = targetStaffId || null;
+      if (ev.type === "APPOINTMENT") {
+        const evStaff = ev.staff_id || null;
+        return evStaff === target;
+      }
+      // Clinic-wide Holiday blocks everyone
+      if (ev.type === "HOLIDAY") {
+        return true;
+      }
+      // Primary doctor personal leaves / blocks only block primary doctor
+      return target === null;
+    }
+
+    return true;
   });
 }
 

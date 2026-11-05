@@ -55,6 +55,11 @@ export interface DoctorMeResponse {
   onboarding_completed: boolean;
   auth_provider: string;
   tenant?: Tenant | null;
+  role?: string;
+  user_type?: "doctor" | "staff";
+  staff_id?: string | null;
+  can_manage_staff?: boolean;
+  must_change_password?: boolean;
 }
 
 export interface DoctorProfileResponse {
@@ -207,12 +212,25 @@ export interface DoctorWorkingHoursUpdatePayload {
   closed_days?: number[];
 }
 
+// Practitioner types
+export interface Practitioner {
+  id: string | null; // null for primary practice doctor
+  name: string;
+  role: string;
+  speciality?: string | null;
+  department?: string | null;
+  is_primary: boolean;
+}
+
 // Appointment types
 export type AppointmentStatus = "BOOKED" | "COMPLETED" | "CANCELLED";
 
 export interface AppointmentEntry {
   id: string;
   doctor_id?: string;
+  staff_id?: string | null;
+  staff_name?: string | null;
+  doctor_name?: string | null;
   patient_id?: string;
   request_id?: string;
   patient_name: string;
@@ -234,6 +252,7 @@ export interface AppointmentEntry {
 }
 
 export interface AppointmentCreatePayload {
+  staff_id?: string | null;
   patient_name: string;
   patient_contact?: string;
   patient_gender?: string;
@@ -250,6 +269,7 @@ export interface AppointmentCreatePayload {
 }
 
 export interface AppointmentReschedulePayload {
+  staff_id?: string | null;
   date: string;
   start_time: string;
   end_time: string;
@@ -257,6 +277,7 @@ export interface AppointmentReschedulePayload {
 
 export interface AppointmentFilterParams {
   status?: AppointmentStatus | string;
+  staff_id?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -289,6 +310,9 @@ export interface CalendarEvent {
   appointment_id?: string;
   schedule_id?: string;
   doctor_id?: string;
+  staff_id?: string | null;
+  staff_name?: string | null;
+  doctor_name?: string | null;
   patient_id?: string;
   patient_email?: string;
   created_at?: string;
@@ -503,11 +527,12 @@ export async function registerWithEmail(
  */
 export async function loginWithEmail(
   email: string,
-  password: string
+  password: string,
+  portalType?: "admin" | "staff"
 ): Promise<AuthResponse> {
   const data = await apiFetch<AuthResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, portal_type: portalType }),
   });
   setAuthToken(data.access_token);
   return data;
@@ -663,24 +688,54 @@ export async function deleteDoctorSchedule(id: string): Promise<void> {
 }
 
 /**
- * Generate available 30-minute booking slots for the authenticated doctor on a specific date.
+ * Generate available 30-minute booking slots for the authenticated doctor practice or specific practitioner on a specific date.
  */
-export async function getDoctorAvailableSlots(date: string): Promise<AvailableSlot[]> {
-  return apiFetch<AvailableSlot[]>(`/api/v1/doctor/available-slots?date=${encodeURIComponent(date)}`, {
+export async function getDoctorAvailableSlots(
+  date: string,
+  staffId?: string | null
+): Promise<AvailableSlot[]> {
+  const params = new URLSearchParams({ date });
+  if (staffId) params.set("staff_id", staffId);
+  return apiFetch<AvailableSlot[]>(`/api/v1/doctor/available-slots?${params.toString()}`, {
     method: "GET",
     requireAuth: true,
   });
 }
 
 /**
- * Retrieve public available booking slots for a tenant practice by slug on a specific date.
+ * Retrieve public available booking slots for a tenant practice by slug on a specific date, optionally for a specific practitioner.
  */
 export async function getPublicAvailableSlots(
   slug: string,
-  date: string
+  date: string,
+  staffId?: string | null
 ): Promise<AvailableSlot[]> {
+  const params = new URLSearchParams({ date });
+  if (staffId) params.set("staff_id", staffId);
   return apiFetch<AvailableSlot[]>(
-    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
+    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?${params.toString()}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+/**
+ * Retrieve clinic practitioners (Primary Doctor + Staff Doctors/Specialists) for the authenticated clinic.
+ */
+export async function getClinicPractitioners(): Promise<Practitioner[]> {
+  return apiFetch<Practitioner[]>("/api/v1/doctor/practitioners", {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+/**
+ * Retrieve public clinic practitioners (Doctors & Specialists) for patient appointment booking.
+ */
+export async function getPublicPractitioners(slug: string): Promise<Practitioner[]> {
+  return apiFetch<Practitioner[]>(
+    `/api/v1/public/tenants/${encodeURIComponent(slug)}/practitioners`,
     {
       method: "GET",
     }
@@ -735,6 +790,7 @@ export async function getDoctorAppointments(
 ): Promise<AppointmentListResponse> {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
+  if (filters?.staff_id) params.set("staff_id", filters.staff_id);
   if (filters?.from) params.set("from", filters.from);
   if (filters?.to) params.set("to", filters.to);
   if (filters?.page) params.set("page", String(filters.page));
@@ -801,12 +857,18 @@ export async function rescheduleAppointment(
  */
 export async function getDoctorCalendar(
   from: string,
-  to: string
+  to: string,
+  staffId?: string | null
 ): Promise<DoctorCalendarResponse> {
   const params = new URLSearchParams({
     from,
     to,
   });
+  if (staffId === "PRIMARY") {
+    params.set("primary_only", "true");
+  } else if (staffId) {
+    params.set("staff_id", staffId);
+  }
 
   return apiFetch<DoctorCalendarResponse>(`/api/v1/doctor/calendar?${params.toString()}`, {
     method: "GET",
@@ -917,3 +979,119 @@ export async function getAppBuildLogs(taskId: string): Promise<{ task_id: string
 }
 
 
+
+// ==========================================
+// Manage Staff (Roster & Personnel Directory)
+// ==========================================
+
+export interface StaffMember {
+  id: string;
+  doctor_id: string;
+  full_name: string;
+  email?: string | null;
+  phone: string;
+  role: string;
+  department: string;
+  employment_type: string;
+  status: string;
+  joining_date: string;
+  base_salary_paise: number;
+  emergency_contact?: string | null;
+  notes?: string | null;
+  can_login?: boolean;
+  must_change_password?: boolean;
+  last_login_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StaffMemberCreatePayload {
+  full_name: string;
+  email?: string;
+  phone: string;
+  role: string;
+  department?: string;
+  employment_type?: string;
+  status?: string;
+  joining_date?: string;
+  base_salary_paise: number;
+  emergency_contact?: string;
+  notes?: string;
+  can_login?: boolean;
+  password?: string;
+}
+
+export interface StaffMemberUpdatePayload {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  department?: string;
+  employment_type?: string;
+  status?: string;
+  joining_date?: string;
+  base_salary_paise?: number;
+  emergency_contact?: string;
+  notes?: string;
+  can_login?: boolean;
+  password?: string;
+  must_change_password?: boolean;
+}
+
+export async function listStaff(params?: {
+  department?: string;
+  role?: string;
+  status?: string;
+  search?: string;
+}): Promise<StaffMember[]> {
+  const query = new URLSearchParams();
+  if (params?.department) query.set("department", params.department);
+  if (params?.role) query.set("role", params.role);
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+  const qs = query.toString();
+  return apiFetch<StaffMember[]>(`/api/v1/staff${qs ? `?${qs}` : ""}`, {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+export async function createStaffMember(payload: StaffMemberCreatePayload): Promise<StaffMember> {
+  return apiFetch<StaffMember>("/api/v1/staff", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    requireAuth: true,
+  });
+}
+
+export async function updateStaffMember(
+  staffId: string,
+  payload: StaffMemberUpdatePayload
+): Promise<StaffMember> {
+  return apiFetch<StaffMember>(`/api/v1/staff/${encodeURIComponent(staffId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    requireAuth: true,
+  });
+}
+
+export async function resetStaffPassword(
+  staffId: string,
+  newPassword: string
+): Promise<StaffMember> {
+  return apiFetch<StaffMember>(`/api/v1/staff/${encodeURIComponent(staffId)}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_password: newPassword }),
+    requireAuth: true,
+  });
+}
+
+export async function deleteStaffMember(staffId: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/staff/${encodeURIComponent(staffId)}`, {
+    method: "DELETE",
+    requireAuth: true,
+  });
+}

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Loader2, AlertTriangle, Clock, CheckCircle2, User } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { Loader2, AlertTriangle, Clock, CheckCircle2, User, Stethoscope } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { CalendarEvent } from "@/lib/api";
+import { CalendarEvent, Practitioner, getClinicPractitioners } from "@/lib/api";
 import { TIME_OPTIONS_30M } from "../constants";
 import {
   format12Hour,
@@ -29,6 +29,9 @@ interface AddAppointmentModalProps {
   submitting: boolean;
   onSubmit: (e: React.FormEvent) => void;
   existingEvents?: CalendarEvent[];
+  selectedStaffId?: string;
+  setSelectedStaffId?: (id: string) => void;
+  practitioners?: Practitioner[];
 }
 
 export default function AddAppointmentModal({
@@ -49,26 +52,78 @@ export default function AddAppointmentModal({
   submitting,
   onSubmit,
   existingEvents = [],
+  selectedStaffId,
+  setSelectedStaffId,
+  practitioners: initialPractitioners,
 }: AddAppointmentModalProps) {
+  const [internalStaffId, setInternalStaffId] = useState<string>("");
+  const [practitioners, setPractitioners] = useState<Practitioner[]>(initialPractitioners || []);
+
+  const staffId = selectedStaffId !== undefined ? selectedStaffId : internalStaffId;
+  const setStaffId = setSelectedStaffId || setInternalStaffId;
+
+  // Load clinic practitioners when modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPractitioners && initialPractitioners.length > 0) {
+        setPractitioners(initialPractitioners);
+      } else {
+        getClinicPractitioners()
+          .then((list) => {
+            if (list && list.length > 0) {
+              setPractitioners(list);
+            }
+          })
+          .catch(() => {
+            // Silently fallback if error
+          });
+      }
+    }
+  }, [isOpen, initialPractitioners]);
+
   // When start time changes, automatically set end time to exactly +30 minutes
   const handleStartTimeChange = (newStart: string) => {
     setStartTime(newStart);
     setEndTime(addMinutesToTime(newStart, 30));
   };
 
-  // Find any conflicting booked appointments or doctor leaves
+  // Find any conflicting booked appointments or doctor leaves for the selected practitioner
   const conflicts = useMemo(() => {
     if (!startTime || !endTime) return [];
-    return findConflictingEvents(startTime, endTime, existingEvents);
-  }, [startTime, endTime, existingEvents]);
+    return findConflictingEvents(startTime, endTime, existingEvents, staffId);
+  }, [startTime, endTime, existingEvents, staffId]);
 
   const hasConflict = conflicts.length > 0;
-
-
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Book Patient Appointment">
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
+        {/* Attending Doctor / Practitioner Selection */}
+        {practitioners.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
+                <span>Doctor / Practitioner *</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Multiple doctors can book same slot
+              </span>
+            </div>
+            <select
+              value={staffId}
+              onChange={(e) => setStaffId(e.target.value)}
+              className="w-full px-3 py-2 text-xs border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800"
+            >
+              {practitioners.map((p) => (
+                <option key={p.id || "primary"} value={p.id || ""}>
+                  {p.name} {p.is_primary ? "— Primary Doctor / Owner" : `— ${p.role}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Patient Name */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">

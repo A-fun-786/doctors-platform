@@ -25,27 +25,33 @@ export default function ProfileViewCard({
   services,
   onEditClick,
 }: ProfileViewCardProps) {
+  const isStaff = doctor.user_type === "staff";
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Card Header with prominent Edit Profile button */}
       <div className="p-5 sm:p-6 md:p-7 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            Doctor Practice Profile
+            {isStaff ? "Staff Member Profile" : "Doctor Practice Profile"}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Your active practice information visible to patients.
+            {isStaff
+              ? "Your active clinic personnel identity and assignments."
+              : "Your active practice information visible to patients."}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onEditClick}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer min-h-[42px] shrink-0"
-        >
-          <Edit3 className="w-4 h-4" />
-          <span>Edit Profile</span>
-        </button>
+        {!isStaff && (
+          <button
+            type="button"
+            onClick={onEditClick}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer min-h-[42px] shrink-0"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Edit Profile</span>
+          </button>
+        )}
       </div>
 
       {/* Doctor Identity Block */}
@@ -53,9 +59,11 @@ export default function ProfileViewCard({
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
           {/* Avatar with quick edit click trigger */}
           <div
-            onClick={onEditClick}
-            className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-sm shrink-0 bg-slate-50 cursor-pointer group"
-            title="Click to edit profile"
+            onClick={!isStaff ? onEditClick : undefined}
+            className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-sm shrink-0 bg-slate-50 ${
+              !isStaff ? "cursor-pointer group" : ""
+            }`}
+            title={!isStaff ? "Click to edit profile" : undefined}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

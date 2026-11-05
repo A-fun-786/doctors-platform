@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, require_doctor_owner
 from app.core.database import get_db
 from app.core.storage import get_storage
 from app.models.doctor import Doctor
@@ -42,7 +42,7 @@ def get_app_preview(
 @router.post("/icon")
 def upload_app_icon(
     file: UploadFile = File(...),
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     """Upload a custom 512x512 app launcher icon for the doctor's Android app."""
@@ -79,7 +79,7 @@ def upload_app_icon(
 
 @router.post("/build", status_code=status.HTTP_202_ACCEPTED)
 def start_app_build(
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
 ):
     """Trigger background build of the doctor's personalized Jetpack Compose Android app."""
     tenant = current_doctor.tenant

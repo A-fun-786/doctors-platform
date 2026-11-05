@@ -1,4 +1,6 @@
+import uuid
 from datetime import date
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,8 @@ router = APIRouter(tags=["calendar"])
 def get_doctor_calendar(
     from_date: date = Query(..., alias="from", description="Start date (YYYY-MM-DD)"),
     to_date: date = Query(..., alias="to", description="End date (YYYY-MM-DD)"),
+    staff_id: Optional[uuid.UUID] = Query(None, description="Filter calendar by staff member UUID"),
+    primary_only: Optional[bool] = Query(None, description="Filter calendar by primary doctor only"),
     current_doctor: Doctor = Depends(get_current_doctor),
     db: Session = Depends(get_db),
 ):
@@ -46,4 +50,6 @@ def get_doctor_calendar(
         from_date=from_date,
         to_date=to_date,
         db=db,
+        staff_id=staff_id,
+        primary_only=primary_only,
     )

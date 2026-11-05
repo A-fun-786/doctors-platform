@@ -1,12 +1,13 @@
 import uuid
 from datetime import date, time, datetime
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Union
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
+from app.models.staff import StaffMember
 from app.schemas.schedule import ScheduleCreateRequest
 
 
@@ -149,6 +150,7 @@ def generate_available_slots(
     doctor_id: uuid.UUID,
     query_date: date,
     db: Session,
+    staff_id: Optional[Union[uuid.UUID, str]] = None,
     now: Optional[datetime] = None,
 ) -> List[Dict[str, str]]:
     """
@@ -159,9 +161,15 @@ def generate_available_slots(
        - Slice enabled shifts into 30m slots.
     3. Past-Slot Guard: If query_date == date.today(), filter out candidate intervals
        where end_time <= datetime.now().time().
-    4. Exclusions: Subtract LEAVE, HOLIDAY, BLOCKED schedule windows.
-    5. Subtract occupied appointments (BOOKED, COMPLETED).
-    6. Return deduplicated, sorted available slots.
+    4. Multi-Doctor Capacity & Exclusions:
+       - If specific doctor requested (primary or staff):
+         - Subtract holiday and specific doctor's leaves/blocks and occupied appointments.
+       - If clinic-wide query (staff_id is None):
+         - Total clinic capacity = 1 (primary doctor) + active staff doctors.
+         - Subtract clinic holiday (blocks all capacity).
+         - At each slot, count unavailable doctors (on leave/block or booked).
+         - If unavailable < total capacity, slot is available!
+    5. Return deduplicated, sorted available slots.
     """
     available_schedules = (
         db.query(Schedule)
@@ -232,8 +240,9 @@ def generate_available_slots(
     if not candidate_slots:
         return []
 
-    # Step D: Exclusion windows (LEAVE, HOLIDAY, BLOCKED)
-    exclusions = (
+    # Step D: Exclusions & Active Appointments
+    # Query clinic schedules for query_date
+    all_schedules = (
         db.query(Schedule)
         .filter(
             Schedule.doctor_id == doctor_id,
@@ -243,16 +252,12 @@ def generate_available_slots(
         .all()
     )
 
-    exclusion_intervals: List[Tuple[int, int]] = []
-    for excl in exclusions:
-        e_start = _time_to_minutes(excl.start_time)
-        e_end = _time_to_minutes(excl.end_time)
-        # Full-day holiday check (e.g. 23:59 covers through end of day)
-        if excl.end_time >= time(23, 59):
-            e_end = 24 * 60
-        exclusion_intervals.append((e_start, e_end))
+    # Check clinic-wide holiday
+    has_holiday = any(s.type == "HOLIDAY" for s in all_schedules)
+    if has_holiday:
+        return []
 
-    # Step E: Occupied Appointments (BOOKED, COMPLETED)
+    # Query active appointments for query_date
     appointments = (
         db.query(Appointment)
         .filter(
@@ -262,35 +267,130 @@ def generate_available_slots(
         )
         .all()
     )
-    for apt in appointments:
-        a_start = _time_to_minutes(apt.start_time)
-        a_end = _time_to_minutes(apt.end_time)
-        if apt.end_time >= time(23, 59):
-            a_end = 24 * 60
-        exclusion_intervals.append((a_start, a_end))
 
-    # Step F: Intersection & Subtraction
-    valid_slots: List[Dict[str, str]] = []
-    # Deduplicate candidate slots if any duplicate windows existed
+    # Determine if query is for a specific practitioner
+    is_primary_only = (staff_id == "primary")
+    target_staff_uuid = None
+    if staff_id and staff_id != "primary":
+        if isinstance(staff_id, str):
+            try:
+                target_staff_uuid = uuid.UUID(staff_id)
+            except ValueError:
+                target_staff_uuid = None
+        else:
+            target_staff_uuid = staff_id
+
+    # Active staff doctors
+    doctor_keywords = ["doctor", "physician", "specialist", "consultant", "surgeon", "pediatrician", "cardiologist", "dermatologist"]
+    staff_members = (
+        db.query(StaffMember)
+        .filter(
+            StaffMember.doctor_id == doctor_id,
+            StaffMember.status.in_(["active", "on_leave"]),
+        )
+        .all()
+    )
+    staff_doctors = [
+        s for s in staff_members
+        if any(kw in s.role.lower() for kw in doctor_keywords) or s.department == "Clinical"
+    ]
+
+    # Handle specific practitioner slot generation
+    if is_primary_only or target_staff_uuid is not None:
+        blocked_intervals: List[Tuple[int, int]] = []
+        if is_primary_only:
+            # Primary doctor leaves and blocked times
+            for s in all_schedules:
+                if s.type in ("LEAVE", "BLOCKED"):
+                    s_st = _time_to_minutes(s.start_time)
+                    s_en = 24 * 60 if s.end_time >= time(23, 59) else _time_to_minutes(s.end_time)
+                    blocked_intervals.append((s_st, s_en))
+            # Primary doctor appointments (staff_id is None)
+            for apt in appointments:
+                if apt.staff_id is None:
+                    a_st = _time_to_minutes(apt.start_time)
+                    a_en = 24 * 60 if apt.end_time >= time(23, 59) else _time_to_minutes(apt.end_time)
+                    blocked_intervals.append((a_st, a_en))
+        else:
+            # Staff doctor: check if staff member is on leave
+            target_staff = next((s for s in staff_doctors if s.id == target_staff_uuid), None)
+            if target_staff and target_staff.status == "on_leave":
+                return []
+            # Staff doctor appointments
+            for apt in appointments:
+                if apt.staff_id == target_staff_uuid:
+                    a_st = _time_to_minutes(apt.start_time)
+                    a_en = 24 * 60 if apt.end_time >= time(23, 59) else _time_to_minutes(apt.end_time)
+                    blocked_intervals.append((a_st, a_en))
+
+        valid_slots: List[Dict[str, str]] = []
+        seen_slots = set()
+        for s_start, s_end in candidate_slots:
+            if (s_start, s_end) in seen_slots:
+                continue
+            seen_slots.add((s_start, s_end))
+
+            is_blocked = any(s_start < b_end and s_end > b_start for b_start, b_end in blocked_intervals)
+            if not is_blocked:
+                valid_slots.append({
+                    "start": _minutes_to_time_str(s_start),
+                    "end": _minutes_to_time_str(s_end),
+                })
+        valid_slots.sort(key=lambda s: s["start"])
+        return valid_slots
+
+    # Multi-Doctor Capacity (staff_id is None):
+    # Total active doctor capacity = 1 (primary) + active staff doctors
+    active_staff_docs = [s for s in staff_doctors if s.status == "active"]
+    total_capacity = 1 + len(active_staff_docs)
+
+    # Primary doctor leave/block intervals
+    primary_leaves: List[Tuple[int, int]] = []
+    for s in all_schedules:
+        if s.type in ("LEAVE", "BLOCKED"):
+            s_st = _time_to_minutes(s.start_time)
+            s_en = 24 * 60 if s.end_time >= time(23, 59) else _time_to_minutes(s.end_time)
+            primary_leaves.append((s_st, s_en))
+
+    valid_slots = []
     seen_slots = set()
     for s_start, s_end in candidate_slots:
         if (s_start, s_end) in seen_slots:
             continue
         seen_slots.add((s_start, s_end))
 
-        # Check overlap with any exclusion
-        is_blocked = False
-        for e_start, e_end in exclusion_intervals:
-            if s_start < e_end and s_end > e_start:
-                is_blocked = True
-                break
+        # Count unavailable doctors during this interval
+        unavailable_count = 0
 
-        if not is_blocked:
+        # Check primary doctor availability
+        primary_unavailable = any(s_start < l_en and s_end > l_st for l_st, l_en in primary_leaves)
+        if not primary_unavailable:
+            primary_unavailable = any(
+                apt.staff_id is None
+                and s_start < (_time_to_minutes(apt.end_time) if apt.end_time < time(23, 59) else 1440)
+                and s_end > _time_to_minutes(apt.start_time)
+                for apt in appointments
+            )
+        if primary_unavailable:
+            unavailable_count += 1
+
+        # Check each staff doctor availability
+        for s in active_staff_docs:
+            staff_booked = any(
+                apt.staff_id == s.id
+                and s_start < (_time_to_minutes(apt.end_time) if apt.end_time < time(23, 59) else 1440)
+                and s_end > _time_to_minutes(apt.start_time)
+                for apt in appointments
+            )
+            if staff_booked:
+                unavailable_count += 1
+
+        # If at least one doctor is free, slot is available!
+        if unavailable_count < total_capacity:
             valid_slots.append({
                 "start": _minutes_to_time_str(s_start),
                 "end": _minutes_to_time_str(s_end),
             })
 
-    # Step G: Sort by start
     valid_slots.sort(key=lambda s: s["start"])
     return valid_slots

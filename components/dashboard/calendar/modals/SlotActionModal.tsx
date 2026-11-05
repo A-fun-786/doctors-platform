@@ -13,12 +13,14 @@ import {
   HeartPulse,
   MapPin,
   Clock,
+  Stethoscope,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
-import { CalendarEvent } from "@/lib/api";
+import { CalendarEvent, Practitioner, getClinicPractitioners } from "@/lib/api";
 import { format12Hour, findConflictingEvents } from "../calendarUtils";
 
 export interface SlotBookingFormData {
+  staffId?: string;
   patientName: string;
   patientContact: string;
   patientGender: string;
@@ -46,6 +48,9 @@ interface SlotActionModalProps {
   onBookPatient: (data: SlotBookingFormData) => Promise<void> | void;
   onMarkLeave: (data: SlotLeaveFormData) => Promise<void> | void;
   existingEvents?: CalendarEvent[];
+  practitioners?: Practitioner[];
+  selectedStaffId?: string;
+  setSelectedStaffId?: (id: string) => void;
 }
 
 const COMMON_VISIT_REASONS = [
@@ -79,8 +84,33 @@ export default function SlotActionModal({
   onBookPatient,
   onMarkLeave,
   existingEvents = [],
+  practitioners: initialPractitioners,
+  selectedStaffId,
+  setSelectedStaffId,
 }: SlotActionModalProps) {
   const [activeTab, setActiveTab] = useState<"booking" | "leave">(initialTab);
+  const [internalStaffId, setInternalStaffId] = useState<string>("");
+  const [practitioners, setPractitioners] = useState<Practitioner[]>(initialPractitioners || []);
+
+  const staffId = selectedStaffId !== undefined ? selectedStaffId : internalStaffId;
+  const setStaffId = setSelectedStaffId || setInternalStaffId;
+
+  // Load clinic practitioners when modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPractitioners && initialPractitioners.length > 0) {
+        setPractitioners(initialPractitioners);
+      } else {
+        getClinicPractitioners()
+          .then((list) => {
+            if (list && list.length > 0) {
+              setPractitioners(list);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [isOpen, initialPractitioners]);
 
   // Sync activeTab when modal opens with initialTab
   useEffect(() => {
@@ -131,8 +161,8 @@ export default function SlotActionModal({
   // Conflict detection with existing events
   const conflicts = useMemo(() => {
     if (!startTime || !endTime) return [];
-    return findConflictingEvents(startTime, endTime, existingEvents);
-  }, [startTime, endTime, existingEvents]);
+    return findConflictingEvents(startTime, endTime, existingEvents, activeTab === "booking" ? staffId : undefined);
+  }, [startTime, endTime, existingEvents, activeTab, staffId]);
 
   const hasConflict = conflicts.length > 0;
 
@@ -168,6 +198,7 @@ export default function SlotActionModal({
     if (!isBookingValid || submitting) return;
 
     await onBookPatient({
+      staffId: staffId || undefined,
       patientName: patientName.trim(),
       patientContact: patientContact.trim(),
       patientGender,
@@ -265,6 +296,32 @@ export default function SlotActionModal({
         {/* TAB 1: BOOK PATIENT */}
         {activeTab === "booking" && (
           <form onSubmit={handleBookingSubmit} className="space-y-4">
+            {/* Attending Doctor / Specialist Selection */}
+            {practitioners.length > 0 && (
+              <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Attending Doctor / Specialist *</span>
+                  </label>
+                  <span className="text-[10px] text-blue-600 font-medium">
+                    Multiple doctors can book same slot
+                  </span>
+                </div>
+                <select
+                  value={staffId}
+                  onChange={(e) => setStaffId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800"
+                >
+                  {practitioners.map((p) => (
+                    <option key={p.id || "primary"} value={p.id || ""}>
+                      {p.name} {p.is_primary ? "— Primary Doctor / Owner" : `— ${p.role}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Mandatory Fields Notice */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 pb-1 border-b border-slate-100">
               <span className="font-semibold text-slate-700">Patient Details</span>

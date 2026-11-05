@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -10,7 +10,8 @@ import {
   UserCheck,
   AlertCircle,
   Loader2,
-  ExternalLink,
+  User,
+  Users,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -337,19 +338,37 @@ export default function OverviewTab({
 
         <button
           type="button"
+          onClick={() => onNavigateTab("staff")}
+          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
+        >
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+              Manage Staff
+            </h3>
+            <p className="text-xs text-slate-500">
+              Add and manage clinic doctors, nurses, and administrative personnel.
+            </p>
+          </div>
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+        </button>
+
+        <button
+          type="button"
           onClick={() => onNavigateTab("profile")}
           className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
         >
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Practice Profile &amp; Services
+              Admin Profile
             </h3>
             <p className="text-xs text-slate-500">
               Update clinic address, consultation fees, bio, services offered, and photo.
             </p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <ExternalLink className="w-4 h-4" />
+            <User className="w-4 h-4" />
           </div>
         </button>
       </ResponsiveGrid>

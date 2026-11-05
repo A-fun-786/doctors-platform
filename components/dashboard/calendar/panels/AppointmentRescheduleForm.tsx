@@ -178,6 +178,12 @@ export default function AppointmentRescheduleForm({
         <div className="font-bold">
           {date} • {format12Hour(event.start)} – {format12Hour(event.end)}
         </div>
+        {event.doctor_name && (
+          <div className="text-[11px] text-blue-800 font-semibold mt-1 flex items-center gap-1">
+            <span>Attending Doctor:</span>
+            <span className="font-bold">{event.doctor_name}</span>
+          </div>
+        )}
       </div>
 
       {/* Error Feedback Banner */}
@@ -214,6 +220,7 @@ export default function AppointmentRescheduleForm({
         existingEvents={targetEvents}
         workingHoursConfig={workingHoursConfig}
         currentAppointmentId={event.appointment_id}
+        targetStaffId={event.staff_id || null}
       />
 
       {/* Field: Visit Reason */}

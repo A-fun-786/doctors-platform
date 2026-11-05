@@ -1393,7 +1393,8 @@ When future phases are implemented, here are the exact extension points:
 
 For deep-dive technical specifications and design systems, refer to the following companion architecture guides:
 
-- **[Floating Header Architecture & Design System](file:///Users/emanur/doctors-platform/docs/FLOATING_HEADER_ARCHITECTURE.md)**: Specifications for the Shiha Wellness-style glassmorphic floating pill headers (`DashboardShell.tsx`, `Navbar.tsx`), the `useScrolled` custom hook, `pointer-events` click containment, and `overflow-x: clip` browser engine compatibility.
+- **[Header Navigation, Scroll Isolation & Profile Menu Architecture](file:///Users/emanur/doctors-platform/docs/FLOATING_HEADER_ARCHITECTURE.md)**: Comprehensive technical specifications for the transparent edge-to-edge sticky headers (`DashboardShell.tsx`, `Navbar.tsx`), isolated viewport scrolling (`overscroll-behavior-y: none`), zero-re-render auto-hiding scrollbars, compact sidebar hugging, and the modular `ProfileDropdownMenu` popover.
+- **[Staff Management Architecture](file:///Users/emanur/doctors-platform/docs/STAFF_MANAGEMENT_ARCHITECTURE.md)**: Comprehensive architectural specification for the workforce roster directory, dual-portal authentication (`portal_type: "admin" | "staff"`), role-isolated access control, admin credential provisioning with 1-click copy delivery, session password caching, and Alembic migrations (`010_staff_management`, `011_staff_authentication`).
 - **[DashboardShell Refactoring Guide](file:///Users/emanur/doctors-platform/docs/DASHBOARDSHELL_REFACTOR.md)**: Historical transition and verification suite for the desktop sidebar and mobile shell.
 - **[Appointment System Specification](file:///Users/emanur/doctors-platform/docs/APPOINTMENT_SYSTEM.md)**: Complete guide to calendar slot calculations, status transitions, demographics generation, and clinic scheduling.
 

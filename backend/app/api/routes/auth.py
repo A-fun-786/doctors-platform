@@ -80,6 +80,7 @@ def email_login(
         db=db,
         email=payload.email,
         password=payload.password,
+        portal_type=payload.portal_type,
     )
 
 
@@ -89,12 +90,32 @@ def email_login(
     response_model=DoctorMeResponse,
     status_code=status.HTTP_200_OK,
     summary="Get Current Doctor",
-    description="Retrieve profile and tenant details of the currently authenticated doctor.",
+    description="Retrieve profile and tenant details of the currently authenticated doctor or staff member.",
 )
 def get_me(
     current_doctor: Doctor = Depends(get_current_doctor),
 ) -> DoctorMeResponse:
     """Return currently logged-in doctor profile and workspace tenant."""
+    if getattr(current_doctor, "_is_staff", False):
+        staff = current_doctor._current_staff
+        return DoctorMeResponse(
+            id=staff.id,
+            full_name=staff.full_name,
+            email=staff.email or "",
+            phone=staff.phone,
+            avatar_url=None,
+            speciality=staff.department,
+            bio=staff.notes,
+            onboarding_completed=True,
+            auth_provider="email",
+            tenant=TenantResponse.model_validate(current_doctor.tenant) if current_doctor.tenant else None,
+            role=staff.role,
+            user_type="staff",
+            staff_id=staff.id,
+            can_manage_staff=False,
+            must_change_password=staff.must_change_password,
+        )
+
     return DoctorMeResponse(
         id=current_doctor.id,
         full_name=current_doctor.full_name,
@@ -106,4 +127,9 @@ def get_me(
         onboarding_completed=current_doctor.onboarding_completed,
         auth_provider=current_doctor.auth_provider,
         tenant=TenantResponse.model_validate(current_doctor.tenant) if current_doctor.tenant else None,
+        role="Doctor",
+        user_type="doctor",
+        staff_id=None,
+        can_manage_staff=True,
+        must_change_password=False,
     )

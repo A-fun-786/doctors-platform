@@ -17,10 +17,11 @@ export function useCalendarData() {
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return formatDateToYYYYMMDD(new Date());
   });
-  const [viewMode, setViewMode] = useState<CalendarViewMode>("week");
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("agenda");
   const [loading, setLoading] = useState(false);
   const [apiCalendarData, setApiCalendarData] = useState<Record<string, CalendarEvent[]>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [practitionerFilter, setPractitionerFilter] = useState<string | null>(null);
 
   // Mini Calendar Month Navigation initialized to current month
   const [miniCalMonth, setMiniCalMonth] = useState<Date>(() => {
@@ -74,7 +75,7 @@ export function useCalendarData() {
   const fetchCalendar = useCallback(async (startIso: string, endIso: string) => {
     try {
       setLoading(true);
-      const res = await getDoctorCalendar(startIso, endIso);
+      const res = await getDoctorCalendar(startIso, endIso, practitionerFilter);
       const map: Record<string, CalendarEvent[]> = {};
       let totalEvents = 0;
       res.dates?.forEach((d) => {
@@ -87,6 +88,7 @@ export function useCalendarData() {
       logger.info("Calendar", `Loaded operational calendar for ${startIso} to ${endIso}`, {
         datesCount: res.dates?.length || 0,
         totalEvents,
+        practitionerFilter,
       });
     } catch (err: unknown) {
       logger.warn("Calendar", "Backend calendar fetch notice, defaulting to empty calendar view", {
@@ -95,7 +97,7 @@ export function useCalendarData() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [practitionerFilter]);
 
   useEffect(() => {
     if (currentWeekDays.length > 0) {
@@ -178,5 +180,7 @@ export function useCalendarData() {
     handleGoToToday,
     getEventsForDate,
     refreshCurrentWeek,
+    practitionerFilter,
+    setPractitionerFilter,
   };
 }

@@ -41,6 +41,7 @@ export function useCalendarModals() {
   const [newPatientName, setNewPatientName] = useState("");
   const [newPatientContact, setNewPatientContact] = useState("");
   const [newApptReason, setNewApptReason] = useState("");
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
 
   // Block Modal Form states
   const [blockType, setBlockType] = useState<BlockType>("BLOCKED");
@@ -49,10 +50,11 @@ export function useCalendarModals() {
   // Open modal helpers
 
   const openAddAppointment = useCallback(
-    (date = "2026-10-19", start = "10:00", end = "10:30") => {
+    (date = "2026-10-19", start = "10:00", end = "10:30", staffId = "") => {
       setModalDate(date);
       setModalStartTime(start);
       setModalEndTime(end);
+      setSelectedStaffId(staffId);
       setShowAddAppointmentModal(true);
     },
     []
@@ -71,11 +73,12 @@ export function useCalendarModals() {
   );
 
   const openSlotActionModal = useCallback(
-    (date: string, start: string, end: string, initialTab: "booking" | "leave" = "booking") => {
+    (date: string, start: string, end: string, initialTab: "booking" | "leave" = "booking", staffId = "") => {
       setModalDate(date);
       setModalStartTime(start);
       setModalEndTime(end);
       setSlotActionInitialTab(initialTab);
+      setSelectedStaffId(staffId);
       setShowSlotActionModal(true);
     },
     []
@@ -119,7 +122,7 @@ export function useCalendarModals() {
         return;
       }
 
-      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents);
+      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents, selectedStaffId);
       if (conflicts.length > 0) {
         const first = conflicts[0];
         const conflictLabel = first.patient_name || first.reason || first.type;
@@ -130,6 +133,7 @@ export function useCalendarModals() {
       setModalSubmitting(true);
       try {
         await createAppointment({
+          staff_id: selectedStaffId || undefined,
           patient_name: newPatientName,
           patient_contact: newPatientContact || undefined,
           date: modalDate,
@@ -156,6 +160,7 @@ export function useCalendarModals() {
       modalStartTime,
       modalEndTime,
       newApptReason,
+      selectedStaffId,
     ]
   );
 
@@ -215,7 +220,7 @@ export function useCalendarModals() {
       showToast: (msg: string) => void,
       existingEvents: CalendarEvent[] = []
     ) => {
-      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents);
+      const conflicts = findConflictingEvents(modalStartTime, modalEndTime, existingEvents, data.staffId);
       if (conflicts.length > 0) {
         const first = conflicts[0];
         const conflictLabel = first.patient_name || first.reason || first.type;
@@ -226,6 +231,7 @@ export function useCalendarModals() {
       setModalSubmitting(true);
       try {
         await createAppointment({
+          staff_id: data.staffId || undefined,
           patient_name: data.patientName,
           patient_contact: data.patientContact,
           patient_gender: data.patientGender,
@@ -324,6 +330,8 @@ export function useCalendarModals() {
     setNewPatientContact,
     newApptReason,
     setNewApptReason,
+    selectedStaffId,
+    setSelectedStaffId,
     blockType,
     setBlockType,
     blockReason,

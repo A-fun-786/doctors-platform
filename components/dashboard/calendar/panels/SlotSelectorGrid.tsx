@@ -12,6 +12,7 @@ interface SlotSelectorGridProps {
   existingEvents?: CalendarEvent[];
   workingHoursConfig?: WorkingHoursConfig;
   currentAppointmentId?: string; // allow the appointment being rescheduled to ignore its own old slot
+  targetStaffId?: string | null;
 }
 
 interface CandidateSlot {
@@ -28,6 +29,7 @@ export default function SlotSelectorGrid({
   existingEvents = [],
   workingHoursConfig,
   currentAppointmentId,
+  targetStaffId,
 }: SlotSelectorGridProps) {
   const [loading, setLoading] = useState(false);
   const [apiSlots, setApiSlots] = useState<AvailableSlot[] | null>(null);
@@ -41,7 +43,7 @@ export default function SlotSelectorGrid({
       try {
         setLoading(true);
         setError(null);
-        const slots = await getDoctorAvailableSlots(date);
+        const slots = await getDoctorAvailableSlots(date, targetStaffId);
         if (isMounted) {
           setApiSlots(slots);
         }
@@ -59,7 +61,7 @@ export default function SlotSelectorGrid({
     return () => {
       isMounted = false;
     };
-  }, [date]);
+  }, [date, targetStaffId]);
 
   // Generate complete sequence of 30-minute daytime candidate slots (09:00 - 20:00)
   const candidateSlots: CandidateSlot[] = useMemo(() => {
@@ -104,17 +106,38 @@ export default function SlotSelectorGrid({
           if ((ev.type as string) === "AVAILABLE") continue;
 
           if (doesEventOverlapSlot(ev, start, end)) {
-            isBlocked = true;
-            if (ev.type === "LEAVE" || ev.type === "HOLIDAY") {
-              reason = "Doctor Leave";
-            } else if (ev.type === "BLOCKED") {
-              reason = "Blocked";
-            } else if (ev.type === "APPOINTMENT") {
+            // For appointments, only conflict if it belongs to the target doctor
+            if (ev.type === "APPOINTMENT") {
+              const evStaffId = ev.staff_id || null;
+              const targetId = targetStaffId || null;
+              if (evStaffId !== targetId) {
+                // Different doctor - does not conflict
+                continue;
+              }
+              isBlocked = true;
               reason = "Already Booked";
+              break;
+            } else if (ev.type === "LEAVE") {
+              if (targetStaffId) {
+                // Primary doctor leave does not block staff doctor
+                continue;
+              }
+              isBlocked = true;
+              reason = "Doctor Leave";
+              break;
+            } else if (ev.type === "HOLIDAY") {
+              isBlocked = true;
+              reason = "Clinic Holiday";
+              break;
+            } else if (ev.type === "BLOCKED") {
+              isBlocked = true;
+              reason = "Blocked";
+              break;
             } else {
+              isBlocked = true;
               reason = "Unavailable";
+              break;
             }
-            break;
           }
         }
 
@@ -141,7 +164,7 @@ export default function SlotSelectorGrid({
     }
 
     return list;
-  }, [date, existingEvents, workingHoursConfig, currentAppointmentId, apiSlots]);
+  }, [date, existingEvents, workingHoursConfig, currentAppointmentId, apiSlots, targetStaffId]);
 
   const availableCount = candidateSlots.filter((s) => s.isAvailable).length;
 
