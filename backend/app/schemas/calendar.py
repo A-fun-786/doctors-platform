@@ -24,6 +24,9 @@ class CalendarEvent(BaseModel):
     appointment_id: Optional[str] = Field(None, description="Appointment UUID string if appointment")
     schedule_id: Optional[str] = Field(None, description="Schedule UUID string if leave or blocked slot")
     doctor_id: Optional[str] = Field(None, description="Doctor UUID string")
+    staff_id: Optional[str] = Field(None, description="Staff doctor UUID string if assigned")
+    staff_name: Optional[str] = Field(None, description="Staff doctor name")
+    doctor_name: Optional[str] = Field(None, description="Doctor full name")
     patient_id: Optional[str] = Field(None, description="Patient UUID string if linked")
     created_at: Optional[str] = Field(None, description="Creation timestamp ISO string")
 

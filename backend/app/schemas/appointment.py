@@ -8,6 +8,7 @@ AppointmentStatus = Literal["BOOKED", "COMPLETED", "CANCELLED"]
 
 class AppointmentCreateRequest(BaseModel):
     """Payload to create an appointment."""
+    staff_id: Optional[uuid.UUID] = None
     patient_name: str = Field(..., min_length=1)
     patient_contact: Optional[str] = None
     patient_gender: Optional[str] = None
@@ -33,6 +34,7 @@ class AppointmentCreateRequest(BaseModel):
 
 class AppointmentRescheduleRequest(BaseModel):
     """Payload to reschedule an existing appointment."""
+    staff_id: Optional[uuid.UUID] = None
     date: date
     start_time: time
     end_time: time
@@ -50,6 +52,9 @@ class AppointmentResponse(BaseModel):
 
     id: uuid.UUID
     doctor_id: uuid.UUID
+    staff_id: Optional[uuid.UUID] = None
+    staff_name: Optional[str] = None
+    doctor_name: Optional[str] = None
     patient_id: Optional[uuid.UUID] = None
     request_id: Optional[uuid.UUID] = None
     patient_name: str
@@ -68,6 +73,16 @@ class AppointmentResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class PractitionerResponse(BaseModel):
+    """Clinic practitioner (Primary practice owner or associate doctor/staff)."""
+    id: Optional[uuid.UUID] = None  # None for primary doctor
+    name: str
+    role: str
+    speciality: Optional[str] = None
+    department: Optional[str] = None
+    is_primary: bool = False
 
 
 class AppointmentListResponse(BaseModel):

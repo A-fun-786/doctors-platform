@@ -62,11 +62,12 @@ class PublicDoctorProfileResponse(BaseModel):
 class AppointmentBookingRequest(BaseModel):
     """Patient appointment booking payload."""
     patient_name: str = Field(..., min_length=2)
-    patient_email: str
+    patient_email: Optional[str] = None
     patient_phone: str = Field(..., min_length=7)
     appointment_date: str
     appointment_time: str
     appointment_type: str = "in_clinic"  # "in_clinic" | "video_consultation"
+    staff_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
 
 
