@@ -42,6 +42,7 @@ interface ProfileDropdownMenuProps {
   formattedDoctorName: string;
   email: string;
   speciality: string;
+  isStaff?: boolean;
   onNavigateProfile: () => void;
   onLogout: () => void;
   className?: string;
@@ -52,6 +53,7 @@ function ProfileDropdownMenu({
   formattedDoctorName,
   email,
   speciality,
+  isStaff = false,
   onNavigateProfile,
   onLogout,
   className = "w-[268px] mt-2.5",
@@ -86,7 +88,7 @@ function ProfileDropdownMenu({
 
       {/* 2. Clickable Actions */}
       <div className="space-y-1">
-        {/* Admin Profile Action Button */}
+        {/* Profile Action Button */}
         <button
           type="button"
           onClick={onNavigateProfile}
@@ -98,10 +100,10 @@ function ProfileDropdownMenu({
             </div>
             <div className="min-w-0">
               <div className="text-xs font-bold text-slate-800 group-hover:text-brand-700 transition-colors">
-                Admin Profile
+                {isStaff ? "My Profile" : "Admin Profile"}
               </div>
               <div className="text-[10px] text-slate-500 truncate">
-                Account &amp; clinic settings
+                {isStaff ? "View personal profile" : "Account & clinic settings"}
               </div>
             </div>
           </div>
@@ -204,6 +206,9 @@ export default function DashboardShell({
     };
   }, [isProfileMenuOpen]);
 
+  const isStaff = doctor.user_type === "staff";
+  const canManageStaff = doctor.can_manage_staff !== false;
+
   // Desktop sidebar navigation: Android App is excluded
   const desktopNavItems: {
     id: DashboardTabId;
@@ -212,8 +217,11 @@ export default function DashboardShell({
   }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
-    { id: "staff", label: "Manage Staff", icon: Users },
   ];
+
+  if (canManageStaff) {
+    desktopNavItems.push({ id: "staff", label: "Manage Staff", icon: Users });
+  }
 
   // Mobile navigation: Preserves Android App if enabled
   const navItems: {
@@ -222,15 +230,20 @@ export default function DashboardShell({
     icon: React.ComponentType<{ className?: string }>;
   }[] = [...desktopNavItems];
 
-  if (enableAndroidBuild) {
+  if (enableAndroidBuild && !isStaff) {
     navItems.push({ id: "android", label: "Android App", icon: Smartphone });
   }
 
   const avatar = profile?.avatar_url || doctor.avatar_url || DEFAULT_DOCTOR_AVATAR;
-  const doctorDisplayName = doctor.full_name?.trim() || "Doctor";
-  const formattedDoctorName = doctorDisplayName.toLowerCase().startsWith("dr.")
+  const doctorDisplayName = doctor.full_name?.trim() || "User";
+  const formattedDoctorName = isStaff
+    ? doctorDisplayName
+    : doctorDisplayName.toLowerCase().startsWith("dr.")
     ? doctorDisplayName
     : `Dr. ${doctorDisplayName}`;
+  const userSpeciality = isStaff
+    ? `${doctor.role || "Staff Member"} • Clinic Team`
+    : profile?.speciality || doctor.speciality || "Healthcare Practice";
 
   // Close mobile drawer on Escape key
   useEffect(() => {
@@ -319,7 +332,8 @@ export default function DashboardShell({
                 avatar={avatar}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
-                speciality={profile?.speciality || "General Practice"}
+                speciality={userSpeciality}
+                isStaff={isStaff}
                 onNavigateProfile={() => {
                   setIsProfileMenuOpen(false);
                   onTabChange("profile");
@@ -394,7 +408,8 @@ export default function DashboardShell({
                 avatar={avatar}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
-                speciality={profile?.speciality || "Healthcare Practice"}
+                speciality={userSpeciality}
+                isStaff={isStaff}
                 onNavigateProfile={() => {
                   setIsProfileMenuOpen(false);
                   onTabChange("profile");

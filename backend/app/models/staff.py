@@ -1,11 +1,13 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from sqlalchemy import (
     String,
     Text,
     Date,
+    DateTime,
     Integer,
+    Boolean,
     ForeignKey,
     Index,
 )
@@ -48,10 +50,17 @@ class StaffMember(Base, TimestampMixin):
     emergency_contact: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Authentication & Portal Access fields
+    can_login: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Doctor relationship
     doctor: Mapped["Doctor"] = relationship("Doctor")
 
     __table_args__ = (
         Index("idx_staff_doctor_status", "doctor_id", "status"),
         Index("idx_staff_doctor_dept", "doctor_id", "department"),
+        Index("idx_staff_email", "email"),
     )

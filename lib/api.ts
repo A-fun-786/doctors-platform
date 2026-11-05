@@ -55,6 +55,11 @@ export interface DoctorMeResponse {
   onboarding_completed: boolean;
   auth_provider: string;
   tenant?: Tenant | null;
+  role?: string;
+  user_type?: "doctor" | "staff";
+  staff_id?: string | null;
+  can_manage_staff?: boolean;
+  must_change_password?: boolean;
 }
 
 export interface DoctorProfileResponse {
@@ -503,11 +508,12 @@ export async function registerWithEmail(
  */
 export async function loginWithEmail(
   email: string,
-  password: string
+  password: string,
+  portalType?: "admin" | "staff"
 ): Promise<AuthResponse> {
   const data = await apiFetch<AuthResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, portal_type: portalType }),
   });
   setAuthToken(data.access_token);
   return data;
@@ -936,6 +942,9 @@ export interface StaffMember {
   base_salary_paise: number;
   emergency_contact?: string | null;
   notes?: string | null;
+  can_login?: boolean;
+  must_change_password?: boolean;
+  last_login_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -952,6 +961,8 @@ export interface StaffMemberCreatePayload {
   base_salary_paise: number;
   emergency_contact?: string;
   notes?: string;
+  can_login?: boolean;
+  password?: string;
 }
 
 export interface StaffMemberUpdatePayload {
@@ -966,6 +977,9 @@ export interface StaffMemberUpdatePayload {
   base_salary_paise?: number;
   emergency_contact?: string;
   notes?: string;
+  can_login?: boolean;
+  password?: string;
+  must_change_password?: boolean;
 }
 
 export async function listStaff(params?: {
@@ -1003,6 +1017,18 @@ export async function updateStaffMember(
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    requireAuth: true,
+  });
+}
+
+export async function resetStaffPassword(
+  staffId: string,
+  newPassword: string
+): Promise<StaffMember> {
+  return apiFetch<StaffMember>(`/api/v1/staff/${encodeURIComponent(staffId)}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_password: newPassword }),
     requireAuth: true,
   });
 }

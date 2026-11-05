@@ -3,13 +3,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor, get_db
+from app.api.deps import get_current_doctor, require_doctor_owner, get_db
 from app.models.doctor import Doctor
 from app.schemas.staff import (
     StaffMemberCreate,
     StaffMemberUpdate,
     StaffMemberResponse,
     StaffSummaryMetricsResponse,
+    StaffPasswordResetRequest,
 )
 from app.services.staff_service import StaffService
 
@@ -60,7 +61,7 @@ def list_staff(
 )
 def create_staff(
     payload: StaffMemberCreate,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     service = StaffService(db)
@@ -92,7 +93,7 @@ def get_staff_member(
 def update_staff_member(
     staff_id: uuid.UUID,
     payload: StaffMemberUpdate,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     service = StaffService(db)
@@ -102,6 +103,21 @@ def update_staff_member(
     return updated
 
 
+@router.post(
+    "/{staff_id}/reset-password",
+    response_model=StaffMemberResponse,
+    summary="Admin reset of staff member portal password",
+)
+def reset_staff_password(
+    staff_id: uuid.UUID,
+    payload: StaffPasswordResetRequest,
+    current_doctor: Doctor = Depends(require_doctor_owner),
+    db: Session = Depends(get_db),
+):
+    service = StaffService(db)
+    return service.reset_staff_password(current_doctor.id, staff_id, payload.new_password)
+
+
 @router.delete(
     "/{staff_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -109,7 +125,7 @@ def update_staff_member(
 )
 def delete_staff_member(
     staff_id: uuid.UUID,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     service = StaffService(db)

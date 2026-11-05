@@ -96,8 +96,9 @@ def verify_google_token(credential: str) -> Dict[str, Any]:
 def create_access_token(
     subject: str,
     expires_delta: Optional[timedelta] = None,
+    claims: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Create a signed JWT access token for a doctor."""
+    """Create a signed JWT access token for a doctor or staff member."""
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -105,11 +106,14 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode = {
+    to_encode: Dict[str, Any] = {
         "sub": str(subject),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
+
+    if claims:
+        to_encode.update(claims)
     
     encoded_jwt = jwt.encode(
         to_encode,

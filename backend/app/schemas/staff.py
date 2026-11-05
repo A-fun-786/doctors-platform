@@ -35,6 +35,10 @@ class StaffMemberCreate(BaseModel):
     emergency_contact: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None
 
+    # Authentication & Access Control
+    can_login: bool = False
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
+
 
 class StaffMemberUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=120)
@@ -48,6 +52,11 @@ class StaffMemberUpdate(BaseModel):
     base_salary_paise: Optional[int] = Field(None, ge=0)
     emergency_contact: Optional[str] = None
     notes: Optional[str] = None
+
+    # Authentication & Access Control
+    can_login: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
+    must_change_password: Optional[bool] = None
 
 
 class StaffMemberResponse(BaseModel):
@@ -66,8 +75,20 @@ class StaffMemberResponse(BaseModel):
     base_salary_paise: int
     emergency_contact: Optional[str] = None
     notes: Optional[str] = None
+    can_login: bool = False
+    must_change_password: bool = True
+    last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+
+class StaffPasswordResetRequest(BaseModel):
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+
+class StaffSelfPasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=6, max_length=100)
 
 
 class StaffSummaryMetricsResponse(BaseModel):

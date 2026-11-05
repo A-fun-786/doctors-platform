@@ -117,8 +117,8 @@ export default function DashboardPage() {
       enableAndroidBuild={ENABLE_ANDROID_BUILD}
     >
       <div className="space-y-6">
-        {/* Incomplete Onboarding Alert Banner */}
-        {!doctor.onboarding_completed && (
+        {/* Incomplete Onboarding Alert Banner (Doctors only) */}
+        {!doctor.onboarding_completed && doctor.user_type !== "staff" && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">

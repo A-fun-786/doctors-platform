@@ -39,6 +39,7 @@ class EmailRegisterRequest(BaseModel):
 class EmailLoginRequest(BaseModel):
     email: str
     password: str
+    portal_type: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -62,6 +63,9 @@ class DoctorResponse(BaseModel):
     avatar_url: Optional[str] = None
     auth_provider: str = "google"
     onboarding_completed: bool = False
+    role: Optional[str] = "Doctor"
+    user_type: Optional[str] = "doctor"  # "doctor" | "staff"
+    staff_id: Optional[uuid.UUID] = None
 
 
 class AuthResponse(BaseModel):
@@ -86,3 +90,8 @@ class DoctorMeResponse(BaseModel):
     onboarding_completed: bool = False
     auth_provider: str = "google"
     tenant: Optional[TenantResponse] = None
+    role: Optional[str] = "Doctor"
+    user_type: Optional[str] = "doctor"  # "doctor" | "staff"
+    staff_id: Optional[uuid.UUID] = None
+    can_manage_staff: Optional[bool] = True
+    must_change_password: Optional[bool] = False

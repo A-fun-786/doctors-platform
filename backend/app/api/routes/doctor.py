@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, require_doctor_owner
 from app.core.database import get_db
 from app.core.storage import get_storage
 from app.models.doctor import Doctor
@@ -54,7 +54,7 @@ def get_doctor_profile(
 @router.put("/profile", response_model=DoctorProfileResponse)
 def update_doctor_profile(
     payload: DoctorProfileUpdateRequest,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ) -> DoctorProfileResponse:
     """Update doctor profile details, clinic information, and enabled platform services."""
@@ -103,7 +103,7 @@ def update_doctor_profile(
 @router.post("/avatar")
 def upload_doctor_avatar(
     file: UploadFile = File(...),
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     """Upload a custom avatar image for the authenticated doctor."""
