@@ -19,6 +19,7 @@ import {
   Edit3,
   Shield,
   Loader2,
+  Stethoscope,
 } from "lucide-react";
 import {
   CalendarEvent,
@@ -411,6 +412,16 @@ export default function AppointmentDetailsPanel({
             </span>
             <span className="font-mono font-bold text-blue-700">
               {format12Hour(currentEvent.start)} – {format12Hour(currentEvent.end)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 text-xs">
+            <span className="text-slate-500 font-medium flex items-center gap-1.5">
+              <Stethoscope className="w-4 h-4 text-blue-600" />
+              <span>Attending Doctor</span>
+            </span>
+            <span className="font-semibold text-slate-800 bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-200">
+              {currentEvent.doctor_name || currentEvent.staff_name || "Primary Doctor"}
             </span>
           </div>
 

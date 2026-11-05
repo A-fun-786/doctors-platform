@@ -172,42 +172,52 @@ export default function DayView({
                   doesEventOverlapSlot(ev, slotStart, slotEnd)
                 );
 
-                const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
+                const apptEvents = cellEvents.filter((ev) => ev.type === "APPOINTMENT");
                 const leaveEvent = cellEvents.find(
                   (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
                 );
                 const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
 
-                // 1. Booked Patient Appointment (Clean: only Name & Visit Reason)
-                if (apptEvent) {
-                  const event = apptEvent;
-                  const patientName = event.patient_name || "Patient";
-                  const reason = event.reason || "General Visit";
-
+                // 1. Booked Patient Appointments (Supports multi-doctor concurrent bookings)
+                if (apptEvents.length > 0) {
                   return (
                     <React.Fragment key={timeRow}>
                       {shiftDivider}
-                      <div
-                        onClick={() => onEventClick(event, selectedDate)}
-                        className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
-                          <div
-                            className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
-                          >
-                            {format12Hour(event.start)} – {format12Hour(event.end)}
-                          </div>
+                      <div className="space-y-1.5">
+                        {apptEvents.map((event, aIdx) => {
+                          const patientName = event.patient_name || "Patient";
+                          const reason = event.reason || "General Visit";
+                          const docName = event.doctor_name || event.staff_name || "Primary Doctor";
 
-                          <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                            <span className="font-bold text-slate-900 truncate">
-                              {patientName}
-                            </span>
-                            <span className="text-slate-500 font-normal truncate">
-                              {" — "}{reason}
-                            </span>
-                          </div>
-                        </div>
+                          return (
+                            <div
+                              key={event.appointment_id || aIdx}
+                              onClick={() => onEventClick(event, selectedDate)}
+                              className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
+                            >
+                              <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
+                                <div
+                                  className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
+                                >
+                                  {format12Hour(event.start)} – {format12Hour(event.end)}
+                                </div>
+
+                                <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                                  <span className="font-bold text-slate-900 truncate">
+                                    {patientName}
+                                  </span>
+                                  <span className="text-slate-500 font-normal truncate">
+                                    {" — "}{reason}
+                                  </span>
+                                  <span className="ml-auto shrink-0 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                    {docName}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </React.Fragment>
                   );
