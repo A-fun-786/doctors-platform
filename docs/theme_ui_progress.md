@@ -70,7 +70,7 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 | **Phase 5.1** | **Working Hours & Calendar Nav Core (Batch 1/4)** | `EditWorkingHoursModal.tsx`, `WorkingHoursCard.tsx`, `MobileClinicStatusCapsule.tsx`, `CalendarHeader.tsx` | ✅ **DONE (Local)** |
 | **Phase 5.2** | **Calendar Grids & Date Strips (Batch 2/4)** | `MiniCalendar.tsx`, `MobileHorizonDayStrip.tsx`, `MonthView.tsx`, `WeekView.tsx`, `DayView.tsx` | ✅ **DONE (Local)** |
 | **Phase 5.3** | **Appointment Modals & Reschedule Panels (Batch 3/4)**| `AddAppointmentModal.tsx`, `BlockTimeModal.tsx`, `EventDetailsModal.tsx`, `SlotActionModal.tsx`, `SlotSelectorGrid.tsx`, `RescheduleConfirmModal.tsx` | ✅ **DONE (Local)** |
-| **Phase 6** | **Patient Booking Webpage & Shared Globals (Batch 4/4)**| `app/[slug]/page.tsx`, `Badge.tsx`, `Toast.tsx`, `global-error.tsx` | ⏳ Pending |
+| **Phase 6** | **Patient Booking Webpage & Shared Globals (Batch 4/4)**| `app/[slug]/page.tsx`, `Badge.tsx`, `Toast.tsx`, `global-error.tsx` | ✅ **DONE (Local)** |
 | **Phase 7** | **Auth & Onboarding** | `app/login/page.tsx`, `app/register/page.tsx`, `app/onboarding/page.tsx` | ✅ **DONE** |
 | **Phase 8** | **Automated QA & Regression Verification** | `npm run test`, `npm run test:theme`, `npx tsc --noEmit` | ✅ **100% PASS** |
 
@@ -138,7 +138,7 @@ The remaining components have been categorized into a structured 4-phase rollout
 
 ---
 
-### ⏳ Batch 4: Public Patient Portal & Shared UI Globals (Status: PENDING)
+### 🟢 Batch 4: Public Patient Portal & Shared UI Globals (Status: ✅ DONE LOCALLY)
 - **Target Files (4 files):**
   1. [`app/[slug]/page.tsx`](../app/[slug]/page.tsx)
   2. [`components/ui/Badge.tsx`](../components/ui/Badge.tsx)
