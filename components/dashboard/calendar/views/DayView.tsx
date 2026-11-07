@@ -81,7 +81,7 @@ export default function DayView({
           <span className="hidden sm:inline">Dynamic Schedule Slots</span>
           <span className="hidden sm:inline text-slate-300">•</span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
             Appointment (Patient)
           </span>
           <span className="inline-flex items-center gap-1">
@@ -199,7 +199,7 @@ export default function DayView({
                           </div>
 
                           <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" />
                             <span className="font-bold text-slate-900 truncate">
                               {patientName}
                             </span>

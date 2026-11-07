@@ -89,7 +89,7 @@ export default function WeekView({
             <div className="h-3 w-px bg-slate-200 mx-1 hidden sm:block" />
 
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700 shrink-0" />
               <span className="font-semibold text-slate-700 text-[11px]">Appointment</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -130,9 +130,9 @@ export default function WeekView({
                 onClick={() => onSelectDate(day.dateStr)}
                 className={`py-2 px-1 text-center border-r border-slate-200 last:border-r-0 cursor-pointer transition-all ${
                   day.isSelected
-                    ? "bg-blue-50/70 shadow-inner"
+                    ? "bg-brand-50/70 shadow-inner"
                     : isToday
-                    ? "bg-blue-50/25 hover:bg-blue-50/50"
+                    ? "bg-brand-50/30 hover:bg-brand-50/50"
                     : "hover:bg-slate-50"
                 }`}
               >
@@ -140,9 +140,9 @@ export default function WeekView({
                   <span
                     className={`text-[11px] uppercase tracking-wider font-bold truncate ${
                       day.isSelected
-                        ? "text-blue-700"
+                        ? "text-brand-700"
                         : isToday
-                        ? "text-blue-600"
+                        ? "text-brand-600"
                         : "text-slate-500"
                     }`}
                   >
@@ -150,7 +150,7 @@ export default function WeekView({
                   </span>
                   {isToday && !day.isSelected && (
                     <span
-                      className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block shrink-0"
+                      className="w-1.5 h-1.5 rounded-full bg-brand-600 inline-block shrink-0"
                       title="Today"
                     />
                   )}
@@ -158,9 +158,9 @@ export default function WeekView({
                 <div
                   className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                     day.isSelected
-                      ? "bg-blue-600 text-white shadow-xs"
+                      ? "bg-brand-600 text-white shadow-xs"
                       : isToday
-                      ? "border-2 border-blue-600 text-blue-600 bg-white font-black"
+                      ? "border-2 border-brand-600 text-brand-600 bg-white font-black"
                       : "text-slate-800 hover:bg-slate-200/70"
                   }`}
                 >
@@ -267,7 +267,7 @@ export default function WeekView({
                       <div
                         key={`${day.dateStr}-${timeRow}`}
                         className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${
-                          day.isSelected ? "bg-blue-50/15" : "hover:bg-slate-50/60"
+                          day.isSelected ? "bg-brand-50/15" : "hover:bg-slate-50/60"
                         }`}
                       >
                         {apptEvent ? (
