@@ -184,7 +184,7 @@ export default function DashboardShell({
               />
               <div className="text-left min-w-0">
                 <p className="text-sm font-semibold text-slate-900 leading-none truncate max-w-[160px] lg:max-w-[220px]">
-                  {doctor.full_name || "Doctor"}
+                  {formattedDoctorName}
                 </p>
                 <p className="text-xs text-slate-500 mt-1 leading-none truncate max-w-[160px] lg:max-w-[220px]">
                   {doctor.email}
@@ -382,8 +382,8 @@ export default function DashboardShell({
             ========================================================================= */}
         <main className="flex-1 min-w-0 pb-24 md:pb-6">
           {/* =========================================================================
-              LAPTOP / DESKTOP TOP BAR (>= md)
-              Profile & Logout at the top on laptop screens
+              LAPTOP / DESKTOP TAB HEADER (>= md)
+              Current Active View Indicator
               ========================================================================= */}
           <div className="hidden md:flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-3.5 mb-6">
             <div className="flex items-center gap-2">
@@ -391,38 +391,6 @@ export default function DashboardShell({
               <span className="text-base font-bold text-slate-900 tracking-tight capitalize">
                 {activeTab}
               </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Doctor Profile Pill */}
-              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-2xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatar}
-                  alt={doctor.full_name || "Doctor"}
-                  className="w-8 h-8 rounded-full border-2 border-brand-200 object-cover shrink-0"
-                />
-                <div className="flex flex-col text-left">
-                  <span className="text-sm font-bold text-slate-800 leading-tight max-w-[200px] truncate">
-                    {formattedDoctorName}
-                  </span>
-                  <span className="text-[11px] text-brand-700 font-medium truncate max-w-[200px]">
-                    {profile?.speciality || "Physician"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Logout Button */}
-              <button
-                type="button"
-                onClick={onLogout}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-xl transition-all shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 shrink-0"
-                title="Logout"
-                aria-label="Logout"
-              >
-                <LogOut className="w-4 h-4 shrink-0" />
-                <span>Logout</span>
-              </button>
             </div>
           </div>
 
