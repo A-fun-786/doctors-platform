@@ -2,6 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_active_tenant_by_slug
 from app.core.database import get_db
 from app.models.tenant import Tenant
 from app.schemas.profile import (
@@ -16,27 +17,13 @@ from app.schemas.profile import (
 router = APIRouter(prefix="/public", tags=["public"])
 
 
-def _get_active_tenant_or_404(slug: str, db: Session) -> Tenant:
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.slug == slug.lower(), Tenant.status == "active")
-        .first()
-    )
-    if not tenant or not tenant.doctor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Doctor practice with link '{slug}' was not found.",
-        )
-    return tenant
-
-
 @router.get("/tenants/{slug}", response_model=PublicDoctorProfileResponse)
 def get_public_doctor_profile(
     slug: str,
     db: Session = Depends(get_db),
 ) -> PublicDoctorProfileResponse:
     """Retrieve public practice details and active services for the patient-facing webpage."""
-    tenant = _get_active_tenant_or_404(slug, db)
+    tenant = get_active_tenant_by_slug(slug, db)
     doctor = tenant.doctor
 
     services = ServicesConfig(
@@ -70,7 +57,7 @@ def upload_lab_report(
     db: Session = Depends(get_db),
 ) -> ReportUploadResponse:
     """Submit a lab test report from the patient-facing webpage."""
-    tenant = _get_active_tenant_or_404(slug, db)
+    tenant = get_active_tenant_by_slug(slug, db)
 
     if not tenant.service_lab_reports:
         raise HTTPException(
@@ -98,7 +85,7 @@ def order_medicine(
     db: Session = Depends(get_db),
 ) -> MedicineOrderResponse:
     """Submit a medicine order or prescription delivery request from the patient-facing webpage."""
-    tenant = _get_active_tenant_or_404(slug, db)
+    tenant = get_active_tenant_by_slug(slug, db)
 
     if not tenant.service_medicine_inventory:
         raise HTTPException(
