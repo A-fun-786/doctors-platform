@@ -55,7 +55,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           setBuildTaskId(previewData.latest_apk.task_id);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Poll for Android App build status
@@ -68,15 +68,15 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         const res = await getAppBuildStatus(buildTaskId);
         setBuildStatus(res);
         if (showLogs) {
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => { });
         }
         if (res.status === "completed") {
           setBuildingApp(false);
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => { });
         } else if (res.status === "failed") {
           setBuildingApp(false);
           setBuildError(res.error || "Compilation failed. Check build logs.");
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => { });
         }
       } catch (err: unknown) {
         setBuildingApp(false);
@@ -369,7 +369,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                       const url = getAppDownloadUrl(buildStatus.task_id);
                       try {
                         if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-                          navigator.clipboard.writeText(url).catch(() => {});
+                          navigator.clipboard.writeText(url).catch(() => { });
                         }
                       } catch {
                         // ignore
@@ -408,7 +408,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                     if (nextState && buildTaskId) {
                       getAppBuildLogs(buildTaskId)
                         .then((l) => setBuildLogs(l.logs))
-                        .catch(() => {});
+                        .catch(() => { });
                     }
                   }}
                   className="text-xs font-semibold text-slate-700 hover:text-brand-600 flex items-center gap-1.5 transition-colors"

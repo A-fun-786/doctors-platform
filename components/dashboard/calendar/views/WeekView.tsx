@@ -116,220 +116,213 @@ export default function WeekView({
             >
               {/* Top-left Time column label */}
               <div className="p-2 border-r border-slate-200 text-center flex items-center justify-center bg-slate-50/70">
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5 text-slate-500" />
-              Time
-            </span>
-          </div>
-
-          {/* 7 Days Headers */}
-          {currentWeekDays.map((day) => {
-            const isToday = day.dateStr === todayStr;
-            return (
-              <div
-                key={day.dateStr}
-                onClick={() => onSelectDate(day.dateStr)}
-                className={`py-2 px-1 text-center border-r border-slate-200 last:border-r-0 cursor-pointer transition-all ${
-                  day.isSelected
-                    ? "bg-brand-50/70 shadow-inner"
-                    : isToday
-                    ? "bg-brand-50/30 hover:bg-brand-50/50"
-                    : "hover:bg-slate-50"
-                }`}
-              >
-                <div className="flex items-center justify-center gap-1 mb-0.5">
-                  <span
-                    className={`text-[11px] uppercase tracking-wider font-bold truncate ${
-                      day.isSelected
-                        ? "text-brand-700"
-                        : isToday
-                        ? "text-brand-600"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {day.dayName}
-                  </span>
-                  {isToday && !day.isSelected && (
-                    <span
-                      className="w-1.5 h-1.5 rounded-full bg-brand-600 inline-block shrink-0"
-                      title="Today"
-                    />
-                  )}
-                </div>
-                <div
-                  className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                    day.isSelected
-                      ? "bg-brand-600 text-white shadow-xs"
-                      : isToday
-                      ? "border-2 border-brand-600 text-brand-600 bg-white font-black"
-                      : "text-slate-800 hover:bg-slate-200/70"
-                  }`}
-                >
-                  {day.dayNum}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* All-Day Clinic Status Row */}
-        <div
-          className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-slate-50/70`}
-        >
-          <div className="p-1 border-r border-slate-200 text-center flex items-center justify-center bg-slate-100/50">
-            <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
-              Clinic
-            </span>
-          </div>
-          {currentWeekDays.map((day) => {
-            const status = getDayStatus(day.dateStr);
-            return (
-              <div
-                key={`status-${day.dateStr}`}
-                className="p-1 border-r border-slate-200 last:border-r-0 text-center flex items-center justify-center"
-              >
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border inline-block w-full max-w-[85px] truncate text-center shadow-2xs ${status.color}`}
-                >
-                  {status.text}
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 text-slate-500" />
+                  Time
                 </span>
               </div>
-            );
-          })}
-        </div>
 
-        {/* 30-Minute Time Slots Grid - Rendered Exclusively for Working Hours */}
-        <div className="divide-y divide-slate-100">
-          {(() => {
-            const rows: React.ReactNode[] = [];
-            let prevSlotEndM: number | null = null;
-
-            workingTimeRows.forEach((timeRow) => {
-              const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
-              const currentSlotStartM = timeToMinutes(slotStart);
-              const currentSlotEndM = timeToMinutes(slotEnd);
-              const prefStyles = getSlotShiftTheme(slotStart, workingHoursConfig);
-
-              const isDiscontinuous =
-                prevSlotEndM !== null && currentSlotStartM > prevSlotEndM;
-              prevSlotEndM = currentSlotEndM;
-
-              // Break row removed for clean uninterrupted schedule flow
-
-              const isHour = timeRow.endsWith(":00 AM") || timeRow.endsWith(":00 PM");
-
-              rows.push(
-                <div
-                  key={timeRow}
-                  className={`${GRID_COLS_CLASS} min-h-[48px] ${
-                    isDiscontinuous
-                      ? "border-t-[3px] border-slate-700/90 shadow-2xs"
-                      : isHour
-                      ? "border-t border-slate-200 bg-white"
-                      : "border-t border-dashed border-slate-200/70 bg-slate-50/20"
-                  }`}
-                >
-                  {/* Left Time Column - Bold Preference-Themed Labels */}
+              {/* 7 Days Headers */}
+              {currentWeekDays.map((day) => {
+                const isToday = day.dateStr === todayStr;
+                return (
                   <div
-                    className={`p-1.5 border-r border-slate-200 flex items-center justify-end pr-2 select-none relative ${
-                      isHour ? prefStyles.timeBg : "bg-slate-50/30"
-                    }`}
+                    key={day.dateStr}
+                    onClick={() => onSelectDate(day.dateStr)}
+                    className={`py-2 px-1 text-center border-r border-slate-200 last:border-r-0 cursor-pointer transition-all ${day.isSelected
+                        ? "bg-brand-50/70 shadow-inner"
+                        : isToday
+                          ? "bg-brand-50/30 hover:bg-brand-50/50"
+                          : "hover:bg-slate-50"
+                      }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <span
+                        className={`text-[11px] uppercase tracking-wider font-bold truncate ${day.isSelected
+                            ? "text-brand-700"
+                            : isToday
+                              ? "text-brand-600"
+                              : "text-slate-500"
+                          }`}
+                      >
+                        {day.dayName}
+                      </span>
+                      {isToday && !day.isSelected && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-brand-600 inline-block shrink-0"
+                          title="Today"
+                        />
+                      )}
+                    </div>
+                    <div
+                      className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition-all ${day.isSelected
+                          ? "bg-brand-600 text-white shadow-xs"
+                          : isToday
+                            ? "border-2 border-brand-600 text-brand-600 bg-white font-black"
+                            : "text-slate-800 hover:bg-slate-200/70"
+                        }`}
+                    >
+                      {day.dayNum}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* All-Day Clinic Status Row */}
+            <div
+              className={`${GRID_COLS_CLASS} border-b border-slate-200 bg-slate-50/70`}
+            >
+              <div className="p-1 border-r border-slate-200 text-center flex items-center justify-center bg-slate-100/50">
+                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+                  Clinic
+                </span>
+              </div>
+              {currentWeekDays.map((day) => {
+                const status = getDayStatus(day.dateStr);
+                return (
+                  <div
+                    key={`status-${day.dateStr}`}
+                    className="p-1 border-r border-slate-200 last:border-r-0 text-center flex items-center justify-center"
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full absolute left-1.5 ${prefStyles.indicator} opacity-75`}
-                      title={prefStyles.name}
-                    />
-                    <span
-                      className={`font-mono font-bold tracking-tight text-[11px] whitespace-nowrap ${
-                        isHour ? prefStyles.timeText : "text-slate-700"
-                      }`}
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border inline-block w-full max-w-[85px] truncate text-center shadow-2xs ${status.color}`}
                     >
-                      {timeRow}
+                      {status.text}
                     </span>
                   </div>
+                );
+              })}
+            </div>
 
-                  {/* 7 Day Columns - All Grid Slots Visible Without Scroll */}
-                  {currentWeekDays.map((day) => {
-                    const dayEvents = getEventsForDate(day.dateStr);
+            {/* 30-Minute Time Slots Grid - Rendered Exclusively for Working Hours */}
+            <div className="divide-y divide-slate-100">
+              {(() => {
+                const rows: React.ReactNode[] = [];
+                let prevSlotEndM: number | null = null;
 
-                    // Find events overlapping this 30-minute window
-                    const cellEvents = dayEvents.filter((ev) =>
-                      doesEventOverlapSlot(ev, slotStart, slotEnd)
-                    );
+                workingTimeRows.forEach((timeRow) => {
+                  const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
+                  const currentSlotStartM = timeToMinutes(slotStart);
+                  const currentSlotEndM = timeToMinutes(slotEnd);
+                  const prefStyles = getSlotShiftTheme(slotStart, workingHoursConfig);
 
-                    // Extract specific event types
-                    const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
+                  const isDiscontinuous =
+                    prevSlotEndM !== null && currentSlotStartM > prevSlotEndM;
+                  prevSlotEndM = currentSlotEndM;
 
-                    return (
-                      <div
-                        key={`${day.dateStr}-${timeRow}`}
-                        className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${
-                          day.isSelected ? "bg-brand-50/15" : "hover:bg-slate-50/60"
+                  // Break row removed for clean uninterrupted schedule flow
+
+                  const isHour = timeRow.endsWith(":00 AM") || timeRow.endsWith(":00 PM");
+
+                  rows.push(
+                    <div
+                      key={timeRow}
+                      className={`${GRID_COLS_CLASS} min-h-[48px] ${isDiscontinuous
+                          ? "border-t-[3px] border-slate-700/90 shadow-2xs"
+                          : isHour
+                            ? "border-t border-slate-200 bg-white"
+                            : "border-t border-dashed border-slate-200/70 bg-slate-50/20"
                         }`}
+                    >
+                      {/* Left Time Column - Bold Preference-Themed Labels */}
+                      <div
+                        className={`p-1.5 border-r border-slate-200 flex items-center justify-end pr-2 select-none relative ${isHour ? prefStyles.timeBg : "bg-slate-50/30"
+                          }`}
                       >
-                        {apptEvent ? (
-                          /* FILLED CALENDAR SLOT: PREFERENCE ACCENTED APPOINTMENT */
-                          <div
-                            onClick={() => onEventClick(apptEvent, day.dateStr)}
-                            className={`w-full h-full min-h-[38px] px-2 py-1 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
-                            title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-slate-900 truncate w-full">
-                              {apptEvent.patient_name || "Patient"}
-                            </span>
-                          </div>
-                        ) : leaveEvent ? (
-                          /* DOCTOR LEAVE / CLINIC HOLIDAY */
-                          <div
-                            onClick={() => onEventClick(leaveEvent, day.dateStr)}
-                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
-                            title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-amber-950 truncate w-full">
-                              {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
-                            </span>
-                          </div>
-                        ) : blockedEvent ? (
-                          /* BLOCKED PERIOD */
-                          <div
-                            onClick={() => onEventClick(blockedEvent, day.dateStr)}
-                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
-                            title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-purple-950 truncate w-full">
-                              {blockedEvent.reason || "Blocked Period"}
-                            </span>
-                          </div>
-                        ) : (
-                          /* PREFERENCE-COLORED EMPTY SLOT */
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (onEmptySlotClick) {
-                                onEmptySlotClick(day.dateStr, slotStart, slotEnd);
-                              } else {
-                                onQuickAddSlot(day.dateStr, slotStart, slotEnd);
-                              }
-                            }}
-                            className={`w-full h-full min-h-[38px] rounded-md transition-all cursor-pointer flex items-center justify-center group/slot ${prefStyles.emptySlot}`}
-                            title={`Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`}
-                          >
-                            <span className={`opacity-0 group-hover/slot:opacity-100 text-[11px] font-bold transition-opacity ${prefStyles.plusIcon}`}>
-                              +
-                            </span>
-                          </button>
-                        )}
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full absolute left-1.5 ${prefStyles.indicator} opacity-75`}
+                          title={prefStyles.name}
+                        />
+                        <span
+                          className={`font-mono font-bold tracking-tight text-[11px] whitespace-nowrap ${isHour ? prefStyles.timeText : "text-slate-700"
+                            }`}
+                        >
+                          {timeRow}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            });
 
-            // Break banner removed
+                      {/* 7 Day Columns - All Grid Slots Visible Without Scroll */}
+                      {currentWeekDays.map((day) => {
+                        const dayEvents = getEventsForDate(day.dateStr);
 
-            return rows;
-          })()}
+                        // Find events overlapping this 30-minute window
+                        const cellEvents = dayEvents.filter((ev) =>
+                          doesEventOverlapSlot(ev, slotStart, slotEnd)
+                        );
+
+                        // Extract specific event types
+                        const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
+
+                        return (
+                          <div
+                            key={`${day.dateStr}-${timeRow}`}
+                            className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${day.isSelected ? "bg-brand-50/15" : "hover:bg-slate-50/60"
+                              }`}
+                          >
+                            {apptEvent ? (
+                              /* FILLED CALENDAR SLOT: PREFERENCE ACCENTED APPOINTMENT */
+                              <div
+                                onClick={() => onEventClick(apptEvent, day.dateStr)}
+                                className={`w-full h-full min-h-[38px] px-2 py-1 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
+                                title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
+                              >
+                                <span className="text-[11px] font-bold text-slate-900 truncate w-full">
+                                  {apptEvent.patient_name || "Patient"}
+                                </span>
+                              </div>
+                            ) : leaveEvent ? (
+                              /* DOCTOR LEAVE / CLINIC HOLIDAY */
+                              <div
+                                onClick={() => onEventClick(leaveEvent, day.dateStr)}
+                                className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                                title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
+                              >
+                                <span className="text-[11px] font-bold text-amber-950 truncate w-full">
+                                  {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
+                                </span>
+                              </div>
+                            ) : blockedEvent ? (
+                              /* BLOCKED PERIOD */
+                              <div
+                                onClick={() => onEventClick(blockedEvent, day.dateStr)}
+                                className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
+                                title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
+                              >
+                                <span className="text-[11px] font-bold text-purple-950 truncate w-full">
+                                  {blockedEvent.reason || "Blocked Period"}
+                                </span>
+                              </div>
+                            ) : (
+                              /* PREFERENCE-COLORED EMPTY SLOT */
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onEmptySlotClick) {
+                                    onEmptySlotClick(day.dateStr, slotStart, slotEnd);
+                                  } else {
+                                    onQuickAddSlot(day.dateStr, slotStart, slotEnd);
+                                  }
+                                }}
+                                className={`w-full h-full min-h-[38px] rounded-md transition-all cursor-pointer flex items-center justify-center group/slot ${prefStyles.emptySlot}`}
+                                title={`Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`}
+                              >
+                                <span className={`opacity-0 group-hover/slot:opacity-100 text-[11px] font-bold transition-opacity ${prefStyles.plusIcon}`}>
+                                  +
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                });
+
+                // Break banner removed
+
+                return rows;
+              })()}
             </div>
           </div>
         </div>

@@ -120,12 +120,12 @@ export default function OverviewTab({
       */}
       {(() => {
         const colorMap: Record<string, { bg: string; text: string }> = {
-          blue:    { bg: "bg-brand-50",   text: "text-brand-700"   },
-          indigo:  { bg: "bg-emerald-50", text: "text-emerald-700" },
-          emerald: { bg: "bg-teal-50",    text: "text-teal-700"    },
-          amber:   { bg: "bg-amber-50",   text: "text-amber-700"   },
-          rose:    { bg: "bg-rose-50",    text: "text-rose-700"    },
-          violet:  { bg: "bg-slate-100",  text: "text-slate-700"   },
+          blue: { bg: "bg-brand-50", text: "text-brand-700" },
+          indigo: { bg: "bg-emerald-50", text: "text-emerald-700" },
+          emerald: { bg: "bg-teal-50", text: "text-teal-700" },
+          amber: { bg: "bg-amber-50", text: "text-amber-700" },
+          rose: { bg: "bg-rose-50", text: "text-rose-700" },
+          violet: { bg: "bg-slate-100", text: "text-slate-700" },
         };
 
         const kpiCards = [

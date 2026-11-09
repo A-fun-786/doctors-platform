@@ -190,20 +190,18 @@ export default function ProfileViewCard({
               return (
                 <div
                   key={def.key}
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isEnabled
+                  className={`p-3.5 rounded-xl border transition-all ${isEnabled
                       ? def.viewActiveBg
                       : "bg-slate-50 border-slate-200 text-slate-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <Icon className="w-4 h-4" />
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isEnabled
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnabled
                           ? def.viewBadgeActive
                           : "bg-slate-200 text-slate-600"
-                      }`}
+                        }`}
                     >
                       {isEnabled ? "Active" : "Disabled"}
                     </span>
