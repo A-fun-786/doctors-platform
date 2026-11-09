@@ -26,6 +26,7 @@ import {
   getAppDownloadUrl,
 } from "@/lib/api";
 import { BRAND_CONFIG } from "@/config/brand.config";
+import { Card } from "@/components/ui/Card";
 
 interface AndroidAppTabProps {
   doctor: DoctorMeResponse;
@@ -134,7 +135,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
   const fullName = profile?.full_name || doctor.full_name || "";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <Card className="overflow-hidden">
       <div className="p-4 sm:p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shrink-0">
@@ -435,6 +436,6 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

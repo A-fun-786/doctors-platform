@@ -14,6 +14,7 @@ import {
   getSlotShiftTheme,
   SHIFT_THEME_PALETTES,
   DEFAULT_WORKING_HOURS,
+  resolveCellEvents,
 } from "../calendarUtils";
 import Badge from "@/components/ui/Badge";
 
@@ -172,11 +173,7 @@ export default function DayView({
                   doesEventOverlapSlot(ev, slotStart, slotEnd)
                 );
 
-                const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-                const leaveEvent = cellEvents.find(
-                  (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-                );
-                const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+                const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                 // 1. Booked Patient Appointment (Clean: only Name & Visit Reason)
                 if (apptEvent) {

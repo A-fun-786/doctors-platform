@@ -19,6 +19,7 @@ import {
   getSlotShiftTheme,
   SHIFT_THEME_PALETTES,
   DEFAULT_WORKING_HOURS,
+  resolveCellEvents,
 } from "../calendarUtils";
 
 interface WeekViewProps {
@@ -257,11 +258,7 @@ export default function WeekView({
                     );
 
                     // Extract specific event types
-                    const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-                    const leaveEvent = cellEvents.find(
-                      (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-                    );
-                    const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+                    const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                     return (
                       <div
