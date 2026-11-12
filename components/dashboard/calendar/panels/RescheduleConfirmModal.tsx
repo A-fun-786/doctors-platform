@@ -40,7 +40,7 @@ export default function RescheduleConfirmModal({
       onClose={onClose}
       maxWidth="md"
       title="Confirm Reschedule"
-      icon={<Calendar className="w-5 h-5 text-blue-600" />}
+      icon={<Calendar className="w-5 h-5 text-brand-600" />}
     >
       <div className="space-y-4 pt-2">
         <p className="text-xs text-slate-600 leading-relaxed">
@@ -62,15 +62,15 @@ export default function RescheduleConfirmModal({
           </div>
 
           {/* New Time */}
-          <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200">
+          <div className="p-3 bg-brand-50/70 rounded-xl border border-brand-200">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-brand-700 tracking-wider">
                 New Time
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
+              <ArrowRight className="w-3.5 h-3.5 text-brand-600" />
             </div>
-            <div className="font-bold text-blue-950">{newDate}</div>
-            <div className="text-blue-800 font-mono font-medium mt-0.5">
+            <div className="font-bold text-brand-950">{newDate}</div>
+            <div className="text-brand-800 font-mono font-medium mt-0.5">
               {format12Hour(newStartTime)} – {format12Hour(newEndTime)}
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function RescheduleConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={submitting}
-            className="w-full sm:w-auto px-4.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 text-center cursor-pointer"
+            className="w-full sm:w-auto px-4.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition-colors shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 text-center cursor-pointer"
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             <span>{submitting ? "Saving Changes..." : "Confirm & Reschedule"}</span>

@@ -4,12 +4,11 @@ from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, get_active_tenant_by_slug
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.models.doctor import Doctor
-from app.models.tenant import Tenant
 from app.schemas.schedule import (
     ScheduleCreateRequest,
     ScheduleBulkCreateRequest,
@@ -169,16 +168,7 @@ def get_public_available_slots(
     Public, rate-limited endpoint returning available 30-minute slots for a tenant practice.
     Employs an in-memory TTL cache to alleviate high-frequency database reads.
     """
-    tenant = (
-        db.query(Tenant)
-        .filter(Tenant.slug == slug.lower(), Tenant.status == "active")
-        .first()
-    )
-    if not tenant or not tenant.doctor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Doctor practice with link '{slug}' was not found.",
-        )
+    tenant = get_active_tenant_by_slug(slug, db)
 
     cached_slots = get_cached_slots(tenant.doctor.id, date)
     if cached_slots is not None:

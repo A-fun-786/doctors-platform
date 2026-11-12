@@ -208,7 +208,7 @@ export default function SlotActionModal({
         {/* Slot Info Header Card */}
         <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
           <div className="flex items-center gap-2.5 text-xs text-slate-700 font-semibold">
-            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+            <Clock className="w-4 h-4 text-brand-600 shrink-0" />
             <span>
               {formattedDateStr} • {formattedTimeWindow}
             </span>
@@ -225,7 +225,7 @@ export default function SlotActionModal({
             onClick={() => setActiveTab("booking")}
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "booking"
-                ? "bg-white text-blue-600 shadow-xs"
+                ? "bg-white text-brand-600 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -284,7 +284,7 @@ export default function SlotActionModal({
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     placeholder="e.g. Neha Verma"
-                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                   <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -301,7 +301,7 @@ export default function SlotActionModal({
                     value={patientContact}
                     onChange={(e) => setPatientContact(e.target.value)}
                     placeholder="e.g. +91 98765 43210"
-                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                   <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -318,7 +318,7 @@ export default function SlotActionModal({
                   required
                   value={patientGender}
                   onChange={(e) => setPatientGender(e.target.value)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                 >
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
@@ -339,7 +339,7 @@ export default function SlotActionModal({
                   value={patientAge}
                   onChange={(e) => setPatientAge(e.target.value)}
                   placeholder="e.g. 28"
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 />
               </div>
             </div>
@@ -352,7 +352,7 @@ export default function SlotActionModal({
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer mb-2"
+                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer mb-2"
               >
                 {COMMON_VISIT_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -368,7 +368,7 @@ export default function SlotActionModal({
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
                   placeholder="Enter specific visit reason"
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 />
               )}
             </div>
@@ -376,7 +376,7 @@ export default function SlotActionModal({
             {/* Optional Section: Clinical Vitals & Address */}
             <div className="pt-2 border-t border-slate-100">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold text-slate-700">
-                <HeartPulse className="w-3.5 h-3.5 text-blue-600" />
+                <HeartPulse className="w-3.5 h-3.5 text-brand-600" />
                 <span>Clinical Vitals & Address (Optional)</span>
               </div>
 
@@ -388,7 +388,7 @@ export default function SlotActionModal({
                   <select
                     value={patientBloodGroup}
                     onChange={(e) => setPatientBloodGroup(e.target.value)}
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                   >
                     <option value="">Select Group</option>
                     {BLOOD_GROUPS.map((bg) => (
@@ -408,7 +408,7 @@ export default function SlotActionModal({
                     value={patientHeight}
                     onChange={(e) => setPatientHeight(e.target.value)}
                     placeholder="e.g. 175 cm"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                 </div>
 
@@ -421,7 +421,7 @@ export default function SlotActionModal({
                     value={patientWeight}
                     onChange={(e) => setPatientWeight(e.target.value)}
                     placeholder="e.g. 70 kg"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                 </div>
               </div>
@@ -437,7 +437,7 @@ export default function SlotActionModal({
                       value={patientAddress}
                       onChange={(e) => setPatientAddress(e.target.value)}
                       placeholder="e.g. Flat 402, Green Valley"
-                      className="w-full text-xs font-medium pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full text-xs font-medium pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                     />
                     <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
@@ -452,7 +452,7 @@ export default function SlotActionModal({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Observations, allergies, or past history"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none"
                   />
                 </div>
               </div>
@@ -470,7 +470,7 @@ export default function SlotActionModal({
               <button
                 type="submit"
                 disabled={!isBookingValid || submitting}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
               >
                 {submitting ? (
                   <>

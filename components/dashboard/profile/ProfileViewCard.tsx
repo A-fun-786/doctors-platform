@@ -12,6 +12,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { ProfileViewCardProps, SERVICE_DEFINITIONS } from "./types";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 
 export default function ProfileViewCard({
   doctor,
@@ -26,16 +27,16 @@ export default function ProfileViewCard({
   onEditClick,
 }: ProfileViewCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <Card className="overflow-hidden">
       {/* Card Header with prominent Edit Profile button */}
-      <div className="p-5 sm:p-6 md:p-7 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <CardHeader className="p-5 sm:p-6 md:p-7 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+          <CardTitle className="text-lg sm:text-xl">
             Doctor Practice Profile
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          </CardTitle>
+          <CardDescription>
             Your active practice information visible to patients.
-          </p>
+          </CardDescription>
         </div>
 
         <button
@@ -46,7 +47,7 @@ export default function ProfileViewCard({
           <Edit3 className="w-4 h-4" />
           <span>Edit Profile</span>
         </button>
-      </div>
+      </CardHeader>
 
       {/* Doctor Identity Block */}
       <div className="p-5 sm:p-7 md:p-8">
@@ -189,20 +190,18 @@ export default function ProfileViewCard({
               return (
                 <div
                   key={def.key}
-                  className={`p-3.5 rounded-xl border transition-all ${
-                    isEnabled
+                  className={`p-3.5 rounded-xl border transition-all ${isEnabled
                       ? def.viewActiveBg
                       : "bg-slate-50 border-slate-200 text-slate-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <Icon className="w-4 h-4" />
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isEnabled
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnabled
                           ? def.viewBadgeActive
                           : "bg-slate-200 text-slate-600"
-                      }`}
+                        }`}
                     >
                       {isEnabled ? "Active" : "Disabled"}
                     </span>
@@ -215,7 +214,7 @@ export default function ProfileViewCard({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

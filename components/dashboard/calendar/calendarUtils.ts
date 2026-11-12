@@ -623,3 +623,28 @@ export function getSlotShiftTheme(time24: string, config?: WorkingHoursConfig): 
 
   return SHIFT_THEME_PALETTES[0];
 }
+
+export interface ResolvedCellEvents {
+  apptEvent?: CalendarEvent;
+  leaveEvent?: CalendarEvent;
+  blockedEvent?: CalendarEvent;
+  hasEvents: boolean;
+}
+
+/**
+ * Resolves overlapping cell events for a given calendar slot.
+ * Identifies appointment, leave/holiday, or blocked periods cleanly.
+ */
+export function resolveCellEvents(cellEvents: CalendarEvent[]): ResolvedCellEvents {
+  const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
+  const leaveEvent = cellEvents.find((ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY");
+  const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+
+  return {
+    apptEvent,
+    leaveEvent,
+    blockedEvent,
+    hasEvents: cellEvents.length > 0,
+  };
+}
+

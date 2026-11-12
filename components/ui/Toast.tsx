@@ -15,7 +15,7 @@ export default function Toast({ message, type = "success" }: ToastProps) {
     type === "error" ? (
       <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
     ) : type === "info" ? (
-      <Info className="w-4 h-4 text-blue-400 shrink-0" />
+      <Info className="w-4 h-4 text-brand-400 shrink-0" />
     ) : (
       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
     );

@@ -14,6 +14,7 @@ import {
   getSlotShiftTheme,
   SHIFT_THEME_PALETTES,
   DEFAULT_WORKING_HOURS,
+  resolveCellEvents,
 } from "../calendarUtils";
 import Badge from "@/components/ui/Badge";
 
@@ -81,7 +82,7 @@ export default function DayView({
           <span className="hidden sm:inline">Dynamic Schedule Slots</span>
           <span className="hidden sm:inline text-slate-300">•</span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
             Appointment (Patient)
           </span>
           <span className="inline-flex items-center gap-1">
@@ -172,11 +173,7 @@ export default function DayView({
                   doesEventOverlapSlot(ev, slotStart, slotEnd)
                 );
 
-                const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-                const leaveEvent = cellEvents.find(
-                  (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-                );
-                const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+                const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                 // 1. Booked Patient Appointment (Clean: only Name & Visit Reason)
                 if (apptEvent) {
@@ -199,7 +196,7 @@ export default function DayView({
                           </div>
 
                           <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" />
                             <span className="font-bold text-slate-900 truncate">
                               {patientName}
                             </span>

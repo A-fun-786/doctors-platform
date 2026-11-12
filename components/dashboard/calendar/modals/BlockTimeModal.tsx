@@ -96,7 +96,7 @@ export default function BlockTimeModal({
             <select
               value={blockType}
               onChange={(e) => setBlockType(e.target.value as BlockType)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
             >
               <option value="LEAVE">Leave (Doctor Off Duty / Out of Clinic)</option>
               <option value="BLOCKED">Blocked (Personal interval / Internal meeting)</option>
@@ -112,7 +112,7 @@ export default function BlockTimeModal({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
             required
           />
         </div>
@@ -155,7 +155,7 @@ export default function BlockTimeModal({
                 <select
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
                   required
                 >
                   {TIME_OPTIONS_30M.map((opt) => (
@@ -173,7 +173,7 @@ export default function BlockTimeModal({
                 <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
                   required
                 >
                   {TIME_OPTIONS_30M.map((opt) => (
@@ -230,7 +230,7 @@ export default function BlockTimeModal({
             placeholder="e.g. Medical Conference / Off Duty / Annual Vacation"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 

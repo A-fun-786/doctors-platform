@@ -1,26 +1,26 @@
-import { UserPlus, Sliders, Rocket, CheckCircle } from "lucide-react";
+import { Building2, Sliders, Rocket, CheckCircle } from "lucide-react";
 
 const steps = [
   {
     step: "01",
-    icon: UserPlus,
-    title: "Register Your Practice",
+    icon: Building2,
+    title: "Create Your Clinic Account",
     description:
-      "Sign up in minutes with your medical registration details, specialty, and practice credentials.",
+      "Sign up in 2 minutes with your clinic name, address, and phone number. No technical skills needed.",
   },
   {
     step: "02",
     icon: Sliders,
-    title: "Customize & Brand",
+    title: "Add Doctors & Timings",
     description:
-      "Configure your clinic colors, profile bio, service catalog, consultation fees, and appointment preferences.",
+      "Add your doctors, set their consultation timings and visit fees, and select your clinic services.",
   },
   {
     step: "03",
     icon: Rocket,
-    title: "Publish & Launch",
+    title: "Start Welcoming Patients",
     description:
-      "Go live instantly with your dedicated web subdomain and ready-to-deploy branded mobile app for patients.",
+      "Take online bookings, manage waiting tokens, create quick bills, and share prescriptions from day one.",
   },
 ];
 
@@ -31,13 +31,13 @@ export default function HowItWorks() {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold uppercase tracking-wider">
-            Streamlined Setup
+            Quick &amp; Easy Setup
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-            How It Works
+            How GoSmartClinic Works
           </h2>
           <p className="text-base sm:text-lg text-slate-600">
-            Launch your branded online healthcare presence in three simple steps.
+            Get your clinic online and running in three simple steps.
           </p>
         </div>
 

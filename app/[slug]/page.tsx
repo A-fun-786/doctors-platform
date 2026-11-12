@@ -13,32 +13,25 @@ import {
   Clock,
   MapPin,
   Building2,
-  Phone,
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
   Loader2,
   UploadCloud,
   ChevronRight,
-  User,
-  Mail,
   Home,
   ArrowLeft,
-
   HeartPulse,
   Stethoscope,
 } from "lucide-react";
 import {
   getPublicDoctorProfile,
-  bookPublicAppointment,
   uploadPublicReport,
   orderPublicMedicine,
-  getPublicAvailableSlots,
   PublicDoctorProfileResponse,
-  AvailableSlot,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
-import { format12Hour } from "@/components/dashboard/calendar/calendarUtils";
+import AppointmentBookingForm from "@/components/public-booking/AppointmentBookingForm";
 
 export default function PatientDoctorPage() {
   const params = useParams();
@@ -59,30 +52,6 @@ export default function PatientDoctorPage() {
   const [notFound, setNotFound] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // In-Clinic Appointment form
-  const [inClinicDate, setInClinicDate] = useState("");
-  const [inClinicSlot, setInClinicSlot] = useState("");
-  const [inClinicAvailableSlots, setInClinicAvailableSlots] = useState<AvailableSlot[]>([]);
-  const [inClinicSlotsLoading, setInClinicSlotsLoading] = useState(false);
-  const [inClinicName, setInClinicName] = useState("");
-  const [inClinicEmail, setInClinicEmail] = useState("");
-  const [inClinicPhone, setInClinicPhone] = useState("");
-  const [inClinicNotes, setInClinicNotes] = useState("");
-  const [inClinicSubmitting, setInClinicSubmitting] = useState(false);
-  const [inClinicSuccess, setInClinicSuccess] = useState<string | null>(null);
-
-  // Video Consultation form
-  const [videoDate, setVideoDate] = useState("");
-  const [videoSlot, setVideoSlot] = useState("");
-  const [videoAvailableSlots, setVideoAvailableSlots] = useState<AvailableSlot[]>([]);
-  const [videoSlotsLoading, setVideoSlotsLoading] = useState(false);
-  const [videoName, setVideoName] = useState("");
-  const [videoEmail, setVideoEmail] = useState("");
-  const [videoPhone, setVideoPhone] = useState("");
-  const [videoNotes, setVideoNotes] = useState("");
-  const [videoSubmitting, setVideoSubmitting] = useState(false);
-  const [videoSuccess, setVideoSuccess] = useState<string | null>(null);
-
   // Medicine Order form
   const [medPatientName, setMedPatientName] = useState("");
   const [medPhone, setMedPhone] = useState("");
@@ -102,13 +71,6 @@ export default function PatientDoctorPage() {
 
   useEffect(() => {
     if (!slug) return;
-
-    // Set default date to tomorrow in YYYY-MM-DD format
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split("T")[0];
-    setInClinicDate(dateStr);
-    setVideoDate(dateStr);
 
     async function fetchProfile() {
       try {
@@ -140,132 +102,6 @@ export default function PatientDoctorPage() {
       if (activeTab === "reports" && !s.lab_reports) setActiveTab("home");
     }
   }, [activeTab, doctor]);
-
-  // Load dynamic available slots on In-Clinic date change
-  useEffect(() => {
-    if (!slug || !inClinicDate) {
-      setInClinicAvailableSlots([]);
-      setInClinicSlot("");
-      return;
-    }
-    let isMounted = true;
-    setInClinicSlotsLoading(true);
-    getPublicAvailableSlots(slug, inClinicDate)
-      .then((slots) => {
-        if (isMounted) {
-          const list = slots || [];
-          setInClinicAvailableSlots(list);
-          if (list.length > 0) {
-            setInClinicSlot(format12Hour(list[0].start));
-          } else {
-            setInClinicSlot("");
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load in-clinic available slots:", err);
-        if (isMounted) {
-          setInClinicAvailableSlots([]);
-          setInClinicSlot("");
-        }
-      })
-      .finally(() => {
-        if (isMounted) setInClinicSlotsLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [slug, inClinicDate]);
-
-  // Load dynamic available slots on Video Consultation date change
-  useEffect(() => {
-    if (!slug || !videoDate) {
-      setVideoAvailableSlots([]);
-      setVideoSlot("");
-      return;
-    }
-    let isMounted = true;
-    setVideoSlotsLoading(true);
-    getPublicAvailableSlots(slug, videoDate)
-      .then((slots) => {
-        if (isMounted) {
-          const list = slots || [];
-          setVideoAvailableSlots(list);
-          if (list.length > 0) {
-            setVideoSlot(format12Hour(list[0].start));
-          } else {
-            setVideoSlot("");
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load video available slots:", err);
-        if (isMounted) {
-          setVideoAvailableSlots([]);
-          setVideoSlot("");
-        }
-      })
-      .finally(() => {
-        if (isMounted) setVideoSlotsLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [slug, videoDate]);
-
-  // Handle In-Clinic Appointment
-  const handleInClinicSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doctor) return;
-    if (!inClinicSlot) {
-      alert("Please select an available time slot");
-      return;
-    }
-    try {
-      setInClinicSubmitting(true);
-      const res = await bookPublicAppointment(slug, {
-        patient_name: inClinicName,
-        patient_email: inClinicEmail,
-        patient_phone: inClinicPhone,
-        appointment_date: inClinicDate,
-        appointment_time: inClinicSlot,
-        appointment_type: "in_clinic",
-        notes: inClinicNotes,
-      });
-      setInClinicSuccess(res.booking_id);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to book appointment");
-    } finally {
-      setInClinicSubmitting(false);
-    }
-  };
-
-  // Handle Video Consultation
-  const handleVideoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doctor) return;
-    if (!videoSlot) {
-      alert("Please select an available time slot");
-      return;
-    }
-    try {
-      setVideoSubmitting(true);
-      const res = await bookPublicAppointment(slug, {
-        patient_name: videoName,
-        patient_email: videoEmail,
-        patient_phone: videoPhone,
-        appointment_date: videoDate,
-        appointment_time: videoSlot,
-        appointment_type: "video_consultation",
-        notes: videoNotes,
-      });
-      setVideoSuccess(res.booking_id);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to schedule video consultation");
-    } finally {
-      setVideoSubmitting(false);
-    }
-  };
 
   // Handle Medicine Order
   const handleMedicineSubmit = async (e: React.FormEvent) => {
@@ -398,11 +234,10 @@ export default function PatientDoctorPage() {
           <button
             type="button"
             onClick={() => navigateToTab("home")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-              activeTab === "home"
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeTab === "home"
                 ? "bg-brand-600 text-white shadow-xs"
                 : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-            }`}
+              }`}
           >
             <Home className="w-3.5 h-3.5" />
             <span>Practice Home</span>
@@ -412,11 +247,10 @@ export default function PatientDoctorPage() {
             <button
               type="button"
               onClick={() => navigateToTab("appointments")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === "appointments"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeTab === "appointments"
                   ? "bg-brand-600 text-white shadow-xs"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>In-Clinic Appointments</span>
@@ -427,11 +261,10 @@ export default function PatientDoctorPage() {
             <button
               type="button"
               onClick={() => navigateToTab("teleconsult")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === "teleconsult"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeTab === "teleconsult"
                   ? "bg-brand-600 text-white shadow-xs"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               <Video className="w-3.5 h-3.5" />
               <span>Video Consultation</span>
@@ -442,11 +275,10 @@ export default function PatientDoctorPage() {
             <button
               type="button"
               onClick={() => navigateToTab("medicines")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === "medicines"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeTab === "medicines"
                   ? "bg-brand-600 text-white shadow-xs"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               <Pill className="w-3.5 h-3.5" />
               <span>Medicine Orders</span>
@@ -457,11 +289,10 @@ export default function PatientDoctorPage() {
             <button
               type="button"
               onClick={() => navigateToTab("reports")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === "reports"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeTab === "reports"
                   ? "bg-brand-600 text-white shadow-xs"
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Lab Reports</span>
@@ -538,7 +369,7 @@ export default function PatientDoctorPage() {
                     <button
                       type="button"
                       onClick={() => navigateToTab("teleconsult")}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold border border-indigo-200 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs sm:text-sm font-semibold border border-brand-200 transition-colors"
                     >
                       <Video className="w-4 h-4" />
                       <span>Video Consult</span>
@@ -572,7 +403,7 @@ export default function PatientDoctorPage() {
               {/* Healthcare Commitment Pillars */}
               <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <h3 className="text-xs font-bold text-slate-900">Verified Credentials</h3>
@@ -582,7 +413,7 @@ export default function PatientDoctorPage() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
                     <HeartPulse className="w-4 h-4" />
                   </div>
                   <h3 className="text-xs font-bold text-slate-900">Patient-Centric Care</h3>
@@ -592,7 +423,7 @@ export default function PatientDoctorPage() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
                     <Clock className="w-4 h-4" />
                   </div>
                   <h3 className="text-xs font-bold text-slate-900">Prompt Scheduling</h3>
@@ -636,7 +467,7 @@ export default function PatientDoctorPage() {
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Calendar className="w-6 h-6" />
                         </div>
                         <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-md">
@@ -668,19 +499,19 @@ export default function PatientDoctorPage() {
                 {services.video_consultation && (
                   <div
                     onClick={() => navigateToTab("teleconsult")}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-indigo-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-brand-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center group-hover:scale-105 transition-transform">
                           <Video className="w-6 h-6" />
                         </div>
-                        <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md">
+                        <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-md">
                           Telehealth
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
                           Video Consultation (Telehealth)
                         </h3>
                         <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
@@ -692,7 +523,7 @@ export default function PatientDoctorPage() {
                       <span className="text-slate-500 font-medium">
                         HD video room &amp; instant link
                       </span>
-                      <span className="inline-flex items-center gap-1 font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                      <span className="inline-flex items-center gap-1 font-bold text-brand-600 group-hover:translate-x-1 transition-transform">
                         <span>Schedule Call</span>
                         <ChevronRight className="w-4 h-4" />
                       </span>
@@ -777,6 +608,26 @@ export default function PatientDoctorPage() {
         )}
         {/* SERVICE 1: IN-CLINIC APPOINTMENT BOOKING */}
         {services.appointment && activeTab === "appointments" && (
+          <AppointmentBookingForm
+            doctor={doctor}
+            slug={slug}
+            consultationType="in_clinic"
+            onReturnHome={() => navigateToTab("home")}
+          />
+        )}
+
+        {/* SERVICE 2: VIDEO CONSULTATION */}
+        {services.video_consultation && activeTab === "teleconsult" && (
+          <AppointmentBookingForm
+            doctor={doctor}
+            slug={slug}
+            consultationType="video_consultation"
+            onReturnHome={() => navigateToTab("home")}
+          />
+        )}
+
+        {/* SERVICE 3: MEDICINE INVENTORY & ORDERS */}
+        {services.medicine_inventory && activeTab === "medicines" && (
           <div className="space-y-6">
             {/* Top Navigation & Breadcrumb */}
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -797,11 +648,11 @@ export default function PatientDoctorPage() {
                   Home
                 </button>
                 <span>/</span>
-                <span className="font-semibold text-slate-800">In-Clinic Appointments</span>
+                <span className="font-semibold text-slate-800">Medicine Orders</span>
               </div>
             </div>
 
-            {/* Doctor Context Banner */}
+            {/* Pharmacy Service Context Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
               <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -811,58 +662,56 @@ export default function PatientDoctorPage() {
                   className="w-12 h-12 rounded-xl object-cover border border-slate-200"
                 />
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">{doctor.full_name}</h3>
+                  <h3 className="text-sm font-bold text-slate-900">{doctor.clinic_name || doctor.full_name}&apos;s Dispensary</h3>
                   <p className="text-xs text-slate-500">
-                    {doctor.speciality || "Healthcare Practitioner"} • {doctor.clinic_name || "Doctor's Clinic"}
+                    Verified formulations dispensed under guidance of {doctor.full_name}
                   </p>
                 </div>
               </div>
-              {doctor.location && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{doctor.location}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Clinic Verified Pharmacy</span>
+              </div>
             </div>
 
-            <section id="appointments" className="scroll-mt-24">
+            <section id="medicines" className="scroll-mt-24">
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-brand-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                      <Calendar className="w-5 h-5" />
+                      <Pill className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold">Book In-Clinic Appointment</h2>
-                      <p className="text-xs text-blue-100">
-                        Select your preferred date &amp; available time slot for clinic visit
+                      <h2 className="text-lg font-bold">Clinic Pharmacy &amp; Medicine Delivery</h2>
+                      <p className="text-xs text-emerald-100">
+                        Request prescribed medicines and repeat refills directly from the clinic pharmacy
                       </p>
                     </div>
                   </div>
                   <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
-                    {doctor.clinic_name || "Doctor's Clinic"}
+                    Pharmacy Service
                   </div>
                 </div>
 
-                {inClinicSuccess ? (
+                {medSuccess ? (
                   <div className="p-8 text-center space-y-4">
                     <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
                       <CheckCircle2 className="w-8 h-8" />
                     </div>
                     <div className="space-y-1 max-w-md mx-auto">
-                      <h3 className="text-xl font-bold text-slate-900">Appointment Confirmed!</h3>
+                      <h3 className="text-xl font-bold text-slate-900">Medicine Order Submitted!</h3>
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Your in-clinic booking reference is{" "}
-                        <span className="font-mono font-bold text-slate-900">{inClinicSuccess}</span>. An appointment notification has been forwarded to {doctor.full_name}.
+                        Your order ticket is{" "}
+                        <span className="font-mono font-bold text-slate-900">{medSuccess}</span>. The pharmacy team will verify your prescription details and contact you for dispatch.
                       </p>
                     </div>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => setInClinicSuccess(null)}
+                        onClick={() => setMedSuccess(null)}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                       >
-                        <span>Book Another Appointment</span>
+                        <span>Submit Another Medicine Request</span>
                       </button>
                       <button
                         type="button"
@@ -874,790 +723,304 @@ export default function PatientDoctorPage() {
                       </button>
                     </div>
                   </div>
-              ) : (
-                <form onSubmit={handleInClinicSubmit} className="p-6 sm:p-8 space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {/* Date Picker */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                        Preferred Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={inClinicDate}
-                        onChange={(e) => setInClinicDate(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                      />
-                    </div>
-
-                    {/* Time Slot Picker */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                        Preferred Time Slot <span className="text-red-500">*</span>
-                      </label>
-                      {!inClinicDate ? (
-                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
-                          Please select a preferred date above to view available time slots.
-                        </div>
-                      ) : inClinicSlotsLoading ? (
-                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
-                          <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
-                          <span>Loading available slots...</span>
-                        </div>
-                      ) : inClinicAvailableSlots.length === 0 ? (
-                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
-                          No available slots on this date. Please choose another date.
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
-                          {inClinicAvailableSlots.map((slot) => {
-                            const slotLabel = format12Hour(slot.start);
-                            return (
-                              <button
-                                key={`${slot.start}-${slot.end}`}
-                                type="button"
-                                onClick={() => setInClinicSlot(slotLabel)}
-                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                                  inClinicSlot === slotLabel
-                                    ? "bg-brand-600 text-white border-brand-600 shadow-sm"
-                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                                }`}
-                              >
-                                {slotLabel}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Patient Info */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Patient Name <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                ) : (
+                  <form onSubmit={handleMedicineSubmit} className="p-6 sm:p-8 space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Patient Full Name <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="text"
                           required
-                          value={inClinicName}
-                          onChange={(e) => setInClinicName(e.target.value)}
-                          placeholder="Full name"
-                          className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          value={medPatientName}
+                          onChange={(e) => setMedPatientName(e.target.value)}
+                          placeholder="Patient name"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Contact Phone <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Contact Phone <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="tel"
                           required
-                          value={inClinicPhone}
-                          onChange={(e) => setInClinicPhone(e.target.value)}
+                          value={medPhone}
+                          onChange={(e) => setMedPhone(e.target.value)}
                           placeholder="+1 (555) 000-0000"
-                          className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Email Address <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                        <input
-                          type="email"
-                          required
-                          value={inClinicEmail}
-                          onChange={(e) => setInClinicEmail(e.target.value)}
-                          placeholder="patient@example.com"
-                          className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Reason for Visit / Symptoms
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={inClinicNotes}
-                      onChange={(e) => setInClinicNotes(e.target.value)}
-                      placeholder="Describe symptoms, routine check-up, follow-up, or general health concerns..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={inClinicSubmitting}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
-                    >
-                      {inClinicSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Confirming...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Confirm Appointment</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-        {/* SERVICE 2: VIDEO CONSULTATION */}
-        {services.video_consultation && activeTab === "teleconsult" && (
-        <div className="space-y-6">
-          {/* Top Navigation & Breadcrumb */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => navigateToTab("home")}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Back to Practice Home</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <button
-                type="button"
-                onClick={() => navigateToTab("home")}
-                className="hover:text-brand-600 transition-colors"
-              >
-                Home
-              </button>
-              <span>/</span>
-              <span className="font-semibold text-slate-800">Video Consultation</span>
-            </div>
-          </div>
-
-          {/* Telehealth Service Context Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
-                alt={doctor.full_name}
-                className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-              />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{doctor.full_name}</h3>
-                <p className="text-xs text-slate-500">
-                  {doctor.speciality || "Healthcare Practitioner"} • Online Video Consultation
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-              <Video className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              <span>HD Video Room • Encrypted Patient Call</span>
-            </div>
-          </div>
-
-          <section id="teleconsult" className="scroll-mt-24">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                    <Video className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">Schedule Video Consultation</h2>
-                    <p className="text-xs text-indigo-100">
-                      Join a remote telehealth consultation from home via secure high-definition video
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
-                  Telehealth Portal
-                </div>
-              </div>
-
-              {videoSuccess ? (
-                <div className="p-8 text-center space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1 max-w-md mx-auto">
-                    <h3 className="text-xl font-bold text-slate-900">Teleconsultation Scheduled!</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Your booking ID is{" "}
-                      <span className="font-mono font-bold text-slate-900">{videoSuccess}</span>. A secure consultation link will be dispatched via email and SMS prior to your appointment.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setVideoSuccess(null)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <span>Schedule Another Video Call</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab("home")}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Return to Practice Home</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleVideoSubmit} className="p-6 sm:p-8 space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                        Consultation Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={videoDate}
-                        onChange={(e) => setVideoDate(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                        Consultation Time Slot <span className="text-red-500">*</span>
-                      </label>
-                      {!videoDate ? (
-                        <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
-                          Please select a consultation date above to view available time slots.
-                        </div>
-                      ) : videoSlotsLoading ? (
-                        <div className="py-6 flex flex-col items-center justify-center gap-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
-                          <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-                          <span>Loading available slots...</span>
-                        </div>
-                      ) : videoAvailableSlots.length === 0 ? (
-                        <div className="py-4 px-4 bg-amber-50/60 border border-amber-200 rounded-lg text-xs text-amber-800 text-center">
-                          No available slots on this date. Please choose another date.
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
-                          {videoAvailableSlots.map((slot) => {
-                            const slotLabel = format12Hour(slot.start);
-                            return (
-                              <button
-                                key={`${slot.start}-${slot.end}`}
-                                type="button"
-                                onClick={() => setVideoSlot(slotLabel)}
-                                className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
-                                  videoSlot === slotLabel
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                                }`}
-                              >
-                                {slotLabel}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Patient Name <span className="text-red-500">*</span>
+                        Delivery Address <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
-                        value={videoName}
-                        onChange={(e) => setVideoName(e.target.value)}
-                        placeholder="Your full name"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Contact Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={videoPhone}
-                        onChange={(e) => setVideoPhone(e.target.value)}
-                        placeholder="+1 (555) 000-0000"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Email Address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={videoEmail}
-                        onChange={(e) => setVideoEmail(e.target.value)}
-                        placeholder="patient@example.com"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Chief Complaint / Consultation Notes
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={videoNotes}
-                      onChange={(e) => setVideoNotes(e.target.value)}
-                      placeholder="Briefly state symptoms, reason for consultation, or previous medical history..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={videoSubmitting}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
-                    >
-                      {videoSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Booking Video Slot...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Book Telehealth Video Call</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-        {/* SERVICE 3: MEDICINE INVENTORY & ORDERS */}
-        {services.medicine_inventory && activeTab === "medicines" && (
-        <div className="space-y-6">
-          {/* Top Navigation & Breadcrumb */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => navigateToTab("home")}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Back to Practice Home</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <button
-                type="button"
-                onClick={() => navigateToTab("home")}
-                className="hover:text-brand-600 transition-colors"
-              >
-                Home
-              </button>
-              <span>/</span>
-              <span className="font-semibold text-slate-800">Medicine Orders</span>
-            </div>
-          </div>
-
-          {/* Pharmacy Service Context Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
-                alt={doctor.full_name}
-                className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-              />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{doctor.clinic_name || doctor.full_name}&apos;s Dispensary</h3>
-                <p className="text-xs text-slate-500">
-                  Verified formulations dispensed under guidance of {doctor.full_name}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Clinic Verified Pharmacy</span>
-            </div>
-          </div>
-
-          <section id="medicines" className="scroll-mt-24">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                    <Pill className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">Clinic Pharmacy &amp; Medicine Delivery</h2>
-                    <p className="text-xs text-emerald-100">
-                      Request prescribed medicines and repeat refills directly from the clinic pharmacy
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
-                  Pharmacy Service
-                </div>
-              </div>
-
-              {medSuccess ? (
-                <div className="p-8 text-center space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1 max-w-md mx-auto">
-                    <h3 className="text-xl font-bold text-slate-900">Medicine Order Submitted!</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Your order ticket is{" "}
-                      <span className="font-mono font-bold text-slate-900">{medSuccess}</span>. The pharmacy team will verify your prescription details and contact you for dispatch.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setMedSuccess(null)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <span>Submit Another Medicine Request</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab("home")}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Return to Practice Home</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleMedicineSubmit} className="p-6 sm:p-8 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Patient Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={medPatientName}
-                        onChange={(e) => setMedPatientName(e.target.value)}
-                        placeholder="Patient name"
+                        value={medAddress}
+                        onChange={(e) => setMedAddress(e.target.value)}
+                        placeholder="Home address, apartment/unit, city, zip code"
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Contact Phone <span className="text-red-500">*</span>
+                        Prescribed Medicines &amp; Quantity <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="tel"
+                      <textarea
+                        rows={3}
                         required
-                        value={medPhone}
-                        onChange={(e) => setMedPhone(e.target.value)}
-                        placeholder="+1 (555) 000-0000"
+                        value={medList}
+                        onChange={(e) => setMedList(e.target.value)}
+                        placeholder="List medicine names, dosages, and quantities (e.g. Amoxicillin 500mg - 10 tabs, Paracetamol 650mg - 1 strip)..."
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Delivery Address <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={medAddress}
-                      onChange={(e) => setMedAddress(e.target.value)}
-                      placeholder="Home address, apartment/unit, city, zip code"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Prescribed Medicines &amp; Quantity <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      value={medList}
-                      onChange={(e) => setMedList(e.target.value)}
-                      placeholder="List medicine names, dosages, and quantities (e.g. Amoxicillin 500mg - 10 tabs, Paracetamol 650mg - 1 strip)..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={medSubmitting}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
-                    >
-                      {medSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Submitting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Medicine Order</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={medSubmitting}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        {medSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Submitting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Submit Medicine Order</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* SERVICE 4: LAB REPORTS UPLOAD */}
         {services.lab_reports && activeTab === "reports" && (
-        <div className="space-y-6">
-          {/* Top Navigation & Breadcrumb */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => navigateToTab("home")}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Back to Practice Home</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="space-y-6">
+            {/* Top Navigation & Breadcrumb */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={() => navigateToTab("home")}
-                className="hover:text-brand-600 transition-colors"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors group"
               >
-                Home
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Back to Practice Home</span>
               </button>
-              <span>/</span>
-              <span className="font-semibold text-slate-800">Lab Reports</span>
-            </div>
-          </div>
-
-          {/* Diagnostic Service Context Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
-                alt={doctor.full_name}
-                className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-              />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{doctor.full_name}</h3>
-                <p className="text-xs text-slate-500">
-                  Direct Diagnostic Report Submission &amp; Clinical Review
-                </p>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <button
+                  type="button"
+                  onClick={() => navigateToTab("home")}
+                  className="hover:text-brand-600 transition-colors"
+                >
+                  Home
+                </button>
+                <span>/</span>
+                <span className="font-semibold text-slate-800">Lab Reports</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 border border-purple-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-              <span>Confidential &amp; Encrypted Upload</span>
-            </div>
-          </div>
 
-          <section id="reports" className="scroll-mt-24">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">Upload Lab &amp; Diagnostic Reports</h2>
-                    <p className="text-xs text-purple-100">
-                      Share test results, blood work, or radiology reports securely before your consultation
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
-                  Diagnostic Portal
+            {/* Diagnostic Service Context Card */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
+                  alt={doctor.full_name}
+                  className="w-12 h-12 rounded-xl object-cover border border-slate-200"
+                />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">{doctor.full_name}</h3>
+                  <p className="text-xs text-slate-500">
+                    Direct Diagnostic Report Submission &amp; Clinical Review
+                  </p>
                 </div>
               </div>
+              <div className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 border border-purple-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <span>Confidential &amp; Encrypted Upload</span>
+              </div>
+            </div>
 
-              {repSuccess ? (
-                <div className="p-8 text-center space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8" />
+            <section id="reports" className="scroll-mt-24">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-700 to-slate-900 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold">Upload Lab &amp; Diagnostic Reports</h2>
+                      <p className="text-xs text-purple-100">
+                        Share test results, blood work, or radiology reports securely before your consultation
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1 max-w-md mx-auto">
-                    <h3 className="text-xl font-bold text-slate-900">Lab Report Received!</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Reference tracking ID is{" "}
-                      <span className="font-mono font-bold text-slate-900">{repSuccess}</span>. Your uploaded diagnostic document has been attached to your clinical chart for {doctor.full_name}.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setRepSuccess(null)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <span>Upload Another Report</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab("home")}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Return to Practice Home</span>
-                    </button>
+                  <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
+                    Diagnostic Portal
                   </div>
                 </div>
-              ) : (
-                <form onSubmit={handleReportSubmit} className="p-6 sm:p-8 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Patient Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={repPatientName}
-                        onChange={(e) => setRepPatientName(e.target.value)}
-                        placeholder="Patient name"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Contact Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={repPhone}
-                        onChange={(e) => setRepPhone(e.target.value)}
-                        placeholder="+1 (555) 000-0000"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
+                {repSuccess ? (
+                  <div className="p-8 text-center space-y-4">
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
+                      <CheckCircle2 className="w-8 h-8" />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Report Category <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={repType}
-                        onChange={(e) => setRepType(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    <div className="space-y-1 max-w-md mx-auto">
+                      <h3 className="text-xl font-bold text-slate-900">Lab Report Received!</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Reference tracking ID is{" "}
+                        <span className="font-mono font-bold text-slate-900">{repSuccess}</span>. Your uploaded diagnostic document has been attached to your clinical chart for {doctor.full_name}.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setRepSuccess(null)}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
                       >
-                        <option value="Blood Work & Pathology">Blood Work &amp; Pathology</option>
-                        <option value="Radiology / X-Ray / CT / MRI">Radiology / X-Ray / CT / MRI</option>
-                        <option value="Urine & Biochemistry">Urine &amp; Biochemistry</option>
-                        <option value="Cardiology ECG / Echo">Cardiology ECG / Echo</option>
-                        <option value="Other Medical Record">Other Medical Record</option>
-                      </select>
+                        <span>Upload Another Report</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigateToTab("home")}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
+                      >
+                        <Home className="w-3.5 h-3.5" />
+                        <span>Return to Practice Home</span>
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Select Diagnostic File (PDF or Image) <span className="text-red-500">*</span>
-                      </label>
-                      <div className="border border-dashed border-purple-200 bg-purple-50/40 rounded-lg p-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <UploadCloud className="w-4 h-4 text-purple-600 shrink-0" />
-                          <span className="text-xs text-slate-600 truncate">
-                            {repFileName || "No file selected"}
-                          </span>
-                        </div>
-                        <label className="cursor-pointer text-xs font-semibold text-purple-700 hover:text-purple-800 bg-white border border-purple-200 px-2.5 py-1 rounded shadow-xs shrink-0">
-                          Browse
-                          <input
-                            type="file"
-                            accept=".pdf,image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setRepFileName(file.name);
-                            }}
-                          />
+                  </div>
+                ) : (
+                  <form onSubmit={handleReportSubmit} className="p-6 sm:p-8 space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Patient Full Name <span className="text-red-500">*</span>
                         </label>
+                        <input
+                          type="text"
+                          required
+                          value={repPatientName}
+                          onChange={(e) => setRepPatientName(e.target.value)}
+                          placeholder="Patient name"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Contact Phone <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={repPhone}
+                          onChange={(e) => setRepPhone(e.target.value)}
+                          placeholder="+1 (555) 000-0000"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Notes / Relevant Clinical Symptoms
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={repNotes}
-                      onChange={(e) => setRepNotes(e.target.value)}
-                      placeholder="Mention lab name, test date, or specific questions for the doctor..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Report Category <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={repType}
+                          onChange={(e) => setRepType(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="Blood Work & Pathology">Blood Work &amp; Pathology</option>
+                          <option value="Radiology / X-Ray / CT / MRI">Radiology / X-Ray / CT / MRI</option>
+                          <option value="Urine & Biochemistry">Urine &amp; Biochemistry</option>
+                          <option value="Cardiology ECG / Echo">Cardiology ECG / Echo</option>
+                          <option value="Other Medical Record">Other Medical Record</option>
+                        </select>
+                      </div>
 
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={repSubmitting}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
-                    >
-                      {repSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Diagnostic Report</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                          Select Diagnostic File (PDF or Image) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="border border-dashed border-purple-200 bg-purple-50/40 rounded-lg p-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <UploadCloud className="w-4 h-4 text-purple-600 shrink-0" />
+                            <span className="text-xs text-slate-600 truncate">
+                              {repFileName || "No file selected"}
+                            </span>
+                          </div>
+                          <label className="cursor-pointer text-xs font-semibold text-purple-700 hover:text-purple-800 bg-white border border-purple-200 px-2.5 py-1 rounded shadow-xs shrink-0">
+                            Browse
+                            <input
+                              type="file"
+                              accept=".pdf,image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setRepFileName(file.name);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Notes / Relevant Clinical Symptoms
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={repNotes}
+                        onChange={(e) => setRepNotes(e.target.value)}
+                        placeholder="Mention lab name, test date, or specific questions for the doctor..."
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={repSubmitting}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        {repSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Submit Diagnostic Report</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
       </main>
 
       {/* Patient Footer */}

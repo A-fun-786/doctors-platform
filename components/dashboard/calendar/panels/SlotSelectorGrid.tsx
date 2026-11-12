@@ -149,7 +149,7 @@ export default function SlotSelectorGrid({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5 text-blue-600" />
+          <Clock className="w-3.5 h-3.5 text-brand-600" />
           <span>Select 30-Minute Time Slot</span>
         </label>
         <span className="text-[11px] font-semibold text-slate-500">
@@ -201,19 +201,19 @@ export default function SlotSelectorGrid({
               onClick={() => onSelectSlot({ start: slot.start, end: slot.end })}
               className={`p-2 rounded-lg text-center transition-all flex flex-col items-center justify-center min-h-[46px] select-none ${
                 isSelected
-                  ? "bg-blue-600 text-white font-bold shadow-xs border-2 border-blue-600 ring-2 ring-blue-500/30"
-                  : "bg-white border border-blue-200/80 text-blue-900 hover:border-blue-400 hover:bg-blue-50/80 active:scale-95"
+                  ? "bg-brand-600 text-white font-bold shadow-xs border-2 border-brand-600 ring-2 ring-brand-500/30"
+                  : "bg-white border border-brand-200/80 text-brand-950 hover:border-brand-400 hover:bg-brand-50/80 active:scale-95"
               }`}
             >
               <div className="flex items-center gap-1">
                 <span className="text-xs font-bold">
                   {format12Hour(slot.start)}
                 </span>
-                {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
               </div>
               <span
                 className={`text-[9px] font-medium mt-0.5 ${
-                  isSelected ? "text-blue-100" : "text-blue-600"
+                  isSelected ? "text-brand-100" : "text-brand-600"
                 }`}
               >
                 30 mins

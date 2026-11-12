@@ -268,11 +268,11 @@ export default function LeaveDetailsPanel({
       </div>
 
       {/* 3. Reassurance & Safety Card */}
-      <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+      <div className="p-3.5 bg-brand-50/70 rounded-2xl border border-brand-200/80 text-xs text-brand-950 flex items-start gap-2.5">
+        <Info className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="font-bold">Automatic Availability Restoration</p>
-          <p className="text-blue-800/90 leading-relaxed text-[11px]">
+          <p className="text-brand-800/90 leading-relaxed text-[11px]">
             Cancelling this leave will immediately recalculate and reopen 30-minute booking slots
             according to your working hours. Existing patient appointments are never deleted or modified.
           </p>

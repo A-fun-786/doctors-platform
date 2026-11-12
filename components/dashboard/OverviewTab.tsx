@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
+  Clock,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
 import { ResponsiveGrid, AdaptiveStack, AdaptiveDataView } from "@/components/layout";
+import { Card } from "@/components/ui/Card";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 interface OverviewTabProps {
   doctor: DoctorMeResponse;
@@ -117,12 +120,12 @@ export default function OverviewTab({
       */}
       {(() => {
         const colorMap: Record<string, { bg: string; text: string }> = {
-          blue:    { bg: "bg-brand-50",   text: "text-brand-700"   },
-          indigo:  { bg: "bg-emerald-50", text: "text-emerald-700" },
-          emerald: { bg: "bg-teal-50",    text: "text-teal-700"    },
-          amber:   { bg: "bg-amber-50",   text: "text-amber-700"   },
-          rose:    { bg: "bg-rose-50",    text: "text-rose-700"    },
-          violet:  { bg: "bg-slate-100",  text: "text-slate-700"   },
+          blue: { bg: "bg-brand-50", text: "text-brand-700" },
+          indigo: { bg: "bg-emerald-50", text: "text-emerald-700" },
+          emerald: { bg: "bg-teal-50", text: "text-teal-700" },
+          amber: { bg: "bg-amber-50", text: "text-amber-700" },
+          rose: { bg: "bg-rose-50", text: "text-rose-700" },
+          violet: { bg: "bg-slate-100", text: "text-slate-700" },
         };
 
         const kpiCards = [
@@ -170,9 +173,9 @@ export default function OverviewTab({
             {kpiCards.map(({ id, label, sublabel, value, Icon, color }) => {
               const { bg, text } = colorMap[color] ?? colorMap.blue;
               return (
-                <div
+                <Card
                   key={id}
-                  className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-xs
+                  className="rounded-xl sm:rounded-2xl
                              p-2.5 sm:p-5
                              flex flex-col items-center text-center gap-1 sm:gap-2"
                 >
@@ -194,7 +197,7 @@ export default function OverviewTab({
                   <p className="text-[9px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wide leading-tight line-clamp-2">
                     {label}
                   </p>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -202,7 +205,7 @@ export default function OverviewTab({
       })()}
 
       {/* Today's Appointments Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
+      <Card className="p-4 sm:p-6 space-y-4">
         <AdaptiveStack align="between">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-slate-900">Today&apos;s Appointments</h2>
@@ -264,20 +267,12 @@ export default function OverviewTab({
                         {appt.start_time} - {appt.end_time}
                       </td>
                       <td className="py-3 px-4 font-medium text-slate-900">{appt.patient_name}</td>
-                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "â€”"}</td>
+                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "—"}</td>
                       <td className="py-3 px-4 text-slate-500 max-w-xs truncate">{appt.reason || "General Consultation"}</td>
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            appt.status === "BOOKED"
-                              ? "bg-brand-50 text-brand-800 border border-brand-200"
-                              : appt.status === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-slate-100 text-slate-600 border border-slate-200"
-                          }`}
-                        >
+                        <StatusBadge status={appt.status}>
                           {appt.status}
-                        </span>
+                        </StatusBadge>
                       </td>
                     </tr>
                   ))}
@@ -288,20 +283,14 @@ export default function OverviewTab({
               <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900">{appt.patient_name}</span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      appt.status === "BOOKED"
-                        ? "bg-brand-50 text-brand-800 border border-brand-200"
-                        : appt.status === "COMPLETED"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-slate-100 text-slate-600 border border-slate-200"
-                    }`}
-                  >
+                  <StatusBadge status={appt.status}>
                     {appt.status}
-                  </span>
+                  </StatusBadge>
                 </div>
                 <div className="text-xs text-slate-600 flex items-center justify-between">
-                  <span className="font-semibold text-brand-700">ðŸ•’ {appt.start_time} - {appt.end_time}</span>
+                  <span className="font-semibold text-brand-700 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" /> {appt.start_time} - {appt.end_time}
+                  </span>
                   <span className="text-slate-500">{appt.patient_contact || "No phone"}</span>
                 </div>
                 {appt.reason && (
@@ -313,7 +302,7 @@ export default function OverviewTab({
             )}
           />
         )}
-      </div>
+      </Card>
 
       {/* Auto-Responsive Quick Actions Grid */}
       <ResponsiveGrid minItemWidth={260} gap="md">
