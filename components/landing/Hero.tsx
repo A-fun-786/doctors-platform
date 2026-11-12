@@ -2,20 +2,15 @@ import Link from "next/link";
 import {
   ArrowRight,
   Globe,
-  Smartphone,
-  Calendar,
-  Video,
-  FileText,
-  Pill,
-  CheckCircle2,
+  Building2,
 } from "lucide-react";
 
 export default function Hero() {
   return (
     <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28 bg-gradient-to-b from-emerald-50/50 via-slate-50/20 to-white">
       {/* Ambient background soft glow */}
-      <div 
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-200/35 via-teal-100/20 to-transparent pointer-events-none -z-10" 
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-200/35 via-teal-100/20 to-transparent pointer-events-none -z-10"
         aria-hidden="true"
       />
 
@@ -23,26 +18,16 @@ export default function Hero() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
           {/* Left Column: Value Proposition & CTAs */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/90 text-emerald-800 text-xs font-semibold tracking-wide uppercase shadow-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-              </span>
-              <span>Multi-Tenant Healthcare Platform</span>
-            </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
-              Your Digital Healthcare Presence,{" "}
+              Empower Your Clinic with a Branded{" "}
               <span className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 bg-clip-text text-transparent">
-                Built Around You.
+                Digital Operating System.
               </span>
             </h1>
 
             <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              Establish and elevate your medical practice with a personalized,
-              custom-branded website and native mobile application. Control your
-              brand, profile, and patient touchpoints seamlessly from a single
-              platform.
+              Manage doctor schedules, book patient appointments, handle bills, and share lab reports—all from one simple place.
             </p>
 
             {/* CTAs */}
@@ -51,42 +36,26 @@ export default function Hero() {
                 href="/register"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-md shadow-brand-600/25 hover:shadow-lg hover:shadow-brand-600/35 transition-all text-base"
               >
-                <span>Create Your Digital Presence</span>
+                <span>Get Started</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <a
                 href="#features"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-lg bg-white hover:bg-emerald-50/40 text-slate-700 hover:text-emerald-800 font-semibold border border-slate-300 hover:border-emerald-200 shadow-sm transition-all text-base"
               >
-                Explore Platform
+                Explore Features
               </a>
-            </div>
-
-            {/* Quick Benefits / Trust Badges */}
-            <div className="pt-6 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
-              <div className="flex items-center gap-2 text-slate-600 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                <span>Custom Domain & Brand</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                <span>Dedicated Mobile App</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-600 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                <span>Unified Management</span>
-              </div>
             </div>
           </div>
 
-          {/* Right Column: Visual CSS Mockups (Browser + Phone) */}
+          {/* Right Column: Visual CSS Mockup (Clinic Browser) */}
           <div className="lg:col-span-5 relative">
             <div className="relative mx-auto max-w-md lg:max-w-none">
               {/* Decorative subtle backdrop glow */}
               <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-200/70 via-teal-100/50 to-emerald-100/60 rounded-2xl blur-xl opacity-80 -z-10" />
 
               {/* Website Mockup Card */}
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xl overflow-hidden mb-6 transform -rotate-1 hover:rotate-0 transition-transform duration-300">
+              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xl overflow-hidden transition-transform duration-300">
                 {/* Browser Top Bar */}
                 <div className="bg-slate-100/80 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center space-x-1.5">
@@ -96,89 +65,78 @@ export default function Hero() {
                   </div>
                   <div className="bg-white px-3 py-0.5 rounded text-[11px] text-slate-500 font-mono flex items-center gap-1 border border-slate-200">
                     <Globe className="w-3 h-3 text-emerald-600" />
-                    <span>drsarahjohnson.platform.com</span>
+                    <span>carewellpolyclinic.gosmartclinic.com</span>
                   </div>
                   <div className="w-6" />
                 </div>
 
-                {/* Website Inner Content Preview */}
-                <div className="p-4 bg-white">
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 border-2 border-brand-200 flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm">
-                      SJ
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900 truncate">
-                          Dr. Sarah Johnson
-                        </h4>
-                        <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">
-                          Verified
-                        </span>
+                {/* Website Inner Content Preview: Clinic Portal */}
+                <div className="p-4 bg-white space-y-3">
+                  {/* Clinic Header */}
+                  <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                        <Building2 className="w-5 h-5" />
                       </div>
-                      <p className="text-xs text-brand-600 font-medium">
-                        Cardiologist &middot; 10+ Yrs Exp
-                      </p>
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                        Specializing in preventive cardiology & heart health.
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 truncate">
+                            CareWell Polyclinic & Diagnostics
+                          </h4>
+                          <span className="text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 py-0.2 rounded">
+                            Verified
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          14 On-Duty Doctors &middot; Open Daily 8 AM - 9 PM
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Quick service pills */}
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 text-[11px]">
-                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-emerald-50/50 border border-emerald-100 text-slate-700 font-medium">
-                      <Video className="w-3 h-3 text-brand-600" />
-                      <span>Online Consult</span>
+                  {/* Multi-Doctor Roster Snippet */}
+                  <div className="space-y-1.5">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center">
+                          SJ
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900 text-[11px]">Dr. Sarah Johnson</p>
+                          <p className="text-[10px] text-emerald-600">Cardiology &middot; Slot: 3:00 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Available
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5 p-1.5 rounded bg-emerald-50/50 border border-emerald-100 text-slate-700 font-medium">
-                      <Calendar className="w-3 h-3 text-brand-600" />
-                      <span>Clinic Visit</span>
+
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 font-bold text-[10px] flex items-center justify-center">
+                          AR
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900 text-[11px]">Dr. Alex Rivera</p>
+                          <p className="text-[10px] text-teal-600">Pediatrics &middot; Slot: 4:30 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Available
+                      </span>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Mobile App Mockup Card (Overlapping) */}
-              <div className="bg-slate-900 rounded-2xl p-2 shadow-2xl border-4 border-slate-800 max-w-[260px] mx-auto -mt-10 lg:-ml-6 relative z-10 transform rotate-2 hover:rotate-0 transition-transform duration-300">
-                {/* Phone Speaker Notch */}
-                <div className="w-16 h-1 bg-slate-700 rounded-full mx-auto mb-2" />
-
-                {/* Mobile Screen */}
-                <div className="bg-white rounded-xl p-3 text-slate-900 space-y-2.5">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                    <span className="text-[11px] font-bold text-brand-700 flex items-center gap-1">
-                      <Smartphone className="w-3 h-3 text-brand-600" /> Dr. Johnson App
-                    </span>
-                    <span className="text-[9px] text-slate-400">9:41 AM</span>
-                  </div>
-
-                  <div className="text-center py-1">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-xs font-bold flex items-center justify-center mx-auto mb-1 shadow-sm">
-                      SJ
+                  {/* Clinic Services Badges */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1 text-[10px] text-center">
+                    <div className="p-1 rounded bg-slate-50 border border-slate-100 font-medium text-slate-700">
+                      Patient Queue
                     </div>
-                    <p className="text-xs font-bold text-slate-800">
-                      Dr. Sarah Johnson
-                    </p>
-                    <p className="text-[9px] text-slate-500">Book Care & Services</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-                    <div className="p-1.5 rounded bg-brand-50 border border-brand-100 text-slate-800 font-medium flex items-center gap-1">
-                      <Video className="w-2.5 h-2.5 text-brand-600" />
-                      <span>Consult</span>
+                    <div className="p-1 rounded bg-slate-50 border border-slate-100 font-medium text-slate-700">
+                      Lab Tests
                     </div>
-                    <div className="p-1.5 rounded bg-brand-50 border border-brand-100 text-slate-800 font-medium flex items-center gap-1">
-                      <Calendar className="w-2.5 h-2.5 text-brand-600" />
-                      <span>Appt</span>
-                    </div>
-                    <div className="p-1.5 rounded bg-brand-50 border border-brand-100 text-slate-800 font-medium flex items-center gap-1">
-                      <FileText className="w-2.5 h-2.5 text-brand-600" />
-                      <span>Lab Tests</span>
-                    </div>
-                    <div className="p-1.5 rounded bg-brand-50 border border-brand-100 text-slate-800 font-medium flex items-center gap-1">
-                      <Pill className="w-2.5 h-2.5 text-brand-600" />
-                      <span>Medicine</span>
+                    <div className="p-1 rounded bg-slate-50 border border-slate-100 font-medium text-slate-700">
+                      Pharmacy
                     </div>
                   </div>
                 </div>
