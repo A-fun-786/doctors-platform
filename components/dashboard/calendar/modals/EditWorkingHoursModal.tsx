@@ -234,7 +234,7 @@ export default function EditWorkingHoursModal({
       onClose={onClose}
       title={
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+          <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
             <Clock className="w-5 h-5" />
           </div>
           <div>
@@ -251,9 +251,9 @@ export default function EditWorkingHoursModal({
     >
       <form onSubmit={handleSave} className="space-y-4">
         {/* Total Slot Capacity Banner */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-blue-50/90 border border-blue-100 text-blue-900">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-brand-50/90 via-teal-50/60 to-brand-50/90 border border-brand-200/80 text-brand-950">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+            <Clock className="w-4 h-4 text-brand-600 shrink-0" />
             <div>
               <span className="text-xs font-bold text-slate-900">Daily Operating Capacity</span>
               <p className="text-[11px] text-slate-500 font-medium">
@@ -262,7 +262,7 @@ export default function EditWorkingHoursModal({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-600 text-white shadow-xs">
               {totalSlots} slots
             </span>
             <span className="text-[11px] font-semibold text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-slate-200/80">
@@ -294,13 +294,13 @@ export default function EditWorkingHoursModal({
               <div
                 key={shift.id}
                 className={`p-3.5 rounded-2xl border transition-all duration-200 ${shift.enabled
-                    ? "bg-white border-slate-200 shadow-xs hover:border-blue-200"
+                    ? "bg-white border-slate-200 shadow-xs hover:border-brand-200"
                     : "bg-slate-50/70 border-slate-200/60 opacity-60"
                   }`}
               >
                 <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 mb-2.5 gap-2">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 font-bold text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center shrink-0 border border-brand-200 font-bold text-xs">
                       {index + 1}
                     </div>
                     <div className="min-w-0 flex-1 flex items-center gap-2">
@@ -309,11 +309,11 @@ export default function EditWorkingHoursModal({
                         value={shift.label}
                         onChange={(e) => handleLabelChange(shift.id, e.target.value)}
                         placeholder={`Schedule ${index + 1}`}
-                        className="text-xs font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-400 focus:border-blue-600 focus:outline-hidden w-full max-w-[200px] transition-all py-0.5"
+                        className="text-xs font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-400 focus:border-brand-600 focus:outline-hidden w-full max-w-[200px] transition-all py-0.5"
                       />
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${
                         shift.enabled
-                          ? "bg-blue-50 text-blue-700 border border-blue-100"
+                          ? "bg-brand-50 text-brand-800 border border-brand-200"
                           : "bg-slate-100 text-slate-500"
                       }`}>
                         {shift.enabled ? `${slots} slots (${durH}h${durRemM ? ` ${durRemM}m` : ""})` : "Disabled"}
@@ -330,7 +330,7 @@ export default function EditWorkingHoursModal({
                         onChange={() => handleToggleShift(shift.id)}
                         className="sr-only peer"
                       />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
                     </label>
 
                     {/* Delete Session Button */}
@@ -359,7 +359,7 @@ export default function EditWorkingHoursModal({
                           onChange={(e) =>
                             handleTimeChange(shift.id, "start", e.target.value)
                           }
-                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                         >
                           {TIME_OPTIONS_30M.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -381,7 +381,7 @@ export default function EditWorkingHoursModal({
                           onChange={(e) =>
                             handleTimeChange(shift.id, "end", e.target.value)
                           }
-                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                         >
                           {TIME_OPTIONS_30M.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -404,10 +404,10 @@ export default function EditWorkingHoursModal({
           <button
             type="button"
             onClick={handleAddSchedule}
-            className="w-full py-2.5 px-3 rounded-xl border border-dashed border-blue-300 bg-blue-50/40 hover:bg-blue-50 text-blue-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+            className="w-full py-2.5 px-3 rounded-xl border border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-100/70 text-brand-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span>+ Add Another Schedule Window ({shifts.length}/4)</span>
+            <span>Add Another Schedule Window ({shifts.length}/4)</span>
           </button>
         )}
 
@@ -423,7 +423,7 @@ export default function EditWorkingHoursModal({
           <button
             type="submit"
             disabled={!!validationError || isSaving}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-500/20 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
           >
             {isSaving ? (
               <>
