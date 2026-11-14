@@ -561,6 +561,16 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {mode === "login" && (
+                  <div className="flex justify-end pt-1">
+                    <Link
+                      href="/auth/forgot-password"
+                      className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {mode === "register" && (

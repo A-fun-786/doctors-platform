@@ -451,4 +451,94 @@ None for Phase 3.
 - No database migrations or schema adjustments required.
 - `AuthService.forgot_password` will gracefully fall back to `email_service.backend.send` with plain-text reset email if `send_password_reset_email` method is absent.
 
+---
+
+# Password Reset Progress: Phase 4 (Frontend — UI Components & Routes)
+
+## 44. Summary
+Executed Phase 4 (Frontend — UI Components) of the Password Reset feature plan as specified in `docs/feature/email/password_reset_plan.md` (Section 3, Phase 4). Added a dedicated "Forgot password?" link below the login password field in `components/auth/EmailAuthForm.tsx` that routes to `/auth/forgot-password`. Implemented `ForgotPasswordForm.tsx` with email request initiation, 6-digit OTP code entry, and 60-second resend cooldown timer. Developed `ResetPasswordForm.tsx` supporting dual entry points (prefilled token from email magic link or OTP code parameter), live password strength checklist matching backend security policies, client-side password confirmation matching, automatic JWT persistence, and conditional post-reset redirects. Integrated client API helper functions `forgotPassword` and `resetPassword` in `lib/api.ts`, wrapped App Router pages in `<Suspense>` boundaries to guarantee safe client-side hydration, and verified the entire UI contract with `scripts/verify_password_reset_ui.mjs` and Next.js production build.
+
+## 45. Plan Reference
+- **Plan**: `docs/feature/email/password_reset_plan.md` (Section 3.4 Phase 4: Frontend — UI Components)
+- **Base Commit SHA**: `61cafe9470f23881e0797441b703100186ef5a5a`
+
+## 46. Changes
+- `lib/api.ts`: Added `ForgotPasswordResponse`, `ResetPasswordPayload`, `forgotPassword()`, and `resetPassword()` API functions with automatic token storage on success.
+- `components/auth/EmailAuthForm.tsx`: Added "Forgot password?" link below password input in login mode routing to `/auth/forgot-password`.
+- `components/auth/ForgotPasswordForm.tsx`: Created standalone form component handling email submission, transition to OTP entry view, 60s cooldown timer, and navigation to reset page.
+- `components/auth/ResetPasswordForm.tsx`: Created standalone form component handling password reset with strength indicator checklist, matching password check, token/code query param ingestion, auto-login, and redirect.
+- `app/auth/forgot-password/page.tsx`: Created Next.js route with branded metadata and Suspense boundary.
+- `app/auth/forgot-password/ForgotPasswordClient.tsx`: Created client component reading initial email query parameters.
+- `app/auth/reset-password/page.tsx`: Created Next.js route with branded metadata and Suspense boundary.
+- `app/auth/reset-password/ResetPasswordClient.tsx`: Created client component reading `token`, `code`, and `email` query parameters.
+- `scripts/verify_password_reset_ui.mjs`: Created automated verification test suite exercising all 10 frontend UI checks specified in plan section 3.6.2.
+
+## 47. Decisions
+
+### Decision 1: Dedicated Route & Component Architecture with Suspense Boundaries
+- **Decision**: Implemented `app/auth/forgot-password/page.tsx` and `app/auth/reset-password/page.tsx` using separate client components (`ForgotPasswordClient.tsx` and `ResetPasswordClient.tsx`) wrapped in `<Suspense>` boundaries.
+- **Reasoning**: Next.js App Router requires `<Suspense>` wrappers around any client components using `useSearchParams()` during static page generation. This avoids hydration bailouts and guarantees optimal static prerendering (`○ (Static)`) in production builds.
+- **Alternatives considered**: Toggling view state internally inside `EmailAuthForm.tsx`. Rejected because deep-linking from emails with `?token=xxx&email=yyy` requires dedicated, linkable URLs (`/auth/reset-password`).
+- **Consequences**: Clean separation of concerns, bookmarkable and email-linkable URLs, and flawless static compilation.
+
+### Decision 2: Reuse of Validated Password Checklist & Email Regex
+- **Decision**: Reused the exact `validatePassword` strength evaluator and regex logic from `EmailAuthForm.tsx` in `ResetPasswordForm.tsx`.
+- **Reasoning**: Maintains 100% visual and logical consistency between doctor registration and password reset, ensuring users receive identical feedback against the 5 security requirements (8+ chars, uppercase, lowercase, digit, special symbol).
+- **Alternatives considered**: Implementing a separate, lighter validator for reset. Rejected because inconsistent validation rules would frustrate users and fail backend schema validation.
+- **Consequences**: Uniform UX and zero drift between signup and reset validation.
+
+### Decision 3: Flexible Reset Credential Handling (Magic Link Token or OTP Code)
+- **Decision**: `ResetPasswordForm` dynamically supports both entry routes: if `token` or `code` is provided via URL query params (`?token=...` or `?code=...`), it hides the code input and displays a clean reminder of the target email; if neither is provided in query params, it surfaces a 6-digit code input field.
+- **Reasoning**: Allows seamless UX when doctors click the magic link in their email (token pre-filled), when they transition from the OTP step on the website (code pre-filled), or when they navigate directly to the reset page.
+- **Alternatives considered**: Separate forms for magic link vs OTP code. Rejected because the backend endpoint `/api/v1/auth/reset-password` accepts either `token` or `code` in `ResetPasswordRequest`, so a unified form provides the cleanest doctor experience.
+- **Consequences**: Robust, unified UX supporting all entry points.
+
+## 48. Deviations from Plan
+None. All components, pages, API functions, and verification checks were implemented in exact alignment with Section 3, Phase 4 and Section 3.6.2 of `docs/feature/email/password_reset_plan.md`.
+
+## 49. Assumptions
+- Post-reset redirect: If doctor profile has `onboarding_completed: false`, redirects to `/onboarding`; otherwise redirects to `/dashboard`, matching the existing `EmailAuthForm` behavior.
+- Resend cooldown is initialized to 60 seconds after successful email dispatch, matching the backend domain-level 60-second cooldown window.
+
+## 50. Verification Results
+
+### Baseline Comparison
+- **Phase 0 Baseline (Backend)**: 33 auth tests passed (`test_auth.py`, `test_password_reset.py`).
+- **Phase 0 Baseline (Frontend)**: `npm run lint` 0 warnings/errors; `npx tsc --noEmit` 0 errors.
+- **Post-Phase 4 Test Suite**: 33 auth tests passed (0 regressions); `npm run build` static compilation succeeded for all routes; `verify_password_reset_ui.mjs` 10/10 checks passed.
+
+### Phase 4 Verification Matrix
+| Scenario | Type | Actions | Expected | Observed | Evidence | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Login "Forgot password?" Link | `AGENT_EXECUTABLE` | Verify link in `EmailAuthForm.tsx` in login mode | Points to `/auth/forgot-password` | Verified | `node scripts/verify_password_reset_ui.mjs` Check 1 | `PASS` |
+| Forgot Password API Client | `AGENT_EXECUTABLE` | Check `forgotPassword()` in `lib/api.ts` | Calls `/api/v1/auth/forgot-password` | Verified | `verify_password_reset_ui.mjs` Check 2 | `PASS` |
+| OTP Input & 60s Resend Cooldown | `AGENT_EXECUTABLE` | Check step transition, 6-digit input, and 60s timer in `ForgotPasswordForm.tsx` | Present and restricted to 6 digits | Verified | `verify_password_reset_ui.mjs` Check 3 | `PASS` |
+| Password Confirmation Matching | `AGENT_EXECUTABLE` | Check client-side mismatch check and submit disabling in `ResetPasswordForm.tsx` | Disables submit when mismatch | Verified | `verify_password_reset_ui.mjs` Check 4 | `PASS` |
+| Password Strength Indicator | `AGENT_EXECUTABLE` | Check 5-point checklist in `ResetPasswordForm.tsx` | 8+ chars, upper, lower, digit, special | Verified | `verify_password_reset_ui.mjs` Check 5 | `PASS` |
+| Auto-login & Redirect on Success | `AGENT_EXECUTABLE` | Check `setAuthToken(access_token)` and router redirects | Stores JWT, redirects dashboard/onboarding | Verified | `verify_password_reset_ui.mjs` Check 6 | `PASS` |
+| Accessible Error Alerts | `AGENT_EXECUTABLE` | Check `role="alert"` and `aria-live="polite"` on error alerts | Present on both forms | Verified | `verify_password_reset_ui.mjs` Check 7 | `PASS` |
+| Magic Link Query Pre-population | `AGENT_EXECUTABLE` | Check `useSearchParams` handling in `ResetPasswordClient.tsx` | Reads `token`, `code`, and `email` | Verified | `verify_password_reset_ui.mjs` Check 8 | `PASS` |
+| Next.js Suspense Boundaries | `AGENT_EXECUTABLE` | Check `<Suspense>` wrappers on App Router pages | Present on both pages | Verified | `verify_password_reset_ui.mjs` Check 9 | `PASS` |
+| Validator Logic Rules | `AGENT_EXECUTABLE` | Test `isValidEmail` and `validatePassword` against test vectors | Correct boolean outcomes | Verified | `verify_password_reset_ui.mjs` Check 10 | `PASS` |
+| Next.js TypeScript Compilation | `AGENT_EXECUTABLE` | `npx tsc --noEmit` | Exit code 0, 0 errors | 0 errors | Terminal exit code 0 | `PASS` |
+| Next.js Linting | `AGENT_EXECUTABLE` | `npm run lint` | Exit code 0, 0 warnings/errors | 0 warnings | Terminal exit code 0 | `PASS` |
+| Next.js Production Build | `AGENT_EXECUTABLE` | `npm run build` | Route generation and static compilation successful | `○ /auth/forgot-password` and `○ /auth/reset-password` built | Next.js output | `PASS` |
+| Backend Tests Regression Check | `AGENT_EXECUTABLE` | `pytest backend/tests/test_auth.py backend/tests/test_password_reset.py` | 33 passed, 0 regressions | 33 passed | Exit code 0 | `PASS` |
+
+**Final Phase 4 Verdict**: `VERIFIED` (14/14 checks passed, 0 regressions)
+
+## 51. Manual Steps Pending
+None for Phase 4. Automated UI verification suite and full production build execution confirmed all behavior.
+
+## 52. Known Issues and Follow-ups
+- **Follow-ups**:
+  - Phase 5: Optional database index migration (`ix_evt_doctor_purpose_reset`).
+  - Phase 6: Comprehensive cross-layer end-to-end testing suite integration.
+
+## 53. Rollback
+- Revert commit: `git revert <commit-sha>`
+- Delete added routes `app/auth/forgot-password` and `app/auth/reset-password`.
+- No database migrations or schema adjustments required.
+
+
 

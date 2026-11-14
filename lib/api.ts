@@ -595,6 +595,57 @@ export async function resendVerificationEmail(
   });
 }
 
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordPayload {
+  new_password: string;
+  email?: string;
+  code?: string;
+  token?: string;
+}
+
+/**
+ * Request password reset OTP and magic link.
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  return apiFetch<ForgotPasswordResponse>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+}
+
+/**
+ * Reset password using 6-digit OTP code or URL token.
+ * Sets auth token in local storage / cookie on success.
+ */
+export async function resetPassword(
+  params: ResetPasswordPayload
+): Promise<AuthResponse> {
+  const bodyPayload: Record<string, string> = {
+    new_password: params.new_password,
+  };
+  if (params.email?.trim()) {
+    bodyPayload.email = params.email.trim().toLowerCase();
+  }
+  if (params.code?.trim()) {
+    bodyPayload.code = params.code.trim();
+  }
+  if (params.token?.trim()) {
+    bodyPayload.token = params.token.trim();
+  }
+
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(bodyPayload),
+  });
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
+  return data;
+}
+
 /**
  * Log in an existing doctor using email and password.
  */
