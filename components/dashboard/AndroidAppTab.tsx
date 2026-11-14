@@ -190,7 +190,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
             </div>
 
             {/* Patient Installation Guide Tip */}
-            <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-4 text-xs text-slate-700 space-y-1">
+            <div className="bg-brand-50/70 border border-brand-200 rounded-xl p-4 text-xs text-brand-950 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-brand-700">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>How Patients Install This App</span>
@@ -298,7 +298,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
 
           {/* Active Build Status Progress */}
           {buildingApp && buildStatus && (
-            <div className="mt-4 p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2">
+            <div className="mt-4 p-4 rounded-xl bg-brand-50/80 border border-brand-200 space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-brand-900">
                 <span className="flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
@@ -306,7 +306,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                 </span>
                 <span>{buildStatus.progress}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-brand-100 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-brand-600 h-2 rounded-full transition-all duration-500"
                   style={{ width: `${Math.max(buildStatus.progress, 20)}%` }}
