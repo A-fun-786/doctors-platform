@@ -1,5 +1,4 @@
 import re
-import uuid
 from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,6 +8,7 @@ from app.core.security import (
     create_access_token,
     hash_password,
     verify_password,
+    needs_rehash,
 )
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
@@ -16,6 +16,7 @@ from app.schemas.auth import (
     AuthResponse,
     DoctorResponse,
     TenantResponse,
+    validate_email_id,
 )
 
 
@@ -165,11 +166,17 @@ class AuthService:
         Register a doctor using email and password.
         Atomically creates Doctor and Tenant records.
         """
-        email = email.lower().strip()
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is required",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
             )
         if not password or len(password) < 6:
             raise HTTPException(
@@ -237,11 +244,17 @@ class AuthService:
         """
         Authenticate a doctor using email and password.
         """
-        email = email.lower().strip()
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email and password are required",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
             )
 
         doctor = db.query(Doctor).filter(Doctor.email == email).first()
@@ -268,6 +281,11 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+
+        # Transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        if needs_rehash(doctor.hashed_password):
+            doctor.hashed_password = hash_password(password)
+            db.commit()
 
         tenant = doctor.tenant
         if not tenant:

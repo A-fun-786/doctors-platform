@@ -1,16 +1,24 @@
+<div align="center">
+
 # 🏥 DocSpace — Multi-Tenant White-Label Healthcare Platform
 
 > **Your Digital Healthcare Presence, Built Around You.**
 >
 > A modern, comprehensive B2B SaaS platform empowering doctors, clinics, and healthcare specialists to establish, brand, and manage their complete digital identity—from personalized websites to native mobile applications—all from a single unified dashboard.
 
-<div align="center">
+[![Production Frontend](https://img.shields.io/badge/Frontend-Live%20on%20Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://doctors-platform-eight.vercel.app)
+[![Production Backend](https://img.shields.io/badge/Backend-Live%20on%20Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://backend-production-b26c.up.railway.app/api/v1/health)
+[![Database](https://img.shields.io/badge/Database-Neon%20Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-![Platform Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-
-[Live Demo](#-live-demo) • [Screenshots](#-complete-user-journey) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started)
+<p align="center">
+  <a href="https://doctors-platform-eight.vercel.app"><b>🚀 Visit Live Platform</b></a> •
+  <a href="https://backend-production-b26c.up.railway.app/api/v1/health"><b>🩺 API Health Check</b></a> •
+  <a href="./docs/deployment.md"><b>📖 Deployment Guide</b></a> •
+  <a href="#-complete-user-journey"><b>📸 Screenshots</b></a> •
+  <a href="#-getting-started"><b>⚡ Quickstart</b></a>
+</p>
 
 </div>
 
@@ -675,57 +683,64 @@ DocSpace transforms the way healthcare professionals establish their digital pre
 ```text
 docspace-platform/
 │
-├── 📂 app/                           # Next.js App Router
-│   ├── layout.tsx                   # Root layout & global providers
+├── 📂 app/                           # Next.js 14 App Router
+│   ├── layout.tsx                   # Root layout, font optimization & metadata
 │   ├── page.tsx                     # Homepage (/)
-│   ├── globals.css                  # Tailwind & base styles
-│   ├── 🔐 login/
-│   │   └── page.tsx                 # Doctor login portal (/login)
-│   ├── 📝 register/
-│   │   └── page.tsx                 # Doctor registration (/register)
-│   ├── 🎯 features/
-│   │   └── page.tsx                 # Features page (/features)
-│   ├── 🎓 onboarding/
-│   │   └── page.tsx                 # Multi-step wizard (/onboarding)
-│   ├── 🎛️ dashboard/
-│   │   └── page.tsx                 # Doctor control panel (/dashboard)
-│   └── 🌐 [slug]/
-│       └── page.tsx                 # Dynamic doctor profiles (/dr-noah)
+│   ├── error.tsx                    # Route-level error recovery with diagnostics link
+│   ├── global-error.tsx             # Critical layout error fallback
+│   ├── globals.css                  # Tailwind tokens & base styles
+│   ├── 🔐 login/                    # Doctor login portal (/login)
+│   ├── 📝 register/                 # Doctor registration (/register)
+│   ├── 🎓 onboarding/               # Practice setup & clinic branding wizard (/onboarding)
+│   ├── 🎛️ dashboard/                # Protected doctor dashboard with ErrorBoundary
+│   └── 🌐 [slug]/                   # Dynamic doctor profile (/dr-noah)
 │
 ├── 📂 components/
-│   ├── 🎨 landing/
-│   │   ├── Navbar.tsx               # Navigation header
-│   │   ├── Hero.tsx                 # Hero section with mockups
-│   │   ├── Features.tsx             # Platform capabilities grid
-│   │   ├── HowItWorks.tsx           # 3-step process visualization
-│   │   ├── PreviewSection.tsx       # Web + mobile previews
-│   │   ├── CTA.tsx                  # Conversion callout
-│   │   └── Footer.tsx               # Footer with links
 │   ├── 🔐 auth/
-│   │   ├── LoginForm.tsx            # Email/password form
-│   │   └── OAuthButtons.tsx         # Google signin button
-│   ├── 📝 forms/
-│   │   ├── PracticeDetailsForm.tsx  # Step 1
-│   │   ├── ServicesSelectionForm.tsx# Step 2
-│   │   └── OnboardingProgressBar.tsx# Progress indicator
-│   ├── 👨‍⚕️ profile/
-│   │   ├── DoctorHeader.tsx         # Profile header
-│   │   ├── ServicesList.tsx         # Services display
-│   │   └── BookingCTA.tsx           # Booking buttons
-│   ├── 📱 mobile/
-│   │   ├── MobileNavigation.tsx     # Mobile bottom nav
-│   │   ├── AppointmentBooker.tsx    # Booking widget
-│   │   └── ServiceCard.tsx          # Service display card
-│   └── 🎛️ dashboard/
-│       ├── APKBuilder.tsx           # APK compilation UI
-│       ├── BuildConsole.tsx         # Terminal output
-│       └── DistributionLinks.tsx    # Download & sharing
+│   │   ├── EmailAuthForm.tsx        # Email & password login/signup with validation
+│   │   └── GoogleAuthForm.tsx       # Google One Tap & OAuth button with GSI resilience
+│   ├── 🎛️ dashboard/
+│   │   ├── DashboardShell.tsx       # Global layout, navigation tabs & topbar diagnostics trigger
+│   │   ├── OverviewTab.tsx          # Key metrics, practice status & shortcut actions
+│   │   ├── CalendarTab.tsx          # Main scheduling dashboard container
+│   │   ├── ScheduleTab.tsx          # Clinical operating hours & weekly rules manager
+│   │   ├── AppointmentsTab.tsx      # Comprehensive patient appointment management
+│   │   ├── ProfileTab.tsx           # Practice profile & consultation fees editor
+│   │   ├── AndroidAppTab.tsx        # APK compilation & mobile branding builder
+│   │   └── 📅 calendar/
+│   │       ├── types.ts             # Strongly typed event & view definitions
+│   │       ├── constants.ts         # Hours (7 AM - 9 PM), demo data, color tokens
+│   │       ├── calendarUtils.ts     # ISO date conversions, time arithmetic & slot helpers
+│   │       ├── 🪝 hooks/
+│   │       │   ├── useCalendarData.ts   # Event querying, API caching & date navigation
+│   │       │   └── useCalendarModals.ts # Modal state machine & submission actions
+│   │       ├── 👁️ views/
+│   │       │   ├── CalendarHeader.tsx   # Date range selector & mode switcher (Day/Week/Month)
+│   │       │   ├── WeekView.tsx         # 7-day interactive time grid with slot chips
+│   │       │   ├── DayView.tsx          # Hourly day breakdown with patient cards
+│   │       │   └── MonthView.tsx        # 35/42-cell monthly overview with daily badges
+│   │       ├── 📌 sidebar/
+│   │       │   ├── CalendarSidebar.tsx        # Right-hand panel orchestrator
+│   │       │   ├── MiniCalendar.tsx           # Compact date-picker with active day highlights
+│   │       │   ├── WorkingHoursCard.tsx       # Clinic hours overview with jump to /schedule
+│   │       │   └── QuickActionsCard.tsx       # Fast action shortcuts for availability & blocks
+│   │       └── 🪟 modals/
+│   │           ├── AddAppointmentModal.tsx    # Patient consultation booking dialog
+│   │           ├── AddAvailabilityModal.tsx   # Custom availability slot creator
+│   │           ├── BlockTimeModal.tsx         # Leave/holiday time-block dialog
+│   │           └── EventDetailsModal.tsx      # Detailed event inspection card
+│   └── 🧩 ui/
+│       ├── Badge.tsx                # Status badge chip with 6 color variants
+│       ├── Modal.tsx                # Accessible backdrop modal dialog with Esc handler
+│       ├── Toast.tsx                # Bottom-right fixed notification feedback
+│       ├── ErrorBoundary.tsx        # Component crash isolation with diagnostic telemetry
+│       └── DiagnosticsModal.tsx     # Telemetry log inspector (Ctrl+Shift+D) & JSON/CSV export
 │
 ├── 📂 lib/
-│   ├── api.ts                       # API utilities
-│   ├── auth.ts                      # Authentication logic
-│   ├── db.ts                        # Database connections
-│   └── types.ts                     # Shared TypeScript types
+│   ├── api.ts                       # Typed REST client with centralized apiFetch & request tracing
+│   ├── logger.ts                    # In-memory ring-buffer logger (1,000 entries) & Sentry bridge
+│   ├── useLogger.ts                 # Scoped component lifecycle & action hook
+│   └── auth.ts                      # Client-side session tokens & JWT decoding
 │
 ├── 📂 public/
 │   ├── screenshots/                 # All 12 screenshots
@@ -832,40 +847,29 @@ graph TD
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/docspace-platform.git
-   cd docspace-platform
+   git clone https://github.com/A-fun-786/doctors-platform.git
+   cd doctors-platform
    ```
 
 2. **Install dependencies:**
    ```bash
+   # Frontend dependencies
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
+
+   # Backend Python virtual environment
+   cd backend
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   cd ..
    ```
 
 3. **Set up environment variables:**
    ```bash
    cp .env.example .env.local
+   cp backend/.env.example backend/.env
    ```
-   Edit `.env.local` with your configuration:
-   ```env
-   # Database
-   DATABASE_URL=postgresql://user:password@localhost:5432/docspace
-   
-   # JWT & Auth
-   JWT_SECRET=your_jwt_secret_key_here
-   GOOGLE_CLIENT_ID=your_google_oauth_client_id
-   GOOGLE_CLIENT_SECRET=your_google_oauth_secret
-   
-   # API
-   NEXT_PUBLIC_API_URL=http://localhost:3000
-   
-   # Features
-   NEXT_PUBLIC_ENABLE_TELEHEALTH=true
-   NEXT_PUBLIC_ENABLE_LAB_UPLOAD=true
-   ```
+   For production deployment and cloud setup, refer to the full **[Deployment Playbook](./docs/deployment.md)**.
 
 ### Running Locally
 
@@ -900,6 +904,14 @@ Open [**http://localhost:3000**](http://localhost:3000) in your browser:
 npm run build
 npm run start
 ```
+
+> [!TIP]
+> **Troubleshooting Dev Server Cache / Unstyled UI (404 Chunks):**  
+> If switching from `npm run build` back to `npm run dev`, or if styles fail to load (unstyled loading screen with 404s on CSS/JS chunks), purge the Next.js webpack cache and restart:
+> ```bash
+> rm -rf .next && npm run dev
+> ```
+> Then perform a hard refresh in the browser (`Cmd + Shift + R` on macOS / `Ctrl + F5` on Windows).
 
 For Docker deployment:
 
@@ -979,6 +991,16 @@ Doctors can directly compile and distribute their branded APK through the Dashbo
 ✅ **Mobile App** - Native iOS/Android experience
 ✅ **Verified Credentials** - Trust verification badge
 ✅ **24/7 Access** - Anytime appointment inquiry
+
+### 📅 Modular Clinical Scheduling & Calendar System
+
+✅ **Three Responsive Calendar Views:** Instant switching between Day, Week (7-day time slot grid), and Month (35/42-cell overview with badge counts).  
+✅ **Multi-Modal Event Management:** Interactive creation and management of Patient Appointments, Custom Availability Slots, and Blocked Time / Leaves / Holidays.  
+✅ **Google Calendar 2-Way Sync:** Built-in connection management, background synchronization, and instant refresh notifications.  
+✅ **Interactive Sidebar:** Includes month date-picker Mini Calendar, active Clinical Working Hours widget, Google Sync status card, and Quick Action shortcuts.  
+✅ **Zero-Downtime Error Isolation:** Component-level `ErrorBoundary` wrappers prevent tab crashes from bringing down the entire portal.  
+✅ **In-Memory Telemetry & Diagnostics:** Built-in ring-buffer logger (1,000 entries) capturing user actions, API timing, and errors with live overlay (`Ctrl + Shift + D`) and JSON/CSV export.  
+✅ **Centralized API Client:** Unified `apiFetch` with automatic JWT handling, 401 recovery, and request tracing.  
 
 ---
 
@@ -1067,6 +1089,6 @@ This project is licensed under the **MIT License** - see [`LICENSE`](./LICENSE) 
 
 **Built with ❤️ for Healthcare Professionals**
 
-[Live Demo](https://docspace.com) • [Documentation](https://docs.docspace.com) • [Report Issue](https://github.com/docspace/platform/issues)
+[Live Platform](https://doctors-platform-eight.vercel.app) • [Backend API Health](https://backend-production-b26c.up.railway.app/api/v1/health) • [Deployment Playbook](./docs/deployment.md) • [Report Issue](https://github.com/A-fun-786/doctors-platform/issues)
 
 </div>

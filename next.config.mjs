@@ -1,5 +1,8 @@
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:8000";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(process.env.NODE_ENV === "production" ? { output: "standalone" } : {}),
   images: {
     remotePatterns: [
       {
@@ -16,10 +19,80 @@ const nextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${apiUrl}/uploads/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(self), geolocation=(), payment=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com",
+              "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com",
+              "font-src 'self' data:",
+              "connect-src 'self' https://gosmartclinic.com https://www.gosmartclinic.com https://api.gosmartclinic.com https://accounts.google.com https://*.sentry.io https://backend-production-b26c.up.railway.app https://*.railway.app http://127.0.0.1:8000 http://localhost:8000",
+              "frame-src 'self' https://accounts.google.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+        ],
       },
     ];
   },
 };
 
-export default nextConfig;
+const sentryWebpackPluginOptions = {
+  silent: true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+};
+
+let exportedConfig = nextConfig;
+try {
+  const { withSentryConfig } = await import("@sentry/nextjs");
+  exportedConfig = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+} catch {
+  // Graceful fallback if Sentry package is not available
+  exportedConfig = nextConfig;
+}
+
+export default exportedConfig;
+

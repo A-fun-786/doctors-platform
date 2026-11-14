@@ -67,3 +67,16 @@ logs/
 .pids/
 
 TUNNEL_URL.txt
+production_plan.md
+
+# SSL / TLS certificates
+nginx/certs/*.pem
+nginx/certs/*.key
+!nginx/certs/.gitkeep
+
+deployment_guide.md
+.vercel
+.env*
+!.env.example
+!.env.development
+!backend/.env.example

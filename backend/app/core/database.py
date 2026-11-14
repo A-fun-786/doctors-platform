@@ -1,10 +1,12 @@
 from typing import Generator
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.exc import OperationalError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.core.config import get_settings
 
 from app.models.base import Base
-import app.models  # Ensure all models are registered
+import app.models  # noqa: F401 — Ensure all models are registered
 
 settings = get_settings()
 
@@ -13,43 +15,11 @@ connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith(
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
+    pool_size=3,
+    max_overflow=5,
+    pool_recycle=300,
     connect_args=connect_args,
 )
-
-# Auto-create tables for development convenience (especially when using SQLite)
-try:
-    Base.metadata.create_all(bind=engine)
-    if settings.DATABASE_URL.startswith("sqlite"):
-        with engine.connect() as conn:
-            inspector = inspect(engine)
-            if "doctors" in inspector.get_table_names():
-                doc_cols = {col["name"] for col in inspector.get_columns("doctors")}
-                if "speciality" not in doc_cols:
-                    conn.execute(text("ALTER TABLE doctors ADD COLUMN speciality VARCHAR(255)"))
-                if "bio" not in doc_cols:
-                    conn.execute(text("ALTER TABLE doctors ADD COLUMN bio TEXT"))
-                if "app_icon_url" not in doc_cols:
-                    conn.execute(text("ALTER TABLE doctors ADD COLUMN app_icon_url TEXT"))
-                if "onboarding_completed" not in doc_cols:
-                    conn.execute(text("ALTER TABLE doctors ADD COLUMN onboarding_completed BOOLEAN DEFAULT 0 NOT NULL"))
-
-            if "tenants" in inspector.get_table_names():
-                tenant_cols = {col["name"] for col in inspector.get_columns("tenants")}
-                if "clinic_name" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN clinic_name VARCHAR(255)"))
-                if "location" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN location VARCHAR(500)"))
-                if "service_appointment" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN service_appointment BOOLEAN DEFAULT 1 NOT NULL"))
-                if "service_video_consultation" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN service_video_consultation BOOLEAN DEFAULT 1 NOT NULL"))
-                if "service_medicine_inventory" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN service_medicine_inventory BOOLEAN DEFAULT 0 NOT NULL"))
-                if "service_lab_reports" not in tenant_cols:
-                    conn.execute(text("ALTER TABLE tenants ADD COLUMN service_lab_reports BOOLEAN DEFAULT 0 NOT NULL"))
-            conn.commit()
-except Exception:
-    pass
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -58,10 +28,29 @@ SessionLocal = sessionmaker(
 )
 
 
+def init_db() -> None:
+    """Create all registered database tables (for local development/testing)."""
+    Base.metadata.create_all(bind=engine)
+
+
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.1, min=0.1, max=1.0),
+    retry=retry_if_exception_type(OperationalError),
+)
+def create_session_with_retry() -> Session:
+    """Create a database session with retry on transient OperationalError."""
+    session = SessionLocal()
+    session.execute(text("SELECT 1"))
+    return session
+
+
 def get_db() -> Generator[Session, None, None]:
     """Dependency that provides a database session and ensures closure."""
-    db = SessionLocal()
+    db = create_session_with_retry()
     try:
         yield db
     finally:
         db.close()
+
