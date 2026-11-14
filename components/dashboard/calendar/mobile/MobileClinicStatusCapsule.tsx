@@ -60,7 +60,7 @@ export default function MobileClinicStatusCapsule({
         type: "upcoming",
         label: `Next: ${upcoming.label || "Schedule Window"}`,
         subtext: `Starts ${format12Hour(upcoming.start)}`,
-        badgeColor: "bg-blue-500",
+        badgeColor: "bg-brand-500",
         pulse: false,
         icon: Calendar,
       };
@@ -83,13 +83,13 @@ export default function MobileClinicStatusCapsule({
     <button
       type="button"
       onClick={onOpenHoursSheet}
-      className="w-full flex items-center justify-between p-2.5 sm:p-3 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100/80 hover:border-blue-200 rounded-2xl shadow-2xs text-left active:scale-[0.99] transition-all cursor-pointer group"
+      className="w-full flex items-center justify-between p-2.5 sm:p-3 bg-gradient-to-r from-brand-50/80 via-teal-50/40 to-slate-50 border border-brand-100 hover:border-brand-200 rounded-2xl shadow-2xs text-left active:scale-[0.99] transition-all cursor-pointer group"
       title="Tap to view working hours"
     >
       <div className="flex items-center gap-2.5 min-w-0">
         {/* Pulsing indicator */}
-        <div className="relative flex items-center justify-center shrink-0 w-8 h-8 rounded-xl bg-white shadow-2xs border border-blue-100">
-          <StatusIcon className="w-4 h-4 text-blue-600" />
+        <div className="relative flex items-center justify-center shrink-0 w-8 h-8 rounded-xl bg-white shadow-2xs border border-brand-100">
+          <StatusIcon className="w-4 h-4 text-brand-600" />
           <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
             {statusInfo.pulse && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -113,10 +113,10 @@ export default function MobileClinicStatusCapsule({
 
       {/* Action CTA */}
       <div className="flex items-center gap-1 pl-2 shrink-0">
-        <span className="text-[11px] font-semibold text-blue-600 group-hover:text-blue-700 hidden xs:inline">
+        <span className="text-[11px] font-semibold text-brand-700 group-hover:text-brand-800 hidden xs:inline">
           Hours & Shifts
         </span>
-        <ChevronRight className="w-4 h-4 text-blue-500 group-hover:translate-x-0.5 transition-transform" />
+        <ChevronRight className="w-4 h-4 text-brand-600 group-hover:translate-x-0.5 transition-transform" />
       </div>
     </button>
   );
