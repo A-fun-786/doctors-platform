@@ -349,5 +349,85 @@ class EmailService:
             html_content=html_content,
         )
 
+    def send_password_reset_email(
+        self,
+        to_email: str,
+        doctor_name: str,
+        otp: str,
+        token: str,
+        tenant_slug: Optional[str] = None,
+    ) -> bool:
+        """
+        Build and dispatch password-reset email containing 6-digit OTP and reset URL.
+        Follows the same template pattern as send_verification_email.
+        """
+        clean_name = doctor_name or "Doctor"
+        expires_minutes = self.settings.PASSWORD_RESET_EXPIRE_MINUTES
+        frontend_url = self.settings.FRONTEND_URL.rstrip("/")
+        encoded_email = quote(to_email)
+        reset_url = f"{frontend_url}/auth/reset-password?token={token}&email={encoded_email}"
+
+        subject = f"Reset your {self.settings.BRAND_NAME} password"
+
+        text_content = (
+            f"Hello {clean_name},\n\n"
+            f"We received a request to reset your {self.settings.BRAND_NAME} password.\n\n"
+            f"Your 6-digit reset code is: {otp}\n\n"
+            "Or reset your password directly by clicking the link below:\n"
+            f"{reset_url}\n\n"
+            f"This code and link will expire in {expires_minutes} minutes.\n"
+            f"If you did not request a password reset, you can safely ignore this email. "
+            "Your password will remain unchanged.\n"
+        )
+
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Reset your {self.settings.BRAND_NAME} password</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }}
+    .container {{ max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; padding: 32px; }}
+    .header {{ text-align: center; margin-bottom: 24px; }}
+    .header h1 {{ font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }}
+    .otp-card {{ background: #f1f5f9; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0; }}
+    .otp-code {{ font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #2563eb; font-family: monospace; }}
+    .btn {{ display: block; width: 100%; box-sizing: border-box; text-align: center; background-color: #2563eb; color: #ffffff !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }}
+    .footer {{ font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{self.settings.BRAND_NAME}</h1>
+    </div>
+    <p>Hello <strong>{clean_name}</strong>,</p>
+    <p>We received a request to reset your password. Use the code below or click the button to set a new password.</p>
+
+    <div class="otp-card">
+      <div style="font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 6px;">Your Reset Code</div>
+      <div class="otp-code">{otp}</div>
+    </div>
+
+    <a href="{reset_url}" class="btn">Reset Password</a>
+
+    <p style="font-size: 13px; color: #64748b;">
+      This code and link will expire in <strong>{expires_minutes} minutes</strong>.
+    </p>
+
+    <div class="footer">
+      If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+    </div>
+  </div>
+</body>
+</html>"""
+
+        return self.backend.send(
+            to_email=to_email,
+            subject=subject,
+            text_content=text_content,
+            html_content=html_content,
+        )
+
 
 email_service = EmailService()

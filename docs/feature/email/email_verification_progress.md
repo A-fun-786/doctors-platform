@@ -369,5 +369,86 @@ None for Phase 2.
 - Remove `PASSWORD_RESET_EXPIRE_MINUTES` and `RATE_LIMIT_PASSWORD_RESET` from environment overrides if set.
 - No database migrations or schema adjustments required.
 
+---
+
+# Password Reset Progress: Phase 3 (Backend — Email Template)
+
+## 34. Summary
+Executed Phase 3 (Backend — Email Template) of the Password Reset feature plan as specified in `docs/feature/email/password_reset_plan.md` (Section 3, Phase 3). Implemented `EmailService.send_password_reset_email(to_email, doctor_name, otp, token, tenant_slug)` in `backend/app/services/email_service.py`. The method generates a branded HTML email with a prominently displayed 6-digit OTP reset code, a "Reset Password" magic link button pointing to `{FRONTEND_URL}/auth/reset-password?token={token}&email={encoded_email}`, a 30-minute expiry notice, and a "didn't request this" disclaimer. Follows the identical HTML template pattern (styling, layout, structure) as the existing `send_verification_email` method.
+
+## 35. Plan Reference
+- **Plan Document**: `docs/feature/email/password_reset_plan.md` (Phase 3: Backend — Email Template)
+- **Base Commit SHA**: `f05cb3aa33a9d3244f9c5954bde660823a36fae6` (Phase 1 commit, Phase 2 changes unstaged)
+
+## 36. Changes
+- `backend/app/services/email_service.py`: Added `send_password_reset_email` method to `EmailService` class with branded HTML + plain text templates, OTP card, magic link button, 30-minute expiry notice, and safety disclaimer (Phase 3).
+- `docs/feature/email/email_verification_progress.md`: Appended Phase 3 execution record with decisions, verification matrix, and follow-ups.
+
+## 37. Decisions
+
+### Decision 1: Reuse Identical CSS and Layout from `send_verification_email`
+- **Decision**: Copied the exact CSS styles (`.container`, `.header`, `.otp-card`, `.otp-code`, `.btn`, `.footer`) and HTML structure from `send_verification_email` into the reset email template.
+- **Reasoning**: Ensures visual consistency across all transactional emails from the platform. Users receiving both verification and password reset emails see a unified brand experience. The plan explicitly states "Follows the same HTML template pattern as `send_verification_email`."
+- **Alternatives considered**: Extracting a shared base template function to reduce duplication. Rejected because the plan specifies only adding the method, not refactoring shared templates (out of scope).
+- **Consequences**: Slight code duplication (~40 lines of CSS), but strict plan compliance and zero risk of breaking existing verification emails.
+
+### Decision 2: Use `PASSWORD_RESET_EXPIRE_MINUTES` from Settings for Expiry Notice
+- **Decision**: Referenced `self.settings.PASSWORD_RESET_EXPIRE_MINUTES` (now registered in config from Phase 2) for the expiry notice in both text and HTML content.
+- **Reasoning**: Ensures the displayed expiry time stays in sync with the actual token expiry configured in Phase 2 settings. If the setting is changed, the email reflects the updated value automatically.
+- **Alternatives considered**: Hardcoding "30 minutes". Rejected because it would drift from the config if the setting is changed.
+- **Consequences**: Single source of truth for expiry duration.
+
+### Decision 3: `tenant_slug` Parameter Accepted but Unused
+- **Decision**: Kept the `tenant_slug` parameter in the method signature for forward compatibility, matching the calling convention in `AuthService.forgot_password`, but did not use it in the email body.
+- **Reasoning**: The plan specifies the parameter in the method signature. It may be used in the future for multi-tenant branded email customization. The existing `send_verification_email` follows the same pattern (accepting `tenant_slug` without using it).
+- **Consequences**: Clean forward-compatible API.
+
+## 38. Deviations from Plan
+None. The method was implemented exactly as specified in Section 3, Phase 3 of `docs/feature/email/password_reset_plan.md`.
+
+## 39. Assumptions
+- The plan states subject should be "Reset your GoSmartClinic password". Implemented as `f"Reset your {self.settings.BRAND_NAME} password"` to use the dynamic brand name setting, consistent with `send_verification_email`.
+- `None` doctor name defaults to "Doctor", matching the existing verification email pattern.
+
+## 40. Verification Results
+
+### Baseline Comparison
+- **Phase 0 baseline suite**: 15 auth tests passed (`test_auth.py`).
+- **Post-Phase 3 test suite**: 15 auth tests passed (0 regressions); all email template assertions passed.
+
+### Phase 3 Verification Matrix
+| Scenario | Type | Actions | Expected | Observed | Evidence | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Method exists on `EmailService` | `AGENT_EXECUTABLE` | `hasattr(email_service, 'send_password_reset_email')` | `True` | `True` | Python REPL output | `PASS` |
+| Happy path: send returns `True` | `AGENT_EXECUTABLE` | Call with MemoryEmailBackend, check return value | `True` | `True` | `send returned: True` | `PASS` |
+| Subject format | `AGENT_EXECUTABLE` | Check `email['subject']` | `"Reset your GoSmartClinic password"` | `"Reset your GoSmartClinic password"` | REPL output | `PASS` |
+| OTP in text content | `AGENT_EXECUTABLE` | Assert OTP string present in text | OTP `123456` present | Present | Assertion passed | `PASS` |
+| Magic link URL in text content | `AGENT_EXECUTABLE` | Assert `reset-password?token=...&email=...` in text | URL present | Present | Assertion passed | `PASS` |
+| 30-minute expiry in text content | `AGENT_EXECUTABLE` | Assert `30 minutes` in text | Present | Present | Assertion passed | `PASS` |
+| Disclaimer in text content | `AGENT_EXECUTABLE` | Assert `safely ignore` in text | Present | Present | Assertion passed | `PASS` |
+| OTP in HTML content | `AGENT_EXECUTABLE` | Assert OTP string present in HTML | OTP `123456` present | Present | Assertion passed | `PASS` |
+| Magic link URL in HTML content | `AGENT_EXECUTABLE` | Assert reset URL in HTML | URL present | Present | Assertion passed | `PASS` |
+| 30-minute expiry in HTML content | `AGENT_EXECUTABLE` | Assert `30 minutes` in HTML | Present | Present | Assertion passed | `PASS` |
+| Disclaimer in HTML content | `AGENT_EXECUTABLE` | Assert `safely ignore` in HTML | Present | Present | Assertion passed | `PASS` |
+| "Reset Password" button text | `AGENT_EXECUTABLE` | Assert `Reset Password` in HTML | Present | Present | Assertion passed | `PASS` |
+| "Your Reset Code" OTP label | `AGENT_EXECUTABLE` | Assert `Your Reset Code` in HTML | Present | Present | Assertion passed | `PASS` |
+| `None` doctor_name defaults to "Doctor" | `AGENT_EXECUTABLE` | Call with `doctor_name=None`, check text | `"Hello Doctor"` | `"Hello Doctor"` | Assertion passed | `PASS` |
+| Existing tests regression check | `AGENT_EXECUTABLE` | `pytest tests/test_auth.py -x -q` | 15 passed | 15 passed | Exit code 0 | `PASS` |
+| Phase 1 `hasattr` fallback now resolves | `AGENT_EXECUTABLE` | `hasattr(email_service, 'send_password_reset_email')` returns `True` | `True` | `True` | The fallback in `AuthService.forgot_password` now calls the real method | `PASS` |
+
+**Final Phase 3 Verdict**: `VERIFIED` (16/16 checks passed, 0 regressions)
+
+## 41. Manual Steps Pending
+None for Phase 3.
+
+## 42. Known Issues and Follow-ups
+- **Pre-existing Issue**: `backend/tests/test_slot_generation.py::test_2_19_blocked_window` fails when the current local time is past 13:00 on the fixed test date (`2026-11-14`). Independent of auth system.
+- **Follow-ups**:
+  - Phase 4: Implement Next.js frontend pages and components (`ForgotPasswordForm.tsx`, `ResetPasswordForm.tsx`, forgot-password/reset-password pages).
+
+## 43. Rollback
+- Revert commit: `git revert <commit-sha>`
+- No database migrations or schema adjustments required.
+- `AuthService.forgot_password` will gracefully fall back to `email_service.backend.send` with plain-text reset email if `send_password_reset_email` method is absent.
 
 
