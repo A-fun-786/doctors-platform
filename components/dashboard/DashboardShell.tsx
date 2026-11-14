@@ -180,12 +180,10 @@ export default function DashboardShell({
     if (!isProfileMenuOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(target) &&
-        mobileProfileMenuRef.current &&
-        !mobileProfileMenuRef.current.contains(target)
-      ) {
+      const isOutsideDesktop = !profileMenuRef.current || !profileMenuRef.current.contains(target);
+      const isOutsideMobile = !mobileProfileMenuRef.current || !mobileProfileMenuRef.current.contains(target);
+
+      if (isOutsideDesktop && isOutsideMobile) {
         setIsProfileMenuOpen(false);
       }
     };
@@ -579,7 +577,10 @@ export default function DashboardShell({
 
         {/* =========================================================================
             DYNAMIC CONTENT VIEWPORT
-            Independent scroll container with overscroll containment
+            Independent scroll container with overscroll containment.
+            NOTE: <main> acts as the viewport scroll container (overflow-y-auto).
+            Child tab logic targeting programmatic scroll should target this container
+            rather than window.scrollTo().
             ========================================================================= */}
         <main
           ref={mainRef}

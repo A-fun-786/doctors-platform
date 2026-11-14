@@ -72,15 +72,15 @@ Both the marketing homepage ([`components/landing/Navbar.tsx`](file:///Users/ema
 A recurring issue on macOS trackpads and mobile touch devices is **rubber-band bouncing**: when reaching the top or bottom of a scrollable section, the entire browser window shifts, causing fixed and sticky elements to visibly jitter.
 
 #### The Multi-Layer Solution:
-1. **Root HTML/Body Lock** ([`app/globals.css`](file:///Users/emanur/doctors-platform/app/globals.css)):
+1. **Root HTML/Body Settings** ([`app/globals.css`](file:///Users/emanur/doctors-platform/app/globals.css)):
    ```css
    html, body {
      scroll-behavior: smooth;
      overflow-x: clip;
      max-width: 100vw;
-     overscroll-behavior-y: none; /* Disables window rubber-banding */
    }
    ```
+   - Note: Overscroll locking is scoped strictly to the dashboard container rather than globally, preserving mobile pull-to-refresh on public and marketing routes.
 2. **Dashboard Shell Root Lock** ([`components/dashboard/DashboardShell.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/DashboardShell.tsx)):
    ```tsx
    <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden overscroll-none">
@@ -93,7 +93,7 @@ A recurring issue on macOS trackpads and mobile touch devices is **rubber-band b
      className="flex-1 min-w-0 h-full overflow-y-auto overscroll-contain auto-hide-scrollbar pt-18 md:pt-20 pr-1 pb-24 md:pb-8"
    >
    ```
-   - Because `<main>` is the **only** scrollable element in the viewport and has `overscroll-contain`, scrolling to the boundary stops immediately without transmitting momentum to the window, the header, or the sidebar.
+   - Because `<main>` is the primary scrollable container in the dashboard, any child tab logic requiring programmatic scrolling should target this container (e.g. `mainRef.current?.scrollTo()`) rather than `window.scrollTo()`. Boundary overscroll is isolated via `overscroll-contain`.
 
 ---
 
