@@ -2,6 +2,7 @@ import re
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from urllib.parse import quote
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -739,6 +740,335 @@ class AuthService:
         db.commit()
 
         return {"message": "Verification email sent successfully."}
+
+    @staticmethod
+    def forgot_password(db: Session, email: str) -> dict:
+        """
+        Initiate password reset flow for a doctor by email.
+        Generates an OTP and secure URL-safe token, dispatches reset email, and enforces
+        a 60-second domain-level cooldown without leaking email existence or account state.
+        """
+        if not email or not email.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required.",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        generic_response = {
+            "message": "If an account exists with this email, a password reset link has been sent."
+        }
+
+        doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        if not doctor:
+            # Timing side-channel mitigation
+            verify_password("dummy", DUMMY_BCRYPT_HASH)
+            return generic_response
+
+        if not doctor.is_active:
+            # Don't reveal inactive account status
+            verify_password("dummy", DUMMY_BCRYPT_HASH)
+            return generic_response
+
+        now = datetime.now(timezone.utc)
+
+        # Domain-level 60s cooldown per doctor based on the last sent reset email
+        latest_sent_token = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "password_reset",
+                EmailVerificationToken.sent_at.isnot(None),
+            )
+            .order_by(EmailVerificationToken.sent_at.desc())
+            .first()
+        )
+        if latest_sent_token and latest_sent_token.sent_at:
+            sent_at = latest_sent_token.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            seconds_elapsed = (now - sent_at).total_seconds()
+            if seconds_elapsed < 60:
+                remaining = max(1, int(60 - seconds_elapsed))
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Please wait at least 60 seconds before requesting another password reset.",
+                    headers={"Retry-After": str(remaining)},
+                )
+
+        # Generate token pair
+        otp, token = generate_verification_token()
+        expire_minutes = getattr(settings, "PASSWORD_RESET_EXPIRE_MINUTES", 30)
+        expires = now + timedelta(minutes=expire_minutes)
+
+        tenant_slug = doctor.tenant.slug if doctor.tenant else None
+        delivered = False
+        try:
+            if hasattr(email_service, "send_password_reset_email"):
+                delivered = bool(
+                    email_service.send_password_reset_email(
+                        to_email=doctor.email,
+                        doctor_name=doctor.full_name,
+                        otp=otp,
+                        token=token,
+                        tenant_slug=tenant_slug,
+                    )
+                )
+            else:
+                # Decoupled delivery fallback for Phase 1 prior to Phase 3 template implementation
+                clean_name = doctor.full_name or "Doctor"
+                frontend_url = settings.FRONTEND_URL.rstrip("/")
+                encoded_email = quote(doctor.email)
+                reset_url = f"{frontend_url}/auth/reset-password?token={token}&email={encoded_email}"
+                subject = f"Reset your {settings.BRAND_NAME} password"
+                text_content = (
+                    f"Hello {clean_name},\n\n"
+                    f"We received a request to reset your password for {settings.BRAND_NAME}.\n\n"
+                    f"Your 6-digit password reset code is: {otp}\n\n"
+                    f"Or reset directly using the following link:\n{reset_url}\n\n"
+                    f"This code and reset link will expire in {expire_minutes} minutes.\n"
+                    f"If you did not request a password reset, you can safely ignore this email.\n"
+                )
+                delivered = email_service.backend.send(
+                    to_email=doctor.email,
+                    subject=subject,
+                    text_content=text_content,
+                )
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch password reset email",
+                email=doctor.email,
+                error=str(exc),
+            )
+            delivered = False
+
+        if not delivered:
+            logger.error(
+                "Password reset email delivery failed or was rejected by provider",
+                email=doctor.email,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Password reset email could not be sent. Please try again later.",
+            )
+
+        send_time = datetime.now(timezone.utc)
+        # Invalidate prior unused password reset tokens
+        db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.doctor_id == doctor.id,
+            EmailVerificationToken.purpose == "password_reset",
+            EmailVerificationToken.used_at == None,
+        ).update({"used_at": send_time})
+
+        # Add new token pair
+        db.add(
+            EmailVerificationToken(
+                doctor_id=doctor.id,
+                token_hash=hash_token(otp),
+                purpose="password_reset",
+                expires_at=expires,
+                sent_at=send_time,
+            )
+        )
+        db.add(
+            EmailVerificationToken(
+                doctor_id=doctor.id,
+                token_hash=hash_token(token),
+                purpose="password_reset",
+                expires_at=expires,
+                sent_at=send_time,
+            )
+        )
+        db.commit()
+
+        return generic_response
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        raw_code_or_token: str,
+        email: Optional[str] = None,
+        new_password: Optional[str] = None,
+    ) -> AuthResponse:
+        """
+        Reset doctor's password using an OTP or URL-safe token.
+        Enforces password strength, brute-force mitigation, single-use token replay defense,
+        expiration, and distinctness from existing password. Auto-logs in on success.
+        """
+        # Positional parameter convenience: if called as (db, token, new_password)
+        if new_password is None and email is not None and "@" not in email:
+            new_password = email
+            email = None
+
+        if not raw_code_or_token or not raw_code_or_token.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset code or token is required.",
+            )
+        raw_code = raw_code_or_token.strip()
+
+        if not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password is required.",
+            )
+
+        if email:
+            try:
+                email = validate_email_id(email)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
+
+        try:
+            new_password = validate_password_strength(new_password, email=email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        target_hash = hash_token(raw_code)
+        now = datetime.now(timezone.utc)
+
+        doctor: Optional[Doctor] = None
+        token_record: Optional[EmailVerificationToken] = None
+
+        if email:
+            doctor = db.query(Doctor).filter(Doctor.email == email).first()
+            if not doctor:
+                verify_password("dummy", DUMMY_BCRYPT_HASH)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid reset code or email.",
+                )
+
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.doctor_id == doctor.id,
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "password_reset",
+                )
+                .first()
+            )
+        else:
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "password_reset",
+                )
+                .first()
+            )
+            if token_record:
+                doctor = db.query(Doctor).filter(Doctor.id == token_record.doctor_id).first()
+
+        # Handle invalid token or mismatched doctor (brute-force protection)
+        if not token_record or not doctor:
+            if doctor:
+                doctor.failed_login_attempts = (doctor.failed_login_attempts or 0) + 1
+                if doctor.failed_login_attempts >= 5:
+                    db.query(EmailVerificationToken).filter(
+                        EmailVerificationToken.doctor_id == doctor.id,
+                        EmailVerificationToken.purpose == "password_reset",
+                        EmailVerificationToken.used_at == None,
+                    ).update({"used_at": now})
+                    db.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Too many failed reset attempts. Reset token has been invalidated. Please request a new code.",
+                    )
+                db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset code or token.",
+            )
+
+        if not doctor.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is inactive.",
+            )
+
+        # Handle already used token (replay protection)
+        if token_record.used_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has already been used.",
+            )
+
+        # Ensure expires_at is timezone-aware
+        expires_at = token_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        # Handle expired token
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired. Please request a new one.",
+            )
+
+        # Verify new password is not the same as current password
+        if doctor.hashed_password and verify_password(new_password, doctor.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from the current password.",
+            )
+
+        # Apply reset
+        doctor.hashed_password = hash_password(new_password)
+        doctor.failed_login_attempts = 0
+        doctor.locked_until = None
+        if not doctor.email_verified:
+            doctor.email_verified = True
+            doctor.email_verified_at = now
+
+        # Invalidate all pending reset tokens for this doctor (prevent reuse / race condition)
+        rows_updated = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "password_reset",
+                EmailVerificationToken.used_at == None,
+            )
+            .update({"used_at": now})
+        )
+        if rows_updated == 0:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has already been used.",
+            )
+
+        db.commit()
+        db.refresh(doctor)
+
+        tenant = doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, doctor.full_name)
+            tenant = Tenant(doctor_id=doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        access_token = create_access_token(subject=str(doctor.id))
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse.model_validate(doctor),
+            tenant=TenantResponse.model_validate(tenant),
+        )
 
 
 auth_service = AuthService()

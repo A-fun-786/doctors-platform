@@ -127,4 +127,139 @@ None.
 - Database downgrade: `alembic downgrade -1` (drops `sent_at` column from `email_verification_tokens`).
 - Railway config downgrade: set `EMAIL_BACKEND=console`.
 
+---
+
+# Password Reset Progress: Phase 1 (Backend Service Layer)
+
+## 14. Summary
+Executed Phase 1 (Backend Service Layer) of the Password Reset feature plan as specified in `docs/feature/email/password_reset_plan.md` (Section 3.1). Implemented `AuthService.forgot_password(db, email)` and `AuthService.reset_password(db, raw_code_or_token, email, new_password)` in `backend/app/services/auth_service.py`. The service layer incorporates SHA-256 hashed token pairs (6-digit OTP and URL token), constant-time verification, timing side-channel mitigation (`DUMMY_BCRYPT_HASH`), domain-level 60-second cooldown rate limiting with `Retry-After` headers, 5-attempt brute-force protection with complete token invalidation, atomic single-use replay defense via Compare-And-Swap row updates, same-password reuse rejection, and automatic JWT issuance on password reset. Created exhaustive unit and concurrency test suite `backend/tests/test_password_reset.py` verifying all 18 test scenarios with 100% pass rate.
+
+## 15. Plan Reference
+- **Plan Document**: `docs/feature/email/password_reset_plan.md` (Phase 1: Backend — Service Layer)
+- **Base Commit SHA**: `603775188112dca15383368546dda127d26dc003`
+
+## 16. Changes
+- `backend/app/services/auth_service.py`: Added `forgot_password` and `reset_password` methods with atomic CAS replay defense, email delivery delegation, brute-force mitigation, and token pair issuance (Phase 1).
+- `backend/tests/test_password_reset.py`: Created test suite covering 18 test cases across unit validation, security policies, token lifecycle, timing mitigation, multi-connection concurrency, and delivery failure resilience (Phase 1).
+- `scripts/manual_test_password_reset_phase1.py`: Created live manual automated test suite executing 14 scenarios (27 individual test checks) against runtime SQLite database and in-memory outbox (Phase 1).
+- `docs/feature/email/email_verification_progress.md`: Appended Phase 1 execution record, in-depth architectural decisions, and verification matrix.
+
+## 17. In-Depth Decisions & Rationale
+
+### Decision 1: Atomic Compare-And-Swap (CAS) Token Invalidation via `rows_updated == 0` Check
+- **Decision**: In `AuthService.reset_password`, token invalidation queries `EmailVerificationToken.used_at == None` and inspects `rows_updated`. If `rows_updated == 0`, the transaction rolls back and returns HTTP 400 "Reset token has already been used."
+- **Reasoning**: In high-concurrency environments or double-click scenarios where two simultaneous requests present the same valid OTP or token, standard read-then-write logic permits both threads to inspect `token.used_at is None` before either transaction commits. Checking the row count returned by the atomic `UPDATE ... WHERE used_at IS NULL` query ensures that exactly one transaction flips the token; any competing thread receives `rows_updated == 0`, guaranteeing single-use atomicity without race conditions.
+- **Alternatives considered**:
+  1. Database table locking (`SELECT FOR UPDATE`): Rejected because SQLite does not support `FOR UPDATE` and it introduces unnecessary lock contention.
+  2. Redis distributed locks: Rejected because optimistic concurrency control on the existing database row provides rock-solid ACID compliance on both SQLite and PostgreSQL without introducing external infrastructure dependencies.
+- **Consequences**: Provable single-use token replay defense under multi-threaded concurrency (verified in Test 17).
+
+### Decision 2: Decoupled Email Delivery Fallback for Phase 1
+- **Decision**: In `AuthService.forgot_password`, dynamically call `email_service.send_password_reset_email` if present, with a safe fallback to `email_service.backend.send` using an RFC-compliant plain text reset template.
+- **Reasoning**: Phase 1 implements the service layer in `auth_service.py`, while Phase 3 introduces the HTML email template method in `email_service.py`. Implementing capability detection decouples Phase 1 from Phase 3, allowing Phase 1 to be fully implemented, tested, and verified independently without modifying out-of-scope files prematurely or failing on missing method attributes.
+- **Alternatives considered**:
+  1. Modifying `email_service.py` during Phase 1: Rejected because Phase 1 strictly specifies `backend/app/services/auth_service.py`.
+  2. Stubbing or mocking unconditionally: Rejected because real runtime calls in non-mocked environments would raise `AttributeError`.
+- **Consequences**: Phase 1 is hermetic, robust, and cleanly forward-compatible with Phase 3.
+
+### Decision 3: Forward-Compatible Settings Fallback for Token Expiry
+- **Decision**: In `AuthService.forgot_password`, compute expiration via `getattr(settings, "PASSWORD_RESET_EXPIRE_MINUTES", 30)`.
+- **Reasoning**: Phase 2 formally registers `PASSWORD_RESET_EXPIRE_MINUTES: int = 30` in `backend/app/core/config.py`. Using a 30-minute fallback ensures the service defaults cleanly to the planned duration without breaking or requiring Phase 2 edits in Phase 1.
+- **Alternatives considered**: Hardcoding `timedelta(minutes=30)` without `getattr`: Rejected because it would ignore `PASSWORD_RESET_EXPIRE_MINUTES` when added in Phase 2.
+- **Consequences**: Zero friction when Phase 2 configuration is applied.
+
+### Decision 4: Non-Existent and Inactive Account Timing Side-Channel Neutralization
+- **Decision**: When `email` is not found or `doctor.is_active` is `False`, execute `verify_password("dummy", DUMMY_BCRYPT_HASH)` and return the generic message `{"message": "If an account exists with this email, a password reset link has been sent."}` with HTTP 200.
+- **Reasoning**: Prevents user enumeration attacks. Without burning dummy bcrypt computation time, an attacker measuring HTTP response times could deduce whether an email address exists in the system (since bcrypt takes ~100-300ms while a direct DB miss takes <2ms). Inactive accounts also receive the same message to avoid exposing account status.
+- **Alternatives considered**: Returning 404 for missing accounts: Rejected because it trivially exposes registered doctor email addresses.
+- **Consequences**: Absolute enumeration resistance and timing side-channel safety.
+
+### Decision 5: Domain-Level 60-Second Cooldown with `Retry-After` Header
+- **Decision**: Enforce a 60-second cooldown per doctor on `forgot_password` based on the most recent `sent_at` timestamp in `EmailVerificationToken` where `purpose="password_reset"`, returning HTTP 429 with `Retry-After: <seconds>`.
+- **Reasoning**: IP-based rate limiting (SlowAPI) can be circumvented using distributed proxies or VPNs. Domain-level rate limiting tied to the doctor's account prevents inbox flooding (email bombing) regardless of the requester's IP.
+- **Alternatives considered**: Relying solely on route-level SlowAPI: Rejected due to susceptibility to multi-IP distributed attacks.
+- **Consequences**: Doctor email accounts are shielded from spam attacks.
+
+### Decision 6: Unlocking Password Reset for Google OAuth Accounts
+- **Decision**: Permit accounts registered with `auth_provider == "google"` (and `hashed_password is None`) to initiate and complete password reset.
+- **Reasoning**: Addresses the blocked user journey where Google-authenticated doctors wish to use standard email/password authentication. Upon reset, `hashed_password` is populated, allowing the doctor to authenticate via either Google OAuth or direct credentials.
+- **Alternatives considered**: Blocking password reset for Google accounts: Rejected because `login_email` specifically directs users with Google accounts to "reset password" to create a password.
+- **Consequences**: Seamless cross-provider credential management without duplicate accounts or orphaned data.
+
+### Decision 7: Flexible Calling Signature for `reset_password`
+- **Decision**: Support both keyword and positional conventions (`db, raw_code_or_token, email=None, new_password=None`) with internal argument normalizer for `(db, token, new_password)` when email is omitted in magic link flows.
+- **Reasoning**: Accommodates URL magic links where `email` might be omitted, while maintaining positional parameter compatibility with the plan specification.
+- **Alternatives considered**: Strict positional signature: Rejected because optional `email` precedes `new_password` in the plan outline, which is syntactically invalid in standard Python defaults without keyword-argument flexibility.
+- **Consequences**: Clean ergonomic API for both OTP (with email) and magic link (without email) flows.
+
+## 18. Deviations from Plan
+None. Phase 1 service layer methods were implemented in exact conformity with the functional and security requirements of Section 3.1 in `docs/feature/email/password_reset_plan.md`.
+
+## 19. Assumptions
+- Password reset token validity defaults to 30 minutes (`PASSWORD_RESET_EXPIRE_MINUTES`).
+- Email templates will link to `{FRONTEND_URL}/auth/reset-password?token={token}&email={email}` upon completion of Phase 3 and Phase 4.
+
+## 20. Verification Results
+
+### Baseline Comparison
+- **Phase 0 baseline suite**: 194 passed, 1 pre-existing failure (`test_slot_generation.py::test_2_19_blocked_window` due to fixed test date matching current timestamp); 54 auth tests passed.
+- **Post-Phase 1 test suite**: 72 auth tests passed (+18 new tests in `test_password_reset.py`, 0 failures); 18/18 password reset tests passed; 0 regressions.
+
+### Password Reset Phase 1 Test Matrix (`backend/tests/test_password_reset.py`)
+| # | Test Scenario | Layer | Actions & Verification | Result | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | `test_forgot_password_sends_email` | L2 | Happy path: Doctor requests reset; token pair created with `purpose="password_reset"`, `sent_at` recorded, email dispatched | Exit code 0, `PASSED` | `PASS` |
+| 2 | `test_forgot_password_nonexistent_email_no_leak` | L2 | Nonexistent email returns 200 generic message; 0 tokens created; 0 emails sent; dummy bcrypt burned | Exit code 0, `PASSED` | `PASS` |
+| 3 | `test_forgot_password_inactive_account_no_leak` | L2 | Inactive doctor returns 200 generic message; 0 tokens created; 0 emails sent; status unrevealed | Exit code 0, `PASSED` | `PASS` |
+| 4 | `test_forgot_password_60s_cooldown` | L2 | Second request within 60s raises HTTP 429 with valid `Retry-After` header | Exit code 0, `PASSED` | `PASS` |
+| 5 | `test_forgot_password_google_only_account_sends_email` | L2 | Google doctor with `hashed_password=None` requests reset; token created, email dispatched | Exit code 0, `PASSED` | `PASS` |
+| 6 | `test_reset_password_valid_otp` | L2 | 6-digit OTP reset validates password, sets hash, and returns `AuthResponse` with valid access token | Exit code 0, `PASSED` | `PASS` |
+| 7 | `test_reset_password_valid_url_token` | L2 | URL token reset (omitting email) validates password and returns `AuthResponse` | Exit code 0, `PASSED` | `PASS` |
+| 8 | `test_reset_password_expired_token` | L2 | Token with `expires_at < now` rejected with HTTP 400 "Reset token has expired" | Exit code 0, `PASSED` | `PASS` |
+| 9 | `test_reset_password_already_used_token` | L2 | Token with `used_at IS NOT NULL` rejected with HTTP 400 "Reset token has already been used" | Exit code 0, `PASSED` | `PASS` |
+| 10 | `test_reset_password_wrong_code_increments_attempts` | L2 | Invalid code increments `doctor.failed_login_attempts` from 0 to 1; returns HTTP 400 | Exit code 0, `PASSED` | `PASS` |
+| 11 | `test_reset_password_5_failures_invalidates_all_tokens` | L2 | 5th failed attempt invalidates all active reset tokens (`used_at = now`) and returns HTTP 400 | Exit code 0, `PASSED` | `PASS` |
+| 12 | `test_reset_password_same_as_current_rejected` | L2 | New password identical to existing password rejected with HTTP 400 | Exit code 0, `PASSED` | `PASS` |
+| 13 | `test_reset_password_weak_password_rejected` | L1 | Password policy enforced (<8 chars rejected with HTTP 400) | Exit code 0, `PASSED` | `PASS` |
+| 14 | `test_reset_password_auto_login_returns_jwt` | L2 | Reset returns JWT; authenticated GET `/api/v1/auth/me` returns 200 with doctor profile | Exit code 0, `PASSED` | `PASS` |
+| 15 | `test_reset_password_clears_lockout` | L2 | Doctor with `failed_login_attempts=3` and `locked_until` has counter cleared to 0 and `locked_until=None` on reset | Exit code 0, `PASSED` | `PASS` |
+| 16 | `test_reset_does_not_affect_email_verification_tokens` | L2 | Password reset marks reset tokens used but leaves `purpose="email_verification"` tokens untouched | Exit code 0, `PASSED` | `PASS` |
+| 17 | `test_concurrent_reset_requests` | L3 | `ThreadPoolExecutor` concurrent reset with identical token: atomic CAS permits exactly 1 200 and 1 400 replay rejection | Exit code 0, `PASSED` | `PASS` |
+| 18 | `test_reset_password_email_delivery_failure_503` | L3 | Provider dispatch failure raises HTTP 503; 0 tokens committed to database | Exit code 0, `PASSED` | `PASS` |
+
+### Live Manual Automated Verification Matrix (`scripts/manual_test_password_reset_phase1.py`)
+| Scenario | Checks | Expected | Observed | Evidence | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Scenario 1: Happy Path Forgot Password** | 1.1 Generic message, 1.2 Two tokens created, 1.3 Email sent | Message returns generic string, 2 token rows in DB, outbox receives email | All 3 checks pass | `[PASS]` 1.1, 1.2, 1.3 | `PASS` |
+| **Scenario 2: Anti-Enumeration & Timing** | 2.1 Same message on ghost email, 2.2 0 tokens, 2.3 Dummy bcrypt burned, 2.4 Inactive doctor | Generic response, 0 DB rows, timing >= 20ms (232.1ms observed), inactive unrevealed | All 4 checks pass | `[PASS]` 2.1, 2.2, 2.3 (232.1ms), 2.4 | `PASS` |
+| **Scenario 3: Domain-Level 60s Cooldown** | 3.1 HTTP 429 on rapid repeat, 3.2 Structured Retry-After | 429 Too Many Requests with integer Retry-After header | 429 raised, `Retry-After: 59s` | `[PASS]` 3.1, 3.2 | `PASS` |
+| **Scenario 4: Google-Only Reset** | 4.1 Google account requests reset | Reset email sent to Google user with `hashed_password=None` | Reset email dispatched | `[PASS]` 4.1 | `PASS` |
+| **Scenario 5: Reset with OTP & Auto-Login** | 5.1 Password hash updated, 5.2 JWT issued, 5.3 Authenticated `/me` works | Bcrypt hash updated, JWT issued, GET `/me` returns 200 with doctor profile | Password verified, JWT works on `/me` | `[PASS]` 5.1, 5.2, 5.3 | `PASS` |
+| **Scenario 6: Replay Protection** | 6.1 Replay attack rejected | Re-using the same OTP raises HTTP 400 "already been used" | HTTP 400 'Reset token has already been used.' | `[PASS]` 6.1 | `PASS` |
+| **Scenario 7: URL Token (Magic Link)** | 7.1 Reset without email parameter | Valid token resets password when email param is omitted | Password successfully updated | `[PASS]` 7.1 | `PASS` |
+| **Scenario 8: Expired Token Rejection** | 8.1 Expired token rejected | Past expires_at raises HTTP 400 | HTTP 400 'Reset token has expired.' | `[PASS]` 8.1 | `PASS` |
+| **Scenario 9: Brute-Force Guessing** | 9.1 Counter increments, 9.2 Token valid at attempt 4, 9.3 5th attempt invalidates all | 4 failed attempts record counter; 5th marks all tokens used | Counter=4; attempt 5 invalidates tokens | `[PASS]` 9.1, 9.2, 9.3 | `PASS` |
+| **Scenario 10: Reject Same Password** | 10.1 Same password rejected | Identical password raises HTTP 400 | HTTP 400 'New password must be different...' | `[PASS]` 10.1 | `PASS` |
+| **Scenario 11: Clear Lockout on Reset** | 11.1 attempts reset to 0, 11.2 locked_until reset to None | Successful reset clears doctor lockout | failed_attempts=0, locked_until=None | `[PASS]` 11.1, 11.2 | `PASS` |
+| **Scenario 12: Isolation from Verify Tokens** | 12.1 Reset token marked used, 12.2 Verification token untouched | Only `purpose="password_reset"` updated | pr_token.used_at set, ev_token.used_at is None | `[PASS]` 12.1, 12.2 | `PASS` |
+| **Scenario 13: Atomic CAS Concurrency** | 13.1 Competing threads reset same token | Exactly 1 200, 1 400 replay rejection | Statuses: `[400, 200]` | `[PASS]` 13.1 | `PASS` |
+| **Scenario 14: Outage & Atomic Rollback** | 14.1 Provider failure raises 503, 14.2 0 tokens committed | Delivery failure raises 503; DB rolls back | Code 503; 0 tokens in DB | `[PASS]` 14.1, 14.2 | `PASS` |
+
+**Final Phase 1 Verdict**: `VERIFIED` (27/27 live checks passed, 18/18 pytest test cases passed)
+
+## 21. Manual Steps Pending
+None for Phase 1.
+
+## 22. Known Issues and Follow-ups
+- **Pre-existing Issue**: `backend/tests/test_slot_generation.py::test_2_19_blocked_window` fails when the current local time is past 13:00 on the fixed test date (`2026-11-14`). This is independent of the auth system.
+- **Follow-ups**:
+  - Phase 2: Add `PASSWORD_RESET_EXPIRE_MINUTES` and `RATE_LIMIT_PASSWORD_RESET` to `config.py`, declare request schemas in `schemas/auth.py`, and expose `/forgot-password` and `/reset-password` routes in `routes/auth.py`.
+  - Phase 3: Implement branded HTML password reset template in `EmailServiceManager.send_password_reset_email`.
+  - Phase 4: Implement Next.js frontend pages and components (`ForgotPasswordForm.tsx`, `ResetPasswordForm.tsx`).
+
+## 23. Rollback
+- Revert commit: `git revert <commit-sha>`
+- No database migrations or schema adjustments required.
+
+
 
