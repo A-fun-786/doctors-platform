@@ -8,9 +8,8 @@ import { useScrolled } from "@/hooks/useScrolled";
 
 /**
  * Landing Page Navbar
- * Implements a floating pill capsule header inspired by Shiha Wellness.
- * Detached from viewport edges with glassmorphic backdrop, dynamic scroll elevation,
- * and responsive mobile action buttons.
+ * Standard full-width sticky header with glassmorphism backdrop blur.
+ * Page content smoothly scrolls underneath while header stays anchored to the top.
  */
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,17 +27,11 @@ export default function Navbar() {
 
   return (
     <header
-      className={`sticky z-50 px-3 sm:px-6 lg:px-8 w-full max-w-7xl mx-auto pointer-events-none transition-all duration-300 ${
-        isScrolled ? "top-2 sm:top-2.5" : "top-3 sm:top-4"
+      className={`sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b transition-all ${
+        isScrolled ? "border-slate-200 shadow-xs" : "border-slate-200/80"
       }`}
     >
-      <div
-        className={`pointer-events-auto rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between transition-all duration-300 border ${
-          isScrolled
-            ? "bg-white/90 backdrop-blur-xl border-emerald-100/80 shadow-[0_14px_35px_-5px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.95)]"
-            : "bg-white/80 backdrop-blur-lg border-emerald-100/60 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.85)]"
-        }`}
-      >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <BrandLogo size="sm" className="shrink-0" textClassName="text-base sm:text-lg" />
 
@@ -74,7 +67,7 @@ export default function Navbar() {
           </Link>
           <Link
             href="/register"
-            className="text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-full shadow-xs shadow-brand-600/25 hover:shadow-md transition-all hover:scale-[1.02] active:scale-95"
+            className="text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg shadow-xs hover:shadow-md transition-all hover:scale-[1.02] active:scale-95"
           >
             Register as Doctor
           </Link>
@@ -84,20 +77,20 @@ export default function Navbar() {
         <div className="flex md:hidden items-center gap-1.5 sm:gap-2">
           <Link
             href="/login"
-            className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-2 sm:px-2.5 py-1.5 rounded-full hover:bg-slate-100/80 active:scale-95 transition-all"
+            className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-2 sm:px-2.5 py-1.5 rounded-lg hover:bg-slate-100/80 active:scale-95 transition-all"
           >
             Login
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-full shadow-2xs shadow-brand-600/25 transition-all whitespace-nowrap"
+            className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-lg shadow-2xs transition-all whitespace-nowrap"
           >
             Sign Up
           </Link>
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 sm:p-2 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+            className="p-1.5 sm:p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? (
@@ -111,7 +104,7 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden pointer-events-auto mt-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-emerald-100/80 shadow-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden border-b border-slate-200 bg-white/95 backdrop-blur-xl px-4 py-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col space-y-1">
             <Link
               href="/"
@@ -139,14 +132,14 @@ export default function Navbar() {
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center px-4 py-2.5 rounded-full text-sm font-semibold text-slate-700 border border-slate-300 hover:bg-slate-50 transition-colors"
+              className="w-full text-center px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors"
             >
               Login
             </Link>
             <Link
               href="/register"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center px-4 py-2.5 rounded-full text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-xs shadow-brand-600/20 transition-colors"
+              className="w-full text-center px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 shadow-xs transition-colors"
             >
               Register as Doctor
             </Link>

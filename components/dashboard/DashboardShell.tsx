@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Calendar,
@@ -11,11 +11,12 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
+  ChevronRight,
   Activity,
 } from "lucide-react";
 import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
 import BrandLogo from "@/components/brand/BrandLogo";
-import { useScrolled } from "@/hooks/useScrolled";
 
 export type DashboardTabId =
   | "overview"
@@ -34,6 +35,105 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
+interface ProfileDropdownMenuProps {
+  avatar: string;
+  formattedDoctorName: string;
+  email: string;
+  speciality: string;
+  onNavigateProfile: () => void;
+  onLogout: () => void;
+  className?: string;
+}
+
+function ProfileDropdownMenu({
+  avatar,
+  formattedDoctorName,
+  email,
+  speciality,
+  onNavigateProfile,
+  onLogout,
+  className = "w-[268px] mt-2.5",
+}: ProfileDropdownMenuProps) {
+  return (
+    <div
+      className={`absolute right-0 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 origin-top-right space-y-1.5 ${className}`}
+    >
+      {/* 1. Read-Only Account Identity Info */}
+      <div className="p-2.5 bg-slate-50/90 rounded-xl border border-slate-100 select-text cursor-default">
+        <div className="flex items-center gap-2.5">
+          <div className="relative shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={avatar}
+              alt={formattedDoctorName}
+              className="w-10 h-10 rounded-full border border-slate-200 object-cover shadow-2xs"
+            />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-slate-900 truncate">
+              {formattedDoctorName}
+            </div>
+            <div className="text-[11px] text-slate-500 truncate">{email}</div>
+            <div className="text-[10px] text-brand-700 font-semibold truncate mt-0.5">
+              {speciality}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Clickable Actions */}
+      <div className="space-y-1">
+        {/* Admin Profile Action Button */}
+        <button
+          type="button"
+          onClick={onNavigateProfile}
+          className="w-full flex items-center justify-between p-2 rounded-xl text-left transition-all duration-150 group cursor-pointer hover:bg-brand-50/80 border border-slate-100 hover:border-brand-200/80 shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 group-hover:bg-brand-600 group-hover:text-white transition-colors shadow-2xs">
+              <User className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-800 group-hover:text-brand-700 transition-colors">
+                Admin Profile
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">
+                Account &amp; clinic settings
+              </div>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
+        </button>
+
+        <div className="border-t border-slate-100 my-1" />
+
+        {/* Sign Out Action Button */}
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full flex items-center justify-between p-2 rounded-xl text-left transition-all duration-150 group cursor-pointer hover:bg-rose-50 border border-slate-100 hover:border-rose-200/80 shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors shadow-2xs">
+              <LogOut className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-rose-700 group-hover:text-rose-800 transition-colors">
+                Sign Out
+              </div>
+              <div className="text-[10px] text-rose-500/80 truncate">
+                End your session
+              </div>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-rose-300 group-hover:text-rose-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardShell({
   doctor,
   profile,
@@ -46,7 +146,59 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const isScrolled = useScrolled(15);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileProfileMenuRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reveal scrollbar on scroll, auto-hide when idle
+  const handleMainScroll = () => {
+    if (mainRef.current && !mainRef.current.classList.contains("is-scrolling")) {
+      mainRef.current.classList.add("is-scrolling");
+    }
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (mainRef.current) {
+        mainRef.current.classList.remove("is-scrolling");
+      }
+    }, 900);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Close profile dropdown on click outside or Escape key
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const isOutsideDesktop = !profileMenuRef.current || !profileMenuRef.current.contains(target);
+      const isOutsideMobile = !mobileProfileMenuRef.current || !mobileProfileMenuRef.current.contains(target);
+
+      if (isOutsideDesktop && isOutsideMobile) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isProfileMenuOpen]);
 
   // Desktop sidebar navigation: Android App is excluded
   const desktopNavItems: {
@@ -56,7 +208,6 @@ export default function DashboardShell({
   }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "appointment", label: "Appointments", icon: Calendar },
-    { id: "profile", label: "Profile", icon: User },
   ];
 
   // Mobile navigation: Preserves Android App if enabled
@@ -106,25 +257,19 @@ export default function DashboardShell({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 selection:bg-brand-100 selection:text-brand-900">
+    <div className="h-screen w-full bg-slate-50 flex flex-col text-slate-900 selection:bg-brand-100 selection:text-brand-900 overflow-hidden overscroll-none">
       {/* =========================================================================
           MOBILE TOP BAR (< md)
-          Floating Pill Header inspired by Shiha Wellness (detached island, glassmorphism)
+          Fixed full-width header with backdrop blur
           ========================================================================= */}
-      <header className="md:hidden sticky top-0 z-40 px-3 pt-2.5 pb-1 pointer-events-none transition-all duration-300">
-        <div
-          className={`pointer-events-auto rounded-2xl px-3.5 h-13 flex items-center justify-between transition-all duration-300 border ${
-            isScrolled
-              ? "bg-white/90 backdrop-blur-xl border-slate-200/90 shadow-[0_12px_30px_-5px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.95)]"
-              : "bg-white/80 backdrop-blur-lg border-slate-200/70 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.07),inset_0_1px_0_0_rgba(255,255,255,0.85)]"
-          }`}
-        >
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
+        <div className="px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* Hamburger Menu Toggle Button */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-1.5 -ml-1 text-slate-700 hover:text-brand-600 hover:bg-slate-100/80 rounded-xl transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="p-1.5 -ml-1.5 text-slate-700 hover:text-brand-600 hover:bg-slate-100 rounded-xl transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
               aria-label="Open navigation menu"
               aria-expanded={isMobileMenuOpen}
             >
@@ -133,75 +278,129 @@ export default function DashboardShell({
             <BrandLogo size="sm" />
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={avatar}
-              alt={doctor.full_name || "Doctor"}
-              className="w-8 h-8 rounded-full border border-slate-200/80 object-cover shrink-0 ring-2 ring-brand-500/10 shadow-2xs"
-            />
+          {/* Mobile Profile Avatar Trigger & Dropdown */}
+          <div className="relative" ref={mobileProfileMenuRef}>
             <button
               type="button"
-              onClick={onLogout}
-              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full border border-slate-200/70 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
-              title="Logout"
-              aria-label="Logout"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 p-1 pr-2 rounded-full transition-all duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 shadow-2xs cursor-pointer ${
+                isProfileMenuOpen
+                  ? "bg-white border-2 border-brand-500 ring-2 ring-brand-500/20"
+                  : "bg-white/95 hover:bg-white border border-slate-300 hover:border-slate-400"
+              }`}
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="true"
+              aria-label="Doctor profile and session menu"
             >
-              <LogOut className="w-4 h-4 text-red-500" />
+              <div className="relative shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar}
+                  alt={formattedDoctorName}
+                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 object-cover shadow-xs"
+                />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                  isProfileMenuOpen ? "rotate-180 text-brand-600" : ""
+                }`}
+              />
             </button>
+
+            {/* Mobile Dropdown Popover */}
+            {isProfileMenuOpen && (
+              <ProfileDropdownMenu
+                avatar={avatar}
+                formattedDoctorName={formattedDoctorName}
+                email={doctor.email}
+                speciality={profile?.speciality || "General Practice"}
+                onNavigateProfile={() => {
+                  setIsProfileMenuOpen(false);
+                  onTabChange("profile");
+                }}
+                onLogout={() => {
+                  setIsProfileMenuOpen(false);
+                  onLogout();
+                }}
+                className="mt-2 w-[264px]"
+              />
+            )}
           </div>
         </div>
       </header>
 
       {/* =========================================================================
           DESKTOP TOP BAR (>= md)
-          Floating Pill Header inspired by Shiha Wellness (detached island, glassmorphism, rounded-full)
+          Fixed full-width header with backdrop blur
           ========================================================================= */}
-      <header
-        className={`hidden md:block sticky z-40 px-4 sm:px-6 lg:px-8 w-full max-w-7xl mx-auto pointer-events-none transition-all duration-300 ${
-          isScrolled ? "top-2.5" : "top-4"
-        }`}
-      >
-        <div
-          className={`pointer-events-auto rounded-full px-5 lg:px-6 py-2.5 flex items-center justify-between transition-all duration-300 border ${
-            isScrolled
-              ? "bg-white/90 backdrop-blur-xl border-slate-200/90 shadow-[0_14px_35px_-5px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.95)]"
-              : "bg-white/80 backdrop-blur-lg border-slate-200/70 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.85)]"
-          }`}
-        >
+      <header className="hidden md:block fixed top-0 left-0 right-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BrandLogo size="sm" />
           </div>
 
-          {/* Profile Name, Icon & Logout at Top Right */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3 pr-4 border-r border-slate-200/80">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={avatar}
-                alt={doctor.full_name || "Doctor"}
-                className="w-9 h-9 rounded-full border border-slate-200 object-cover shrink-0 ring-2 ring-brand-500/10 shadow-xs"
-              />
-              <div className="text-left min-w-0">
-                <p className="text-sm font-semibold text-slate-900 leading-none truncate max-w-[160px] lg:max-w-[220px]">
-                  {doctor.full_name || "Doctor"}
-                </p>
-                <p className="text-xs text-slate-500 mt-1 leading-none truncate max-w-[160px] lg:max-w-[220px]">
-                  {doctor.email}
-                </p>
-              </div>
-            </div>
-
+          {/* Profile Avatar Pill & Dropdown Popover */}
+          <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-700 hover:text-red-600 bg-slate-100/70 hover:bg-red-50 rounded-full border border-slate-200/80 shadow-2xs transition-all duration-200 hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
-              title="Logout"
-              aria-label="Logout"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className={`flex items-center gap-3 p-1.5 pr-3.5 rounded-full transition-all duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 shadow-xs group cursor-pointer ${
+                isProfileMenuOpen
+                  ? "bg-white border-2 border-brand-500 ring-2 ring-brand-500/20"
+                  : "bg-white/95 hover:bg-white border border-slate-300 hover:border-slate-400"
+              }`}
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="true"
+              aria-label="Doctor profile and session menu"
             >
-              <LogOut className="w-3.5 h-3.5 text-red-500" />
-              <span>Logout</span>
+              {/* Doctor Avatar with Active Status Dot */}
+              <div className="relative shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar}
+                  alt={formattedDoctorName}
+                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 group-hover:ring-brand-500 object-cover shadow-xs transition-all"
+                />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+              </div>
+
+              {/* Doctor Name & Speciality Text */}
+              <div className="text-left hidden sm:block min-w-0">
+                <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[150px] lg:max-w-[200px]">
+                  {formattedDoctorName}
+                </p>
+                <p className="text-[10px] text-slate-500 font-medium leading-tight truncate max-w-[150px] lg:max-w-[200px]">
+                  {profile?.speciality || "Healthcare Practice"}
+                </p>
+              </div>
+
+              {/* Caret Chevron */}
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+                  isProfileMenuOpen ? "rotate-180 text-brand-600" : ""
+                }`}
+              />
             </button>
+
+            {/* Profile Dropdown Popover Menu */}
+            {isProfileMenuOpen && (
+              <ProfileDropdownMenu
+                avatar={avatar}
+                formattedDoctorName={formattedDoctorName}
+                email={doctor.email}
+                speciality={profile?.speciality || "Healthcare Practice"}
+                onNavigateProfile={() => {
+                  setIsProfileMenuOpen(false);
+                  onTabChange("profile");
+                }}
+                onLogout={() => {
+                  setIsProfileMenuOpen(false);
+                  onLogout();
+                }}
+                className="mt-2.5 w-[268px]"
+              />
+            )}
           </div>
         </div>
       </header>
@@ -310,18 +509,18 @@ export default function DashboardShell({
       {/* =========================================================================
           MAIN WORKSPACE (Responsive Container)
           ========================================================================= */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full flex-1 min-h-0 flex flex-col md:flex-row gap-6 overflow-hidden">
         {/* =========================================================================
             DESKTOP / TABLET SIDEBAR (>= md)
             Persistent, collapsible (compact icon-rail or full width) navigation panel
             ========================================================================= */}
         <aside
-          className={`hidden md:flex shrink-0 flex-col gap-4 sticky top-20 self-start transition-all duration-200 ease-in-out ${
-            isSidebarCollapsed ? "w-20" : "w-64"
+          className={`hidden md:flex shrink-0 flex-col gap-3 self-start pt-20 pb-6 transition-all duration-200 ease-in-out ${
+            isSidebarCollapsed ? "w-20" : "w-60"
           }`}
         >
           {/* Collapse Toggle Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-3.5 py-3 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs px-3.5 py-2.5 flex items-center justify-between shrink-0">
             {!isSidebarCollapsed && (
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Menu
@@ -358,7 +557,7 @@ export default function DashboardShell({
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   title={item.label}
-                  className={`flex items-center rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                  className={`flex items-center rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 shrink-0 ${
                     isSidebarCollapsed
                       ? "justify-center p-3"
                       : "gap-3 px-3.5 py-2.5"
@@ -369,7 +568,7 @@ export default function DashboardShell({
                   }`}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} />
-                  {!isSidebarCollapsed && <span>{item.label}</span>}
+                  {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
                 </button>
               );
             })}
@@ -378,53 +577,16 @@ export default function DashboardShell({
 
         {/* =========================================================================
             DYNAMIC CONTENT VIEWPORT
-            Padding added at bottom on mobile (pb-24) to avoid bottom-nav overlap
+            Independent scroll container with overscroll containment.
+            NOTE: <main> acts as the viewport scroll container (overflow-y-auto).
+            Child tab logic targeting programmatic scroll should target this container
+            rather than window.scrollTo().
             ========================================================================= */}
-        <main className="flex-1 min-w-0 pb-24 md:pb-6">
-          {/* =========================================================================
-              LAPTOP / DESKTOP TOP BAR (>= md)
-              Profile & Logout at the top on laptop screens
-              ========================================================================= */}
-          <div className="hidden md:flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-3.5 mb-6">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-slate-900 tracking-tight capitalize">
-                {activeTab}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Doctor Profile Pill */}
-              <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-2xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatar}
-                  alt={doctor.full_name || "Doctor"}
-                  className="w-8 h-8 rounded-full border border-slate-200 object-cover shrink-0"
-                />
-                <div className="flex flex-col text-left">
-                  <span className="text-sm font-bold text-slate-800 leading-tight max-w-[200px] truncate">
-                    {formattedDoctorName}
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-medium truncate max-w-[200px]">
-                    {profile?.speciality || "Physician"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Logout Button */}
-              <button
-                type="button"
-                onClick={onLogout}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-xl transition-all shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 shrink-0"
-                title="Logout"
-                aria-label="Logout"
-              >
-                <LogOut className="w-4 h-4 shrink-0" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-
+        <main
+          ref={mainRef}
+          onScroll={handleMainScroll}
+          className="flex-1 min-w-0 h-full overflow-y-auto overscroll-contain auto-hide-scrollbar pt-18 md:pt-20 pr-1 pb-24 md:pb-8"
+        >
           {children}
         </main>
       </div>

@@ -82,6 +82,39 @@ body {
   background: #94a3b8;
 }
 
+/* Auto-hiding scrollbar: invisible at rest, visible only while actively scrolling */
+.auto-hide-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.auto-hide-scrollbar.is-scrolling {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.auto-hide-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.auto-hide-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.auto-hide-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.auto-hide-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+}
+
+.auto-hide-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
 /* Prevent accidental layout overflow from large flex items */
 .min-w-0 {
   min-width: 0;
