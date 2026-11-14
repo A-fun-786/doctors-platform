@@ -1,7 +1,8 @@
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, NamedTuple
 import jwt
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -12,6 +13,9 @@ settings = get_settings()
 
 # Bcrypt context for all new password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Pre-computed bcrypt hash on startup for constant-time comparison when email is not found
+DUMMY_BCRYPT_HASH: str = pwd_context.hash("dummy_constant_time_timing_mitigation_secret")
 
 
 def hash_password(password: str) -> str:
@@ -93,6 +97,41 @@ def verify_google_token(credential: str) -> Dict[str, Any]:
     return id_info
 
 
+class VerificationTokenPair(NamedTuple):
+    otp: str
+    token: str
+
+
+def generate_verification_token() -> VerificationTokenPair:
+    """
+    Generate a cryptographically secure 6-digit OTP and a high-entropy URL-safe token.
+    Returns a VerificationTokenPair(otp, token).
+    """
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    token = secrets.token_urlsafe(32)
+    return VerificationTokenPair(otp=otp, token=token)
+
+
+def hash_token(raw_token: str) -> str:
+    """
+    Compute SHA-256 hex digest of a raw token or OTP for secure database storage.
+    Plaintext tokens and OTPs must never be stored in the database.
+    """
+    if not isinstance(raw_token, str):
+        raise ValueError("Token must be a string")
+    return hashlib.sha256(raw_token.strip().encode("utf-8")).hexdigest()
+
+
+def verify_token_hash(raw_token: str, stored_hash: str) -> bool:
+    """
+    Verify a raw token or OTP against its stored SHA-256 hash using constant-time comparison.
+    """
+    if not raw_token or not stored_hash:
+        return False
+    computed_hash = hash_token(raw_token)
+    return secrets.compare_digest(computed_hash, stored_hash)
+
+
 def create_access_token(
     subject: str,
     expires_delta: Optional[timedelta] = None,
@@ -109,6 +148,8 @@ def create_access_token(
         "sub": str(subject),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
+        "jti": str(uuid.uuid4()),
+        "type": "access",
     }
     
     encoded_jwt = jwt.encode(

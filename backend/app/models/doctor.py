@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import Boolean, JSON, String, Text, Uuid
+from sqlalchemy import Boolean, DateTime, Integer, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -8,6 +9,7 @@ if TYPE_CHECKING:
     from app.models.tenant import Tenant
     from app.models.schedule import Schedule
     from app.models.appointment import Appointment
+    from app.models.verification_token import EmailVerificationToken
 
 
 class Doctor(Base, TimestampMixin):
@@ -78,6 +80,24 @@ class Doctor(Base, TimestampMixin):
         JSON,
         nullable=True,
     )
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    email_verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    failed_login_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    locked_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     # 1:1 Relationship with Tenant
     tenant: Mapped[Optional["Tenant"]] = relationship(
@@ -96,6 +116,12 @@ class Doctor(Base, TimestampMixin):
 
     appointments: Mapped[List["Appointment"]] = relationship(
         "Appointment",
+        back_populates="doctor",
+        cascade="all, delete-orphan",
+    )
+
+    email_verification_tokens: Mapped[List["EmailVerificationToken"]] = relationship(
+        "EmailVerificationToken",
         back_populates="doctor",
         cascade="all, delete-orphan",
     )

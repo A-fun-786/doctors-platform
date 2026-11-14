@@ -65,6 +65,25 @@ class Settings(BaseSettings):
     S3_REGION_NAME: str = "auto"
     S3_PUBLIC_CUSTOM_DOMAIN: str = ""  # e.g. https://uploads.yourdomain.com
 
+    # Email Delivery Service
+    EMAIL_BACKEND: str = "console"  # "console", "memory", "smtp", "resend", "ses"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    RESEND_API_KEY: str = ""
+    AWS_SES_REGION: str = "us-east-1"
+    EMAIL_FROM: str = "noreply@gosmartclinic.com"
+    EMAIL_FROM_NAME: str = "GoSmartClinic"
+    EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    REQUIRE_EMAIL_VERIFICATION: bool = False
+    RATE_LIMIT_RESEND_VERIFICATION: str = "3/minute"
+    RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
+    FRONTEND_URL: str = "http://localhost:3000"
+
     @field_validator("CORS_ORIGINS", mode="after")
 
     @classmethod
@@ -75,6 +94,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
+        email_backend = self.EMAIL_BACKEND.lower().strip()
+        all_backends = {"console", "memory", "smtp", "resend", "ses"}
+        if email_backend not in all_backends:
+            raise ValueError(
+                f"Unknown EMAIL_BACKEND '{self.EMAIL_BACKEND}'. "
+                f"Supported backends are: {', '.join(sorted(all_backends))}."
+            )
+
         if self.ENVIRONMENT.lower() == "production":
             if self.ALLOW_MOCK_AUTH:
                 raise ValueError("ALLOW_MOCK_AUTH must be False in production.")
@@ -97,6 +124,29 @@ class Settings(BaseSettings):
             for origin in self.CORS_ORIGINS:
                 if not (origin.startswith("http://") or origin.startswith("https://")):
                     raise ValueError(f"Invalid CORS origin '{origin}'. Origins must start with http:// or https://")
+
+            if email_backend in {"console", "memory"}:
+                raise ValueError(
+                    f"EMAIL_BACKEND '{self.EMAIL_BACKEND}' is not permitted in production. "
+                    "A live delivery provider ('resend', 'smtp', or 'ses') must be configured."
+                )
+            if email_backend == "resend" and (not self.RESEND_API_KEY or not self.RESEND_API_KEY.strip()):
+                raise ValueError("RESEND_API_KEY must be set when EMAIL_BACKEND is 'resend' in production.")
+
+            sender = self.EMAIL_FROM.strip() if self.EMAIL_FROM else ""
+            from email.utils import parseaddr
+            _, parsed_addr = parseaddr(sender)
+            addr_to_check = parsed_addr or sender
+            if (
+                not addr_to_check
+                or "@" not in addr_to_check
+                or addr_to_check.startswith("@")
+                or addr_to_check.endswith("@")
+                or "." not in addr_to_check.split("@")[-1]
+            ):
+                raise ValueError(
+                    f"Invalid or missing sender address EMAIL_FROM '{self.EMAIL_FROM}' for provider '{email_backend}' in production."
+                )
 
         if self.STORAGE_BACKEND.lower() == "s3":
             if not self.S3_BUCKET_NAME or not self.S3_BUCKET_NAME.strip():

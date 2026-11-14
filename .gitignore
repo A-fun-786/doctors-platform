@@ -81,3 +81,5 @@ deployment_guide.md
 !.env.example
 !.env.development
 !backend/.env.example
+plans/
+.worktrees/

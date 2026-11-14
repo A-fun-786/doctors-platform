@@ -13,6 +13,7 @@ from app.core.security import create_access_token
 from app.core.rate_limit import limiter
 from app.services.auth_service import generate_unique_tenant_slug, slugify
 from app.schemas.auth import validate_email_id
+from app.services.email_service import email_service, MemoryEmailBackend
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -21,6 +22,15 @@ test_engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def setup_memory_email():
+    """Ensure tests run hermetically with memory email backend."""
+    prev_backend = email_service.backend
+    email_service.set_backend(MemoryEmailBackend())
+    yield
+    email_service.set_backend(prev_backend)
 
 
 @pytest.fixture(scope="function")
@@ -228,7 +238,22 @@ def test_email_registration_and_login_flow(client, db_session):
     assert data["doctor"]["auth_provider"] == "email"
     assert "dr-smith" in data["tenant"]["slug"]
 
-    # 2. Duplicate registration should fail
+    # 2a. Re-registration before email verification succeeds (re-issues OTP without 'already exists' error)
+    re_reg_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "dr.smith@example.com",
+            "password": "strongpassword123",
+        },
+    )
+    assert re_reg_response.status_code == 201
+
+    # Mark doctor as verified (completed account creation via OTP)
+    doctor = db_session.query(Doctor).filter(Doctor.email == "dr.smith@example.com").first()
+    doctor.email_verified = True
+    db_session.commit()
+
+    # 2b. Duplicate registration after account verification and creation fails with 400
     dup_response = client.post(
         "/api/v1/auth/register",
         json={
@@ -312,6 +337,7 @@ def test_legacy_pbkdf2_compatibility_and_transparent_rehash(client, db_session):
         auth_provider="email",
         hashed_password=legacy_hash,
         is_active=True,
+        email_verified=True,
     )
     db_session.add(legacy_doc)
     db_session.commit()
@@ -411,6 +437,11 @@ def test_login_authentication_with_valid_and_invalid_credentials(client, db_sess
         json={"email": "verified.doc@example.com", "password": "SecurePassword123!"},
     )
     assert reg_resp.status_code == 201
+
+    # Mark doctor as verified so login credentials test can authenticate
+    doc = db_session.query(Doctor).filter(Doctor.email == "verified.doc@example.com").first()
+    doc.email_verified = True
+    db_session.commit()
 
     # Login with non-existent valid email ID returns 401 Unauthorized
     not_found = client.post(
