@@ -407,7 +407,7 @@ export default function EditWorkingHoursModal({
             className="w-full py-2.5 px-3 rounded-xl border border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-100/70 text-brand-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span>+ Add Another Schedule Window ({shifts.length}/4)</span>
+            <span>Add Another Schedule Window ({shifts.length}/4)</span>
           </button>
         )}
 

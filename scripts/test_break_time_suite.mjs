@@ -146,12 +146,12 @@ describe("UI Component Break-Free Structural Integrity", () => {
     assert.strictEqual(cardSrc.includes("Coffee"), false, "WorkingHoursCard must NOT include Coffee icon");
   });
 
-  test("EditWorkingHoursModal.tsx provides '+ Add Another Schedule Window' and has NO breakTime preview", () => {
+  test("EditWorkingHoursModal.tsx provides 'Add Another Schedule Window' and has NO breakTime preview", () => {
     const modalSrc = fs.readFileSync(editWorkingHoursModalPath, "utf-8");
     assert.strictEqual(modalSrc.includes("calculatedBreak"), false, "EditWorkingHoursModal must NOT compute calculatedBreak");
     assert.strictEqual(modalSrc.includes("Break Time:"), false, "EditWorkingHoursModal must NOT display Break Time banner");
     assert.ok(modalSrc.includes("handleAddSchedule"), "EditWorkingHoursModal must support adding schedules");
-    assert.ok(modalSrc.includes("+ Add Another Schedule Window"), "EditWorkingHoursModal must include Add Another Schedule CTA");
+    assert.ok(modalSrc.includes("Add Another Schedule Window"), "EditWorkingHoursModal must include Add Another Schedule CTA");
   });
 });
 
