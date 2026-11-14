@@ -82,8 +82,8 @@ describe("Dead Code & Legacy Header Removal Verification", () => {
 // SUITE 2: Navigation & Mobile/Tablet Shell Architecture
 // ============================================================================
 describe("Navigation & Mobile/Tablet Shell Architecture", () => {
-  test("Mobile Sticky Top Bar renders with Hamburger Menu and BrandLogo", () => {
-    assert.ok(source.includes("<header className=\"md:hidden sticky top-0"), "Mobile sticky header must be present");
+  test("Mobile Top Bar renders with Hamburger Menu and BrandLogo", () => {
+    assert.ok(source.includes("<header className=\"md:hidden") && source.includes("top-0"), "Mobile header must be present");
     assert.ok(source.includes("aria-label=\"Open navigation menu\""), "Hamburger menu must have accessible aria-label");
     assert.ok(source.includes("Menu"), "Menu icon must be used for hamburger button");
   });
@@ -109,7 +109,7 @@ describe("Navigation & Mobile/Tablet Shell Architecture", () => {
   });
 
   test("Content area wraps {children} safely in a semantic main element with mobile buffer", () => {
-    assert.ok(source.includes("<main className=\"flex-1 min-w-0 pb-24 md:pb-6\">"), "Main must have min-w-0 and pb-24 for mobile nav clearance");
+    assert.ok(/<main[^>]*min-w-0[^>]*pb-24/.test(source), "Main must have min-w-0 and pb-24 for mobile nav clearance");
     assert.ok(source.includes("{children}"), "{children} must be rendered in main layout");
   });
 

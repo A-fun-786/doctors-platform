@@ -65,6 +65,7 @@ backend/uploads/
 # Local Process Management & Logs
 logs/
 .pids/
+run/
 
 TUNNEL_URL.txt
 production_plan.md
