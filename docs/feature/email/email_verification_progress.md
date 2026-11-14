@@ -261,5 +261,113 @@ None for Phase 1.
 - Revert commit: `git revert <commit-sha>`
 - No database migrations or schema adjustments required.
 
+---
+
+# Password Reset Progress: Phase 2 (Config, Schemas & Routes)
+
+## 24. Summary
+Executed Phase 2 (Backend — Config, Schemas, Routes) of the Password Reset feature plan as specified in `docs/feature/email/password_reset_plan.md` (Section 3.2). Added `PASSWORD_RESET_EXPIRE_MINUTES: int = 30` and `RATE_LIMIT_PASSWORD_RESET: str = "3/minute"` to application settings in `backend/app/core/config.py`. Declared `ForgotPasswordRequest`, `ForgotPasswordResponse`, and `ResetPasswordRequest` schemas in `backend/app/schemas/auth.py` enforcing RFC email format, password strength policies, and mutual inclusion of either a 6-digit OTP code or a URL-safe token. Implemented two public endpoints in `backend/app/api/routes/auth.py`: `POST /api/v1/auth/forgot-password` (anti-enumeration generic 200 response) and `POST /api/v1/auth/reset-password` (OTP/magic link password update returning authenticated `AuthResponse`), both protected by route-level SlowAPI rate limiting (`RATE_LIMIT_PASSWORD_RESET`). Created comprehensive test suites `backend/tests/test_password_reset_routes.py` (15 tests) and `scripts/manual_test_password_reset_phase2.py` (14 scenarios, 30 checks) achieving a 100% pass rate.
+
+## 25. Plan Reference
+- **Plan Document**: `docs/feature/email/password_reset_plan.md` (Phase 2: Backend — Config, Schemas, Routes)
+- **Base Commit SHA**: `f05cb3aa33a9d3244f9c5954bde660823a36fae6` (Phase 1 commit)
+
+## 26. Changes
+- `backend/app/core/config.py`: Added `PASSWORD_RESET_EXPIRE_MINUTES: int = 30` and `RATE_LIMIT_PASSWORD_RESET: str = "3/minute"` configuration settings (Phase 2).
+- `backend/app/schemas/auth.py`: Added `ForgotPasswordRequest`, `ForgotPasswordResponse`, and `ResetPasswordRequest` models with email validation and code/token requirements (Phase 2).
+- `backend/app/api/routes/auth.py`: Mounted `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` routes protected with SlowAPI rate limiting (Phase 2).
+- `backend/app/services/auth_service.py`: Updated `AuthService.forgot_password` to reference `settings.PASSWORD_RESET_EXPIRE_MINUTES` directly now that it is registered in config (Phase 2).
+- `backend/tests/test_password_reset_routes.py`: Created 15 endpoint integration test cases verifying contracts, 422 validations, route-level rate limiting, and password reset flows (Phase 2).
+- `scripts/manual_test_password_reset_phase2.py`: Authored live automated test suite executing 14 scenarios (30 checks) against live FastAPI endpoints and SlowAPI (Phase 2).
+- `docs/feature/email/email_verification_progress.md`: Documented Phase 2 implementation, architectural decisions, and verification matrix.
+
+## 27. In-Depth Decisions & Rationale
+
+### Decision 1: Dedicated `ForgotPasswordResponse` Model vs Generic Dict
+- **Decision**: Declared an explicit Pydantic response schema `ForgotPasswordResponse(BaseModel)` with field `message: str` rather than returning an untyped dictionary or reusing `VerificationMessageResponse`.
+- **Reasoning**: `VerificationMessageResponse` includes an optional `email: Optional[str] = None` attribute which would serialize as `{"message": "...", "email": null}` unless stripped, unnecessarily bloating the payload and complicating response schema contracts. Defining `ForgotPasswordResponse(message=...)` ensures the endpoint strictly emits `{"message": ...}`, accurately documents the OpenAPI schema, and guarantees client predictability.
+- **Alternatives considered**: Reusing `VerificationMessageResponse`: Rejected to avoid serializing `email: null` into forgot-password responses.
+- **Consequences**: Type-safe response contract compliant with the specification.
+
+### Decision 2: Two-Tier Rate Limiting Architecture
+- **Decision**: Layered route-level SlowAPI IP rate limiting (`RATE_LIMIT_PASSWORD_RESET = "3/minute"`) on top of the domain-level account cooldown (60 seconds per doctor email).
+- **Reasoning**:
+  1. *Route-level SlowAPI limiter* (`3/minute` per IP) defends backend infrastructure and upstream email delivery APIs against high-frequency distributed Denial of Service (DoS) attacks and brute-force token-guessing scripts originating from single IPs.
+  2. *Domain-level cooldown* (60-second window in `AuthService`) protects doctor inboxes against email bombing campaigns launched across rotating proxies or multiple IPs targeting a single victim email.
+- **Alternatives considered**: Relying solely on SlowAPI route limiter: Rejected because distributed attacks across multiple IPs could still flood a doctor's inbox with reset emails.
+- **Consequences**: Multi-layered defense shielding both backend servers and doctor email accounts.
+
+### Decision 3: Flexible Mutual Exclusivity in `ResetPasswordRequest`
+- **Decision**: Implemented `@model_validator(mode="after")` verifying `raw = (self.code or self.token or "").strip()`. If `not raw`, raises `ValueError("Either code or token is required")`.
+- **Reasoning**: Password reset can be completed either manually via 6-digit OTP (entered by user on web page alongside their email) or via one-click URL magic link (`/auth/reset-password?token=...` where email is omitted). Allowing either `code` or `token` while validating that at least one is present supports both user journeys seamlessly under a unified endpoint contract.
+- **Alternatives considered**: Creating two distinct endpoints (`/reset-password-otp` and `/reset-password-token`): Rejected as unnecessary complexity given that `AuthService.reset_password` already handles both token formats uniformly via SHA-256 hash lookup.
+- **Consequences**: Streamlined API surface and consistent validation errors (HTTP 422).
+
+## 28. Deviations from Plan
+None. Phase 2 config, schemas, and endpoints were implemented in exact conformity with Section 3.2 of `docs/feature/email/password_reset_plan.md`.
+
+## 29. Assumptions
+- SlowAPI uses the client remote IP as the rate-limiting key. In production behind reverse proxies (Cloudflare/Railway), standard `X-Forwarded-For` headers are processed.
+- Magic link requests submit `token` and `new_password` without requiring `email`.
+
+## 30. Verification Results
+
+### Baseline Comparison
+- **Phase 0 baseline suite**: 49 auth tests passed in `test_password_reset.py`, `test_auth.py`, `test_auth_robustness.py`.
+- **Post-Phase 2 test suite**: 78 auth tests passed (+15 new endpoint integration tests in `test_password_reset_routes.py`, 0 failures); 30/30 manual automated checks passed in `scripts/manual_test_password_reset_phase2.py`; 27/27 manual checks passed in Phase 1 suite; 0 regressions.
+
+### Password Reset Phase 2 Route Integration Tests (`backend/tests/test_password_reset_routes.py`)
+| # | Test Scenario | Layer | Actions & Verification | Result | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | `test_forgot_password_route_happy_path` | L2 | POST `/api/v1/auth/forgot-password` with valid email returns 200, sends email, creates 2 token rows | Exit code 0, `PASSED` | `PASS` |
+| 2 | `test_forgot_password_route_nonexistent_email_anti_enumeration` | L2 | POST with nonexistent email returns 200 generic message, 0 emails sent | Exit code 0, `PASSED` | `PASS` |
+| 3 | `test_forgot_password_route_inactive_doctor_anti_enumeration` | L2 | POST with inactive doctor returns 200 generic message, 0 emails sent | Exit code 0, `PASSED` | `PASS` |
+| 4 | `test_forgot_password_route_invalid_email_format_422` | L1 | POST with invalid email format returns HTTP 422 Unprocessable Content | Exit code 0, `PASSED` | `PASS` |
+| 5 | `test_forgot_password_route_domain_cooldown_429` | L2 | Rapid second POST within 60s returns HTTP 429 with positive `Retry-After` header | Exit code 0, `PASSED` | `PASS` |
+| 6 | `test_forgot_password_route_slowapi_rate_limit` | L2 | 4th POST within 1 minute from same IP returns HTTP 429 Too Many Requests | Exit code 0, `PASSED` | `PASS` |
+| 7 | `test_reset_password_route_valid_otp` | L2 | POST `/api/v1/auth/reset-password` with valid OTP returns 200 `AuthResponse`, new password logins work | Exit code 0, `PASSED` | `PASS` |
+| 8 | `test_reset_password_route_valid_url_token_without_email` | L2 | POST with URL token (no email) returns 200 `AuthResponse` with valid JWT | Exit code 0, `PASSED` | `PASS` |
+| 9 | `test_reset_password_route_missing_code_and_token_422` | L1 | POST without code or token returns HTTP 422 with validation error | Exit code 0, `PASSED` | `PASS` |
+| 10 | `test_reset_password_route_invalid_code_400` | L2 | POST with invalid 6-digit OTP returns HTTP 400 Bad Request | Exit code 0, `PASSED` | `PASS` |
+| 11 | `test_reset_password_route_expired_token_400` | L2 | POST with expired token returns HTTP 400 Bad Request | Exit code 0, `PASSED` | `PASS` |
+| 12 | `test_reset_password_route_reused_token_400` | L2 | POST with already used token returns HTTP 400 replay error | Exit code 0, `PASSED` | `PASS` |
+| 13 | `test_reset_password_route_same_as_current_password_400` | L2 | POST with password identical to current password returns HTTP 400 | Exit code 0, `PASSED` | `PASS` |
+| 14 | `test_reset_password_route_weak_password_400` | L1 | POST with weak password (<8 characters) returns HTTP 400 | Exit code 0, `PASSED` | `PASS` |
+| 15 | `test_reset_password_route_slowapi_rate_limit` | L2 | 4th reset request from same IP returns HTTP 429 Too Many Requests | Exit code 0, `PASSED` | `PASS` |
+
+### Live Manual Automated Verification Matrix (`scripts/manual_test_password_reset_phase2.py`)
+| Scenario | Checks | Expected | Observed | Evidence | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Scenario 1: Happy Path Forgot Password** | 1.1 Status 200, 1.2 Body contract, 1.3 Email sent, 1.4 DB tokens | Status 200, generic message, outbox receives email, 2 DB tokens | All 4 checks pass | `[PASS]` 1.1, 1.2, 1.3, 1.4 | `PASS` |
+| **Scenario 2: Anti-Enumeration & Timing** | 2.1 200 on ghost, 2.2 Generic message, 2.3 Dummy bcrypt timing, 2.4 0 emails, 2.5 Inactive doctor | 200 response, timing >= 20ms (244.1ms observed), 0 emails, inactive unrevealed | All 5 checks pass | `[PASS]` 2.1, 2.2, 2.3 (244.1ms), 2.4, 2.5 | `PASS` |
+| **Scenario 3: Input Validation (422)** | 3.1 Invalid email format, 3.2 Missing email field | Malformed and empty payloads rejected with 422 | Both rejected with 422 | `[PASS]` 3.1, 3.2 | `PASS` |
+| **Scenario 4: Domain-Level 60s Cooldown** | 4.1 1st request 200, 4.2 2nd triggers 429, 4.3 Retry-After header | Second request within 60s returns 429 with positive Retry-After | 429 raised, `Retry-After: 59s` | `[PASS]` 4.1, 4.2, 4.3 | `PASS` |
+| **Scenario 5: SlowAPI Route Limit (3/min)** | 5.1 4th request from same IP hits 429 | 4th request within 1 min blocked by SlowAPI | Status 429 Too Many Requests | `[PASS]` 5.1 | `PASS` |
+| **Scenario 6: Reset with OTP & Auto-Login** | 6.1 Status 200, 6.2 Returns access_token, 6.3 Doctor/tenant, 6.4 GET /me, 6.5 POST /login | 200 OK, AuthResponse with JWT, /me succeeds with JWT, login succeeds with new password | All 5 checks pass | `[PASS]` 6.1, 6.2, 6.3, 6.4, 6.5 | `PASS` |
+| **Scenario 7: URL Token (No Email)** | 7.1 Magic link token resets password without email param | 200 OK with valid JWT | Status 200 with access_token | `[PASS]` 7.1 | `PASS` |
+| **Scenario 8: Schema Validation on Reset** | 8.1 Missing both code and token returns 422 | Pydantic model validator rejects missing token | Status 422 with clear message | `[PASS]` 8.1 | `PASS` |
+| **Scenario 9: Token Replay Defense** | 9.1 Reused token rejected with HTTP 400 | Replay attempt rejected with 400 | HTTP 400 'already been used' | `[PASS]` 9.1 | `PASS` |
+| **Scenario 10: Expired Token Rejection** | 10.1 Expired token rejected with HTTP 400 | Past expires_at raises 400 | HTTP 400 'expired' | `[PASS]` 10.1 | `PASS` |
+| **Scenario 11: Weak Password Policy** | 11.1 Weak password rejected with HTTP 400 | <8 characters raises 400 | HTTP 400 'at least 8 characters' | `[PASS]` 11.1 | `PASS` |
+| **Scenario 12: Same Password Rejection** | 12.1 Same password rejected with HTTP 400 | Matching existing password raises 400 | HTTP 400 'different from current' | `[PASS]` 12.1 | `PASS` |
+| **Scenario 13: Brute-Force Guessing on Endpoint** | 13.1 Valid after 4 tries, 13.2 5th lockout, 13.3 Tokens invalidated | 4 failed guesses leave token valid; 5th invalidates all tokens | Lockout enforced, all tokens used | `[PASS]` 13.1, 13.2, 13.3 | `PASS` |
+| **Scenario 14: SlowAPI Route Limit on Reset** | 14.1 4th reset request hits 429 | 4th request within 1 min blocked by SlowAPI | Status 429 Too Many Requests | `[PASS]` 14.1 | `PASS` |
+
+**Final Phase 2 Verdict**: `VERIFIED` (30/30 live checks passed, 15/15 pytest test cases passed, 78/78 total auth test suite passed)
+
+## 31. Manual Steps Pending
+None for Phase 2.
+
+## 32. Known Issues and Follow-ups
+- **Pre-existing Issue**: `backend/tests/test_slot_generation.py::test_2_19_blocked_window` fails when the current local time is past 13:00 on the fixed test date (`2026-11-14`). This is independent of the auth system.
+- **Follow-ups**:
+  - Phase 3: Implement branded HTML password reset template in `EmailServiceManager.send_password_reset_email` (`backend/app/services/email_service.py`).
+  - Phase 4: Implement Next.js frontend pages and components (`ForgotPasswordForm.tsx`, `ResetPasswordForm.tsx`).
+
+## 33. Rollback
+- Revert commit: `git revert <commit-sha>`
+- Remove `PASSWORD_RESET_EXPIRE_MINUTES` and `RATE_LIMIT_PASSWORD_RESET` from environment overrides if set.
+- No database migrations or schema adjustments required.
+
 
 

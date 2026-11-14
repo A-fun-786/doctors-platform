@@ -269,6 +269,43 @@ class VerificationMessageResponse(BaseModel):
     email: Optional[str] = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Payload to initiate password reset via OTP and magic link."""
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_id(v)
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Generic status response for password reset request."""
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Payload to reset doctor password using 6-digit OTP code or URL-safe token."""
+    new_password: str
+    email: Optional[str] = None
+    code: Optional[str] = None    # 6-digit OTP
+    token: Optional[str] = None   # URL-safe token
+
+    @field_validator("email")
+    @classmethod
+    def check_email_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.strip():
+            return validate_email_id(v)
+        return None
+
+    @model_validator(mode="after")
+    def require_code_or_token(self) -> "ResetPasswordRequest":
+        raw = (self.code or self.token or "").strip()
+        if not raw:
+            raise ValueError("Either code or token is required")
+        return self
+
+
 class TenantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

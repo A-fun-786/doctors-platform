@@ -804,7 +804,7 @@ class AuthService:
 
         # Generate token pair
         otp, token = generate_verification_token()
-        expire_minutes = getattr(settings, "PASSWORD_RESET_EXPIRE_MINUTES", 30)
+        expire_minutes = settings.PASSWORD_RESET_EXPIRE_MINUTES
         expires = now + timedelta(minutes=expire_minutes)
 
         tenant_slug = doctor.tenant.slug if doctor.tenant else None

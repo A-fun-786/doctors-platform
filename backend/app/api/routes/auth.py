@@ -14,6 +14,9 @@ from app.schemas.auth import (
     VerifyEmailRequest,
     ResendVerificationRequest,
     VerificationMessageResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
     AuthResponse,
     DoctorMeResponse,
     TenantResponse,
@@ -124,6 +127,47 @@ def resend_verification(
     """Resend email verification token/OTP."""
     result = auth_service.resend_verification(db=db, email=payload.email)
     return VerificationMessageResponse(message=result["message"], email=payload.email)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Request Password Reset",
+    description="Initiate password reset via OTP and magic link. Returns generic message to prevent email enumeration.",
+)
+@limiter.limit(settings.RATE_LIMIT_PASSWORD_RESET)
+def forgot_password(
+    request: Request,
+    payload: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> ForgotPasswordResponse:
+    """Send password reset OTP and magic link if account exists."""
+    result = auth_service.forgot_password(db=db, email=payload.email)
+    return ForgotPasswordResponse(message=result["message"])
+
+
+@router.post(
+    "/reset-password",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset Doctor Password",
+    description="Validate OTP code or URL token, set new password, and automatically authenticate.",
+)
+@limiter.limit(settings.RATE_LIMIT_PASSWORD_RESET)
+def reset_password(
+    request: Request,
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Reset password using OTP code or URL-safe token."""
+    raw_code = (payload.code or payload.token or "").strip()
+    return auth_service.reset_password(
+        db=db,
+        raw_code_or_token=raw_code,
+        email=payload.email,
+        new_password=payload.new_password,
+    )
 
 
 @router.get(

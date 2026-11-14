@@ -78,8 +78,10 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@gosmartclinic.com"
     EMAIL_FROM_NAME: str = "GoSmartClinic"
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     REQUIRE_EMAIL_VERIFICATION: bool = False
     RATE_LIMIT_RESEND_VERIFICATION: str = "3/minute"
+    RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
     FRONTEND_URL: str = "http://localhost:3000"
 
     @field_validator("CORS_ORIGINS", mode="after")
