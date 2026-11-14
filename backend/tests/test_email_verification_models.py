@@ -194,3 +194,54 @@ def test_alembic_migration_010_upgrade_and_downgrade():
             assert "email_verified_at" not in col_names
             assert "failed_login_attempts" not in col_names
             assert "locked_until" not in col_names
+
+
+def test_alembic_migration_012_upgrade_and_downgrade():
+    """Test Alembic migration 012 forward upgrade adding reset index and reverse downgrade."""
+    with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
+        db_path = tmp.name
+        sqlite_url = f"sqlite:///{db_path}"
+
+        alembic_cfg = Config()
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+        alembic_cfg.set_main_option("sqlalchemy.url", sqlite_url)
+
+        # 1. Upgrade to revision 011 (before 012)
+        command.upgrade(alembic_cfg, "011_add_sent_at_to_verification_tokens")
+
+        engine = create_engine(sqlite_url)
+        with engine.begin() as conn:
+            # Check 012 index does NOT exist yet
+            index_check = conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='index' AND name='ix_evt_doctor_purpose_reset'")
+            ).fetchone()
+            assert index_check is None
+
+        # 2. Upgrade to 012
+        command.upgrade(alembic_cfg, "012_add_password_reset_purpose_support")
+
+        with engine.begin() as conn:
+            # Check 012 index exists and has partial WHERE clause
+            index_row = conn.execute(
+                text("SELECT name, sql FROM sqlite_master WHERE type='index' AND name='ix_evt_doctor_purpose_reset'")
+            ).fetchone()
+            assert index_row is not None
+            assert "ix_evt_doctor_purpose_reset" == index_row[0]
+            assert "password_reset" in (index_row[1] or "")
+
+        # 3. Test downgrade back to 011
+        command.downgrade(alembic_cfg, "011_add_sent_at_to_verification_tokens")
+
+        with engine.begin() as conn:
+            # Check index is dropped
+            index_check_after_downgrade = conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='index' AND name='ix_evt_doctor_purpose_reset'")
+            ).fetchone()
+            assert index_check_after_downgrade is None
+
+            # Table still exists
+            tbl_check = conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='email_verification_tokens'")
+            ).fetchone()
+            assert tbl_check is not None

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -48,6 +48,13 @@ class EmailVerificationToken(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_email_verification_tokens_doctor_purpose", "doctor_id", "purpose"),
         Index("ix_email_verification_tokens_token_hash", "token_hash"),
+        Index(
+            "ix_evt_doctor_purpose_reset",
+            "doctor_id",
+            "purpose",
+            postgresql_where=text("purpose = 'password_reset'"),
+            sqlite_where=text("purpose = 'password_reset'"),
+        ),
     )
 
     doctor: Mapped["Doctor"] = relationship(
