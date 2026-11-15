@@ -18,8 +18,9 @@ class MedicineItemCreateRequest(BaseModel):
     batch_number: Optional[str] = Field(None, max_length=100)
     stock_quantity: int = Field(0, ge=0)
     min_stock_alert: int = Field(10, ge=0)
-    unit_price: float = Field(0.0, ge=0.0)
-    expiry_date: Optional[date] = None
+    purchase_price: float = Field(0.0, ge=0.0)
+    unit_price: float = Field(..., gt=0.0, description="Mandatory selling price greater than 0")
+    expiry_date: date = Field(..., description="Mandatory expiry date for medicine inventory")
     manufacturer: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
 
@@ -35,7 +36,8 @@ class MedicineItemUpdateRequest(BaseModel):
     batch_number: Optional[str] = Field(None, max_length=100)
     stock_quantity: Optional[int] = Field(None, ge=0)
     min_stock_alert: Optional[int] = Field(None, ge=0)
-    unit_price: Optional[float] = Field(None, ge=0.0)
+    purchase_price: Optional[float] = Field(None, ge=0.0)
+    unit_price: Optional[float] = Field(None, gt=0.0)
     expiry_date: Optional[date] = None
     manufacturer: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
@@ -64,6 +66,7 @@ class MedicineItemResponse(BaseModel):
     batch_number: Optional[str] = None
     stock_quantity: int
     min_stock_alert: int
+    purchase_price: float = 0.0
     unit_price: float
     expiry_date: Optional[date] = None
     manufacturer: Optional[str] = None

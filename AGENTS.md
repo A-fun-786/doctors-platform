@@ -4,6 +4,7 @@
 
 ## Conventions & Rules
 - **Pure In-Clinic Scope:** The platform operates for doctor clinics, appointments, schedules, staff, and in-clinic dispensary stock. **Do not reintroduce e-commerce home-delivery or courier dispatch pipelines.**
+- **Dispensary Constraints:** In medicine inventory, `unit_price` (> 0.0) and `expiry_date` are strictly mandatory; `purchase_price` tracks clinic procurement cost; currency is Indian Rupee (`₹`).
 - **Tenant Isolation:** Every operational table (`schedules`, `appointments`, `staff_members`, `medicine_items`) must be scoped to `doctor_id` / `tenant_id`. Never execute queries without tenancy filters.
 - **Strict Verification:** Always run `ALLOW_MOCK_AUTH=true ./backend/.venv/bin/pytest backend/tests` and `npx tsc --noEmit` before concluding work.
 - **Next.js Dev Server Integrity:** Never run `next build` concurrently with an active `npm run dev` task; it corrupts `.next/` hot-module chunks.

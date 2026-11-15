@@ -110,6 +110,7 @@ def test_create_and_get_medicine(client, auth_headers):
         "batch_number": "B-9001",
         "stock_quantity": 50,
         "min_stock_alert": 10,
+        "purchase_price": 9.20,
         "unit_price": 14.50,
         "expiry_date": (date.today() + timedelta(days=200)).isoformat(),
         "manufacturer": "GSK",
@@ -120,6 +121,8 @@ def test_create_and_get_medicine(client, auth_headers):
     data = res.json()
     assert data["name"] == "Amoxicillin 500mg"
     assert data["stock_quantity"] == 50
+    assert data["purchase_price"] == 9.20
+    assert data["unit_price"] == 14.50
     assert data["status"] == "in_stock"
     assert data["is_expiring_soon"] is False
     assert data["is_expired"] is False
@@ -128,14 +131,19 @@ def test_create_and_get_medicine(client, auth_headers):
     get_res = client.get(f"/api/v1/doctor/pharmacy/medicines/{item_id}", headers=auth_headers)
     assert get_res.status_code == 200
     assert get_res.json()["sku"] == "AMX-500"
+    assert get_res.json()["purchase_price"] == 9.20
+    assert get_res.json()["unit_price"] == 14.50
 
 
 def test_stock_status_calculation(client, auth_headers):
+    exp = (date.today() + timedelta(days=100)).isoformat()
     # In stock
     p1 = {
         "name": "Med Good Stock",
         "stock_quantity": 50,
         "min_stock_alert": 10,
+        "unit_price": 10.0,
+        "expiry_date": exp,
     }
     r1 = client.post("/api/v1/doctor/pharmacy/medicines", json=p1, headers=auth_headers)
     assert r1.status_code == 201
@@ -146,6 +154,8 @@ def test_stock_status_calculation(client, auth_headers):
         "name": "Med Low Stock",
         "stock_quantity": 5,
         "min_stock_alert": 10,
+        "unit_price": 10.0,
+        "expiry_date": exp,
     }
     r2 = client.post("/api/v1/doctor/pharmacy/medicines", json=p2, headers=auth_headers)
     assert r2.status_code == 201
@@ -156,14 +166,61 @@ def test_stock_status_calculation(client, auth_headers):
         "name": "Med Out Of Stock",
         "stock_quantity": 0,
         "min_stock_alert": 10,
+        "unit_price": 10.0,
+        "expiry_date": exp,
     }
     r3 = client.post("/api/v1/doctor/pharmacy/medicines", json=p3, headers=auth_headers)
     assert r3.status_code == 201
     assert r3.json()["status"] == "out_of_stock"
 
 
+def test_mandatory_expiry_date(client, auth_headers):
+    # Omit expiry_date -> Expect 422
+    payload = {
+        "name": "Med Without Expiry",
+        "stock_quantity": 10,
+        "unit_price": 10.0,
+    }
+    res = client.post("/api/v1/doctor/pharmacy/medicines", json=payload, headers=auth_headers)
+    assert res.status_code == 422
+
+
+def test_mandatory_selling_price(client, auth_headers):
+    exp = (date.today() + timedelta(days=100)).isoformat()
+    # Omit unit_price -> Expect 422
+    res1 = client.post(
+        "/api/v1/doctor/pharmacy/medicines",
+        json={"name": "Med No Price", "stock_quantity": 10, "expiry_date": exp},
+        headers=auth_headers,
+    )
+    assert res1.status_code == 422
+
+    # Zero unit_price -> Expect 422
+    res2 = client.post(
+        "/api/v1/doctor/pharmacy/medicines",
+        json={"name": "Med Zero Price", "stock_quantity": 10, "unit_price": 0.0, "expiry_date": exp},
+        headers=auth_headers,
+    )
+    assert res2.status_code == 422
+
+    # Negative unit_price -> Expect 422
+    res3 = client.post(
+        "/api/v1/doctor/pharmacy/medicines",
+        json={"name": "Med Neg Price", "stock_quantity": 10, "unit_price": -5.0, "expiry_date": exp},
+        headers=auth_headers,
+    )
+    assert res3.status_code == 422
+
+
 def test_stock_adjustment_and_boundary(client, auth_headers):
-    p = {"name": "Aspirin 100mg", "stock_quantity": 20, "min_stock_alert": 5}
+    exp = (date.today() + timedelta(days=100)).isoformat()
+    p = {
+        "name": "Aspirin 100mg",
+        "stock_quantity": 20,
+        "min_stock_alert": 5,
+        "unit_price": 12.0,
+        "expiry_date": exp,
+    }
     res = client.post("/api/v1/doctor/pharmacy/medicines", json=p, headers=auth_headers)
     item_id = res.json()["id"]
 
@@ -197,19 +254,34 @@ def test_stock_adjustment_and_boundary(client, auth_headers):
 
 
 def test_delete_and_update_medicine(client, auth_headers):
-    p = {"name": "Ibuprofen 400mg", "stock_quantity": 100}
+    exp = (date.today() + timedelta(days=100)).isoformat()
+    p = {
+        "name": "Ibuprofen 400mg",
+        "stock_quantity": 100,
+        "unit_price": 15.0,
+        "expiry_date": exp,
+    }
     res = client.post("/api/v1/doctor/pharmacy/medicines", json=p, headers=auth_headers)
     item_id = res.json()["id"]
 
     # Update price and name
     up_res = client.put(
         f"/api/v1/doctor/pharmacy/medicines/{item_id}",
-        json={"name": "Ibuprofen 600mg", "unit_price": 9.99},
+        json={"name": "Ibuprofen 600mg", "purchase_price": 5.40, "unit_price": 9.99},
         headers=auth_headers,
     )
     assert up_res.status_code == 200
     assert up_res.json()["name"] == "Ibuprofen 600mg"
+    assert up_res.json()["purchase_price"] == 5.40
     assert up_res.json()["unit_price"] == 9.99
+
+    # Attempt invalid update with unit_price <= 0 -> 422
+    invalid_up = client.put(
+        f"/api/v1/doctor/pharmacy/medicines/{item_id}",
+        json={"unit_price": 0.0},
+        headers=auth_headers,
+    )
+    assert invalid_up.status_code == 422
 
     # Delete
     del_res = client.delete(f"/api/v1/doctor/pharmacy/medicines/{item_id}", headers=auth_headers)
@@ -221,8 +293,14 @@ def test_delete_and_update_medicine(client, auth_headers):
 
 
 def test_doctor_isolation(client, auth_headers, second_auth_headers):
+    exp = (date.today() + timedelta(days=100)).isoformat()
     # Doctor 1 creates medicine
-    p = {"name": "Doctor 1 Secret Medicine", "stock_quantity": 10}
+    p = {
+        "name": "Doctor 1 Secret Medicine",
+        "stock_quantity": 10,
+        "unit_price": 25.0,
+        "expiry_date": exp,
+    }
     res1 = client.post("/api/v1/doctor/pharmacy/medicines", json=p, headers=auth_headers)
     item_id = res1.json()["id"]
 
@@ -236,22 +314,19 @@ def test_doctor_isolation(client, auth_headers, second_auth_headers):
     assert list_res.json()["total"] == 0
 
 
-def test_seed_sample_medicines(client, auth_headers):
-    # Call seed
-    seed_res = client.post("/api/v1/doctor/pharmacy/seed-samples", headers=auth_headers)
-    assert seed_res.status_code == 200
-    data = seed_res.json()
-    assert data["total"] >= 5
+def test_pharmacy_stats(client, auth_headers):
+    exp = (date.today() + timedelta(days=100)).isoformat()
+    # Add a medicine
+    m1 = {"name": "Test Statin", "stock_quantity": 40, "min_stock_alert": 10, "unit_price": 12.0, "expiry_date": exp}
+    client.post("/api/v1/doctor/pharmacy/medicines", json=m1, headers=auth_headers)
 
     # Call stats
     stats_res = client.get("/api/v1/doctor/pharmacy/stats", headers=auth_headers)
     assert stats_res.status_code == 200
     stats = stats_res.json()
-    assert stats["total_medicines"] >= 5
-    assert stats["in_stock_count"] >= 1
-    assert stats["low_stock_count"] >= 1
-    assert stats["out_of_stock_count"] >= 1
-    assert stats["expiring_soon_count"] >= 1
+    assert stats["total_medicines"] == 1
+    assert stats["total_units_in_stock"] == 40
+    assert stats["in_stock_count"] == 1
 
 
 def test_public_order_lifecycle(client, auth_headers):

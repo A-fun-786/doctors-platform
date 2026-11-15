@@ -76,10 +76,17 @@ class MedicineItem(Base, TimestampMixin):
         nullable=False,
         default=10,
     )
+    purchase_price: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=0.0,
+        server_default="0.0",
+    )
     unit_price: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         default=0.0,
+        server_default="0.0",
     )
     expiry_date: Mapped[Optional[datetime.date]] = mapped_column(
         Date,

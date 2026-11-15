@@ -933,6 +933,7 @@ export interface MedicineItem {
   batch_number?: string | null;
   stock_quantity: number;
   min_stock_alert: number;
+  purchase_price?: number;
   unit_price: number;
   expiry_date?: string | null;
   manufacturer?: string | null;
@@ -954,8 +955,9 @@ export interface MedicineItemCreateInput {
   batch_number?: string;
   stock_quantity?: number;
   min_stock_alert?: number;
-  unit_price?: number;
-  expiry_date?: string | null;
+  purchase_price?: number;
+  unit_price: number;
+  expiry_date: string;
   manufacturer?: string;
   description?: string;
 }
@@ -970,6 +972,7 @@ export interface MedicineItemUpdateInput {
   batch_number?: string;
   stock_quantity?: number;
   min_stock_alert?: number;
+  purchase_price?: number;
   unit_price?: number;
   expiry_date?: string | null;
   manufacturer?: string;
@@ -1070,16 +1073,6 @@ export async function adjustMedicineStock(
       method: "POST",
       requireAuth: true,
       body: JSON.stringify({ adjustment, reason }),
-    }
-  );
-}
-
-export async function seedSampleMedicines(): Promise<{ items: MedicineItem[]; total: number }> {
-  return apiFetch<{ items: MedicineItem[]; total: number }>(
-    "/api/v1/doctor/pharmacy/seed-samples",
-    {
-      method: "POST",
-      requireAuth: true,
     }
   );
 }
