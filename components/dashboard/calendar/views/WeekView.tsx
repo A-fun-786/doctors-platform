@@ -26,7 +26,7 @@ interface WeekViewProps {
   onSelectDate: (dateStr: string) => void;
   getEventsForDate: (dateStr: string) => CalendarEvent[];
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onQuickAddSlot: (date: string, start: string, end: string) => void;
+  onQuickAddSlot?: (date: string, start: string, end: string) => void;
   onEmptySlotClick?: (date: string, start: string, end: string) => void;
   workingHoursConfig?: WorkingHoursConfig;
 }
@@ -307,19 +307,30 @@ export default function WeekView({
                           /* PREFERENCE-COLORED EMPTY SLOT */
                           <button
                             type="button"
+                            disabled={!onEmptySlotClick && !onQuickAddSlot}
                             onClick={() => {
                               if (onEmptySlotClick) {
                                 onEmptySlotClick(day.dateStr, slotStart, slotEnd);
-                              } else {
+                              } else if (onQuickAddSlot) {
                                 onQuickAddSlot(day.dateStr, slotStart, slotEnd);
                               }
                             }}
-                            className={`w-full h-full min-h-[38px] rounded-md transition-all cursor-pointer flex items-center justify-center group/slot ${prefStyles.emptySlot}`}
-                            title={`Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`}
+                            className={`w-full h-full min-h-[38px] rounded-md transition-all flex items-center justify-center group/slot ${
+                              !onEmptySlotClick && !onQuickAddSlot
+                                ? "cursor-default opacity-40 hover:bg-transparent"
+                                : `cursor-pointer ${prefStyles.emptySlot}`
+                            }`}
+                            title={
+                              !onEmptySlotClick && !onQuickAddSlot
+                                ? `Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`
+                                : `Empty Slot (${format12Hour(slotStart)} - ${format12Hour(slotEnd)}) - Click to book`
+                            }
                           >
-                            <span className={`opacity-0 group-hover/slot:opacity-100 text-[11px] font-bold transition-opacity ${prefStyles.plusIcon}`}>
-                              +
-                            </span>
+                            {(onEmptySlotClick || onQuickAddSlot) && (
+                              <span className={`opacity-0 group-hover/slot:opacity-100 text-[11px] font-bold transition-opacity ${prefStyles.plusIcon}`}>
+                                +
+                              </span>
+                            )}
                           </button>
                         )}
                       </div>

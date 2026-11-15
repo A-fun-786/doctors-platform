@@ -300,6 +300,7 @@ export default function DayView({
                 }
 
                 // 4. Clean Empty Slot (Schedule-colored border, zero text clutter)
+                const isBookable = Boolean(onEmptySlotClick || onBookPatient);
                 return (
                   <React.Fragment key={timeRow}>
                     {shiftDivider}
@@ -311,7 +312,9 @@ export default function DayView({
                           onBookPatient();
                         }
                       }}
-                      className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer hover:shadow-xs group ${prefStyles.emptyCard}`}
+                      className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 group ${
+                        isBookable ? `cursor-pointer hover:shadow-xs ${prefStyles.emptyCard}` : "cursor-default opacity-50 bg-slate-50/50 border border-slate-200"
+                      }`}
                     >
                       <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
                         <div
@@ -322,11 +325,13 @@ export default function DayView({
                       </div>
 
                       {/* Clean Minimal Hover Action Icon */}
-                      <div
-                        className={`opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-md bg-white border transition-all shadow-2xs ${prefStyles.plusBtn}`}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </div>
+                      {isBookable && (
+                        <div
+                          className={`opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-md bg-white border transition-all shadow-2xs ${prefStyles.plusBtn}`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </div>
+                      )}
                     </div>
                   </React.Fragment>
                 );

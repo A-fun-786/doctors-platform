@@ -29,6 +29,7 @@ interface CalendarHeaderProps {
   onPractitionerChange?: (staffId: string | null) => void;
   selectedDate?: string;
   onSelectDate?: (dateStr: string) => void;
+  isStaffDoctor?: boolean;
 }
 
 function formatDateToYYYYMMDD(d: Date): string {
@@ -58,6 +59,7 @@ export default function CalendarHeader({
   onPractitionerChange,
   selectedDate = "",
   onSelectDate,
+  isStaffDoctor = false,
 }: CalendarHeaderProps) {
   // Searchable Doctor Selector Dropdown state
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false);
@@ -270,7 +272,14 @@ export default function CalendarHeader({
         <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap shrink-0">
           {/* Searchable Doctor Selector Dropdown */}
           <div className="relative" ref={doctorDropdownRef}>
-            {practitioners.length > 0 && onPractitionerChange && (
+            {isStaffDoctor ? (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+                <Stethoscope className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-bold text-emerald-950 max-w-[150px] sm:max-w-[200px] truncate">
+                  My Bookings
+                </span>
+              </div>
+            ) : practitioners.length > 0 && onPractitionerChange ? (
               <>
                 <button
                   type="button"
@@ -411,7 +420,7 @@ export default function CalendarHeader({
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Vertical Divider */}

@@ -20,7 +20,7 @@ interface AgendaViewProps {
   currentWeekDays: WeekDayItem[];
   getEventsForDate: (dateStr: string) => CalendarEvent[];
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onBookAppointment: () => void;
+  onBookAppointment?: () => void;
   practitioners?: Practitioner[];
   selectedPractitionerId?: string | null;
   onPractitionerChange?: (staffId: string | null) => void;
@@ -192,14 +192,16 @@ export default function AgendaView({
                 : "No patient visits scheduled for this date. Click below to book an appointment."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onBookAppointment}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Book Appointment</span>
-          </button>
+          {onBookAppointment && (
+            <button
+              type="button"
+              onClick={onBookAppointment}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Book Appointment</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-x-hidden overflow-y-auto max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-335px)] min-h-[380px] custom-scrollbar w-full">

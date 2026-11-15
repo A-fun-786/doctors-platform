@@ -1,9 +1,9 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.0.0  
+**Document Version:** 2.1.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
-**Last Updated:** November 2026  
+**Last Updated:** November 15, 2026  
 
 ---
 
@@ -34,7 +34,7 @@ The **Staff Management & Authentication** system provides a multi-tenant, role-i
 | User Type | Clinical Roles | Portal Access | Permissions & Capabilities | Restricted Actions |
 | :--- | :--- | :--- | :--- | :--- |
 | **Doctor / Practice Owner** | Lead MD, Clinic Director | **Admin** Portal | Full tenant control, appointments, prescriptions, roster management, staff credential provisioning & resets, clinic profile editing, financial/salary records. | None |
-| **Employed Doctor** | Associate Doctor, Junior Doctor, Consultant Specialist | **Staff** Portal | Patient consultations, appointments, medical records, digital prescriptions. | Cannot manage other staff, cannot edit clinic settings, cannot provision credentials. |
+| **Employed Doctor** | Associate Doctor, Junior Doctor, Consultant Specialist, Physician, Surgeon | **Staff** Portal | Patient consultations, view assigned visits only, mark own visits completed, clinical documentation. | Cannot book appointments, cannot reschedule or cancel appointments, cannot view other doctors' bookings, cannot manage other staff, cannot edit clinic settings. |
 | **Nursing & Triage** | Registered Nurse, Head Nurse | **Staff** Portal | Patient triage, vitals recording, queue monitoring. | Restricted to clinical staff actions. |
 | **Front Desk & Admin** | Receptionist, Billing Executive | **Staff** Portal | Patient check-in, appointment booking, OPD slips. | Restricted to front-desk actions. |
 | **Diagnostics & Pharmacy** | Pharmacist, Lab Technician | **Staff** Portal | Prescription fulfillment, medicine stock, lab reports. | Restricted to department actions. |
@@ -249,6 +249,25 @@ Removes a staff member from the clinic roster and revokes portal login immediate
 
 ---
 
+### 6.2 Staff Doctor Appointment & Calendar Scoping
+
+When a user logs in via the **Staff Portal** with a clinical role (`doctor`, `junior doctor`, `consultant`, `physician`, `surgeon`, `specialist`), strict operational boundaries are applied:
+
+1. **Viewing Scope:**
+   - `GET /api/v1/doctor/calendar`: Automatically overrides `staff_id = current_doctor._current_staff.id` and `primary_only = False`.
+   - `GET /api/v1/doctor/appointments`: Scoped strictly to the staff doctor's own visits (`staff_id = current_doctor._current_staff.id`).
+   - `GET /api/v1/doctor/appointments/{id}`: Returns `403 Forbidden` if `appointment.staff_id != current_doctor._current_staff.id`.
+
+2. **Booking & Modification Lockouts:**
+   - `POST /api/v1/doctor/appointments`: Returns `403 Forbidden` (`"Staff doctors are not permitted to book appointments. Please contact clinic reception."`).
+   - `PUT/PATCH /api/v1/doctor/appointments/{id}` and `/reschedule`: Returns `403 Forbidden` (`"Staff doctors are not permitted to modify or reschedule appointments. Please contact clinic reception."`).
+   - `POST /api/v1/doctor/appointments/{id}/cancel`: Returns `403 Forbidden` (`"Staff doctors are not permitted to cancel appointments. Please contact clinic reception."`).
+
+3. **Consultation & Completion Workflow:**
+   - `POST /api/v1/doctor/appointments/{id}/complete`: Permitted **only** if `appointment.staff_id == current_doctor._current_staff.id`. Returns `403 Forbidden` if attempting to complete another practitioner's appointment.
+
+---
+
 ## 7. Frontend Component Architecture
 
 ```
@@ -258,6 +277,15 @@ components/
 ├── dashboard/
 │   ├── DashboardShell.tsx           # Application frame with role-restricted navigation
 │   ├── StaffTab.tsx                 # Staff directory, modals, credentials delivery, reset dialogs
+│   ├── CalendarTab.tsx              # Detects isStaffDoctor, locks filter, disables booking modals
+│   ├── calendar/
+│   │   ├── views/
+│   │   │   ├── CalendarHeader.tsx   # Displays locked "My Bookings" badge; hides "+ Book Appointment"
+│   │   │   ├── AgendaView.tsx       # Omits booking CTA in empty state for staff doctors
+│   │   │   ├── WeekView.tsx         # Disables empty slot click-to-book and hides hover "+" icon
+│   │   │   └── DayView.tsx          # Disables empty slot booking and hides hover "+" icon
+│   │   └── panels/
+│   │       └── AppointmentDetailsPanel.tsx # Hides Cancel and Reschedule; retains "Mark Completed"
 │   └── profile/
 │       └── ProfileViewCard.tsx      # Practice profile view with staff read-only restrictions
 lib/
@@ -271,23 +299,29 @@ lib/
 The implementation is verified by automated test suites across all tiers:
 
 ```bash
-# 1. Backend Staff Authentication & Portal Boundaries (7 tests)
+# 1. Staff Doctor Appointment Restrictions & Permissions (7 tests)
+pytest backend/tests/test_staff_doctor_appointment_restrictions.py -v
+
+# 2. Backend Staff Authentication & Portal Boundaries (7 tests)
 pytest backend/tests/test_staff_auth.py -v
 
-# 2. Backend Staff Roster Management & CRUD (6 tests)
+# 3. Backend Staff Roster Management & CRUD (6 tests)
 pytest backend/tests/test_staff.py -v
 
-# 3. Comprehensive Backend Test Suite (166 tests)
-pytest backend/tests/ -v
+# 4. Comprehensive Backend Test Suite (180 tests)
+ALLOW_MOCK_AUTH=true pytest backend/tests/ -v
 
-# 4. Frontend Shell Navigation & Responsive QA (10 suites, 64 checks)
+# 5. Frontend Shell Navigation & Responsive QA (10 suites, 64 checks)
 npm test
 
-# 5. Production TypeScript Check & Lint
+# 6. Production TypeScript Check & Lint
 npx tsc --noEmit && npm run lint
+
+# 7. Production Next.js Build
+npm run build
 ```
 
-All 166 backend tests and all 10 frontend test suites pass with **100% compliance**.
+All 180 backend tests and all 10 frontend test suites pass with **100% compliance**.
 
 ### 5.2 Credentials Delivery Lifecycle
 1. **Provisioning:**
@@ -396,6 +430,25 @@ Removes a staff member from the clinic roster and revokes portal login immediate
 
 ---
 
+### 6.2 Staff Doctor Appointment & Calendar Scoping
+
+When a user logs in via the **Staff Portal** with a clinical role (`doctor`, `junior doctor`, `consultant`, `physician`, `surgeon`, `specialist`), strict operational boundaries are applied:
+
+1. **Viewing Scope:**
+   - `GET /api/v1/doctor/calendar`: Automatically overrides `staff_id = current_doctor._current_staff.id` and `primary_only = False`.
+   - `GET /api/v1/doctor/appointments`: Scoped strictly to the staff doctor's own visits (`staff_id = current_doctor._current_staff.id`).
+   - `GET /api/v1/doctor/appointments/{id}`: Returns `403 Forbidden` if `appointment.staff_id != current_doctor._current_staff.id`.
+
+2. **Booking & Modification Lockouts:**
+   - `POST /api/v1/doctor/appointments`: Returns `403 Forbidden` (`"Staff doctors are not permitted to book appointments. Please contact clinic reception."`).
+   - `PUT/PATCH /api/v1/doctor/appointments/{id}` and `/reschedule`: Returns `403 Forbidden` (`"Staff doctors are not permitted to modify or reschedule appointments. Please contact clinic reception."`).
+   - `POST /api/v1/doctor/appointments/{id}/cancel`: Returns `403 Forbidden` (`"Staff doctors are not permitted to cancel appointments. Please contact clinic reception."`).
+
+3. **Consultation & Completion Workflow:**
+   - `POST /api/v1/doctor/appointments/{id}/complete`: Permitted **only** if `appointment.staff_id == current_doctor._current_staff.id`. Returns `403 Forbidden` if attempting to complete another practitioner's appointment.
+
+---
+
 ## 7. Frontend Component Architecture
 
 ```
@@ -405,6 +458,15 @@ components/
 ├── dashboard/
 │   ├── DashboardShell.tsx           # Application frame with role-restricted navigation
 │   ├── StaffTab.tsx                 # Staff directory, modals, credentials delivery, reset dialogs
+│   ├── CalendarTab.tsx              # Detects isStaffDoctor, locks filter, disables booking modals
+│   ├── calendar/
+│   │   ├── views/
+│   │   │   ├── CalendarHeader.tsx   # Displays locked "My Bookings" badge; hides "+ Book Appointment"
+│   │   │   ├── AgendaView.tsx       # Omits booking CTA in empty state for staff doctors
+│   │   │   ├── WeekView.tsx         # Disables empty slot click-to-book and hides hover "+" icon
+│   │   │   └── DayView.tsx          # Disables empty slot booking and hides hover "+" icon
+│   │   └── panels/
+│   │       └── AppointmentDetailsPanel.tsx # Hides Cancel and Reschedule; retains "Mark Completed"
 │   └── profile/
 │       └── ProfileViewCard.tsx      # Practice profile view with staff read-only restrictions
 lib/
@@ -418,21 +480,27 @@ lib/
 The implementation is verified by automated test suites across all tiers:
 
 ```bash
-# 1. Backend Staff Authentication & Portal Boundaries (7 tests)
+# 1. Staff Doctor Appointment Restrictions & Permissions (7 tests)
+pytest backend/tests/test_staff_doctor_appointment_restrictions.py -v
+
+# 2. Backend Staff Authentication & Portal Boundaries (7 tests)
 pytest backend/tests/test_staff_auth.py -v
 
-# 2. Backend Staff Roster Management & CRUD (6 tests)
+# 3. Backend Staff Roster Management & CRUD (6 tests)
 pytest backend/tests/test_staff.py -v
 
-# 3. Comprehensive Backend Test Suite (166 tests)
-pytest backend/tests/ -v
+# 4. Comprehensive Backend Test Suite (180 tests)
+ALLOW_MOCK_AUTH=true pytest backend/tests/ -v
 
-# 4. Frontend Shell Navigation & Responsive QA (10 suites, 64 checks)
+# 5. Frontend Shell Navigation & Responsive QA (10 suites, 64 checks)
 npm test
 
-# 5. Production TypeScript Check & Lint
+# 6. Production TypeScript Check & Lint
 npx tsc --noEmit && npm run lint
+
+# 7. Production Next.js Build
+npm run build
 ```
 
-All 166 backend tests and all 10 frontend test suites pass with **100% compliance**.
+All 180 backend tests and all 10 frontend test suites pass with **100% compliance**.
 

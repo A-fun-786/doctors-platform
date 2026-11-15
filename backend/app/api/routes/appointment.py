@@ -1,10 +1,10 @@
 import uuid
 from datetime import date
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, is_staff_doctor
 from app.core.cache import get_idempotency_result, set_idempotency_result, invalidate_slot_cache
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -43,6 +43,13 @@ def create_appointment(
     Verifies slot falls within AVAILABLE schedule and does not overlap exclusions or existing bookings.
     Supports optional Idempotency-Key header to prevent duplicate booking on network retries.
     """
+    # Staff Doctor restriction: cannot book appointments
+    if is_staff_doctor(current_doctor):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff doctors are not permitted to book appointments. Please contact clinic reception.",
+        )
+
     cache_key = None
     if idempotency_key:
         cache_key = f"idempotency:{current_doctor.id}:{idempotency_key}"
@@ -104,6 +111,11 @@ def list_appointments(
     """
     List appointments for the authenticated doctor with pagination and optional filters.
     """
+    # Staff Doctor restriction: can only view their own bookings
+    if is_staff_doctor(current_doctor):
+        staff_id = current_doctor._current_staff.id
+        primary_only = False
+
     items, total = appointment_service.list_appointments(
         doctor_id=current_doctor.id,
         status_filter=status,
@@ -142,6 +154,14 @@ def get_appointment(
         appointment_id=id,
         db=db,
     )
+
+    # Staff Doctor restriction: can only access their own appointments
+    if is_staff_doctor(current_doctor) and appointment.staff_id != current_doctor._current_staff.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted: You can only view your own appointments.",
+        )
+
     return AppointmentResponse.model_validate(appointment)
 
 
@@ -161,6 +181,13 @@ def cancel_appointment(
     """
     Cancel an existing BOOKED appointment.
     """
+    # Staff Doctor restriction: cannot cancel appointments
+    if is_staff_doctor(current_doctor):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff doctors are not permitted to cancel appointments. Please contact clinic reception.",
+        )
+
     appointment = appointment_service.cancel_appointment(
         doctor_id=current_doctor.id,
         appointment_id=id,
@@ -186,6 +213,19 @@ def complete_appointment(
     """
     Complete an existing BOOKED appointment.
     """
+    # If staff doctor, ensure they only complete their own appointments
+    if is_staff_doctor(current_doctor):
+        appt = appointment_service.get_appointment(
+            doctor_id=current_doctor.id,
+            appointment_id=id,
+            db=db,
+        )
+        if appt.staff_id != current_doctor._current_staff.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access restricted: You can only complete your own appointments.",
+            )
+
     appointment = appointment_service.complete_appointment(
         doctor_id=current_doctor.id,
         appointment_id=id,
@@ -211,6 +251,13 @@ def reschedule_appointment(
     """
     Reschedule an existing BOOKED appointment to a new date and time slot.
     """
+    # Staff Doctor restriction: cannot reschedule or modify appointments
+    if is_staff_doctor(current_doctor):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff doctors are not permitted to modify or reschedule appointments. Please contact clinic reception.",
+        )
+
     appointment = appointment_service.reschedule_appointment(
         doctor_id=current_doctor.id,
         appointment_id=id,

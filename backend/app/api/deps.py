@@ -96,3 +96,16 @@ def require_doctor_owner(
             detail="Access restricted to clinic administrator only",
         )
     return current_doctor
+
+
+def is_staff_doctor(doctor: Doctor) -> bool:
+    """
+    Returns True if the authenticated user is an employed clinic doctor (Staff Doctor).
+    Employed doctors have clinical privileges (consultations, view own bookings, mark completed)
+    but cannot manage clinic appointments, reschedule other doctors, or book appointments.
+    """
+    staff = getattr(doctor, "_current_staff", None)
+    if not staff:
+        return False
+    role_norm = (staff.role or "").strip().lower()
+    return role_norm in ("doctor", "junior doctor", "consultant", "physician", "surgeon", "specialist")

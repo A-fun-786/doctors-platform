@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, is_staff_doctor
 from app.core.database import get_db
 from app.models.doctor import Doctor
 from app.schemas.calendar import DoctorCalendarResponse
@@ -44,6 +44,11 @@ def get_doctor_calendar(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Date range exceeds 31 days",
         )
+
+    # Staff Doctor restriction: can only see their own bookings
+    if is_staff_doctor(current_doctor):
+        staff_id = current_doctor._current_staff.id
+        primary_only = False
 
     return calendar_service.get_doctor_calendar(
         doctor_id=current_doctor.id,

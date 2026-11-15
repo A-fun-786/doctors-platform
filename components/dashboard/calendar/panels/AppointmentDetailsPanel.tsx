@@ -28,6 +28,7 @@ import {
   cancelAppointment,
   AppointmentEntry,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import Badge from "@/components/ui/Badge";
 import { format12Hour, WorkingHoursConfig } from "../calendarUtils";
 import AppointmentRescheduleForm from "./AppointmentRescheduleForm";
@@ -41,6 +42,7 @@ interface AppointmentDetailsPanelProps {
   showToast?: (msg: string) => void;
   existingEvents?: CalendarEvent[];
   workingHoursConfig?: WorkingHoursConfig;
+  isStaffDoctor?: boolean;
 }
 
 export default function AppointmentDetailsPanel({
@@ -52,6 +54,7 @@ export default function AppointmentDetailsPanel({
   showToast,
   existingEvents,
   workingHoursConfig,
+  isStaffDoctor = false,
 }: AppointmentDetailsPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<CalendarEvent>(initialEvent);
@@ -136,7 +139,9 @@ export default function AppointmentDetailsPanel({
           }));
         }
       } catch (err) {
-        console.warn("Could not hydrate full appointment details:", err);
+        logger.warn("AppointmentDetailsPanel", "Could not hydrate full appointment details", {
+          error: String(err),
+        });
       } finally {
         if (isMounted) setHydrating(false);
       }
@@ -539,15 +544,17 @@ export default function AppointmentDetailsPanel({
             currentEvent.status !== "COMPLETED" &&
             currentEvent.appointment_id && (
               <>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setShowCancelModal(true)}
-                  className="w-full sm:w-auto px-3.5 py-2.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  <XCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Cancel Appointment</span>
-                </button>
+                {!isStaffDoctor && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setShowCancelModal(true)}
+                    className="w-full sm:w-auto px-3.5 py-2.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Cancel Appointment</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -565,17 +572,19 @@ export default function AppointmentDetailsPanel({
               </>
             )}
 
-          {currentEvent.status !== "CANCELLED" && currentEvent.status !== "COMPLETED" && (
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => setIsEditing(true)}
-              className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5 shrink-0" />
-              <span>Edit / Reschedule</span>
-            </button>
-          )}
+          {!isStaffDoctor &&
+            currentEvent.status !== "CANCELLED" &&
+            currentEvent.status !== "COMPLETED" && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setIsEditing(true)}
+                className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5 shrink-0" />
+                <span>Edit / Reschedule</span>
+              </button>
+            )}
         </div>
       </div>
 

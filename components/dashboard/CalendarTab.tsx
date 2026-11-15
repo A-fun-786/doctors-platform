@@ -51,6 +51,16 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     setPractitionerFilter,
   } = useCalendarData();
 
+  const isStaff = doctor.user_type === "staff";
+  const STAFF_DOCTOR_ROLES = ["doctor", "junior doctor", "consultant", "physician", "surgeon", "specialist"];
+  const isStaffDoctor = isStaff && STAFF_DOCTOR_ROLES.includes((doctor.role || "").trim().toLowerCase());
+
+  useEffect(() => {
+    if (isStaffDoctor && doctor.staff_id) {
+      setPractitionerFilter(doctor.staff_id);
+    }
+  }, [isStaffDoctor, doctor.staff_id, setPractitionerFilter]);
+
   const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
 
   useEffect(() => {
@@ -126,7 +136,9 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         }
       })
       .catch((err) => {
-        console.warn("Failed to load doctor working hours from server, using local cache:", err);
+        logger.warn("CalendarTab", "Failed to load doctor working hours from server, using local cache", {
+          error: String(err),
+        });
       });
     return () => {
       isMounted = false;
@@ -208,12 +220,15 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           onPrevWeek={handleStepPrev}
           onNextWeek={handleStepNext}
           onToday={handleGoToToday}
-          onBookAppointment={() =>
-            openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+          onBookAppointment={
+            isStaffDoctor
+              ? undefined
+              : () => openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
           }
           practitioners={practitioners}
           selectedPractitionerId={practitionerFilter}
-          onPractitionerChange={setPractitionerFilter}
+          onPractitionerChange={isStaffDoctor ? undefined : setPractitionerFilter}
+          isStaffDoctor={isStaffDoctor}
         />
       </div>
 
@@ -243,12 +258,14 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               currentWeekDays={currentWeekDays}
               getEventsForDate={getEventsForDate}
               onEventClick={openEventDrawer}
-              onBookAppointment={() =>
-                openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+              onBookAppointment={
+                isStaffDoctor
+                  ? undefined
+                  : () => openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
               }
               practitioners={practitioners}
               selectedPractitionerId={practitionerFilter}
-              onPractitionerChange={setPractitionerFilter}
+              onPractitionerChange={isStaffDoctor ? undefined : setPractitionerFilter}
             />
           )}
 
@@ -258,8 +275,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onSelectDate={setSelectedDate}
               getEventsForDate={getEventsForDate}
               onEventClick={openEventDrawer}
-              onQuickAddSlot={handleQuickAddSlot}
-              onEmptySlotClick={openSlotActionModal}
+              onQuickAddSlot={isStaffDoctor ? undefined : handleQuickAddSlot}
+              onEmptySlotClick={isStaffDoctor ? undefined : openSlotActionModal}
               workingHoursConfig={workingHoursConfig}
             />
           )}
@@ -269,11 +286,15 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               selectedDate={selectedDate}
               events={getEventsForDate(selectedDate)}
               workingHoursConfig={workingHoursConfig}
-              onBookPatient={() =>
-                openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
+              onBookPatient={
+                isStaffDoctor
+                  ? undefined
+                  : () => openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
               }
-              onEmptySlotClick={(date, start, end) =>
-                openSlotActionModal(date, start, end, "booking")
+              onEmptySlotClick={
+                isStaffDoctor
+                  ? undefined
+                  : (date, start, end) => openSlotActionModal(date, start, end, "booking")
               }
               onEventClick={openEventDrawer}
             />
@@ -437,6 +458,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             showToast={showToast}
             existingEvents={getEventsForDate(drawerState.date)}
             workingHoursConfig={workingHoursConfig}
+            isStaffDoctor={isStaffDoctor}
           />
         )}
 
