@@ -346,7 +346,7 @@ export default function OverviewTab({
               Pharmacy &amp; Inventory
             </h3>
             <p className="text-xs text-slate-500">
-              Manage dispensary stock, monitor low-stock warnings, and fulfill prescription deliveries.
+              Manage dispensary stock, track low-stock warnings, and record inventory adjustments.
             </p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">

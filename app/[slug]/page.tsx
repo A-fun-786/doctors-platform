@@ -32,7 +32,6 @@ import {
   getPublicDoctorProfile,
   bookPublicAppointment,
   uploadPublicReport,
-  orderPublicMedicine,
   getPublicAvailableSlots,
   PublicDoctorProfileResponse,
   AvailableSlot,
@@ -44,7 +43,7 @@ export default function PatientDoctorPage() {
   const params = useParams();
   const slug = typeof params?.slug === "string" ? params.slug : Array.isArray(params?.slug) ? params.slug[0] : "";
 
-  type TabType = "home" | "appointments" | "teleconsult" | "medicines" | "reports";
+  type TabType = "home" | "appointments" | "teleconsult" | "reports";
   const [activeTab, setActiveTab] = useState<TabType>("home");
 
   const navigateToTab = (tab: TabType) => {
@@ -82,14 +81,6 @@ export default function PatientDoctorPage() {
   const [videoNotes, setVideoNotes] = useState("");
   const [videoSubmitting, setVideoSubmitting] = useState(false);
   const [videoSuccess, setVideoSuccess] = useState<string | null>(null);
-
-  // Medicine Order form
-  const [medPatientName, setMedPatientName] = useState("");
-  const [medPhone, setMedPhone] = useState("");
-  const [medAddress, setMedAddress] = useState("");
-  const [medList, setMedList] = useState("");
-  const [medSubmitting, setMedSubmitting] = useState(false);
-  const [medSuccess, setMedSuccess] = useState<string | null>(null);
 
   // Lab Report Upload form
   const [repPatientName, setRepPatientName] = useState("");
@@ -136,7 +127,6 @@ export default function PatientDoctorPage() {
       const s = doctor.services || {};
       if (activeTab === "appointments" && !s.appointment) setActiveTab("home");
       if (activeTab === "teleconsult" && !s.video_consultation) setActiveTab("home");
-      if (activeTab === "medicines" && !s.medicine_inventory) setActiveTab("home");
       if (activeTab === "reports" && !s.lab_reports) setActiveTab("home");
     }
   }, [activeTab, doctor]);
@@ -264,26 +254,6 @@ export default function PatientDoctorPage() {
       alert(err instanceof Error ? err.message : "Failed to schedule video consultation");
     } finally {
       setVideoSubmitting(false);
-    }
-  };
-
-  // Handle Medicine Order
-  const handleMedicineSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doctor) return;
-    try {
-      setMedSubmitting(true);
-      const res = await orderPublicMedicine(slug, {
-        patient_name: medPatientName,
-        patient_phone: medPhone,
-        delivery_address: medAddress,
-        medicines: medList,
-      });
-      setMedSuccess(res.order_id);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to submit medicine order");
-    } finally {
-      setMedSubmitting(false);
     }
   };
 
@@ -435,21 +405,6 @@ export default function PatientDoctorPage() {
             >
               <Video className="w-3.5 h-3.5" />
               <span>Video Consultation</span>
-            </button>
-          )}
-
-          {services.medicine_inventory && (
-            <button
-              type="button"
-              onClick={() => navigateToTab("medicines")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === "medicines"
-                  ? "bg-brand-600 text-white shadow-xs"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
-            >
-              <Pill className="w-3.5 h-3.5" />
-              <span>Medicine Orders</span>
             </button>
           )}
 
@@ -700,38 +655,30 @@ export default function PatientDoctorPage() {
                   </div>
                 )}
 
-                {/* Card 3: Medicine Inventory & Orders */}
+                {/* Card 3: In-Clinic Dispensary Feature */}
                 {services.medicine_inventory && (
-                  <div
-                    onClick={() => navigateToTab("medicines")}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
-                  >
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                           <Pill className="w-6 h-6" />
                         </div>
                         <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-                          Pharmacy
+                          On-Site Pharmacy
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-                          Clinic Pharmacy &amp; Medicine Delivery
+                        <h3 className="text-base font-bold text-slate-900">
+                          In-Clinic Dispensary
                         </h3>
                         <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                          Request prescribed medications and repeat refills directly from our verified clinic dispensary with home delivery.
+                          Prescription medications and essential clinical treatments are stocked and dispensed directly on-site during your consultation.
                         </p>
                       </div>
                     </div>
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-500 font-medium">
-                        Prescription order form
-                      </span>
-                      <span className="inline-flex items-center gap-1 font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">
-                        <span>Order Medicines</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
+                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-medium">Dispensed during visit</span>
+                      <span className="font-semibold text-emerald-600">In-Person Only</span>
                     </div>
                   </div>
                 )}
@@ -1251,189 +1198,6 @@ export default function PatientDoctorPage() {
                       ) : (
                         <>
                           <span>Book Telehealth Video Call</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
-
-        {/* SERVICE 3: MEDICINE INVENTORY & ORDERS */}
-        {services.medicine_inventory && activeTab === "medicines" && (
-        <div className="space-y-6">
-          {/* Top Navigation & Breadcrumb */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => navigateToTab("home")}
-              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl shadow-xs transition-colors group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Back to Practice Home</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <button
-                type="button"
-                onClick={() => navigateToTab("home")}
-                className="hover:text-brand-600 transition-colors"
-              >
-                Home
-              </button>
-              <span>/</span>
-              <span className="font-semibold text-slate-800">Medicine Orders</span>
-            </div>
-          </div>
-
-          {/* Pharmacy Service Context Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={doctor.avatar_url || DEFAULT_DOCTOR_AVATAR}
-                alt={doctor.full_name}
-                className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-              />
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{doctor.clinic_name || doctor.full_name}&apos;s Dispensary</h3>
-                <p className="text-xs text-slate-500">
-                  Verified formulations dispensed under guidance of {doctor.full_name}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Clinic Verified Pharmacy</span>
-            </div>
-          </div>
-
-          <section id="medicines" className="scroll-mt-24">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                    <Pill className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">Clinic Pharmacy &amp; Medicine Delivery</h2>
-                    <p className="text-xs text-emerald-100">
-                      Request prescribed medicines and repeat refills directly from the clinic pharmacy
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs bg-white/20 px-3 py-1 rounded-full backdrop-blur-md self-start sm:self-auto font-medium">
-                  Pharmacy Service
-                </div>
-              </div>
-
-              {medSuccess ? (
-                <div className="p-8 text-center space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1 max-w-md mx-auto">
-                    <h3 className="text-xl font-bold text-slate-900">Medicine Order Submitted!</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Your order ticket is{" "}
-                      <span className="font-mono font-bold text-slate-900">{medSuccess}</span>. The pharmacy team will verify your prescription details and contact you for dispatch.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setMedSuccess(null)}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <span>Submit Another Medicine Request</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab("home")}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
-                    >
-                      <Home className="w-3.5 h-3.5" />
-                      <span>Return to Practice Home</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleMedicineSubmit} className="p-6 sm:p-8 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Patient Full Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={medPatientName}
-                        onChange={(e) => setMedPatientName(e.target.value)}
-                        placeholder="Patient name"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Contact Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={medPhone}
-                        onChange={(e) => setMedPhone(e.target.value)}
-                        placeholder="+1 (555) 000-0000"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Delivery Address <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={medAddress}
-                      onChange={(e) => setMedAddress(e.target.value)}
-                      placeholder="Home address, apartment/unit, city, zip code"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Prescribed Medicines &amp; Quantity <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      value={medList}
-                      onChange={(e) => setMedList(e.target.value)}
-                      placeholder="List medicine names, dosages, and quantities (e.g. Amoxicillin 500mg - 10 tabs, Paracetamol 650mg - 1 strip)..."
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={medSubmitting}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
-                    >
-                      {medSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Submitting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Medicine Order</span>
                           <ChevronRight className="w-4 h-4" />
                         </>
                       )}

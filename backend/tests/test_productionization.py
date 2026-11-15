@@ -162,9 +162,12 @@ def test_public_slot_caching_and_invalidation(client, auth_doctor, test_db):
     doctor, tenant, headers = auth_doctor
 
     # Set up initial schedule
+    test_date_str = "2026-11-25"
+    test_date = date(2026, 11, 25)
+
     sched = Schedule(
         doctor_id=doctor.id,
-        date=date(2026, 11, 15),
+        date=test_date,
         start_time=time(10, 0),
         end_time=time(11, 0),
         type="AVAILABLE",
@@ -173,19 +176,19 @@ def test_public_slot_caching_and_invalidation(client, auth_doctor, test_db):
     test_db.commit()
 
     # Query public slots
-    res1 = client.get(f"/api/v1/public/tenants/{tenant.slug}/available-slots?date=2026-11-15")
+    res1 = client.get(f"/api/v1/public/tenants/{tenant.slug}/available-slots?date={test_date_str}")
     assert res1.status_code == 200
     slots1 = res1.json()
     assert len(slots1) == 2  # 10:00-10:30, 10:30-11:00
 
     # Verify cache is populated
-    cached = get_cached_slots(doctor.id, date(2026, 11, 15))
+    cached = get_cached_slots(doctor.id, test_date)
     assert cached is not None
     assert len(cached) == 2
 
     # Add schedule entry through API to trigger cache invalidation
     new_sched_payload = {
-        "date": "2026-11-15",
+        "date": test_date_str,
         "start_time": "11:00:00",
         "end_time": "12:00:00",
         "type": "AVAILABLE",
@@ -193,11 +196,11 @@ def test_public_slot_caching_and_invalidation(client, auth_doctor, test_db):
     client.post("/api/v1/doctor/schedule", json=new_sched_payload, headers=headers)
 
     # Verify cache was invalidated
-    cached_after = get_cached_slots(doctor.id, date(2026, 11, 15))
+    cached_after = get_cached_slots(doctor.id, test_date)
     assert cached_after is None
 
     # Query public slots again: cache should repopulate with 4 slots
-    res2 = client.get(f"/api/v1/public/tenants/{tenant.slug}/available-slots?date=2026-11-15")
+    res2 = client.get(f"/api/v1/public/tenants/{tenant.slug}/available-slots?date={test_date_str}")
     assert res2.status_code == 200
     slots2 = res2.json()
     assert len(slots2) == 4

@@ -113,8 +113,8 @@ fun HomeScreen() {
 
                             if (DoctorConfig.SERVICE_MEDICINE_INVENTORY) {
                                 ServiceItemRow(
-                                    title = "Clinic Pharmacy & Prescriptions",
-                                    subtitle = "Order medicine repeats and home delivery"
+                                    title = "In-Clinic Pharmacy & Dispensary",
+                                    subtitle = "Prescription medicines dispensed on-site during consultations"
                                 )
                             }
 

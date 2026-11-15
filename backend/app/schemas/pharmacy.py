@@ -115,9 +115,10 @@ class MedicineOrderListResponse(BaseModel):
 class PharmacyStatsResponse(BaseModel):
     total_medicines: int
     total_units_in_stock: int
+    in_stock_count: int = 0
     low_stock_count: int
     out_of_stock_count: int
     expiring_soon_count: int
-    pending_orders_count: int
-    total_orders_count: int
+    pending_orders_count: int = 0
+    total_orders_count: int = 0
 

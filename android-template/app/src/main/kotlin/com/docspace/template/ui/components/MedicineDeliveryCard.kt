@@ -76,7 +76,7 @@ fun MedicineDeliveryCard() {
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Prescriptions",
+                            text = "In-Clinic Only",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White,
                             fontSize = 11.sp,
@@ -92,7 +92,7 @@ fun MedicineDeliveryCard() {
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "Request repeat medicine refills and prescription deliveries directly prepared by the clinic pharmacy.",
+                    text = "Essential prescription medications and doctor-recommended treatments are stocked and dispensed directly on-site at the clinic during consultations.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Slate600,
                     lineHeight = 20.sp
@@ -107,7 +107,7 @@ fun MedicineDeliveryCard() {
                         contentColor = Emerald700
                     )
                 ) {
-                    Text("Order Medicines & Refills", fontWeight = FontWeight.SemiBold)
+                    Text("In-Clinic Dispensary Active", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

@@ -186,7 +186,7 @@ def test_2_19_blocked_window(db_session, test_doctor):
 
 def test_2_20_booked_appointment(db_session, test_doctor):
     """Test 2.20: BOOKED appointment (09:00–13:00 AVAILABLE + BOOKED 10:00–10:30 -> 7 slots)."""
-    q_date = date(2026, 11, 15)
+    q_date = date(2026, 11, 20)
     db_session.add_all([
         Schedule(doctor_id=test_doctor.id, date=q_date, start_time=time(9, 0), end_time=time(13, 0), type="AVAILABLE"),
         Appointment(

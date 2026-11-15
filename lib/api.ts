@@ -996,11 +996,12 @@ export interface PharmacyOrder {
 export interface PharmacyStats {
   total_medicines: number;
   total_units_in_stock: number;
+  in_stock_count?: number;
   low_stock_count: number;
   out_of_stock_count: number;
   expiring_soon_count: number;
-  pending_orders_count: number;
-  total_orders_count: number;
+  pending_orders_count?: number;
+  total_orders_count?: number;
 }
 
 export async function getPharmacyStats(): Promise<PharmacyStats> {

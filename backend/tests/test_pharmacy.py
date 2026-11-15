@@ -248,6 +248,7 @@ def test_seed_sample_medicines(client, auth_headers):
     assert stats_res.status_code == 200
     stats = stats_res.json()
     assert stats["total_medicines"] >= 5
+    assert stats["in_stock_count"] >= 1
     assert stats["low_stock_count"] >= 1
     assert stats["out_of_stock_count"] >= 1
     assert stats["expiring_soon_count"] >= 1

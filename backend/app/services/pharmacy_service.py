@@ -282,6 +282,7 @@ def get_pharmacy_stats(doctor_id: uuid.UUID, db: Session) -> PharmacyStatsRespon
 
     total_medicines = len(items)
     total_units_in_stock = sum(max(0, item.stock_quantity) for item in items)
+    in_stock_count = sum(1 for item in items if item.stock_quantity > item.min_stock_alert)
     low_stock_count = sum(1 for item in items if 0 < item.stock_quantity <= item.min_stock_alert)
     out_of_stock_count = sum(1 for item in items if item.stock_quantity <= 0)
     expiring_soon_count = sum(
@@ -305,6 +306,7 @@ def get_pharmacy_stats(doctor_id: uuid.UUID, db: Session) -> PharmacyStatsRespon
     return PharmacyStatsResponse(
         total_medicines=total_medicines,
         total_units_in_stock=total_units_in_stock,
+        in_stock_count=in_stock_count,
         low_stock_count=low_stock_count,
         out_of_stock_count=out_of_stock_count,
         expiring_soon_count=expiring_soon_count,
