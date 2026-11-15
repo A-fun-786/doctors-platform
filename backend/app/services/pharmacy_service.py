@@ -1,11 +1,11 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional, List
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select, func
 from sqlalchemy.orm import Session
 
-from app.models.pharmacy import MedicineItem, MedicineOrder
+from app.models.pharmacy import MedicineItem, MedicineOrder, MedicineWishlistItem
 from app.models.tenant import Tenant
 from app.schemas.pharmacy import (
     MedicineItemCreateRequest,
@@ -16,6 +16,10 @@ from app.schemas.pharmacy import (
     MedicineOrderResponse,
     MedicineOrderListResponse,
     PharmacyStatsResponse,
+    MedicineWishlistItemCreateRequest,
+    MedicineWishlistItemUpdateRequest,
+    MedicineWishlistItemResponse,
+    MedicineWishlistListResponse,
 )
 
 
@@ -305,6 +309,13 @@ def get_pharmacy_stats(doctor_id: uuid.UUID, db: Session) -> PharmacyStatsRespon
         )
     ) or 0
 
+    wishlist_count = db.scalar(
+        select(func.count(MedicineWishlistItem.id)).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            MedicineWishlistItem.status == "requested",
+        )
+    ) or 0
+
     return PharmacyStatsResponse(
         total_medicines=total_medicines,
         total_units_in_stock=total_units_in_stock,
@@ -314,5 +325,194 @@ def get_pharmacy_stats(doctor_id: uuid.UUID, db: Session) -> PharmacyStatsRespon
         expiring_soon_count=expiring_soon_count,
         pending_orders_count=pending_orders_count,
         total_orders_count=total_orders_count,
+        wishlist_count=wishlist_count,
     )
+
+
+def list_wishlist_items(
+    doctor_id: uuid.UUID,
+    db: Session,
+    status_filter: Optional[str] = None,
+    search: Optional[str] = None,
+) -> MedicineWishlistListResponse:
+    """Lists unlisted medicines requested by patients, ordered by highest patient demand."""
+    query = select(MedicineWishlistItem).where(MedicineWishlistItem.doctor_id == doctor_id)
+
+    if status_filter and status_filter != "all":
+        query = query.where(MedicineWishlistItem.status == status_filter)
+
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                MedicineWishlistItem.name.ilike(s),
+                MedicineWishlistItem.generic_name.ilike(s),
+                MedicineWishlistItem.notes.ilike(s),
+            )
+        )
+
+    query = query.order_by(
+        MedicineWishlistItem.request_count.desc(),
+        MedicineWishlistItem.last_requested_at.desc(),
+    )
+    items = db.scalars(query).all()
+    return MedicineWishlistListResponse(
+        items=[MedicineWishlistItemResponse.model_validate(item) for item in items],
+        total=len(items),
+    )
+
+
+def create_or_increment_wishlist_item(
+    doctor_id: uuid.UUID,
+    payload: MedicineWishlistItemCreateRequest,
+    db: Session,
+) -> MedicineWishlistItemResponse:
+    """Creates a new wishlist item, or auto-increments request count if already tracked for this clinic."""
+    cleaned_name = payload.name.strip()
+
+    # Check if this medicine has already been requested (case-insensitive) and not yet converted
+    existing = db.scalar(
+        select(MedicineWishlistItem).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            func.lower(MedicineWishlistItem.name) == cleaned_name.lower(),
+            MedicineWishlistItem.status != "converted",
+        )
+    )
+
+    if existing:
+        existing.request_count += 1
+        existing.last_requested_at = datetime.utcnow()
+        if payload.notes and payload.notes.strip():
+            note_line = payload.notes.strip()
+            if existing.notes:
+                existing.notes = f"{existing.notes}\n• {note_line}"
+            else:
+                existing.notes = note_line
+        db.commit()
+        db.refresh(existing)
+        return MedicineWishlistItemResponse.model_validate(existing)
+
+    tenant_id = db.scalar(select(Tenant.id).where(Tenant.doctor_id == doctor_id))
+    new_item = MedicineWishlistItem(
+        doctor_id=doctor_id,
+        tenant_id=tenant_id,
+        name=cleaned_name,
+        generic_name=payload.generic_name.strip() if payload.generic_name else None,
+        category=payload.category,
+        dosage_form=payload.dosage_form,
+        strength=payload.strength.strip() if payload.strength else None,
+        notes=payload.notes.strip() if payload.notes else None,
+        request_count=1,
+        status="requested",
+        last_requested_at=datetime.utcnow(),
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return MedicineWishlistItemResponse.model_validate(new_item)
+
+
+def increment_wishlist_item(
+    doctor_id: uuid.UUID,
+    item_id: uuid.UUID,
+    db: Session,
+) -> MedicineWishlistItemResponse:
+    """Increments the patient demand counter by 1."""
+    item = db.scalar(
+        select(MedicineWishlistItem).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            MedicineWishlistItem.id == item_id,
+        )
+    )
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wishlist medicine item not found.",
+        )
+
+    item.request_count += 1
+    item.last_requested_at = datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+    return MedicineWishlistItemResponse.model_validate(item)
+
+
+def update_wishlist_item(
+    doctor_id: uuid.UUID,
+    item_id: uuid.UUID,
+    payload: MedicineWishlistItemUpdateRequest,
+    db: Session,
+) -> MedicineWishlistItemResponse:
+    """Updates notes, status, or details of a wishlist item."""
+    item = db.scalar(
+        select(MedicineWishlistItem).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            MedicineWishlistItem.id == item_id,
+        )
+    )
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wishlist medicine item not found.",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        if isinstance(val, str):
+            setattr(item, field, val.strip())
+        else:
+            setattr(item, field, val)
+
+    db.commit()
+    db.refresh(item)
+    return MedicineWishlistItemResponse.model_validate(item)
+
+
+def delete_wishlist_item(
+    doctor_id: uuid.UUID,
+    item_id: uuid.UUID,
+    db: Session,
+) -> None:
+    """Deletes a wishlist item."""
+    item = db.scalar(
+        select(MedicineWishlistItem).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            MedicineWishlistItem.id == item_id,
+        )
+    )
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wishlist medicine item not found.",
+        )
+
+    db.delete(item)
+    db.commit()
+
+
+def convert_wishlist_item(
+    doctor_id: uuid.UUID,
+    item_id: uuid.UUID,
+    medicine_id: uuid.UUID,
+    db: Session,
+) -> MedicineWishlistItemResponse:
+    """Marks a wishlist item as graduated/converted into live inventory."""
+    item = db.scalar(
+        select(MedicineWishlistItem).where(
+            MedicineWishlistItem.doctor_id == doctor_id,
+            MedicineWishlistItem.id == item_id,
+        )
+    )
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wishlist medicine item not found.",
+        )
+
+    item.status = "converted"
+    item.converted_medicine_id = medicine_id
+    db.commit()
+    db.refresh(item)
+    return MedicineWishlistItemResponse.model_validate(item)
+
 

@@ -16,6 +16,10 @@ from app.schemas.pharmacy import (
     MedicineOrderResponse,
     MedicineOrderListResponse,
     PharmacyStatsResponse,
+    MedicineWishlistItemCreateRequest,
+    MedicineWishlistItemUpdateRequest,
+    MedicineWishlistItemResponse,
+    MedicineWishlistListResponse,
 )
 from app.services import pharmacy_service
 
@@ -178,4 +182,124 @@ def update_order_status(
         payload=payload,
         db=db,
     )
+
+
+# =============================================================================
+# UNLISTED MEDICINE DEMAND WISHLIST ENDPOINTS
+# =============================================================================
+
+@router.get(
+    "/wishlist",
+    response_model=MedicineWishlistListResponse,
+    summary="List Unlisted Medicine Wishlist Items",
+)
+def list_wishlist(
+    status: Optional[str] = Query(None, description="Filter by status (requested, converted)"),
+    search: Optional[str] = Query(None, description="Search by name, formula or notes"),
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> MedicineWishlistListResponse:
+    """Retrieve unlisted medicines requested by patients, ordered by highest patient demand."""
+    return pharmacy_service.list_wishlist_items(
+        doctor_id=current_doctor.id,
+        status_filter=status,
+        search=search,
+        db=db,
+    )
+
+
+@router.post(
+    "/wishlist",
+    response_model=MedicineWishlistItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add or Increment Unlisted Medicine in Wishlist",
+)
+def create_or_increment_wishlist_item(
+    payload: MedicineWishlistItemCreateRequest,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> MedicineWishlistItemResponse:
+    """Add an unlisted medicine request or auto-increment count if already requested."""
+    return pharmacy_service.create_or_increment_wishlist_item(
+        doctor_id=current_doctor.id,
+        payload=payload,
+        db=db,
+    )
+
+
+@router.post(
+    "/wishlist/{item_id}/increment",
+    response_model=MedicineWishlistItemResponse,
+    summary="Increment Patient Demand Counter",
+)
+def increment_wishlist_item(
+    item_id: uuid.UUID,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> MedicineWishlistItemResponse:
+    """Increment the patient inquiry count for a requested unlisted medicine."""
+    return pharmacy_service.increment_wishlist_item(
+        doctor_id=current_doctor.id,
+        item_id=item_id,
+        db=db,
+    )
+
+
+@router.patch(
+    "/wishlist/{item_id}",
+    response_model=MedicineWishlistItemResponse,
+    summary="Update Wishlist Item",
+)
+def update_wishlist_item(
+    item_id: uuid.UUID,
+    payload: MedicineWishlistItemUpdateRequest,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> MedicineWishlistItemResponse:
+    """Update notes or details on an unlisted medicine request."""
+    return pharmacy_service.update_wishlist_item(
+        doctor_id=current_doctor.id,
+        item_id=item_id,
+        payload=payload,
+        db=db,
+    )
+
+
+@router.delete(
+    "/wishlist/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Wishlist Item",
+)
+def delete_wishlist_item(
+    item_id: uuid.UUID,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """Delete an unlisted medicine request from the wishlist."""
+    pharmacy_service.delete_wishlist_item(
+        doctor_id=current_doctor.id,
+        item_id=item_id,
+        db=db,
+    )
+
+
+@router.post(
+    "/wishlist/{item_id}/convert/{medicine_id}",
+    response_model=MedicineWishlistItemResponse,
+    summary="Graduate Wishlist Item to Inventory",
+)
+def convert_wishlist_item(
+    item_id: uuid.UUID,
+    medicine_id: uuid.UUID,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> MedicineWishlistItemResponse:
+    """Mark a wishlist item as converted after stocking it in live inventory."""
+    return pharmacy_service.convert_wishlist_item(
+        doctor_id=current_doctor.id,
+        item_id=item_id,
+        medicine_id=medicine_id,
+        db=db,
+    )
+
 

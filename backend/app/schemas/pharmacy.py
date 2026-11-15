@@ -124,4 +124,53 @@ class PharmacyStatsResponse(BaseModel):
     expiring_soon_count: int
     pending_orders_count: int = 0
     total_orders_count: int = 0
+    wishlist_count: int = 0
+
+
+class MedicineWishlistItemCreateRequest(BaseModel):
+    """Payload to add an unlisted medicine request to the wishlist."""
+    name: str = Field(..., min_length=1, max_length=255)
+    generic_name: Optional[str] = Field(None, max_length=255)
+    category: str = Field("General", max_length=100)
+    dosage_form: str = Field("Tablet", max_length=50)
+    strength: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = None
+
+
+class MedicineWishlistItemUpdateRequest(BaseModel):
+    """Payload to update an unlisted medicine request."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    generic_name: Optional[str] = Field(None, max_length=255)
+    category: Optional[str] = Field(None, max_length=100)
+    dosage_form: Optional[str] = Field(None, max_length=50)
+    strength: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = None
+    status: Optional[str] = Field(None, max_length=50)
+
+
+class MedicineWishlistItemResponse(BaseModel):
+    """Complete response for a wishlist medicine item."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    doctor_id: uuid.UUID
+    tenant_id: Optional[uuid.UUID] = None
+    name: str
+    generic_name: Optional[str] = None
+    category: str
+    dosage_form: str
+    strength: Optional[str] = None
+    request_count: int
+    notes: Optional[str] = None
+    status: str
+    last_requested_at: datetime
+    converted_medicine_id: Optional[uuid.UUID] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MedicineWishlistListResponse(BaseModel):
+    """List of wishlist items with total count."""
+    items: List[MedicineWishlistItemResponse]
+    total: int
 

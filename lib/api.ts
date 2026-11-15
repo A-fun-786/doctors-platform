@@ -1005,6 +1005,44 @@ export interface PharmacyStats {
   expiring_soon_count: number;
   pending_orders_count?: number;
   total_orders_count?: number;
+  wishlist_count?: number;
+}
+
+export interface MedicineWishlistItem {
+  id: string;
+  doctor_id: string;
+  tenant_id?: string | null;
+  name: string;
+  generic_name?: string | null;
+  category: string;
+  dosage_form: string;
+  strength?: string | null;
+  request_count: number;
+  notes?: string | null;
+  status: "requested" | "converted" | string;
+  last_requested_at: string;
+  converted_medicine_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicineWishlistCreateInput {
+  name: string;
+  generic_name?: string;
+  category?: string;
+  dosage_form?: string;
+  strength?: string;
+  notes?: string;
+}
+
+export interface MedicineWishlistUpdateInput {
+  name?: string;
+  generic_name?: string;
+  category?: string;
+  dosage_form?: string;
+  strength?: string;
+  notes?: string;
+  status?: string;
 }
 
 export async function getPharmacyStats(): Promise<PharmacyStats> {
@@ -1103,5 +1141,81 @@ export async function updatePharmacyOrderStatus(
     }
   );
 }
+
+export async function getMedicineWishlist(params?: {
+  search?: string;
+  status?: string;
+}): Promise<{ items: MedicineWishlistItem[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+
+  const qs = query.toString();
+  return apiFetch<{ items: MedicineWishlistItem[]; total: number }>(
+    `/api/v1/doctor/pharmacy/wishlist${qs ? `?${qs}` : ""}`,
+    {
+      method: "GET",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function createWishlistItem(
+  payload: MedicineWishlistCreateInput
+): Promise<MedicineWishlistItem> {
+  return apiFetch<MedicineWishlistItem>("/api/v1/doctor/pharmacy/wishlist", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function incrementWishlistItem(id: string): Promise<MedicineWishlistItem> {
+  return apiFetch<MedicineWishlistItem>(
+    `/api/v1/doctor/pharmacy/wishlist/${encodeURIComponent(id)}/increment`,
+    {
+      method: "POST",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function updateWishlistItem(
+  id: string,
+  payload: MedicineWishlistUpdateInput
+): Promise<MedicineWishlistItem> {
+  return apiFetch<MedicineWishlistItem>(
+    `/api/v1/doctor/pharmacy/wishlist/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      requireAuth: true,
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteWishlistItem(id: string): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/doctor/pharmacy/wishlist/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      requireAuth: true,
+    }
+  );
+}
+
+export async function convertWishlistItem(
+  id: string,
+  medicineId: string
+): Promise<MedicineWishlistItem> {
+  return apiFetch<MedicineWishlistItem>(
+    `/api/v1/doctor/pharmacy/wishlist/${encodeURIComponent(id)}/convert/${encodeURIComponent(medicineId)}`,
+    {
+      method: "POST",
+      requireAuth: true,
+    }
+  );
+}
+
 
 

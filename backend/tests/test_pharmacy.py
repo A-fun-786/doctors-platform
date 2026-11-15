@@ -370,3 +370,118 @@ def test_public_order_lifecycle(client, auth_headers):
     assert comp_res.status_code == 200
     assert comp_res.json()["status"] == "completed"
     assert comp_res.json()["total_price"] == 28.50
+
+
+def test_wishlist_crud_and_auto_increment(client, auth_headers):
+    # 1. Add unlisted medicine
+    payload1 = {
+        "name": "Duphaston 10mg",
+        "generic_name": "Dydrogesterone",
+        "category": "Gynecology & Hormones",
+        "dosage_form": "Tablet",
+        "strength": "10 mg",
+        "notes": "Patient Priya asked for early pregnancy support",
+    }
+    r1 = client.post("/api/v1/doctor/pharmacy/wishlist", json=payload1, headers=auth_headers)
+    assert r1.status_code == 201
+    item = r1.json()
+    assert item["name"] == "Duphaston 10mg"
+    assert item["request_count"] == 1
+    assert item["status"] == "requested"
+    wishlist_id = item["id"]
+
+    # 2. Another patient asks for same medicine -> posting same name auto-increments count!
+    payload2 = {
+        "name": "duphaston 10mg",  # case-insensitive match
+        "notes": "Patient Meera asked today",
+    }
+    r2 = client.post("/api/v1/doctor/pharmacy/wishlist", json=payload2, headers=auth_headers)
+    assert r2.status_code == 201
+    updated = r2.json()
+    assert updated["id"] == wishlist_id
+    assert updated["request_count"] == 2
+    assert "Priya" in updated["notes"]
+    assert "Meera" in updated["notes"]
+
+    # 3. Manual +1 increment endpoint
+    inc_res = client.post(f"/api/v1/doctor/pharmacy/wishlist/{wishlist_id}/increment", headers=auth_headers)
+    assert inc_res.status_code == 200
+    assert inc_res.json()["request_count"] == 3
+
+    # 4. List wishlist items (sorted by demand)
+    # Add a second item with 1 request
+    client.post(
+        "/api/v1/doctor/pharmacy/wishlist",
+        json={"name": "Rare Pediatric Drops", "dosage_form": "Drops"},
+        headers=auth_headers,
+    )
+    list_res = client.get("/api/v1/doctor/pharmacy/wishlist", headers=auth_headers)
+    assert list_res.status_code == 200
+    data = list_res.json()
+    assert data["total"] == 2
+    # Duphaston with 3 requests should be first
+    assert data["items"][0]["name"] == "Duphaston 10mg"
+    assert data["items"][0]["request_count"] == 3
+
+    # 5. Delete wishlist item
+    del_res = client.delete(f"/api/v1/doctor/pharmacy/wishlist/{wishlist_id}", headers=auth_headers)
+    assert del_res.status_code == 204
+
+    # Confirm deletion
+    list_res_after = client.get("/api/v1/doctor/pharmacy/wishlist", headers=auth_headers)
+    assert list_res_after.json()["total"] == 1
+
+
+def test_wishlist_doctor_isolation(client, auth_headers, second_auth_headers):
+    # Doctor 1 adds an unlisted medicine
+    r = client.post(
+        "/api/v1/doctor/pharmacy/wishlist",
+        json={"name": "Doctor 1 Specialized Syringe"},
+        headers=auth_headers,
+    )
+    assert r.status_code == 201
+    item_id = r.json()["id"]
+
+    # Doctor 2 wishlist list should be empty
+    d2_list = client.get("/api/v1/doctor/pharmacy/wishlist", headers=second_auth_headers)
+    assert d2_list.status_code == 200
+    assert d2_list.json()["total"] == 0
+
+    # Doctor 2 cannot increment Doctor 1's wishlist item -> 404
+    inc_fail = client.post(f"/api/v1/doctor/pharmacy/wishlist/{item_id}/increment", headers=second_auth_headers)
+    assert inc_fail.status_code == 404
+
+
+def test_wishlist_convert_to_inventory(client, auth_headers):
+    exp = (date.today() + timedelta(days=200)).isoformat()
+    # 1. Doctor has an unlisted item in wishlist
+    r = client.post(
+        "/api/v1/doctor/pharmacy/wishlist",
+        json={"name": "Newly Procured Medicine", "dosage_form": "Tablet"},
+        headers=auth_headers,
+    )
+    wishlist_id = r.json()["id"]
+
+    # 2. Doctor decides to procure and add to inventory
+    med_res = client.post(
+        "/api/v1/doctor/pharmacy/medicines",
+        json={
+            "name": "Newly Procured Medicine",
+            "stock_quantity": 100,
+            "purchase_price": 20.0,
+            "unit_price": 35.0,
+            "expiry_date": exp,
+        },
+        headers=auth_headers,
+    )
+    assert med_res.status_code == 201
+    medicine_id = med_res.json()["id"]
+
+    # 3. Graduate/convert wishlist item
+    conv_res = client.post(
+        f"/api/v1/doctor/pharmacy/wishlist/{wishlist_id}/convert/{medicine_id}",
+        headers=auth_headers,
+    )
+    assert conv_res.status_code == 200
+    assert conv_res.json()["status"] == "converted"
+    assert conv_res.json()["converted_medicine_id"] == medicine_id

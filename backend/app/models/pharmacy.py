@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Date, Float, ForeignKey, Index, Integer, String, Text, Uuid
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -181,5 +181,81 @@ class MedicineOrder(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_medicine_orders_doctor_status", "doctor_id", "status"),
+    )
+
+
+class MedicineWishlistItem(Base, TimestampMixin):
+    """Tracks patient demand and inquiries for unlisted medicines not in clinic stock."""
+
+    __tablename__ = "medicine_wishlist_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    doctor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    generic_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    category: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="General",
+    )
+    dosage_form: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="Tablet",
+    )
+    strength: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    request_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="requested",
+    )
+    last_requested_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=datetime.datetime.utcnow,
+    )
+    converted_medicine_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        ForeignKey("medicine_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        Index("ix_medicine_wishlist_doctor_name", "doctor_id", "name"),
+        Index("ix_medicine_wishlist_doctor_status", "doctor_id", "status"),
+        Index("ix_medicine_wishlist_doctor_demand", "doctor_id", "request_count"),
     )
 
