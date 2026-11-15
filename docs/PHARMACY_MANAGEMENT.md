@@ -14,7 +14,7 @@ Medical practices dispense medications and clinical consumables during in-person
 - **Unlisted Medicine Demand Wishlist:** When patients ask for medications the clinic does not currently carry, doctors and staff log them into a separate demand tracker (`MedicineWishlistItem`). It tracks patient inquiry frequency (`request_count`), aggregates demand ranking, auto-increments on duplicate patient requests, and allows 1-click graduation (`+ Stock`) into active inventory when stock arrives.
 
 ### Architecture Placement
-- **Frontend Dashboard:** [PharmacyTab.tsx](file:///Users/emanur/doctors-platform/components/dashboard/PharmacyTab.tsx) mounted inside [DashboardShell.tsx](file:///Users/emanur/doctors-platform/components/dashboard/DashboardShell.tsx) under the "Dispensary Stock" tab. Features a sub-navigation toggle between `Live Dispensary Stock` and `Unlisted Medicine Wishlist`.
+- **Frontend Dashboard:** [PharmacyTab.tsx](file:///Users/emanur/doctors-platform/components/dashboard/PharmacyTab.tsx) mounted inside [DashboardShell.tsx](file:///Users/emanur/doctors-platform/components/dashboard/DashboardShell.tsx) under the "Pharmacy & Stock" tab. Features a sub-navigation toggle between `In-Clinic Stock` and `Unlisted Wishlist`.
 - **Public Patient Practice Page:** [app/[slug]/page.tsx](file:///Users/emanur/doctors-platform/app/[slug]/page.tsx) renders an on-site dispensary feature card when `service_medicine_inventory` is enabled.
 - **Backend API Routes:** FastAPI router at `/api/v1/doctor/pharmacy/*` in [backend/app/api/routes/pharmacy.py](file:///Users/emanur/doctors-platform/backend/app/api/routes/pharmacy.py).
 - **Backend Service Layer:** Business logic in [backend/app/services/pharmacy_service.py](file:///Users/emanur/doctors-platform/backend/app/services/pharmacy_service.py).
@@ -25,7 +25,7 @@ Medical practices dispense medications and clinical consumables during in-person
 ## 2. Code Map
 
 ### Key Files & Responsibilities
-- [components/dashboard/PharmacyTab.tsx](file:///Users/emanur/doctors-platform/components/dashboard/PharmacyTab.tsx): React client component with dual sub-tabs (`Live Stock` and `Wishlist`), KPI cards, demand priority badges, search-empty banner prompts, stock adjustment, pagination, and modals.
+- [components/dashboard/PharmacyTab.tsx](file:///Users/emanur/doctors-platform/components/dashboard/PharmacyTab.tsx): React client component with dual sub-tabs (`In-Clinic Stock` and `Unlisted Wishlist`), KPI cards, demand priority badges, search-empty banner prompts, stock adjustment, pagination, and modals styled in platform `brand-600` theme.
 - [lib/api.ts](file:///Users/emanur/doctors-platform/lib/api.ts): Client fetch abstractions for inventory CRUD and wishlist management (`getMedicineWishlist`, `createWishlistItem`, `incrementWishlistItem`, `updateWishlistItem`, `deleteWishlistItem`, `convertWishlistItem`).
 - [backend/app/models/pharmacy.py](file:///Users/emanur/doctors-platform/backend/app/models/pharmacy.py): SQLAlchemy models `MedicineItem` and `MedicineWishlistItem`.
 - [backend/app/schemas/pharmacy.py](file:///Users/emanur/doctors-platform/backend/app/schemas/pharmacy.py): Pydantic request/response schemas, validators, and stats representations.
@@ -34,10 +34,10 @@ Medical practices dispense medications and clinical consumables during in-person
 - [backend/tests/test_pharmacy.py](file:///Users/emanur/doctors-platform/backend/tests/test_pharmacy.py): Automated test suite for inventory validations, stock updates, wishlist CRUD, multi-tenant isolation, and inventory conversion.
 
 ### Entry Points and Main Flows
-1. **Dispensary Dashboard Load:**
-   - User navigates to Dispensary Stock -> `PharmacyTab` executes `fetchData()` -> concurrently requests `GET /api/v1/doctor/pharmacy/stats`, `GET /api/v1/doctor/pharmacy/medicines`, and `GET /api/v1/doctor/pharmacy/wishlist`.
+1. **Pharmacy & Stock Dashboard Load:**
+   - User navigates to Pharmacy & Stock -> `PharmacyTab` executes `fetchData()` -> concurrently requests `GET /api/v1/doctor/pharmacy/stats`, `GET /api/v1/doctor/pharmacy/medicines`, and `GET /api/v1/doctor/pharmacy/wishlist`.
 2. **Logging Unlisted Medicine Inquiries:**
-   - Patient asks for an unlisted drug -> Staff searches in live inventory; finding 0 results displays banner: *"`{name}` was not found in your dispensary stock. Did a patient inquire about this medicine? [ + Add to Demand Wishlist ]"*.
+   - Patient asks for an unlisted drug -> Staff searches in clinic inventory; finding 0 results displays banner: *"`{name}` is not in your clinic stock. Did a patient request this medicine? Add it to your wishlist to track demand. [ + Add to Wishlist ]"*.
    - Staff submits modal -> `POST /api/v1/doctor/pharmacy/wishlist` -> `pharmacy_service.create_or_increment_wishlist_item`.
    - If an unlisted item with the same name exists (case-insensitive) for the clinic, the service increments `request_count += 1`, appends any new clinical notes, and updates `last_requested_at`.
 3. **Manual Patient Request Increment:**

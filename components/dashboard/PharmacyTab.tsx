@@ -452,15 +452,15 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold shadow-xs">
               <Pill className="w-4.5 h-4.5" />
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                Dispensary &amp; Medicines
+                Pharmacy &amp; Stock
               </h1>
               <p className="text-xs text-slate-500">
-                Track clinic inventory levels, set reorder thresholds, and log unlisted patient medicine demand.
+                Manage clinic medicine inventory, track stock levels and expiry dates, and log unlisted medicine demand.
               </p>
             </div>
           </div>
@@ -472,7 +472,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             onClick={() => loadData(true)}
             disabled={refreshing}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors disabled:opacity-50"
-            title="Refresh dispensary data"
+            title="Refresh inventory and demand data"
           >
             <RotateCw className={`w-3.5 h-3.5 text-slate-500 ${refreshing ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -482,7 +482,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             <button
               type="button"
               onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Add Medicine</span>
@@ -491,7 +491,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             <button
               type="button"
               onClick={() => handleOpenWishlistModal()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Log Unlisted Medicine</span>
@@ -507,16 +507,16 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
           onClick={() => setActiveSection("inventory")}
           className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeSection === "inventory"
-              ? "bg-slate-900 text-white shadow-2xs"
+              ? "bg-brand-600 text-white shadow-2xs"
               : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200"
           }`}
         >
           <Package className="w-3.5 h-3.5" />
-          <span>Live Dispensary Stock</span>
+          <span>In-Clinic Stock</span>
           <span
             className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeSection === "inventory"
-                ? "bg-slate-800 text-slate-200"
+                ? "bg-brand-700 text-brand-100"
                 : "bg-slate-100 text-slate-600"
             }`}
           >
@@ -529,12 +529,12 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
           onClick={() => setActiveSection("wishlist")}
           className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeSection === "wishlist"
-              ? "bg-slate-900 text-white shadow-2xs"
+              ? "bg-brand-600 text-white shadow-2xs"
               : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200"
           }`}
         >
           <ClipboardList className="w-3.5 h-3.5" />
-          <span>Unlisted Medicine Wishlist</span>
+          <span>Unlisted Wishlist</span>
           {activeWishlistCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
@@ -557,14 +557,14 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
         <div
           onClick={() => setStatusFilter("all")}
           className={`bg-white rounded-xl border p-4 shadow-xs flex items-center gap-3.5 cursor-pointer transition-all hover:border-slate-300 ${
-            statusFilter === "all" ? "border-slate-900 ring-1 ring-slate-900/10" : "border-slate-200"
+            statusFilter === "all" ? "border-brand-600 ring-1 ring-brand-600/15" : "border-slate-200"
           }`}
         >
-          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Catalog Items</p>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Catalog</p>
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="text-xl font-bold text-slate-900 tabular-nums">
                 {stats?.total_medicines ?? medicines.length}
@@ -593,7 +593,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 {stats?.in_stock_count ?? medicines.filter((m) => m.status === "in_stock").length}
               </span>
               <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
-                Healthy
+                Optimal
               </span>
             </div>
           </div>
@@ -650,7 +650,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               </span>
               {(stats?.expiring_soon_count || 0) > 0 && (
                 <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-rose-100 text-rose-800 rounded">
-                  &le; 30d
+                  Next 30 Days
                 </span>
               )}
             </div>
@@ -668,8 +668,8 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by brand name, generic formula, SKU..."
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all"
+              placeholder="Search by medicine name, generic formula, SKU..."
+              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
             />
             {searchQuery && (
               <button
@@ -688,7 +688,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full appearance-none pl-3 pr-7 py-1.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 cursor-pointer transition-colors"
+                className="w-full appearance-none pl-3 pr-7 py-1.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer transition-colors"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -717,7 +717,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 onClick={() => setStatusFilter(btn.id as typeof statusFilter)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                   statusFilter === btn.id
-                    ? "bg-slate-900 text-white shadow-2xs"
+                    ? "bg-brand-600 text-white shadow-2xs"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
@@ -741,10 +741,10 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             </div>
             <div>
               <p className="font-semibold text-slate-900">
-                &ldquo;{searchQuery}&rdquo; was not found in your dispensary stock.
+                &ldquo;{searchQuery}&rdquo; is not in your clinic stock.
               </p>
               <p className="text-slate-600 text-[11px] mt-0.5">
-                Did a patient inquire about this medicine? Track patient demand in your unlisted wishlist.
+                Did a patient request this medicine? Add it to your wishlist to track demand.
               </p>
             </div>
           </div>
@@ -754,7 +754,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-300 rounded-lg shrink-0 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add to Demand Wishlist</span>
+            <span>Add to Wishlist</span>
           </button>
         </div>
       )}
@@ -769,7 +769,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             <h3 className="text-sm font-bold text-slate-900">No medicines found</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto mt-0.5">
               {searchQuery || selectedCategory !== "All Categories" || statusFilter !== "all"
-                ? "Try clearing filters to see all clinical inventory."
+                ? "Try clearing filters to see all clinic inventory."
                 : "Your dispensary stock is empty. Click below to add your clinic's medicines."}
             </p>
           </div>
@@ -778,7 +778,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               <button
                 type="button"
                 onClick={handleOpenAddModal}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors"
+                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
               >
                 + Add Medicine
               </button>
@@ -803,11 +803,11 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 tracking-wide">
-                  <th className="py-3 px-4 w-[28%] min-w-[220px]">Medicine &amp; Details</th>
+                  <th className="py-3 px-4 w-[28%] min-w-[220px]">Medicine &amp; Formulation</th>
                   <th className="py-3 px-4 w-[16%] min-w-[130px]">Category</th>
                   <th className="py-3 px-4 w-[16%] min-w-[130px]">Stock Level</th>
-                  <th className="py-3 px-4 w-[12%] min-w-[110px]">Purchased Price</th>
-                  <th className="py-3 px-4 w-[12%] min-w-[110px]">Sale Price</th>
+                  <th className="py-3 px-4 w-[12%] min-w-[110px]">Purchase Price</th>
+                  <th className="py-3 px-4 w-[12%] min-w-[110px]">Selling Price</th>
                   <th className="py-3 px-4 w-[12%] min-w-[110px]">Expiry Date</th>
                   <th className="py-3 px-4 w-[4%] min-w-[70px] text-right">Actions</th>
                 </tr>
@@ -821,7 +821,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
                       {/* Name, Generic, Dosage, SKU */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                        <div className="font-semibold text-slate-900 group-hover:text-brand-600 transition-colors">
                           {item.name}
                         </div>
                         <div className="text-[11px] text-slate-600 flex items-center gap-1.5 mt-0.5">
@@ -872,17 +872,17 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                           </span>
                           {isOutOfStock ? (
                             <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-rose-50 text-rose-700 border border-rose-200">
-                              Out
+                              Out of Stock
                             </span>
                           ) : isLowStock ? (
                             <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-50 text-amber-700 border border-amber-200">
-                              Low
+                              Low Stock
                             </span>
                           ) : null}
                         </div>
                       </td>
 
-                      {/* Purchased Price */}
+                      {/* Purchase Price */}
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-0.5 font-medium text-slate-800 tabular-nums">
                           <IndianRupee className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -890,7 +890,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                         </span>
                       </td>
 
-                      {/* Sale Price */}
+                      {/* Selling Price */}
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-0.5 font-medium text-slate-800 tabular-nums">
                           <IndianRupee className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -974,7 +974,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   <select
                     value={pageSize}
                     onChange={(e) => setPageSize(Number(e.target.value))}
-                    className="px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                    className="px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 cursor-pointer"
                   >
                     <option value={25}>25</option>
                     <option value={50}>50</option>
@@ -1022,14 +1022,14 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
             <div
               onClick={() => setWishlistStatusFilter("all")}
               className={`bg-white rounded-xl border p-4 shadow-xs flex items-center gap-3.5 cursor-pointer transition-all hover:border-slate-300 ${
-                wishlistStatusFilter === "all" ? "border-slate-900 ring-1 ring-slate-900/10" : "border-slate-200"
+                wishlistStatusFilter === "all" ? "border-brand-600 ring-1 ring-brand-600/15" : "border-slate-200"
               }`}
             >
               <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <ClipboardList className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Requested Items</p>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Requested</p>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-xl font-bold text-slate-900 tabular-nums">
                     {wishlistItems.length}
@@ -1056,7 +1056,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     {activeWishlistCount}
                   </span>
                   <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded">
-                    Active
+                    Awaiting Stock
                   </span>
                 </div>
               </div>
@@ -1068,13 +1068,13 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <Flame className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">High Demand (&ge; 3)</p>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">High Demand</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xl font-bold text-slate-900 tabular-nums">
                     {wishlistItems.filter((w) => w.request_count >= 3 && w.status === "requested").length}
                   </span>
                   <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 rounded">
-                    Priority
+                    3+ Inquiries
                   </span>
                 </div>
               </div>
@@ -1091,13 +1091,13 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <Check className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Stocked</p>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Added to Stock</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xl font-bold text-slate-900 tabular-nums">
                     {wishlistItems.filter((w) => w.status === "converted").length}
                   </span>
                   <span className="px-1.5 py-0.2 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
-                    Graduated
+                    In Inventory
                   </span>
                 </div>
               </div>
@@ -1114,8 +1114,8 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   type="text"
                   value={wishlistSearch}
                   onChange={(e) => setWishlistSearch(e.target.value)}
-                  placeholder="Search wishlist by brand name, generic formula, patient notes..."
-                  className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all"
+                  placeholder="Search wishlist by medicine name, generic formula, patient notes..."
+                  className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                 />
                 {wishlistSearch && (
                   <button
@@ -1130,7 +1130,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               <button
                 type="button"
                 onClick={() => handleOpenWishlistModal()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Log Unlisted Medicine</span>
@@ -1143,7 +1143,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 {[
                   { id: "all", label: "All Requests" },
                   { id: "requested", label: "Pending Demand" },
-                  { id: "converted", label: "Graduated to Stock" },
+                  { id: "converted", label: "Added to Stock" },
                 ].map((btn) => (
                   <button
                     key={btn.id}
@@ -1151,7 +1151,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     onClick={() => setWishlistStatusFilter(btn.id as typeof wishlistStatusFilter)}
                     className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                       wishlistStatusFilter === btn.id
-                        ? "bg-slate-900 text-white shadow-2xs"
+                        ? "bg-brand-600 text-white shadow-2xs"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                     }`}
                   >
@@ -1175,14 +1175,14 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               <div>
                 <h3 className="text-sm font-bold text-slate-900">No unlisted medicine requests found</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto mt-0.5">
-                  When a patient asks for a medicine your clinic does not currently carry, log it here. You can track how many patients ask for it, rank demand, and graduate it to active inventory.
+                  When patients inquire about medicines your clinic does not currently carry, log them here to track demand and graduate popular requests into inventory.
                 </p>
               </div>
               <div className="pt-1">
                 <button
                   type="button"
                   onClick={() => handleOpenWishlistModal()}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors"
+                  className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
                 >
                   + Log Unlisted Medicine
                 </button>
@@ -1194,10 +1194,10 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700 tracking-wide">
-                      <th className="py-3 px-4 w-[28%] min-w-[220px]">Unlisted Medicine &amp; Details</th>
+                      <th className="py-3 px-4 w-[28%] min-w-[220px]">Medicine Name &amp; Details</th>
                       <th className="py-3 px-4 w-[16%] min-w-[130px]">Category</th>
                       <th className="py-3 px-4 w-[16%] min-w-[130px]">Patient Demand</th>
-                      <th className="py-3 px-4 w-[14%] min-w-[110px]">Last Inquired</th>
+                      <th className="py-3 px-4 w-[14%] min-w-[110px]">Last Requested</th>
                       <th className="py-3 px-4 w-[14%] min-w-[110px]">Status</th>
                       <th className="py-3 px-4 w-[12%] min-w-[130px] text-right">Actions</th>
                     </tr>
@@ -1261,7 +1261,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                             </div>
                           </td>
 
-                          {/* Last Inquired */}
+                          {/* Last Requested */}
                           <td className="py-3.5 px-4 text-slate-600 text-xs font-medium">
                             {item.last_requested_at
                               ? new Date(item.last_requested_at).toLocaleDateString("en-IN", {
@@ -1281,7 +1281,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded">
-                                Pending
+                                Awaiting Stock
                               </span>
                             )}
                           </td>
@@ -1302,8 +1302,8 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                                 <button
                                   type="button"
                                   onClick={() => handleStartConvertWishlist(item)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-semibold transition-colors"
-                                  title="Add to dispensary inventory"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-semibold shadow-2xs transition-colors"
+                                  title="Add to clinic inventory"
                                 >
                                   <span>+ Stock</span>
                                 </button>
@@ -1313,7 +1313,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                                 type="button"
                                 onClick={() => handleDeleteWishlist(item)}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                                title="Delete from wishlist"
+                                title="Remove from wishlist"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1338,13 +1338,18 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
           <div className="bg-white rounded-2xl border border-slate-200 max-w-xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center">
-                  <Pill className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-xs">
+                  <Pill className="w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  {editingItem ? "Edit Clinical Medicine" : "Add Medicine to Catalog"}
-                </h3>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {editingItem ? "Edit Medicine Details" : "Add Medicine to Inventory"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Record clinical medicine formulations, pricing, and stock alerts.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -1360,7 +1365,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               {/* Group 1: Medication Details */}
               <div className="space-y-3">
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  1. Clinical Formulation
+                  1. Medicine Details &amp; Formulation
                 </p>
 
                 <div>
@@ -1373,7 +1378,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. Amoxicillin 500mg, Augmentin 625mg..."
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   />
                 </div>
 
@@ -1387,7 +1392,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                       value={formData.generic_name || ""}
                       onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
                       placeholder="e.g. Amoxicillin Clavulanate"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
 
@@ -1398,7 +1403,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     >
                       {CATEGORIES.filter((c) => c !== "All Categories").map((c) => (
                         <option key={c} value={c}>
@@ -1417,7 +1422,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                     <select
                       value={formData.dosage_form}
                       onChange={(e) => setFormData({ ...formData, dosage_form: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     >
                       {DOSAGE_FORMS.map((f) => (
                         <option key={f} value={f}>
@@ -1429,27 +1434,27 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Strength / Unit
+                      Strength / Dosage
                     </label>
                     <input
                       type="text"
                       value={formData.strength || ""}
                       onChange={(e) => setFormData({ ...formData, strength: e.target.value })}
                       placeholder="e.g. 500 mg, 100 ml"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      SKU / Barcode
+                      SKU / Item Code
                     </label>
                     <input
                       type="text"
                       value={formData.sku || ""}
                       onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                       placeholder="e.g. MED-AMX500"
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
                 </div>
@@ -1458,7 +1463,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
               {/* Group 2: Stock, Pricing & Expiry */}
               <div className="space-y-3 pt-3 border-t border-slate-100">
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  2. Inventory &amp; Expiry
+                  2. Stock, Pricing &amp; Expiry
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1474,13 +1479,13 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, stock_quantity: parseInt(e.target.value, 10) || 0 })
                       }
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Low Stock Threshold
+                      Low Stock Alert Threshold
                     </label>
                     <input
                       type="number"
@@ -1489,7 +1494,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, min_stock_alert: parseInt(e.target.value, 10) || 0 })
                       }
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
                 </div>
@@ -1497,7 +1502,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Purchased Price
+                      Purchase Price (Cost)
                     </label>
                     <div className="relative">
                       <IndianRupee className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1509,14 +1514,14 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                         onChange={(e) =>
                           setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })
                         }
-                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Sale Price <span className="text-rose-500">*</span>
+                      Selling Price (Retail) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <IndianRupee className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1533,7 +1538,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                             unit_price: e.target.value === "" ? 0 : parseFloat(e.target.value) || 0,
                           })
                         }
-                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                        className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                       />
                     </div>
                   </div>
@@ -1549,20 +1554,20 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                       required
                       value={formData.expiry_date || ""}
                       onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Manufacturer / Supplier
+                      Manufacturer / Brand
                     </label>
                     <input
                       type="text"
                       value={formData.manufacturer || ""}
                       onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                      placeholder="e.g. Pfizer, Cipla..."
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                      placeholder="e.g. Pfizer, Cipla, Sun Pharma..."
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     />
                   </div>
                 </div>
@@ -1580,7 +1585,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
                 >
                   {actionLoading ? "Saving..." : editingItem ? "Update Medicine" : "Save Medicine"}
                 </button>
@@ -1598,16 +1603,16 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
           <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center">
-                  <ClipboardList className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                  <ClipboardList className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">
                     Log Unlisted Medicine Request
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Track demand for a medicine not currently in clinic inventory.
+                    Record patient demand for medicines not currently stocked in your clinic.
                   </p>
                 </div>
               </div>
@@ -1632,7 +1637,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   value={wishlistFormData.name}
                   onChange={(e) => setWishlistFormData({ ...wishlistFormData, name: e.target.value })}
                   placeholder="e.g. Duphaston 10mg, Omnigel, Becosules Z..."
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
               </div>
 
@@ -1645,7 +1650,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   value={wishlistFormData.generic_name || ""}
                   onChange={(e) => setWishlistFormData({ ...wishlistFormData, generic_name: e.target.value })}
                   placeholder="e.g. Dydrogesterone"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
               </div>
 
@@ -1657,7 +1662,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   <select
                     value={wishlistFormData.category}
                     onChange={(e) => setWishlistFormData({ ...wishlistFormData, category: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     {CATEGORIES.filter((c) => c !== "All Categories").map((c) => (
                       <option key={c} value={c}>
@@ -1674,7 +1679,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                   <select
                     value={wishlistFormData.dosage_form}
                     onChange={(e) => setWishlistFormData({ ...wishlistFormData, dosage_form: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     {DOSAGE_FORMS.map((f) => (
                       <option key={f} value={f}>
@@ -1687,27 +1692,27 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Strength / Packaging
+                  Strength / Packaging (Optional)
                 </label>
                 <input
                   type="text"
                   value={wishlistFormData.strength || ""}
                   onChange={(e) => setWishlistFormData({ ...wishlistFormData, strength: e.target.value })}
                   placeholder="e.g. 10 mg, 100 ml, 30g tube"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Patient Notes / Inquiry Reason (Optional)
+                  Patient Notes / Clinical Reason (Optional)
                 </label>
                 <textarea
                   rows={2}
                   value={wishlistFormData.notes || ""}
                   onChange={(e) => setWishlistFormData({ ...wishlistFormData, notes: e.target.value })}
-                  placeholder="e.g. Inquired by patient Ramesh for joint pain, prefers brand over generic"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 resize-none"
+                  placeholder="e.g. Inquired by patient for joint pain; prefers tablet over ointment"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 resize-none"
                 />
               </div>
 
@@ -1723,7 +1728,7 @@ export default function PharmacyTab({ doctor: _doctor }: PharmacyTabProps) {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-xs transition-colors disabled:opacity-50"
                 >
                   {actionLoading ? "Saving..." : "Save to Wishlist"}
                 </button>
