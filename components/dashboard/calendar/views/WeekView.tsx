@@ -90,15 +90,15 @@ export default function WeekView({
             <div className="h-3 w-px bg-slate-200 mx-1 hidden sm:block" />
 
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700 shrink-0" aria-hidden="true" />
               <span className="font-semibold text-slate-700 text-[11px]">Appointment</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 border border-amber-600 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 border border-amber-600 shrink-0" aria-hidden="true" />
               <span className="font-semibold text-slate-700 text-[11px]">Doctor Leave</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs bg-purple-500 border border-purple-600 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-xs bg-purple-500 border border-purple-600 shrink-0" aria-hidden="true" />
               <span className="font-semibold text-slate-700 text-[11px]">Blocked Period</span>
             </div>
           </div>
@@ -128,11 +128,22 @@ export default function WeekView({
                 return (
                   <div
                     key={day.dateStr}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectDate(day.dateStr)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectDate(day.dateStr);
+                      }
+                    }}
+                    aria-label={`${day.dayName}, ${day.dateStr}${isToday ? " (Today)" : ""}${day.isSelected ? " (Selected)" : ""}`}
+                    aria-current={isToday ? "date" : undefined}
+                    aria-pressed={day.isSelected}
                     className={`py-2 px-1 text-center border-r border-slate-200 last:border-r-0 cursor-pointer transition-all ${day.isSelected
-                        ? "bg-brand-50/70 shadow-inner"
+                        ? "bg-brand-50 shadow-inner"
                         : isToday
-                          ? "bg-brand-50/30 hover:bg-brand-50/50"
+                          ? "bg-brand-50 hover:bg-brand-100"
                           : "hover:bg-slate-50"
                       }`}
                   >
@@ -150,6 +161,7 @@ export default function WeekView({
                       {isToday && !day.isSelected && (
                         <span
                           className="w-1.5 h-1.5 rounded-full bg-brand-600 inline-block shrink-0"
+                          aria-hidden="true"
                           title="Today"
                         />
                       )}
@@ -257,7 +269,7 @@ export default function WeekView({
                         return (
                           <div
                             key={`${day.dateStr}-${timeRow}`}
-                            className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${day.isSelected ? "bg-brand-50/15" : "hover:bg-slate-50/60"
+                            className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${day.isSelected ? "bg-brand-50" : "hover:bg-slate-50"
                               }`}
                           >
                             {apptEvent ? (

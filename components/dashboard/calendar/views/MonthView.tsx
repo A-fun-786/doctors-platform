@@ -35,12 +35,23 @@ export default function MonthView({
             return (
               <div
                 key={idx}
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectDate(cell.dateStr)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectDate(cell.dateStr);
+                  }
+                }}
+                aria-label={`${cell.dateStr}${cell.isToday ? " (Today)" : ""}${cell.isSelected ? " (Selected)" : ""}${appts > 0 ? `, ${appts} appointments` : ""}${leaves > 0 ? `, ${leaves} leaves` : ""}`}
+                aria-current={cell.isToday ? "date" : undefined}
+                aria-pressed={cell.isSelected}
                 className={`min-h-[75px] sm:min-h-[85px] p-1.5 sm:p-2 border rounded-xl cursor-pointer hover:border-brand-400 transition-all ${
                   cell.isSelected
-                    ? "bg-brand-50/60 border-brand-500 shadow-2xs"
+                    ? "bg-brand-50 border-brand-500 shadow-2xs"
                     : cell.isToday
-                    ? "border-brand-300 bg-brand-50/20"
+                    ? "border-brand-300 bg-brand-50"
                     : cell.isCurrentMonth
                     ? "border-slate-200 bg-white"
                     : "border-slate-200 bg-slate-50/50 opacity-60"

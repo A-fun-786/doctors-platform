@@ -69,7 +69,7 @@ export default function DayView({
                 key={shift.id || idx}
                 className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${theme.pillBg} ${theme.pillText} ${theme.pillBorder}`}
               >
-                <span className={`w-2 h-2 rounded-full ${theme.indicator} shrink-0`} />
+                <span className={`w-2 h-2 rounded-full ${theme.indicator} shrink-0`} aria-hidden="true" />
                 <span className="font-semibold text-[11px]">
                   {shift.label || `Schedule ${idx + 1}`} ({format12Hour(shift.start)} – {format12Hour(shift.end)})
                 </span>
@@ -82,11 +82,11 @@ export default function DayView({
           <span className="hidden sm:inline">Dynamic Schedule Slots</span>
           <span className="hidden sm:inline text-slate-300">•</span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
             Appointment (Patient)
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
             Doctor Leave
           </span>
         </div>
@@ -196,7 +196,7 @@ export default function DayView({
                           </div>
 
                           <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" aria-hidden="true" />
                             <span className="font-bold text-slate-900 truncate">
                               {patientName}
                             </span>

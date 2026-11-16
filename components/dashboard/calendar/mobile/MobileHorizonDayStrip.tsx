@@ -53,11 +53,14 @@ export default function MobileHorizonDayStrip({
               key={day.dateStr}
               type="button"
               onClick={() => onSelectDate(day.dateStr)}
+              aria-label={`${day.dayName}, ${day.dateStr}${isToday ? " (Today)" : ""}${isSelected ? " (Selected)" : ""}`}
+              aria-current={isToday ? "date" : undefined}
+              aria-pressed={isSelected}
               className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all cursor-pointer relative min-h-[54px] ${
                 isSelected
                   ? "bg-brand-600 text-white shadow-xs font-bold scale-[1.03]"
                   : isToday
-                  ? "border border-brand-300 bg-brand-50/60 text-brand-900 font-semibold hover:bg-brand-100/50"
+                  ? "border border-brand-300 bg-brand-50 text-brand-900 font-semibold hover:bg-brand-100"
                   : "hover:bg-slate-100 text-slate-700 font-medium"
               }`}
               title={`${day.dayName}, ${day.dateStr}`}
@@ -81,7 +84,7 @@ export default function MobileHorizonDayStrip({
               </span>
 
               {/* Activity indicator dot */}
-              <div className="flex items-center justify-center gap-0.5 mt-1 h-1.5">
+              <div className="flex items-center justify-center gap-0.5 mt-1 h-1.5" aria-hidden="true">
                 {hasAppointments && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
