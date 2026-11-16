@@ -106,18 +106,19 @@ The remaining components have been categorized into a structured 4-phase rollout
 ---
 
 ### 🟢 Batch 2: Calendar Grid Views, MiniCalendar & Mobile Date Strip (Status: ✅ DONE LOCALLY)
-- **Target Files (5 files):**
+- **Target Files (5 files + 1 test suite):**
   1. [`components/dashboard/calendar/sidebar/MiniCalendar.tsx`](../components/dashboard/calendar/sidebar/MiniCalendar.tsx)
   2. [`components/dashboard/calendar/mobile/MobileHorizonDayStrip.tsx`](../components/dashboard/calendar/mobile/MobileHorizonDayStrip.tsx)
   3. [`components/dashboard/calendar/views/MonthView.tsx`](../components/dashboard/calendar/views/MonthView.tsx)
   4. [`components/dashboard/calendar/views/WeekView.tsx`](../components/dashboard/calendar/views/WeekView.tsx)
   5. [`components/dashboard/calendar/views/DayView.tsx`](../components/dashboard/calendar/views/DayView.tsx)
-- **Scope & Token Mapping:**
-  - `MiniCalendar`: Selected date `bg-brand-600`, today badge `border-2 border-brand-600 text-brand-600`, appointment day pill `bg-brand-100 text-brand-800`, event dots `bg-brand-600`.
-  - `MobileHorizonDayStrip`: Jump to Today link `text-brand-600`, selected chip `bg-brand-600`, today chip `border-brand-300 bg-brand-50/60 text-brand-900`.
-  - `MonthView`: Selected day cell `bg-brand-50/60 border-brand-500`, today circle `bg-brand-600 text-white`, booked pill `bg-brand-100 text-brand-800`.
-  - `WeekView`: Today column header tint `bg-brand-50/30`, day name `text-brand-600`, today circle `border-2 border-brand-600 text-brand-600`, selected circle `bg-brand-600 text-white`, appointment legend dot `bg-brand-600 border-brand-700`.
-  - `DayView`: Patient legend dot `bg-brand-500`, small slot dot `bg-brand-600`.
+  6. [`scripts/test_commit2_best_practices.mjs`](../scripts/test_commit2_best_practices.mjs) (Automated QA verification)
+- **Scope, Tokens & Best Practice Fixes Applied:**
+  - `MiniCalendar`: Selected date `bg-brand-600`, today badge `border-2 border-brand-600 text-brand-600 bg-brand-50 hover:bg-brand-100`, appointment day pill `bg-brand-100 text-brand-800 hover:bg-brand-200`, event dots `bg-brand-600` with `aria-hidden="true"`, date buttons announce `aria-current="date"` and `aria-pressed`.
+  - `MobileHorizonDayStrip`: Jump to Today link `text-brand-600`, selected chip `bg-brand-600`, today chip `border-brand-300 bg-brand-50 text-brand-900 hover:bg-brand-100` (standard tokens without arbitrary opacities), date buttons with `aria-current="date"`, `aria-pressed`, and `aria-hidden="true"` on activity indicators.
+  - `MonthView`: Selected day cell `bg-brand-50 border-brand-500`, today circle `border-brand-300 bg-brand-50` and `bg-brand-600 text-white`, booked pill `bg-brand-100 text-brand-800`, day cells with `role="button"`, `aria-current="date"`, and `aria-pressed`.
+  - `WeekView`: Today column header tint `bg-brand-50 hover:bg-brand-100`, selected column header `bg-brand-50 shadow-inner`, day name `text-brand-600`, today circle `border-2 border-brand-600 text-brand-600`, selected circle `bg-brand-600 text-white`, appointment legend dot `bg-brand-600 border-brand-700` with `aria-hidden="true"`, today dot with `aria-hidden="true"`, day headers with `role="button"`, `aria-current="date"`, and `aria-pressed`.
+  - `DayView`: Patient legend dot `bg-brand-500`, small slot dot `bg-brand-600` with `aria-hidden="true"`.
   - 🔒 *Note: `SHIFT_THEME_PALETTES` (multi-shift appointment slot colors) across DayView & WeekView are preserved as-is per user specification. Line 108 Summary KPI icon (`bg-blue-50 text-blue-600`) in DayView is also preserved.*
 
 ---
