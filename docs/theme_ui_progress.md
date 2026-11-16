@@ -81,26 +81,27 @@ Per strict design principles, there is **no multi-color clutter** (no conflictin
 The remaining components have been categorized into a structured 4-phase rollout:
 
 ### 🟢 Batch 1: Doctor Working Hours & Calendar Navigation Core (Status: ✅ DONE LOCALLY)
-- **Target Files (4 files):**
+- **Target Files (4 files + 1 test suite):**
   1. [`components/dashboard/calendar/modals/EditWorkingHoursModal.tsx`](../components/dashboard/calendar/modals/EditWorkingHoursModal.tsx)
   2. [`components/dashboard/calendar/sidebar/WorkingHoursCard.tsx`](../components/dashboard/calendar/sidebar/WorkingHoursCard.tsx)
   3. [`components/dashboard/calendar/mobile/MobileClinicStatusCapsule.tsx`](../components/dashboard/calendar/mobile/MobileClinicStatusCapsule.tsx)
   4. [`components/dashboard/calendar/views/CalendarHeader.tsx`](../components/dashboard/calendar/views/CalendarHeader.tsx)
-- **Key Tokens Applied:**
+  5. [`scripts/test_commit1_best_practices.mjs`](../scripts/test_commit1_best_practices.mjs) (Automated QA verification)
+- **Key Tokens & Best Practice Fixes Applied:**
   - Modal icon container: `bg-brand-50 text-brand-600 border-brand-100`
-  - Capacity banner: `from-brand-50/90 via-teal-50/60 to-brand-50/90 border-brand-200/80 text-brand-950`
+  - Capacity banner: `from-brand-50/90 via-brand-50/60 to-brand-50/90 border-brand-200/80 text-brand-950` (strict brand tokens)
   - Total slots pill: `bg-brand-600 text-white`
   - Shift card hover: `hover:border-brand-200`, Shift badge: `bg-brand-50 text-brand-700 border-brand-200`
   - Shift slots badge: `bg-brand-50 text-brand-800 border-brand-200`
-  - Shift toggle active switch: `peer-checked:bg-brand-600`
-  - Form selects focus: `focus:ring-brand-500/20 focus:border-brand-500`
+  - Shift toggle active switch: `peer-checked:bg-brand-600` with accessible `aria-label` for screen-reader compatibility
+  - Form selects focus: `focus:outline-none focus:ring-brand-500/20 focus:border-brand-500` (Tailwind v3 compatible)
   - Add schedule window CTA: `border-dashed border-brand-300 bg-brand-50/40 text-brand-700 hover:bg-brand-100/70`
   - Save button: `bg-brand-600 hover:bg-brand-700`
   - WorkingHoursCard Edit CTA: `text-brand-700 bg-brand-50/80 border-brand-200 hover:bg-brand-100/80`
-  - Capacity indicator dot: `bg-brand-500`
-  - Mobile clinic capsule gradient: `from-brand-50/80 via-teal-50/40 to-slate-50 border-brand-100`
+  - Capacity indicator dot: `bg-brand-500` with `aria-hidden="true"`
+  - Mobile clinic capsule gradient: `from-brand-50/80 via-brand-50/40 to-slate-50 border-brand-100` with `aria-hidden="true"` on pulse dots
   - Upcoming shift dot: `bg-brand-500`
-  - CalendarHeader View Switcher: Day/Week/Month active `bg-brand-600 hover:bg-brand-700 text-white`, inactive hover `hover:text-brand-700 hover:bg-brand-50/70`, focus `focus-visible:ring-brand-500`
+  - CalendarHeader View Switcher: Day/Week/Month active `bg-brand-600 hover:bg-brand-700 text-white`, inactive hover `hover:text-brand-700 hover:bg-brand-50/70`, focus `focus-visible:outline-none focus-visible:ring-brand-500`
 
 ---
 
