@@ -1,7 +1,7 @@
 # 🗓️ Appointment Tab — Sidebar Components Theme Migration Plan
 
 **Document:** `docs/calendar_sidebar_theme_plan.md`  
-**Theme Reference:** [`config/theme.config.ts`](file:///d:/doctors-platform/config/theme.config.ts)  
+**Theme Reference:** [`config/theme.config.ts`](../config/theme.config.ts)  
 **Target Module:** Appointment Calendar Sidebar (`components/dashboard/calendar/sidebar/*`)  
 **Scope:** `MiniCalendar.tsx`, `WorkingHoursCard.tsx`, and `CalendarSidebar.tsx`  
 **Status:** ✅ Completed & Verified (100% Tests Passing)  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary
 
-This plan focuses exclusively on migrating the **Appointment Tab's Sidebar Components** from legacy `blue-*` styles to the centralized clinical theme system defined in [`config/theme.config.ts`](file:///d:/doctors-platform/config/theme.config.ts).
+This plan focuses exclusively on migrating the **Appointment Tab's Sidebar Components** from legacy `blue-*` styles to the centralized clinical theme system defined in [`config/theme.config.ts`](../config/theme.config.ts).
 
 ### Theme Tokens in Use:
 - **Primary Brand Color (`brand-600` / `#059669`):** Selected date active background, primary icons, and high-contrast indicators.
@@ -24,7 +24,7 @@ This plan focuses exclusively on migrating the **Appointment Tab's Sidebar Compo
 
 ## 2. Target Files Breakdown
 
-### File 1: [`components/dashboard/calendar/sidebar/MiniCalendar.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/sidebar/MiniCalendar.tsx)
+### File 1: [`components/dashboard/calendar/sidebar/MiniCalendar.tsx`](../components/dashboard/calendar/sidebar/MiniCalendar.tsx)
 
 Responsible for the interactive Google Calendar-style month matrix, active day indicators, and event dots.
 
@@ -50,7 +50,7 @@ Responsible for the interactive Google Calendar-style month matrix, active day i
 
 ---
 
-### File 2: [`components/dashboard/calendar/sidebar/WorkingHoursCard.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/sidebar/WorkingHoursCard.tsx)
+### File 2: [`components/dashboard/calendar/sidebar/WorkingHoursCard.tsx`](../components/dashboard/calendar/sidebar/WorkingHoursCard.tsx)
 
 Displays active operating shifts, total patient booking capacity, and provides the "Edit" CTA trigger.
 
@@ -59,25 +59,29 @@ Displays active operating shifts, total patient booking capacity, and provides t
    - **Current:** `bg-blue-50 text-blue-600 ... border border-blue-100`
    - **Target:** `bg-brand-50 text-brand-600 ... border border-brand-100`
 
-2. **"Edit" Hours Action Button (Line 51):**
+2. **Active Shifts Indicator (Lines 40-41):**
+   - **Current:** `text-emerald-600` with `bg-emerald-500 animate-pulse`
+   - **Target:** `text-brand-600` with `bg-brand-500 animate-pulse`
+
+3. **"Edit" Hours Action Button (Line 51):**
    - **Current:** `text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border-blue-100`
    - **Target:** `text-brand-700 hover:text-brand-800 bg-brand-50/80 hover:bg-brand-100/80 border-brand-200`
 
-3. **Shift Item Hover State (Line 78):**
+4. **Shift Item Hover State (Line 78):**
    - **Current:** `hover:bg-blue-50/30 border border-slate-100 hover:border-blue-200`
    - **Target:** `hover:bg-brand-50/30 border border-slate-100 hover:border-brand-200`
 
-4. **Shift Slot Count Pill (Line 95):**
+5. **Shift Slot Count Pill (Line 95):**
    - **Current:** `bg-blue-50 text-blue-700 border border-blue-100`
    - **Target:** `bg-brand-50 text-brand-800 border border-brand-200 font-semibold`
 
-5. **Total Capacity Dot (Line 112):**
+6. **Total Capacity Dot (Line 112):**
    - **Current:** `bg-blue-500`
    - **Target:** `bg-brand-500`
 
 ---
 
-### File 3: [`components/dashboard/calendar/sidebar/CalendarSidebar.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/sidebar/CalendarSidebar.tsx)
+### File 3: [`components/dashboard/calendar/sidebar/CalendarSidebar.tsx`](../components/dashboard/calendar/sidebar/CalendarSidebar.tsx)
 
 - **Verification:** Serves as the wrapper container (`hidden xl:grid xl:col-span-3 grid-cols-1 gap-5`).
 - Ensure props passed between `CalendarTab` and both child widgets maintain typing and render without layout shift.
@@ -93,6 +97,7 @@ Displays active operating shifts, total patient booking capacity, and provides t
 | **MiniCal Selected Other Day** | `bg-blue-100 text-blue-800` | `bg-brand-100 text-brand-800` | `#d1fae5` / `#065f46` |
 | **MiniCal Event Dot** | `bg-blue-600` / `bg-blue-700` | `bg-brand-600` / `bg-brand-700` | `#059669` / `#047857` |
 | **Working Hours Clock Icon** | `bg-blue-50 text-blue-600 border-blue-100` | `bg-brand-50 text-brand-600 border-brand-100` | `#ecfdf5` / `#059669` |
+| **Active Shifts Indicator** | `text-emerald-600 bg-emerald-500` | `text-brand-600 bg-brand-500` | `#059669` / `#10b981` |
 | **Edit Hours Button** | `text-blue-600 bg-blue-50/70 border-blue-100` | `text-brand-700 bg-brand-50/80 border-brand-200` | `#047857` / `#ecfdf5` |
 | **Shift Item Hover** | `hover:bg-blue-50/30 hover:border-blue-200` | `hover:bg-brand-50/30 hover:border-brand-200` | `#ecfdf5` / `#a7f3d0` |
 | **Shift Slot Badge** | `bg-blue-50 text-blue-700 border-blue-100` | `bg-brand-50 text-brand-800 border-brand-200` | `#ecfdf5` / `#065f46` |
@@ -102,8 +107,8 @@ Displays active operating shifts, total patient booking capacity, and provides t
 
 ## 4. Implementation Steps
 
-1. **Step 1:** Update [`components/dashboard/calendar/sidebar/MiniCalendar.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/sidebar/MiniCalendar.tsx) — ✅ Completed.
-2. **Step 2:** Update [`components/dashboard/calendar/sidebar/WorkingHoursCard.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/sidebar/WorkingHoursCard.tsx) — ✅ Completed.
+1. **Step 1:** Update [`components/dashboard/calendar/sidebar/MiniCalendar.tsx`](../components/dashboard/calendar/sidebar/MiniCalendar.tsx) — ✅ Completed.
+2. **Step 2:** Update [`components/dashboard/calendar/sidebar/WorkingHoursCard.tsx`](../components/dashboard/calendar/sidebar/WorkingHoursCard.tsx) — ✅ Completed.
 3. **Step 3:** Verify TypeScript compilation & Tailwind CSS rendering (`npm run test`, `npx tsc --noEmit`) — ✅ 100% Passed.
-4. **Step 4:** Added regression test suite [`scripts/test_calendar_sidebar_theme.mjs`](file:///d:/doctors-platform/scripts/test_calendar_sidebar_theme.mjs) — ✅ 100% Passed.
+4. **Step 4:** Added regression test suite [`scripts/test_calendar_sidebar_theme.mjs`](../scripts/test_calendar_sidebar_theme.mjs) — ✅ 100% Passed.
 

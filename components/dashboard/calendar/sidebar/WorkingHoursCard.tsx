@@ -37,8 +37,8 @@ export default function WorkingHoursCard({
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-900 leading-tight">Working Hours</h3>
-            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] text-brand-600 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
               {enabledShifts.length} {enabledShifts.length === 1 ? "Shift" : "Shifts"} Active
             </span>
           </div>

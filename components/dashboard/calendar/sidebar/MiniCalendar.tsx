@@ -83,7 +83,7 @@ export default function MiniCalendar({
           let dotColor = "bg-brand-600";
 
           if (item.isToday && item.isSelected) {
-            // Today and Selected: Solid Google blue with white text
+            // Today and Selected: Solid clinical brand emerald with white text
             buttonClasses = "bg-brand-600 text-white font-bold shadow-xs scale-105";
             dotColor = "bg-white";
           } else if (item.isToday && !item.isSelected) {
@@ -91,7 +91,7 @@ export default function MiniCalendar({
             buttonClasses = "border-2 border-brand-600 text-brand-600 font-extrabold bg-brand-50/50 shadow-2xs hover:bg-brand-100/60";
             dotColor = "bg-brand-600";
           } else if (!item.isToday && item.isSelected) {
-            // Selected date (not today): Google Calendar soft blue selection circle
+            // Selected date (not today): Soft brand tint selection circle
             buttonClasses = "bg-brand-100 text-brand-800 font-bold hover:bg-brand-200/80 shadow-2xs";
             dotColor = "bg-brand-700";
           } else if (!item.isCurrentMonth) {
