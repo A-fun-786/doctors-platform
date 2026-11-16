@@ -160,9 +160,9 @@ export default function AppointmentRescheduleForm({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Back to Details</span>
         </button>
         <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200">
@@ -171,7 +171,7 @@ export default function AppointmentRescheduleForm({
       </div>
 
       {/* Current Slot Info Callout */}
-      <div className="p-3 bg-brand-50/60 rounded-xl border border-brand-100 text-xs text-brand-950">
+      <div className="p-3 bg-brand-50 rounded-xl border border-brand-200 text-xs text-brand-950">
         <div className="font-semibold text-[11px] text-brand-700 uppercase tracking-wider mb-0.5">
           Currently Scheduled For:
         </div>
@@ -183,18 +183,19 @@ export default function AppointmentRescheduleForm({
       {/* Error Feedback Banner */}
       {formError && (
         <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 font-medium">{formError}</div>
         </div>
       )}
 
       {/* Field: Appointment Date */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5 text-brand-600" />
+        <label htmlFor="reschedule-date" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
           <span>Target Appointment Date</span>
         </label>
         <input
+          id="reschedule-date"
           type="date"
           value={targetDate}
           onChange={(e) => {
@@ -218,11 +219,12 @@ export default function AppointmentRescheduleForm({
 
       {/* Field: Visit Reason */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5 text-brand-600" />
+        <label htmlFor="reschedule-reason" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
           <span>Visit Reason / Consultation Note</span>
         </label>
         <input
+          id="reschedule-reason"
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -250,10 +252,11 @@ export default function AppointmentRescheduleForm({
 
       {/* Field: Additional Clinical Notes */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700">
+        <label htmlFor="reschedule-notes" className="text-xs font-bold text-slate-700">
           Additional Clinical Notes (Optional)
         </label>
         <textarea
+          id="reschedule-notes"
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -278,7 +281,7 @@ export default function AppointmentRescheduleForm({
           disabled={submitting}
           className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 text-center cursor-pointer"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4" aria-hidden="true" />
           <span>Save Changes</span>
         </button>
       </div>
