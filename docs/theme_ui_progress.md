@@ -124,19 +124,26 @@ The remaining components have been categorized into a structured 4-phase rollout
 ---
 
 ### 🟢 Batch 3: Appointment Booking, Time-Blocking & Rescheduling (Status: ✅ DONE LOCALLY)
-- **Target Files (5 files):**
+- **Target Files (9 files + 1 test suite):**
   1. [`components/dashboard/calendar/modals/AddAppointmentModal.tsx`](../components/dashboard/calendar/modals/AddAppointmentModal.tsx)
   2. [`components/dashboard/calendar/modals/BlockTimeModal.tsx`](../components/dashboard/calendar/modals/BlockTimeModal.tsx)
-  3. [`components/dashboard/calendar/modals/EventDetailsModal.tsx`](../components/dashboard/calendar/modals/EventDetailsModal.tsx) & [`SlotActionModal.tsx`](../components/dashboard/calendar/modals/SlotActionModal.tsx)
-  4. [`components/dashboard/calendar/panels/SlotSelectorGrid.tsx`](../components/dashboard/calendar/panels/SlotSelectorGrid.tsx) & [`AppointmentRescheduleForm.tsx`](../components/dashboard/calendar/panels/AppointmentRescheduleForm.tsx)
-  5. [`components/dashboard/calendar/panels/RescheduleConfirmModal.tsx`](../components/dashboard/calendar/panels/RescheduleConfirmModal.tsx), [`AppointmentDetailsPanel.tsx`](../components/dashboard/calendar/panels/AppointmentDetailsPanel.tsx) & [`LeaveDetailsPanel.tsx`](../components/dashboard/calendar/panels/LeaveDetailsPanel.tsx)
-- **Scope & Token Mapping:**
-  - `AddAppointmentModal`: Inputs focus `focus:ring-brand-500/25 focus:border-brand-600`, duration badge `bg-brand-50 text-brand-800`, submit CTA `bg-brand-600 hover:bg-brand-700`.
-  - `BlockTimeModal`: Inputs focus `focus:ring-brand-500`, submit CTA `bg-brand-600 hover:bg-brand-700`.
-  - `EventDetailsModal` & `SlotActionModal`: CTAs `bg-brand-600`, icons `bg-brand-50 text-brand-600`.
-  - `SlotSelectorGrid`: Selected slot `bg-brand-600 text-white`, available slot hover `border-brand-200 text-brand-950 hover:bg-brand-50`.
-  - `RescheduleConfirmModal`: Confirm reschedule button `bg-brand-600 hover:bg-brand-700`, icon `bg-brand-50 text-brand-600`.
-  - `AppointmentDetailsPanel` & `LeaveDetailsPanel`: Action buttons `bg-brand-600`, detail pills `bg-brand-50 text-brand-800`.
+  3. [`components/dashboard/calendar/modals/EventDetailsModal.tsx`](../components/dashboard/calendar/modals/EventDetailsModal.tsx)
+  4. [`components/dashboard/calendar/modals/SlotActionModal.tsx`](../components/dashboard/calendar/modals/SlotActionModal.tsx)
+  5. [`components/dashboard/calendar/panels/SlotSelectorGrid.tsx`](../components/dashboard/calendar/panels/SlotSelectorGrid.tsx)
+  6. [`components/dashboard/calendar/panels/AppointmentRescheduleForm.tsx`](../components/dashboard/calendar/panels/AppointmentRescheduleForm.tsx)
+  7. [`components/dashboard/calendar/panels/RescheduleConfirmModal.tsx`](../components/dashboard/calendar/panels/RescheduleConfirmModal.tsx)
+  8. [`components/dashboard/calendar/panels/AppointmentDetailsPanel.tsx`](../components/dashboard/calendar/panels/AppointmentDetailsPanel.tsx)
+  9. [`components/dashboard/calendar/panels/LeaveDetailsPanel.tsx`](../components/dashboard/calendar/panels/LeaveDetailsPanel.tsx)
+  10. [`scripts/test_commit3_best_practices.mjs`](../scripts/test_commit3_best_practices.mjs) (Automated QA verification)
+- **Scope, Tokens & Best Practice Fixes Applied:**
+  - `SlotActionModal`: Replaced 13 instances of `outline-hidden` with `outline-none` for Tailwind v3 compatibility. Added `role="tablist"` and `role="tab"` with `aria-selected` on booking/leave tabs. Added `aria-hidden="true"` to Lucide icons and `htmlFor`/`id` bindings for accessible form inputs.
+  - `AppointmentDetailsPanel`: Replaced `outline-hidden` with `outline-none` on cancellation reason input. Removed rogue `via-teal-50/30` in patient header card, harmonizing with `from-brand-50 via-brand-50/40 to-slate-50 border-brand-200`. Added `aria-label` to copy buttons and `aria-hidden="true"` to action icons.
+  - `SlotSelectorGrid`: Added `aria-pressed` and dynamic `aria-label` announcing slot interval, duration, and selection state to candidate slot buttons. Standardized brand tokens by eliminating arbitrary opacities (`border-brand-200/80` ➔ `border-brand-200 hover:border-brand-300 hover:bg-brand-50`, `ring-brand-500/30` ➔ `ring-brand-500/20`).
+  - `BlockTimeModal`: Added accessible `aria-label="Full Day Exclusion"` to the toggle switch. Linked labels to inputs via `htmlFor` and `id`. Added `aria-hidden="true"` to icons.
+  - `AddAppointmentModal`: Linked form labels to inputs with `htmlFor` and `id`. Added `aria-hidden="true"` on indicator icons.
+  - `AppointmentRescheduleForm`: Standardized callout container to `bg-brand-50 rounded-xl border border-brand-200`. Linked form fields with `htmlFor` and `id`.
+  - `RescheduleConfirmModal`: Standardized new time card to `bg-brand-50 rounded-xl border border-brand-200` and added `aria-hidden="true"` on arrows and icons.
+  - `LeaveDetailsPanel`: Standardized reassurance card to clean `border-brand-200 text-brand-950` without arbitrary `/80` opacity. Added `aria-label="Copy Leave ID"` and `aria-hidden="true"` on icons.
 
 ---
 
