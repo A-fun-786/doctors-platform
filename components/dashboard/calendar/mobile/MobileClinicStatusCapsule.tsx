@@ -83,14 +83,14 @@ export default function MobileClinicStatusCapsule({
     <button
       type="button"
       onClick={onOpenHoursSheet}
-      className="w-full flex items-center justify-between p-2.5 sm:p-3 bg-gradient-to-r from-brand-50/80 via-teal-50/40 to-slate-50 border border-brand-100 hover:border-brand-200 rounded-2xl shadow-2xs text-left active:scale-[0.99] transition-all cursor-pointer group"
+      className="w-full flex items-center justify-between p-2.5 sm:p-3 bg-gradient-to-r from-brand-50/80 via-brand-50/40 to-slate-50 border border-brand-100 hover:border-brand-200 rounded-2xl shadow-2xs text-left active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-all cursor-pointer group"
       title="Tap to view working hours"
     >
       <div className="flex items-center gap-2.5 min-w-0">
         {/* Pulsing indicator */}
         <div className="relative flex items-center justify-center shrink-0 w-8 h-8 rounded-xl bg-white shadow-2xs border border-brand-100">
           <StatusIcon className="w-4 h-4 text-brand-600" />
-          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5" aria-hidden="true">
             {statusInfo.pulse && (
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             )}

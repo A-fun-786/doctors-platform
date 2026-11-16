@@ -64,7 +64,7 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("day")}
             aria-pressed={viewMode === "day"}
-            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
               viewMode === "day"
                 ? "bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-brand-700 hover:bg-brand-50/70"
@@ -76,7 +76,7 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("week")}
             aria-pressed={viewMode === "week"}
-            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
               viewMode === "week"
                 ? "bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-brand-700 hover:bg-brand-50/70"
@@ -88,7 +88,8 @@ export default function CalendarHeader({
             type="button"
             onClick={() => onViewModeChange("month")}
             aria-pressed={viewMode === "month"}
-            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+            aria-label="Month"
+            className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
               viewMode === "month"
                 ? "bg-brand-600 hover:bg-brand-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-brand-700 hover:bg-brand-50/70"

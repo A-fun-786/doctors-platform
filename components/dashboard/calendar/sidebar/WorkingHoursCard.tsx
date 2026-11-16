@@ -39,7 +39,7 @@ export default function WorkingHoursCard({
           <div>
             <h3 className="text-xs font-bold text-slate-900 leading-tight">Working Hours</h3>
             <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
               {enabledShifts.length} {enabledShifts.length === 1 ? "Shift" : "Shifts"} Active
             </span>
           </div>
@@ -110,7 +110,7 @@ export default function WorkingHoursCard({
       {enabledShifts.length > 0 && (
         <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-medium px-0.5">
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true" />
             Total Capacity:
           </span>
           <span className="font-bold text-slate-800">
