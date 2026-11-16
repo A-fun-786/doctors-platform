@@ -166,14 +166,28 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
 
     if (!cleanEmail || !password) {
       logger.warn("Auth", `Validation rejected empty credentials for ${mode}`);
-      setError("Please fill in both email and password.");
+      setError(
+        mode === "login" && authRole === "staff"
+          ? "Please enter your Staff User ID and password."
+          : "Please fill in both email and password."
+      );
       return;
     }
 
-    if (!isValidEmail(cleanEmail)) {
-      logger.warn("Auth", `Validation rejected invalid email format: ${cleanEmail}`);
-      setError("Please enter a valid email address.");
-      return;
+    if (authRole === "admin" || mode === "register") {
+      if (!isValidEmail(cleanEmail)) {
+        logger.warn("Auth", `Validation rejected invalid email format: ${cleanEmail}`);
+        setError("Please enter a valid email address.");
+        return;
+      }
+    } else {
+      // Staff mode: accept either name-derived User ID (e.g., emanur.rahman) or email
+      const isUsername = /^[a-zA-Z0-9._-]+$/.test(cleanEmail) && cleanEmail.length >= 3;
+      if (!isUsername && !isValidEmail(cleanEmail)) {
+        logger.warn("Auth", `Validation rejected invalid staff identifier: ${cleanEmail}`);
+        setError("Please enter a valid Staff User ID (e.g. emanur.rahman) or email.");
+        return;
+      }
     }
 
     if (mode === "register" && password.length < 6) {
@@ -343,15 +357,20 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
           <form onSubmit={handleSubmit} noValidate className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="email">
-                Email Address
+                {mode === "login" && authRole === "staff" ? "Staff User ID or Email" : "Email Address"}
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                  <Mail className="w-4 h-4" />
+              <div className="relative flex items-center group">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors pointer-events-none shrink-0">
+                  {mode === "login" && authRole === "staff" ? (
+                    <Users className="w-4 h-4" />
+                  ) : (
+                    <Mail className="w-4 h-4" />
+                  )}
                 </div>
                 <input
                   id="email"
-                  type="email"
+                  type={mode === "login" && authRole === "staff" ? "text" : "email"}
+                  autoComplete={mode === "login" && authRole === "staff" ? "username" : "email"}
                   required
                   value={email}
                   onChange={(e) => {
@@ -363,11 +382,16 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                       ? "doctor@example.com"
                       : authRole === "admin"
                       ? "doctor@example.com"
-                      : "staff@clinic.com"
+                      : "e.g. emanur.rahman or User ID"
                   }
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus:bg-white transition-all"
+                  className="w-full h-11 pl-11 pr-3.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all shadow-2xs font-medium"
                 />
               </div>
+              {mode === "login" && authRole === "staff" && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Enter the User ID provided by your clinic administrator (e.g. <span className="font-mono text-slate-700 font-medium">emanur.rahman</span>).
+                </p>
+              )}
             </div>
 
             <div>
@@ -379,8 +403,8 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                   <span className="text-[10px] text-slate-400">Clinic-assigned</span>
                 )}
               </div>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <div className="relative flex items-center group">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors pointer-events-none shrink-0">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -393,13 +417,13 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                     if (error) setError(null);
                   }}
                   placeholder={mode === "register" ? "At least 6 characters" : "Enter password"}
-                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus:bg-white transition-all"
+                  className="w-full h-11 pl-11 pr-10 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all shadow-2xs font-medium"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

@@ -1,8 +1,10 @@
+import re
 import uuid
 from datetime import date
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
@@ -13,6 +15,94 @@ from app.schemas.staff import (
     StaffMemberUpdate,
     StaffSummaryMetricsResponse,
 )
+
+HONORIFICS = {
+    "dr", "dr.", "doctor", "mr", "mr.", "mrs", "mrs.", "ms", "ms.",
+    "prof", "prof.", "nurse", "sister", "brother"
+}
+USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9._-]+$")
+
+
+def generate_username_candidates(full_name: str) -> List[str]:
+    """
+    Generate candidate staff User IDs derived from the staff member's full name.
+    Follows name-derived alphanumeric patterns (e.g., Emanur Rahman ->
+    emanur.rahman, e.rahman, emanur.r, emanurrahman, erahman, emanurr,
+    then minimal numbers like e1.rahman, emanur.r1, e2.rahman, emanur.r2).
+    """
+    raw_tokens = re.findall(r"[a-zA-Z0-9]+", full_name.lower())
+    tokens = [t for t in raw_tokens if t not in HONORIFICS]
+    if not tokens:
+        tokens = raw_tokens or ["staff"]
+
+    candidates: List[str] = []
+
+    if len(tokens) == 1:
+        base = tokens[0]
+        candidates.append(base)
+        for i in range(1, 100):
+            candidates.append(f"{base}{i}")
+        return candidates
+
+    first = tokens[0]
+    last = tokens[-1]
+    f_init = first[0]
+    l_init = last[0]
+
+    # Priority 1: Pure name patterns without numbers
+    candidates.append(f"{first}.{last}")
+    candidates.append(f"{f_init}.{last}")
+    candidates.append(f"{first}.{l_init}")
+    candidates.append(f"{first}{last}")
+    candidates.append(f"{f_init}{last}")
+    candidates.append(f"{first}{l_init}")
+
+    # For 3 or more tokens (e.g. Mohammad Emanur Rahman)
+    if len(tokens) >= 3:
+        candidates.append(f"{tokens[0]}.{tokens[1]}.{tokens[2]}")
+        candidates.append(f"{tokens[0][0]}.{tokens[1][0]}.{tokens[2]}")
+
+    # Priority 2: Minimal numeric patterns matching user specification:
+    # e1.rahman, emanur.r1, e2.rahman, emanur.r2...
+    for i in range(1, 100):
+        candidates.append(f"{f_init}{i}.{last}")
+        candidates.append(f"{first}.{l_init}{i}")
+        candidates.append(f"{first}.{last}{i}")
+        candidates.append(f"{first}{i}.{last}")
+        candidates.append(f"{f_init}{last}{i}")
+
+    # Deduplicate preserving priority order
+    seen = set()
+    ordered = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            ordered.append(c)
+    return ordered
+
+
+def generate_unique_staff_username(db: Session, full_name: str) -> str:
+    """
+    Generate the next available unique User ID for a staff member.
+    Queries database in batches of candidate names to minimize DB roundtrips (O(1) roundtrip for typical case).
+    """
+    candidates = generate_username_candidates(full_name)
+    chunk_size = 50
+    for i in range(0, len(candidates), chunk_size):
+        chunk = candidates[i : i + chunk_size]
+        chunk_lowers = [c.lower() for c in chunk]
+        existing = set(
+            db.scalars(
+                select(func.lower(StaffMember.username)).where(
+                    func.lower(StaffMember.username).in_(chunk_lowers)
+                )
+            ).all()
+        )
+        for candidate in chunk:
+            if candidate.lower() not in existing:
+                return candidate
+
+    return f"staff.{uuid.uuid4().hex[:6]}"
 
 
 class StaffService:
@@ -40,6 +130,7 @@ class StaffService:
             query = query.where(
                 or_(
                     StaffMember.full_name.ilike(search_term),
+                    StaffMember.username.ilike(search_term),
                     StaffMember.email.ilike(search_term),
                     StaffMember.phone.ilike(search_term),
                     StaffMember.role.ilike(search_term),
@@ -65,49 +156,55 @@ class StaffService:
         self, doctor_id: uuid.UUID, data: StaffMemberCreate
     ) -> StaffMember:
         email = data.email.strip().lower() if data.email else None
-        
+
+        # User ID assignment & uniqueness validation
+        if data.username and data.username.strip():
+            username = data.username.strip().lstrip("@").lower()
+            if not (3 <= len(username) <= 60 and USERNAME_REGEX.match(username)):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed)",
+                )
+            existing_user = self.db.scalar(
+                select(StaffMember).where(func.lower(StaffMember.username) == username)
+            )
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A staff member with this User ID already exists",
+                )
+        else:
+            username = generate_unique_staff_username(self.db, data.full_name)
+
         # Portal login access validation
         hashed_pw = None
         if data.can_login:
-            if not email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A valid email is required to grant portal login access",
-                )
             if not data.password or len(data.password) < 6:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Password must be at least 6 characters long",
                 )
-            # Check for email collision in staff or doctor
-            existing_staff = self.db.scalar(
-                select(StaffMember).where(
-                    and_(
-                        func.lower(StaffMember.email) == email,
-                        StaffMember.can_login.is_(True),
+            if email:
+                existing_staff = self.db.scalar(
+                    select(StaffMember).where(
+                        and_(
+                            func.lower(StaffMember.email) == email,
+                            StaffMember.can_login.is_(True),
+                        )
                     )
                 )
-            )
-            if existing_staff:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A staff member with this login email already exists",
-                )
-
-            existing_doc = self.db.scalar(
-                select(Doctor).where(func.lower(Doctor.email) == email)
-            )
-            if existing_doc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This email is already registered as a doctor account",
-                )
+                if existing_staff:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="A staff member with this login email already exists",
+                    )
 
             hashed_pw = hash_password(data.password)
 
         staff = StaffMember(
             doctor_id=doctor_id,
             full_name=data.full_name.strip(),
+            username=username,
             email=email,
             phone=data.phone.strip(),
             role=data.role.strip(),
@@ -121,10 +218,18 @@ class StaffService:
             can_login=data.can_login,
             hashed_password=hashed_pw,
             must_change_password=True if data.can_login else False,
+            token_version=1,
         )
         self.db.add(staff)
-        self.db.commit()
-        self.db.refresh(staff)
+        try:
+            self.db.commit()
+            self.db.refresh(staff)
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A database conflict occurred while creating the staff record (duplicate User ID or email).",
+            )
         return staff
 
     def update_staff(
@@ -135,6 +240,31 @@ class StaffService:
             return None
 
         update_dict = data.model_dump(exclude_unset=True)
+
+        # Handle username update
+        if "username" in update_dict:
+            new_username = update_dict.pop("username")
+            if new_username:
+                new_username = new_username.strip().lstrip("@").lower()
+                if not (3 <= len(new_username) <= 60 and USERNAME_REGEX.match(new_username)):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed)",
+                    )
+                existing = self.db.scalar(
+                    select(StaffMember).where(
+                        and_(
+                            func.lower(StaffMember.username) == new_username,
+                            StaffMember.id != staff.id,
+                        )
+                    )
+                )
+                if existing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="A staff member with this User ID already exists",
+                    )
+                staff.username = new_username
 
         # Handle password update
         if "password" in update_dict:
@@ -147,29 +277,56 @@ class StaffService:
                     )
                 staff.hashed_password = hash_password(pwd)
                 staff.must_change_password = True
+                staff.token_version = (staff.token_version or 1) + 1
 
         # Handle can_login toggle
         if "can_login" in update_dict and update_dict["can_login"] is True:
-            target_email = update_dict.get("email", staff.email)
-            if not target_email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A valid email is required to grant portal login access",
-                )
+            if not staff.username:
+                staff.username = generate_unique_staff_username(self.db, staff.full_name)
             if not staff.hashed_password and "password" not in data.model_dump(exclude_unset=True):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="A password must be set when granting portal login access",
                 )
 
+        # Enforce email uniqueness across portal login-enabled accounts
+        target_can_login = update_dict.get("can_login", staff.can_login)
+        target_email = update_dict.get("email", staff.email)
+        if target_can_login and target_email:
+            norm_email = target_email.strip().lower()
+            existing_email_staff = self.db.scalar(
+                select(StaffMember).where(
+                    and_(
+                        func.lower(StaffMember.email) == norm_email,
+                        StaffMember.id != staff.id,
+                        StaffMember.can_login.is_(True),
+                    )
+                )
+            )
+            if existing_email_staff:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A staff member with this login email already exists",
+                )
+
         for field, value in update_dict.items():
-            if value is not None and isinstance(value, str):
+            if field == "email":
+                norm_email = value.strip().lower() if (value and isinstance(value, str) and value.strip()) else None
+                setattr(staff, "email", norm_email)
+            elif value is not None and isinstance(value, str):
                 setattr(staff, field, value.strip())
             else:
                 setattr(staff, field, value)
 
-        self.db.commit()
-        self.db.refresh(staff)
+        try:
+            self.db.commit()
+            self.db.refresh(staff)
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A database conflict occurred while updating the staff record.",
+            )
         return staff
 
     def reset_staff_password(
@@ -194,6 +351,7 @@ class StaffService:
 
         staff.hashed_password = hash_password(new_password)
         staff.must_change_password = True
+        staff.token_version = (staff.token_version or 1) + 1
         self.db.commit()
         self.db.refresh(staff)
         return staff

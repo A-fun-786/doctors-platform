@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.security import (
@@ -243,6 +243,79 @@ class AuthService:
         )
 
     @staticmethod
+    def _create_staff_auth_session(
+        db: Session,
+        staff: StaffMember,
+        password: str,
+    ) -> AuthResponse:
+        """
+        Verify staff password and issue a scoped AuthResponse and JWT access token.
+        Encapsulates staff authentication logic to adhere to DRY and SRP.
+        """
+        if staff.status != "active":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Staff account is inactive. Please contact your clinic administrator.",
+            )
+
+        if not staff.hashed_password or not verify_password(password, staff.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid User ID or password",
+            )
+
+        clinic_doctor = staff.doctor or db.query(Doctor).filter(Doctor.id == staff.doctor_id).first()
+        if not clinic_doctor or not clinic_doctor.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Clinic account is inactive",
+            )
+
+        if needs_rehash(staff.hashed_password):
+            staff.hashed_password = hash_password(password)
+
+        staff.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+
+        tenant = clinic_doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, clinic_doctor.full_name)
+            tenant = Tenant(doctor_id=clinic_doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        access_token = create_access_token(
+            subject=str(staff.id),
+            claims={
+                "doctor_id": str(clinic_doctor.id),
+                "role": staff.role,
+                "user_type": "staff",
+                "staff_id": str(staff.id),
+                "username": staff.username,
+                "token_version": staff.token_version,
+            },
+        )
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse(
+                id=staff.id,
+                full_name=staff.full_name,
+                email=staff.email or f"{staff.username}@staff.clinic",
+                username=staff.username,
+                avatar_url=None,
+                auth_provider="staff_credentials",
+                onboarding_completed=True,
+                role=staff.role,
+                user_type="staff",
+                staff_id=staff.id,
+            ),
+            tenant=TenantResponse.model_validate(tenant),
+        )
+
+    @staticmethod
     def login_email(
         db: Session,
         email: str,
@@ -250,101 +323,84 @@ class AuthService:
         portal_type: Optional[str] = None,
     ) -> AuthResponse:
         """
-        Authenticate a doctor or staff member using email and password,
-        with optional portal_type enforcement ("admin" | "staff").
+        Authenticate a doctor or staff member using email or User ID and password,
+        with strict portal_type enforcement ("admin" | "staff").
         """
         if not email or not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email and password are required",
-            )
-        try:
-            email = validate_email_id(email)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
+                detail="Login identifier and password are required",
             )
 
-        doctor = db.query(Doctor).filter(func.lower(Doctor.email) == email.lower()).first()
-        if not doctor:
-            # Check if this email belongs to an authorized staff member
+        identifier = email.strip()
+
+        # -------------------------------------------------------------
+        # Branch 1: Staff Portal Sign-In (Direct Staff Lookup by ID/Email)
+        # -------------------------------------------------------------
+        if portal_type == "staff":
             staff = db.query(StaffMember).filter(
-                func.lower(StaffMember.email) == email.lower(),
+                or_(
+                    func.lower(StaffMember.username) == identifier.lower(),
+                    func.lower(StaffMember.email) == identifier.lower(),
+                ),
                 StaffMember.can_login.is_(True),
             ).first()
 
             if not staff:
+                if "@" in identifier:
+                    doctor_check = db.query(Doctor).filter(func.lower(Doctor.email) == identifier.lower()).first()
+                    if doctor_check:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This account is a clinic administrator account. Please switch to the 'Admin' tab to sign in.",
+                        )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid email or password",
+                    detail="Invalid User ID or password",
                 )
 
-            if staff.status != "active":
+            return AuthService._create_staff_auth_session(db, staff, password)
+
+        # -------------------------------------------------------------
+        # Branch 2: Administrator Portal Sign-In (or Default)
+        # -------------------------------------------------------------
+        if portal_type == "admin":
+            try:
+                identifier = validate_email_id(identifier)
+            except ValueError as exc:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Staff account is inactive. Please contact your clinic administrator.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
                 )
+        elif "@" in identifier:
+            try:
+                identifier = validate_email_id(identifier)
+            except ValueError:
+                pass
 
-            if not staff.hashed_password or not verify_password(password, staff.hashed_password):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid email or password",
-                )
+        doctor = db.query(Doctor).filter(func.lower(Doctor.email) == identifier.lower()).first()
 
-            # Strict role boundary enforcement: Staff cannot log in via the Admin portal
-            if portal_type == "admin":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="This account is a clinic staff account. Please switch to the 'Staff' tab to sign in.",
-                )
-
-            clinic_doctor = db.query(Doctor).filter(Doctor.id == staff.doctor_id).first()
-            if not clinic_doctor or not clinic_doctor.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Clinic account is inactive",
-                )
-
-            if needs_rehash(staff.hashed_password):
-                staff.hashed_password = hash_password(password)
-
-            staff.last_login_at = datetime.now(timezone.utc)
-            db.commit()
-
-            tenant = clinic_doctor.tenant
-            if not tenant:
-                slug = generate_unique_tenant_slug(db, clinic_doctor.full_name)
-                tenant = Tenant(doctor_id=clinic_doctor.id, slug=slug, status="active")
-                db.add(tenant)
-                db.commit()
-                db.refresh(tenant)
-
-            access_token = create_access_token(
-                subject=str(staff.id),
-                claims={
-                    "doctor_id": str(clinic_doctor.id),
-                    "role": staff.role,
-                    "user_type": "staff",
-                    "staff_id": str(staff.id),
-                },
-            )
-
-            return AuthResponse(
-                access_token=access_token,
-                token_type="bearer",
-                doctor=DoctorResponse(
-                    id=staff.id,
-                    full_name=staff.full_name,
-                    email=staff.email or email,
-                    avatar_url=None,
-                    auth_provider="email",
-                    onboarding_completed=True,
-                    role=staff.role,
-                    user_type="staff",
-                    staff_id=staff.id,
+        # If doctor record is not found, check staff member once
+        if not doctor:
+            staff = db.query(StaffMember).filter(
+                or_(
+                    func.lower(StaffMember.username) == identifier.lower(),
+                    func.lower(StaffMember.email) == identifier.lower(),
                 ),
-                tenant=TenantResponse.model_validate(tenant),
+                StaffMember.can_login.is_(True),
+            ).first()
+
+            if staff:
+                if portal_type == "admin":
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="This account is a clinic staff account. Please switch to the 'Staff' tab to sign in.",
+                    )
+                return AuthService._create_staff_auth_session(db, staff, password)
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
             )
 
         if not doctor.is_active:

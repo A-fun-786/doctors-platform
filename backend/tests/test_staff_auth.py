@@ -121,7 +121,7 @@ def test_create_staff_with_login_credentials(client, doctor_fixture, db_session)
 def test_create_staff_login_validation_failures(client, doctor_fixture):
     doctor, headers = doctor_fixture
 
-    # 1. can_login=True without email must fail
+    # 1. can_login=True without email now succeeds and assigns auto-generated User ID
     res1 = client.post(
         "/api/v1/staff",
         json={
@@ -133,16 +133,30 @@ def test_create_staff_login_validation_failures(client, doctor_fixture):
         },
         headers=headers,
     )
-    assert res1.status_code == 400
-    assert "email is required" in res1.json()["detail"].lower()
+    assert res1.status_code == 201
+    staff_data = res1.json()
+    assert staff_data["username"] == "john.doe"
+    assert staff_data["email"] is None
+
+    # Staff can log in using their auto-generated User ID and password
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "john.doe",
+            "password": "ValidPassword123",
+            "portal_type": "staff",
+        },
+    )
+    assert login_res.status_code == 200
+    assert login_res.json()["doctor"]["username"] == "john.doe"
 
     # 2. can_login=True without password must fail
     res2 = client.post(
         "/api/v1/staff",
         json={
-            "full_name": "John Doe",
-            "email": "john@example.com",
-            "phone": "+91 99999 00000",
+            "full_name": "Jane Smith",
+            "email": "jane@example.com",
+            "phone": "+91 99999 00001",
             "role": "Receptionist",
             "can_login": True,
         },
@@ -406,4 +420,173 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
         },
     )
     assert doc_on_admin.status_code == 200
+
+
+def test_staff_username_candidate_generator():
+    from app.services.staff_service import generate_username_candidates
+
+    # Dr. Emanur Rahman
+    candidates = generate_username_candidates("Dr. Emanur Rahman")
+    assert candidates[0] == "emanur.rahman"
+    assert candidates[1] == "e.rahman"
+    assert candidates[2] == "emanur.r"
+    assert candidates[3] == "emanurrahman"
+    assert "e1.rahman" in candidates
+    assert "emanur.r1" in candidates
+
+    # Single name
+    single_candidates = generate_username_candidates("Rita")
+    assert single_candidates[0] == "rita"
+    assert single_candidates[1] == "rita1"
+    assert single_candidates[2] == "rita2"
+
+
+def test_staff_username_collision_resolution(client, doctor_fixture):
+    doctor, doc_headers = doctor_fixture
+
+    # Create 8 staff members all named "Emanur Rahman"
+    created_usernames = []
+    for i in range(8):
+        res = client.post(
+            "/api/v1/staff",
+            json={
+                "full_name": "Emanur Rahman",
+                "phone": f"+91 99999 {10000 + i}",
+                "role": "Doctor",
+                "can_login": True,
+                "password": "ValidPassword123!",
+            },
+            headers=doc_headers,
+        )
+        assert res.status_code == 201, res.json()
+        created_usernames.append(res.json()["username"])
+
+    # Verify priority sequence: natural names first, then minimal numbers
+    assert created_usernames[0] == "emanur.rahman"
+    assert created_usernames[1] == "e.rahman"
+    assert created_usernames[2] == "emanur.r"
+    assert created_usernames[3] == "emanurrahman"
+    assert created_usernames[4] == "erahman"
+    assert created_usernames[5] == "emanurr"
+    assert created_usernames[6] == "e1.rahman"
+    assert created_usernames[7] == "emanur.r1"
+
+    # All generated usernames are unique
+    assert len(set(created_usernames)) == 8
+
+
+def test_custom_username_validation_and_collision(client, doctor_fixture):
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Custom valid username
+    res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Alice Wonderland",
+            "username": "alice.w",
+            "phone": "+91 88888 11111",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=doc_headers,
+    )
+    assert res.status_code == 201
+    assert res.json()["username"] == "alice.w"
+
+    # 2. Collision with existing custom username
+    res_dup = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Alice Williams",
+            "username": "alice.w",
+            "phone": "+91 88888 22222",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=doc_headers,
+    )
+    assert res_dup.status_code == 400
+    assert "user id already exists" in res_dup.json()["detail"].lower()
+
+    # 3. Invalid characters rejected at schema validation layer
+    res_invalid = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Bob Builder",
+            "username": "bob@builder!",
+            "phone": "+91 88888 33333",
+            "role": "Pharmacist",
+        },
+        headers=doc_headers,
+    )
+    assert res_invalid.status_code == 422
+
+
+def test_token_version_invalidation_on_password_reset(client, doctor_fixture):
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Create staff
+    staff_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Karan Sharma",
+            "phone": "+91 77777 11111",
+            "role": "Receptionist",
+            "can_login": True,
+            "password": "InitialPass123!",
+        },
+        headers=doc_headers,
+    )
+    staff_id = staff_res.json()["id"]
+    username = staff_res.json()["username"]
+
+    # 2. Staff logs in with User ID
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": username,
+            "password": "InitialPass123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login_res.status_code == 200
+    initial_token = login_res.json()["access_token"]
+    staff_headers = {"Authorization": f"Bearer {initial_token}"}
+
+    # 3. /me succeeds with initial token
+    me_res = client.get("/api/v1/auth/me", headers=staff_headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["username"] == username
+
+    # 4. Admin resets staff password
+    reset_res = client.post(
+        f"/api/v1/staff/{staff_id}/reset-password",
+        json={"new_password": "NewSecretPass456!"},
+        headers=doc_headers,
+    )
+    assert reset_res.status_code == 200
+    assert reset_res.json()["token_version"] == 2
+
+    # 5. Old token is immediately revoked
+    revoked_me = client.get("/api/v1/auth/me", headers=staff_headers)
+    assert revoked_me.status_code == 401
+    assert "credentials have changed" in revoked_me.json()["detail"].lower()
+
+    # 6. Logging in with new password succeeds and works
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": username,
+            "password": "NewSecretPass456!",
+            "portal_type": "staff",
+        },
+    )
+    assert new_login.status_code == 200
+    new_token = new_login.json()["access_token"]
+    new_headers = {"Authorization": f"Bearer {new_token}"}
+
+    me_again = client.get("/api/v1/auth/me", headers=new_headers)
+    assert me_again.status_code == 200
 

@@ -129,14 +129,14 @@ export default function AddAppointmentModal({
           <label className="block text-xs font-semibold text-slate-700 mb-1">
             Patient Full Name *
           </label>
-          <div className="relative">
-            <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <div className="relative flex items-center group">
+            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="text"
               placeholder="e.g. Neha Verma"
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-10 pl-11 pr-3.5 text-xs border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all font-medium"
               required
             />
           </div>
@@ -152,7 +152,7 @@ export default function AddAppointmentModal({
             placeholder="+91 98765 43210"
             value={patientContact}
             onChange={(e) => setPatientContact(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 px-3.5 text-xs border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all font-medium"
           />
         </div>
 
@@ -163,7 +163,7 @@ export default function AddAppointmentModal({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full h-10 px-3.5 text-xs border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 font-medium transition-all"
             required
           />
         </div>

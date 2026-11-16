@@ -320,7 +320,7 @@ export default function CalendarHeader({
                           onChange={(e) => setDoctorSearch(e.target.value)}
                           placeholder="Search doctor or speciality..."
                           autoFocus
-                          className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          className="w-full pl-9 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                         />
                         {doctorSearch && (
                           <button

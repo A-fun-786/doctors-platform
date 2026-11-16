@@ -56,6 +56,14 @@ def get_current_doctor(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        jwt_token_version = payload.get("token_version")
+        if jwt_token_version is not None and staff.token_version != jwt_token_version:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credentials have changed. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         doctor = db.query(Doctor).filter(Doctor.id == staff.doctor_id).first()
         if doctor is None or not doctor.is_active:
             raise HTTPException(
@@ -66,6 +74,7 @@ def get_current_doctor(
 
         doctor._current_staff = staff
         doctor._is_staff = True
+        doctor._staff_id = staff.id
         return doctor
 
     # Handle Doctor Owner authentication

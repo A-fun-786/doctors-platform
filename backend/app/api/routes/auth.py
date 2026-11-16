@@ -101,7 +101,8 @@ def get_me(
         return DoctorMeResponse(
             id=staff.id,
             full_name=staff.full_name,
-            email=staff.email or "",
+            email=staff.email or f"{staff.username}@staff.clinic",
+            username=staff.username,
             phone=staff.phone,
             avatar_url=None,
             speciality=staff.department,

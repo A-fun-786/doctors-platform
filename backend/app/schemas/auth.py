@@ -1,11 +1,12 @@
 import re
 import uuid
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 EMAIL_REGEX = re.compile(
     r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
 )
+USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
 def validate_email_id(email: str) -> str:
@@ -15,6 +16,20 @@ def validate_email_id(email: str) -> str:
     cleaned = email.strip().lower()
     if not cleaned or not EMAIL_REGEX.match(cleaned):
         raise ValueError("Invalid email address format. Please provide a valid email ID.")
+    return cleaned
+
+
+def validate_identifier(identifier: str) -> str:
+    """Validate an authentication identifier (either RFC-compliant email or alphanumeric username)."""
+    if not isinstance(identifier, str):
+        raise ValueError("Invalid login identifier.")
+    cleaned = identifier.strip().lower()
+    if not cleaned:
+        raise ValueError("Login identifier cannot be empty.")
+    if "@" in cleaned:
+        return validate_email_id(cleaned)
+    if not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
+        raise ValueError("User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed).")
     return cleaned
 
 
@@ -35,16 +50,25 @@ class EmailRegisterRequest(BaseModel):
         return validate_email_id(v)
 
 
-# Extensible schema for email/password login
+# Extensible schema for email/username/password login
 class EmailLoginRequest(BaseModel):
-    email: str
+    email: str  # Functions as identifier: User ID (staff) or Email (admin/default)
     password: str
     portal_type: Optional[str] = None
 
-    @field_validator("email")
-    @classmethod
-    def check_valid_email(cls, v: str) -> str:
-        return validate_email_id(v)
+    @model_validator(mode="after")
+    def validate_identifier(self) -> "EmailLoginRequest":
+        cleaned = self.email.strip().lower()
+        if self.portal_type == "staff":
+            if "@" in cleaned:
+                validate_email_id(cleaned)
+            elif not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
+                raise ValueError("User ID must be between 3 and 60 alphanumeric characters.")
+        else:
+            # Default and Admin portals require a valid RFC-compliant email address
+            validate_email_id(cleaned)
+        self.email = cleaned
+        return self
 
 
 class TenantResponse(BaseModel):
@@ -59,7 +83,8 @@ class DoctorResponse(BaseModel):
 
     id: uuid.UUID
     full_name: str
-    email: str
+    email: Optional[str] = None
+    username: Optional[str] = None
     avatar_url: Optional[str] = None
     auth_provider: str = "google"
     onboarding_completed: bool = False
@@ -82,7 +107,8 @@ class DoctorMeResponse(BaseModel):
 
     id: uuid.UUID
     full_name: str
-    email: str
+    email: Optional[str] = None
+    username: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     speciality: Optional[str] = None

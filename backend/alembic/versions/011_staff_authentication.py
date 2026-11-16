@@ -33,11 +33,23 @@ def upgrade() -> None:
         "staff_members",
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
     )
+    op.add_column(
+        "staff_members",
+        sa.Column("token_version", sa.Integer(), nullable=False, server_default=sa.text("1")),
+    )
+    op.add_column(
+        "staff_members",
+        sa.Column("username", sa.String(length=60), nullable=True),
+    )
     op.create_index("idx_staff_email", "staff_members", ["email"])
+    op.create_index("idx_staff_username", "staff_members", ["username"], unique=True)
 
 
 def downgrade() -> None:
+    op.drop_index("idx_staff_username", table_name="staff_members")
     op.drop_index("idx_staff_email", table_name="staff_members")
+    op.drop_column("staff_members", "username")
+    op.drop_column("staff_members", "token_version")
     op.drop_column("staff_members", "last_login_at")
     op.drop_column("staff_members", "must_change_password")
     op.drop_column("staff_members", "hashed_password")

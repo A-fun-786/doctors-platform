@@ -103,15 +103,15 @@ export default function ProfileEditForm({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Doctor Full Name <span className="text-red-500">*</span>
           </label>
-          <div className="relative">
-            <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <div className="relative flex items-center group">
+            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="text"
               required
               maxLength={60}
               value={fullName}
               onChange={(e) => onFullNameChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
+              className="w-full h-11 pl-11 pr-3.5 border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 bg-slate-50/60 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all shadow-2xs"
               placeholder="e.g. Dr. Jane Smith"
             />
           </div>
@@ -122,14 +122,14 @@ export default function ProfileEditForm({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Speciality / Medical Qualifications
           </label>
-          <div className="relative">
-            <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <div className="relative flex items-center group">
+            <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="text"
               maxLength={100}
               value={speciality}
               onChange={(e) => onSpecialityChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
+              className="w-full h-11 pl-11 pr-3.5 border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 bg-slate-50/60 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all shadow-2xs"
               placeholder="e.g. General Physician, MBBS, MD"
             />
           </div>
@@ -140,14 +140,14 @@ export default function ProfileEditForm({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Clinic / Hospital Name
           </label>
-          <div className="relative">
-            <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <div className="relative flex items-center group">
+            <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="text"
               maxLength={100}
               value={clinicName}
               onChange={(e) => onClinicNameChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
+              className="w-full h-11 pl-11 pr-3.5 border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 bg-slate-50/60 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all shadow-2xs"
               placeholder="e.g. Apex Polyclinic & Care"
             />
           </div>
@@ -158,14 +158,14 @@ export default function ProfileEditForm({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Practice Location / City
           </label>
-          <div className="relative">
-            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <div className="relative flex items-center group">
+            <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="text"
               maxLength={100}
               value={location}
               onChange={(e) => onLocationChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
+              className="w-full h-11 pl-11 pr-3.5 border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 bg-slate-50/60 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all shadow-2xs"
               placeholder="e.g. Indiranagar, Bangalore"
             />
           </div>
@@ -176,8 +176,8 @@ export default function ProfileEditForm({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Contact Phone
           </label>
-          <div className="relative">
-            <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <div className="relative flex items-center group">
+            <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
             <input
               type="tel"
               maxLength={20}
@@ -187,7 +187,7 @@ export default function ProfileEditForm({
                 const val = e.target.value.replace(/[^\d+()\s-]/g, "");
                 onPhoneChange(val);
               }}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
+              className="w-full h-11 pl-11 pr-3.5 border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 bg-slate-50/60 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all shadow-2xs"
               placeholder="e.g. +91 98765 43210"
             />
           </div>

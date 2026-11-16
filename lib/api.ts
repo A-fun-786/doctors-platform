@@ -29,6 +29,7 @@ export interface Doctor {
   id: string;
   full_name: string;
   email: string;
+  username?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
   speciality?: string | null;
@@ -48,6 +49,7 @@ export interface DoctorMeResponse {
   id: string;
   full_name: string;
   email: string;
+  username?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
   speciality?: string | null;
@@ -988,6 +990,7 @@ export interface StaffMember {
   id: string;
   doctor_id: string;
   full_name: string;
+  username?: string | null;
   email?: string | null;
   phone: string;
   role: string;
@@ -1001,12 +1004,14 @@ export interface StaffMember {
   can_login?: boolean;
   must_change_password?: boolean;
   last_login_at?: string | null;
+  token_version?: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface StaffMemberCreatePayload {
   full_name: string;
+  username?: string;
   email?: string;
   phone: string;
   role: string;
@@ -1023,6 +1028,7 @@ export interface StaffMemberCreatePayload {
 
 export interface StaffMemberUpdatePayload {
   full_name?: string;
+  username?: string;
   email?: string;
   phone?: string;
   role?: string;
