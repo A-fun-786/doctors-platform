@@ -122,7 +122,7 @@ Neeche 8 mukhya galtiyan aur unka detailed impact bataya gaya hai:
    - `public.py` aur `schedule.py` dono mein is dependency ko reuse karein.
 
 * **Expected Outcome:** 271 lines dead code deleted, clean backend architecture, zero risk.
-* **Execution Status:** ✅ **VERIFIED & COMPLETED** (See detailed log in [`refactoring_progress.md`](file:///d:/doctors-platform/refactoring_progress.md))
+* **Execution Status:** ✅ **VERIFIED & COMPLETED** (See detailed log in [`refactoring_progress.md`](file:///d:/doctors-platform/docs/refactoring_progress.md))
   - Backend Pytest: 153/153 Passed
   - Frontend Build & QA: 166/166 Passed
   - Live Server Integration: 62/62 Passed
@@ -150,7 +150,7 @@ Neeche 8 mukhya galtiyan aur unka detailed impact bataya gaya hai:
    - Monolithic page ab sirf doctor metadata fetch karega aur clean components ko render karega.
 
 * **Expected Outcome:** 632 lines eliminated from monolithic page. Zero duplicate slot/input UI.
-* **Execution Status:** ✅ **VERIFIED & COMPLETED** (See detailed log in [`refactoring_progress.md`](file:///d:/doctors-platform/refactoring_progress.md))
+* **Execution Status:** ✅ **VERIFIED & COMPLETED** (See detailed log in [`refactoring_progress.md`](file:///d:/doctors-platform/docs/refactoring_progress.md))
   - Backend Pytest: 153/153 Passed
   - Frontend Build & QA: 166/166 Passed
   - Production Build: `next build` 8/8 routes passed clean
