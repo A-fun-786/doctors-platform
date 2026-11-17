@@ -124,11 +124,11 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-1.5 -ml-1 text-slate-700 hover:text-brand-600 hover:bg-slate-100/80 rounded-xl transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="p-1.5 -ml-1 text-slate-700 hover:text-brand-600 hover:bg-slate-100/80 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               aria-label="Open navigation menu"
               aria-expanded={isMobileMenuOpen}
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
             <BrandLogo size="sm" />
           </div>
@@ -143,11 +143,11 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={onLogout}
-              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full border border-slate-200/70 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
+              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full border border-slate-200/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               title="Logout"
               aria-label="Logout"
             >
-              <LogOut className="w-4 h-4 text-red-500" />
+              <LogOut className="w-4 h-4 text-red-500" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -195,11 +195,11 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={onLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-700 hover:text-red-600 bg-slate-100/70 hover:bg-red-50 rounded-full border border-slate-200/80 shadow-2xs transition-all duration-200 hover:scale-[1.02] active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-700 hover:text-red-600 bg-slate-100/70 hover:bg-red-50 rounded-full border border-slate-200/80 shadow-2xs transition-all duration-200 hover:scale-[1.02] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               title="Logout"
               aria-label="Logout"
             >
-              <LogOut className="w-3.5 h-3.5 text-red-500" />
+              <LogOut className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
               <span>Logout</span>
             </button>
           </div>
@@ -232,10 +232,10 @@ export default function DashboardShell({
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 aria-label="Close navigation menu"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -249,7 +249,7 @@ export default function DashboardShell({
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-slate-900 truncate">
-                  {doctor.full_name || "Doctor"}
+                  {formattedDoctorName}
                 </p>
                 <p className="text-xs text-slate-500 truncate">{doctor.email}</p>
               </div>
@@ -265,13 +265,14 @@ export default function DashboardShell({
                     key={item.id}
                     type="button"
                     onClick={() => handleTabSelect(item.id)}
-                    className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                    aria-current={isActive ? "page" : undefined}
+                    className={`flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                       isActive
                         ? "bg-brand-50 text-brand-800 font-bold border-l-4 border-brand-600 shadow-2xs"
                         : "text-slate-700 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
-                    <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} />
+                    <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} aria-hidden="true" />
                     <span>{item.label}</span>
                   </button>
                 );
@@ -284,9 +285,9 @@ export default function DashboardShell({
                     setIsMobileMenuOpen(false);
                     onOpenDiagnostics();
                   }}
-                  className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-all text-left w-full"
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-all text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 >
-                  <Activity className="w-5 h-5 shrink-0 text-slate-400" />
+                  <Activity className="w-5 h-5 shrink-0 text-slate-400" aria-hidden="true" />
                   <span>Diagnostics</span>
                 </button>
               )}
@@ -297,9 +298,9 @@ export default function DashboardShell({
               <button
                 type="button"
                 onClick={onLogout}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
-                <LogOut className="w-4 h-4 text-red-600" />
+                <LogOut className="w-4 h-4 text-red-600" aria-hidden="true" />
                 <span>Logout</span>
               </button>
             </div>
@@ -330,16 +331,16 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-              className={`p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+              className={`p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                 isSidebarCollapsed ? "mx-auto" : ""
               }`}
               title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isSidebarCollapsed ? (
-                <PanelLeftOpen className="w-4 h-4" />
+                <PanelLeftOpen className="w-4 h-4" aria-hidden="true" />
               ) : (
-                <PanelLeftClose className="w-4 h-4" />
+                <PanelLeftClose className="w-4 h-4" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -358,7 +359,8 @@ export default function DashboardShell({
                   type="button"
                   onClick={() => onTabChange(item.id)}
                   title={item.label}
-                  className={`flex items-center rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center rounded-xl text-sm font-medium transition-all text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                     isSidebarCollapsed
                       ? "justify-center p-3"
                       : "gap-3 px-3.5 py-2.5"
@@ -368,7 +370,7 @@ export default function DashboardShell({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-brand-600" : "text-slate-400"}`} aria-hidden="true" />
                   {!isSidebarCollapsed && <span>{item.label}</span>}
                 </button>
               );
@@ -387,7 +389,7 @@ export default function DashboardShell({
               ========================================================================= */}
           <div className="hidden md:flex items-center justify-between bg-white rounded-2xl border border-slate-200 shadow-xs px-5 py-3.5 mb-6">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
               <span className="text-base font-bold text-slate-900 tracking-tight capitalize">
                 {activeTab}
               </span>
@@ -415,7 +417,8 @@ export default function DashboardShell({
                 key={item.id}
                 type="button"
                 onClick={() => onTabChange(item.id)}
-                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                aria-current={isActive ? "page" : undefined}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                   isActive
                     ? "text-brand-700 font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -428,6 +431,7 @@ export default function DashboardShell({
                   className={`w-5 h-5 transition-transform ${
                     isActive ? "scale-110 text-brand-600" : "text-slate-400"
                   }`}
+                  aria-hidden="true"
                 />
                 <span className="text-[11px] mt-1 tracking-tight truncate max-w-full">
                   {item.label}
