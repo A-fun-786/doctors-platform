@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
-from app.models.staff import StaffMember
+from app.models.staff import StaffMember, is_doctor_role
 from app.models.schedule import Schedule
 from app.schemas.appointment import (
     AppointmentCreateRequest,
@@ -180,6 +180,11 @@ def create_appointment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Staff member is {staff.status} and cannot accept appointments",
+            )
+        if not is_doctor_role(staff.role):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Staff member {staff.full_name} is not a clinical practitioner",
             )
 
     _validate_slot_against_schedule(
@@ -378,6 +383,11 @@ def reschedule_appointment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Selected staff doctor is not available",
             )
+        if not is_doctor_role(staff.role):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selected staff member is not a clinical practitioner",
+            )
 
     _validate_slot_against_schedule(
         doctor_id=doctor_id,
@@ -519,28 +529,8 @@ def list_practitioners(
         .all()
     )
 
-    doctor_keywords = [
-        "doctor",
-        "physician",
-        "specialist",
-        "consultant",
-        "surgeon",
-        "pediatrician",
-        "cardiologist",
-        "dermatologist",
-        "gynecologist",
-        "orthopedic",
-        "neurologist",
-        "dentist",
-        "practitioner",
-    ]
-
     for s in staff_members:
-        is_doctor = (
-            any(kw in s.role.lower() for kw in doctor_keywords)
-            or s.department == "Clinical"
-        )
-        if is_doctor:
+        if is_doctor_role(s.role):
             practitioners.append({
                 "id": s.id,
                 "name": s.full_name,

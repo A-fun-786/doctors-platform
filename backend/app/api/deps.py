@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models.doctor import Doctor
-from app.models.staff import StaffMember
+from app.models.staff import StaffMember, is_doctor_role
 
 # HTTP Bearer token extractor
 security_scheme = HTTPBearer(auto_error=True)
@@ -112,9 +112,9 @@ def is_staff_doctor(doctor: Doctor) -> bool:
     Returns True if the authenticated user is an employed clinic doctor (Staff Doctor).
     Employed doctors have clinical privileges (consultations, view own bookings, mark completed)
     but cannot manage clinic appointments, reschedule other doctors, or book appointments.
+    Uses the canonical is_doctor_role classifier across all medical specialties.
     """
     staff = getattr(doctor, "_current_staff", None)
     if not staff:
         return False
-    role_norm = (staff.role or "").strip().lower()
-    return role_norm in ("doctor", "junior doctor", "consultant", "physician", "surgeon", "specialist")
+    return is_doctor_role(staff.role)

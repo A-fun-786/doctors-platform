@@ -837,8 +837,8 @@ All items from the [production audit](file:///Users/mdaffanahmed/.gemini/antigra
 
 ---
 
-## Multi-Doctor Appointments & Clinical Calendar Architecture (v2.0)
-*Last updated: November 6, 2026*
+## Multi-Doctor Appointments & Clinical Calendar Architecture (v2.1)
+*Last updated: November 17, 2026*
 
 ### 1. Overview
 In a multi-practitioner clinic, multiple doctors (the practice owner and employed associate doctors/specialists) consult concurrently in different consultation rooms. The initial single-doctor design locked slots clinic-wide (`uq_doctor_active_appointment_slot`), preventing Dr. Wilson from taking an appointment at 10:00 AM if Dr. Cuddy already had one.
@@ -856,8 +856,8 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
 #### Backend (`/backend/app`)
 - [`models/appointment.py`](file:///Users/emanur/doctors-platform/backend/app/models/appointment.py): Added `staff_id` FK (nullable, `ondelete="SET NULL"`), eager-joined relationship `staff_member`, properties `staff_name` and `doctor_name`, and split partial unique indexes (`uq_primary_doctor_active_slot` & `uq_staff_doctor_active_slot`).
 - [`alembic/versions/012_multi_doctor_appointments.py`](file:///Users/emanur/doctors-platform/backend/alembic/versions/012_multi_doctor_appointments.py): Database migration introducing `staff_id` and partial indexes.
-- [`services/appointment_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/appointment_service.py): Manages appointment creation, reschedule validation scoped to specific doctors, and `list_practitioners` discovery.
-- [`services/schedule_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/schedule_service.py): Implements multi-doctor capacity slot generation (`total_capacity = 1 + active_staff_doctors`).
+- [`services/appointment_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/appointment_service.py): Manages appointment creation, reschedule validation scoped to specific doctors, and `list_practitioners` discovery via canonical `is_doctor_role()`.
+- [`services/schedule_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/schedule_service.py): Implements multi-doctor capacity slot generation (`total_capacity = 1 + active_staff_doctors`) with `is_doctor_role()` filtering.
 - [`services/calendar_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/calendar_service.py): Aggregates appointments with `staff_id` filtering and attaches attending doctor metadata.
 - [`api/routes/appointment.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/appointment.py): Exposes `GET /doctor/practitioners` and practitioner filtering params on appointments.
 - [`api/routes/calendar.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/calendar.py): Adds `staff_id` and `primary_only` query params to `GET /doctor/calendar`.

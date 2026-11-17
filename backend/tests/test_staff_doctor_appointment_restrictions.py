@@ -361,3 +361,113 @@ def test_receptionist_can_book_and_cancel_appointments(
     assert res_cancel.status_code == 200
     assert res_cancel.json()["status"] == "CANCELLED"
 
+
+def test_specialist_staff_doctor_classification_and_nurse_exclusion(
+    client, db_session, clinic_owner
+):
+    """Test 8: Specialist roles (e.g. Cardiologist) are recognized as staff doctors; nurses are excluded."""
+    from app.models.staff import is_doctor_role
+    from app.services.appointment_service import list_practitioners
+
+    # Unit checks on is_doctor_role
+    assert is_doctor_role("Cardiologist") is True
+    assert is_doctor_role("Senior Consultant Cardiologist") is True
+    assert is_doctor_role("Pediatrician") is True
+    assert is_doctor_role("Dentist") is True
+    assert is_doctor_role("Resident Doctor") is True
+    assert is_doctor_role("Junior Doctor") is True
+    assert is_doctor_role("Surgeon") is True
+    assert is_doctor_role("Nurse") is False
+    assert is_doctor_role("Head Nurse") is False
+    assert is_doctor_role("Doctor's Assistant") is False
+    assert is_doctor_role("Medical Assistant") is False
+    assert is_doctor_role("Lab Technician") is False
+    assert is_doctor_role("Receptionist") is False
+
+    # Create specialist staff member (Cardiologist)
+    cardiologist = StaffMember(
+        id=uuid.uuid4(),
+        doctor_id=clinic_owner.id,
+        full_name="Dr. Priya Cardiologist",
+        role="Cardiologist",
+        department="Clinical",
+        phone="+919876599901",
+        can_login=True,
+        username="priya.cardio",
+        status="active",
+        token_version=1,
+    )
+    # Create nurse in Clinical department
+    nurse = StaffMember(
+        id=uuid.uuid4(),
+        doctor_id=clinic_owner.id,
+        full_name="Sister Florence",
+        role="Nurse",
+        department="Clinical",
+        phone="+919876599902",
+        can_login=True,
+        username="florence.nurse",
+        status="active",
+        token_version=1,
+    )
+    db_session.add_all([cardiologist, nurse])
+    db_session.commit()
+
+    # Verify list_practitioners includes Cardiologist but excludes Nurse (despite Clinical department)
+    practitioners = list_practitioners(clinic_owner.id, db_session)
+    practitioner_ids = [p["id"] for p in practitioners]
+    assert cardiologist.id in practitioner_ids
+    assert nurse.id not in practitioner_ids
+
+    # Authenticate as Cardiologist
+    token = create_access_token(
+        subject=str(cardiologist.id),
+        claims={
+            "doctor_id": str(clinic_owner.id),
+            "user_type": "staff",
+            "role": "Cardiologist",
+            "token_version": 1,
+        },
+    )
+    cardio_headers = {"Authorization": f"Bearer {token}"}
+
+    # Cardiologist is guarded by is_staff_doctor and blocked from booking
+    booking_payload = {
+        "patient_name": "Test Patient",
+        "patient_contact": "+919876500000",
+        "date": "2026-11-20",
+        "start_time": "10:00",
+        "end_time": "10:30",
+        "reason": "Cardiology consult",
+    }
+    res_book = client.post("/api/v1/doctor/appointments", json=booking_payload, headers=cardio_headers)
+    assert res_book.status_code == 403
+    assert "Staff doctors are not permitted to book appointments" in res_book.json()["detail"]
+
+    # Booking an appointment targeting Nurse as the practitioner is rejected
+    owner_token = create_access_token(subject=str(clinic_owner.id))
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    db_session.add(
+        Schedule(
+            doctor_id=clinic_owner.id,
+            date=date(2026, 11, 20),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+            type="AVAILABLE",
+        )
+    )
+    db_session.commit()
+
+    nurse_booking_payload = {
+        "patient_name": "Patient for Nurse",
+        "patient_contact": "+919876512345",
+        "date": "2026-11-20",
+        "start_time": "14:00",
+        "end_time": "14:30",
+        "staff_id": str(nurse.id),
+        "reason": "Routine Check",
+    }
+    res_nurse_book = client.post("/api/v1/doctor/appointments", json=nurse_booking_payload, headers=owner_headers)
+    assert res_nurse_book.status_code == 400
+    assert "not a clinical practitioner" in res_nurse_book.json()["detail"]
+

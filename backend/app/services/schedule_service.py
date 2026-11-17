@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
-from app.models.staff import StaffMember
+from app.models.staff import StaffMember, is_doctor_role
 from app.schemas.schedule import ScheduleCreateRequest
 
 
@@ -281,7 +281,6 @@ def generate_available_slots(
             target_staff_uuid = staff_id
 
     # Active staff doctors
-    doctor_keywords = ["doctor", "physician", "specialist", "consultant", "surgeon", "pediatrician", "cardiologist", "dermatologist"]
     staff_members = (
         db.query(StaffMember)
         .filter(
@@ -292,7 +291,7 @@ def generate_available_slots(
     )
     staff_doctors = [
         s for s in staff_members
-        if any(kw in s.role.lower() for kw in doctor_keywords) or s.department == "Clinical"
+        if is_doctor_role(s.role)
     ]
 
     # Handle specific practitioner slot generation

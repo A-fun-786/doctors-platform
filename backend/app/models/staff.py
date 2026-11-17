@@ -16,6 +16,50 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+DOCTOR_ROLE_KEYWORDS = (
+    "doctor",
+    "physician",
+    "specialist",
+    "consultant",
+    "surgeon",
+    "pediatrician",
+    "cardiologist",
+    "dermatologist",
+    "gynecologist",
+    "orthopedic",
+    "neurologist",
+    "dentist",
+    "practitioner",
+    "resident",
+    "fellow",
+)
+
+NON_DOCTOR_ROLE_KEYWORDS = (
+    "assistant",
+    "technician",
+    "nurse",
+    "receptionist",
+    "pharmacist",
+    "billing",
+    "admin",
+    "clerk",
+    "attendant",
+)
+
+
+def is_doctor_role(role: Optional[str]) -> bool:
+    """
+    Returns True if the role string represents a medical doctor / practitioner.
+    Excludes non-doctor support personnel (nurses, assistants, technicians, etc.)
+    even if their role or department mentions clinical keywords.
+    """
+    if not role:
+        return False
+    r = role.strip().lower()
+    if any(non_kw in r for non_kw in NON_DOCTOR_ROLE_KEYWORDS):
+        return False
+    return any(kw in r for kw in DOCTOR_ROLE_KEYWORDS)
+
 
 class StaffMember(Base, TimestampMixin):
     """
@@ -60,6 +104,11 @@ class StaffMember(Base, TimestampMixin):
 
     # Doctor relationship
     doctor: Mapped["Doctor"] = relationship("Doctor")
+
+    @property
+    def is_doctor(self) -> bool:
+        """Returns True if this staff member is a qualified medical practitioner."""
+        return is_doctor_role(self.role)
 
     __table_args__ = (
         Index("idx_staff_doctor_status", "doctor_id", "status"),

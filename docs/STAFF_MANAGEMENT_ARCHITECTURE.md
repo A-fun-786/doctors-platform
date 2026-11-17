@@ -1,6 +1,6 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.2.0  
+**Document Version:** 2.3.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
 **Last Updated:** November 17, 2026  
@@ -24,7 +24,7 @@ The **Staff Management & Authentication** system provides a multi-tenant, role-i
 
 | File / Component | Responsibility |
 | :--- | :--- |
-| [`backend/app/models/staff.py`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) | Defines `StaffMember` entity with `username`, `token_version`, and role metadata. |
+| [`backend/app/models/staff.py`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) | Defines `StaffMember` entity with `username`, `token_version`, canonical `is_doctor_role` classifier, and `@property is_doctor`. |
 | [`backend/app/schemas/staff.py`](file:///Users/emanur/doctors-platform/backend/app/schemas/staff.py) | Pydantic v2 schemas (`StaffMemberCreate`, `StaffMemberUpdate`) with `@field_validator` for User ID & phone. |
 | [`backend/app/services/staff_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/staff_service.py) | Candidate User ID generation, collision handling, credential rotation, and CRUD operations. |
 | [`backend/app/services/auth_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/auth_service.py) | Authenticates staff User IDs, verifies passwords, issues JWTs, and enforces portal boundaries. |
@@ -113,6 +113,10 @@ When creating staff, `generate_username_candidates` tests candidates in batches 
 ### Beside-Input Generate Button
 - In Add Staff, Edit Staff, and Password Reset dialogs, the blue **Generate** button sits directly beside the password field in a uniform `h-10` flex row (`flex items-center gap-2`), avoiding awkward label-row text links.
 
+### Canonical Practitioner Classification (`is_doctor_role`)
+- **Vulnerability Solved:** Previous versions used ad-hoc role keyword lists and a fallback `or s.department == "Clinical"`. This caused non-doctor clinical staff (such as Nurses and Technicians) to be exposed as bookable doctors in `list_practitioners`, while medical specialists (such as `Cardiologist` and `Pediatrician`) bypassed staff doctor boundaries in `deps.py:is_staff_doctor`.
+- **Single Source of Truth:** `DOCTOR_ROLE_KEYWORDS`, `NON_DOCTOR_ROLE_KEYWORDS`, and `is_doctor_role(role)` in [`backend/app/models/staff.py`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) now classify practitioner boundaries consistently across `deps.py`, `appointment_service.py`, and `schedule_service.py`. Non-doctor staff targeted during booking/rescheduling fail immediately with `400 Bad Request`.
+
 ### Zero Plain-Text Storage & Ephemeral Session Cache
 - Passwords are one-way hashed with `bcrypt` (12 rounds) and never stored in plain text.
 - To allow clinic owners to share initial credentials, the UI uses an in-memory session cache (`recentPasswords`) to display a temporary **Eye Reveal/Mask** toggle and **Copy Pass** button. Refreshing the browser permanently purges the plain text from memory.
@@ -173,6 +177,8 @@ curl -X POST http://localhost:8000/api/v1/staff \
   - Keep `<CalendarSidebar>` in `CalendarTab.tsx` (using `<div className="hidden" aria-hidden="true">` wrapper) to preserve automated test assertions.
 - **Maintain Multi-Doctor Partial Indexes:**
   - Never use a single unique index across nullable `staff_id`; preserve `uq_primary_doctor_active_slot` and `uq_staff_doctor_active_slot`.
+- **Canonical Practitioner Classification:**
+  - Always use `is_doctor_role(role)` from [`backend/app/models/staff.py`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) for practitioner identification. Never infer doctor status from `department == "Clinical"`.
 
 ---
 
