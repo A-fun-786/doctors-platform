@@ -433,7 +433,7 @@ export default function PatientDoctorPage() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
                     <HeartPulse className="w-4 h-4" />
                   </div>
                   <h3 className="text-xs font-bold text-slate-900">Integrated Digital Care</h3>
@@ -571,19 +571,19 @@ export default function PatientDoctorPage() {
                 {services.lab_reports && (
                   <div
                     onClick={() => navigateToTab("reports")}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-purple-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-brand-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center group-hover:scale-105 transition-transform">
                           <FileText className="w-6 h-6" />
                         </div>
-                        <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-md">
+                        <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-md">
                           Diagnostics
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 group-hover:text-purple-600 transition-colors">
+                        <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
                           Upload Lab &amp; Diagnostic Reports
                         </h3>
                         <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
@@ -595,7 +595,7 @@ export default function PatientDoctorPage() {
                       <span className="text-slate-500 font-medium">
                         PDF &amp; scan uploader
                       </span>
-                      <span className="inline-flex items-center gap-1 font-bold text-purple-600 group-hover:translate-x-1 transition-transform">
+                      <span className="inline-flex items-center gap-1 font-bold text-brand-600 group-hover:translate-x-1 transition-transform">
                         <span>Upload Documents</span>
                         <ChevronRight className="w-4 h-4" />
                       </span>
@@ -851,22 +851,22 @@ export default function PatientDoctorPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-purple-700 bg-purple-50 border border-purple-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+              <div className="flex items-center gap-1.5 text-xs text-brand-700 bg-brand-50 border border-brand-200/80 px-3 py-1.5 rounded-lg self-start sm:self-auto">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-500 shrink-0" aria-hidden="true" />
                 <span>Confidential &amp; Encrypted Upload</span>
               </div>
             </div>
 
             <section id="reports" className="scroll-mt-24">
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-700 to-slate-900 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="bg-gradient-to-r from-brand-600 to-brand-800 p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white backdrop-blur-md">
-                      <FileText className="w-5 h-5" />
+                      <FileText className="w-5 h-5" aria-hidden="true" />
                     </div>
                     <div>
                       <h2 className="text-lg font-bold">Upload Lab &amp; Diagnostic Reports</h2>
-                      <p className="text-xs text-purple-100">
+                      <p className="text-xs text-brand-100">
                         Share test results, blood work, or radiology reports securely before your consultation
                       </p>
                     </div>
@@ -879,7 +879,7 @@ export default function PatientDoctorPage() {
                 {repSuccess ? (
                   <div className="p-8 text-center space-y-4">
                     <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 mx-auto flex items-center justify-center">
-                      <CheckCircle2 className="w-8 h-8" />
+                      <CheckCircle2 className="w-8 h-8" aria-hidden="true" />
                     </div>
                     <div className="space-y-1 max-w-md mx-auto">
                       <h3 className="text-xl font-bold text-slate-900">Lab Report Received!</h3>
@@ -901,7 +901,7 @@ export default function PatientDoctorPage() {
                         onClick={() => navigateToTab("home")}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-xs font-semibold text-white rounded-lg transition-colors cursor-pointer text-center"
                       >
-                        <Home className="w-3.5 h-3.5" />
+                        <Home className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>Return to Practice Home</span>
                       </button>
                     </div>
@@ -910,43 +910,46 @@ export default function PatientDoctorPage() {
                   <form onSubmit={handleReportSubmit} className="p-6 sm:p-8 space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="rep-patient-name" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                           Patient Full Name <span className="text-red-500">*</span>
                         </label>
                         <input
+                          id="rep-patient-name"
                           type="text"
                           required
                           value={repPatientName}
                           onChange={(e) => setRepPatientName(e.target.value)}
                           placeholder="Patient name"
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="rep-contact-phone" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                           Contact Phone <span className="text-red-500">*</span>
                         </label>
                         <input
+                          id="rep-contact-phone"
                           type="tel"
                           required
                           value={repPhone}
                           onChange={(e) => setRepPhone(e.target.value)}
                           placeholder="+1 (555) 000-0000"
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="rep-category" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                           Report Category <span className="text-red-500">*</span>
                         </label>
                         <select
+                          id="rep-category"
                           value={repType}
                           onChange={(e) => setRepType(e.target.value)}
-                          className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                           <option value="Blood Work & Pathology">Blood Work &amp; Pathology</option>
                           <option value="Radiology / X-Ray / CT / MRI">Radiology / X-Ray / CT / MRI</option>
@@ -957,22 +960,24 @@ export default function PatientDoctorPage() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <label htmlFor="rep-file-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                           Select Diagnostic File (PDF or Image) <span className="text-red-500">*</span>
                         </label>
-                        <div className="border border-dashed border-purple-200 bg-purple-50/40 rounded-lg p-2.5 flex items-center justify-between">
+                        <div className="border border-dashed border-brand-200 bg-brand-50/40 rounded-lg p-2.5 flex items-center justify-between">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <UploadCloud className="w-4 h-4 text-purple-600 shrink-0" />
+                            <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" aria-hidden="true" />
                             <span className="text-xs text-slate-600 truncate">
                               {repFileName || "No file selected"}
                             </span>
                           </div>
-                          <label className="cursor-pointer text-xs font-semibold text-purple-700 hover:text-purple-800 bg-white border border-purple-200 px-2.5 py-1 rounded shadow-xs shrink-0">
+                          <label className="cursor-pointer text-xs font-semibold text-brand-700 hover:text-brand-800 bg-white border border-brand-200 px-2.5 py-1 rounded shadow-xs shrink-0">
                             Browse
                             <input
+                              id="rep-file-input"
                               type="file"
                               accept=".pdf,image/*"
                               className="hidden"
+                              aria-label="Upload Diagnostic File"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) setRepFileName(file.name);
@@ -984,15 +989,16 @@ export default function PatientDoctorPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      <label htmlFor="rep-notes" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                         Notes / Relevant Clinical Symptoms
                       </label>
                       <textarea
+                        id="rep-notes"
                         rows={2}
                         value={repNotes}
                         onChange={(e) => setRepNotes(e.target.value)}
                         placeholder="Mention lab name, test date, or specific questions for the doctor..."
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
 
@@ -1000,17 +1006,17 @@ export default function PatientDoctorPage() {
                       <button
                         type="submit"
                         disabled={repSubmitting}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                       >
                         {repSubmitting ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                             <span>Uploading...</span>
                           </>
                         ) : (
                           <>
                             <span>Submit Diagnostic Report</span>
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-4 h-4" aria-hidden="true" />
                           </>
                         )}
                       </button>
