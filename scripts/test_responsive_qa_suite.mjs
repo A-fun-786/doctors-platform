@@ -146,8 +146,8 @@ verifyCheck("B", 3, "Mobile hamburger menu and mobile action navigation", () => 
   assert.ok(dashboardShell.includes("<header className=\"md:hidden sticky top-0"), "Sticky mobile header present in DashboardShell");
   assert.ok(dashboardShell.includes("Menu"), "Hamburger Menu icon present in mobile topbar");
   assert.ok(dashboardShell.includes("aria-label=\"Open navigation menu\""), "Accessible hamburger menu button");
-  assert.ok(navbarLanding.includes("flex md:hidden items-center"), "Landing Navbar includes responsive mobile actions container");
-  assert.ok(navbarLanding.includes("Sign Up"), "Landing Navbar includes direct mobile Sign Up button");
+  assert.ok(navbarLanding.includes("lg:hidden") && navbarLanding.includes("Menu"), "Landing Navbar includes responsive mobile drawer toggle");
+  assert.ok(navbarLanding.includes("SignUp / LogIn") || navbarLanding.includes("Signup / Login"), "Landing Navbar includes mobile action button");
   assert.ok(navbarLanding.includes("href=\"/login\""), "Landing Navbar includes direct mobile Login link");
 });
 

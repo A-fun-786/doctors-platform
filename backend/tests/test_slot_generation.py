@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -244,7 +244,7 @@ def test_2_22_completed_appointment(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 17, 8, 0))
     assert len(slots) == 7
     starts = [s["start"] for s in slots]
     assert "10:00" not in starts
