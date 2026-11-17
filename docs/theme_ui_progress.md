@@ -148,16 +148,22 @@ The remaining components have been categorized into a structured 4-phase rollout
 ---
 
 ### 🟢 Batch 4: Public Patient Portal & Shared UI Globals (Status: ✅ DONE LOCALLY)
-- **Target Files (4 files):**
+- **Target Files (4 files + 1 test suite):**
   1. [`app/[slug]/page.tsx`](../app/[slug]/page.tsx)
   2. [`components/ui/Badge.tsx`](../components/ui/Badge.tsx)
   3. [`components/ui/Toast.tsx`](../components/ui/Toast.tsx)
   4. [`app/global-error.tsx`](../app/global-error.tsx)
-- **Scope & Token Mapping:**
-  - `app/[slug]/page.tsx`: Secondary button `bg-brand-50 text-brand-700 border-brand-200`, service cards icons `bg-brand-100 text-brand-700`, teleconsult card hover `hover:border-brand-400`, teleconsult badge `text-brand-700 bg-brand-50`, in-clinic modal banner `from-brand-600 to-brand-800 text-brand-100`, teleconsult modal banner `from-brand-600 to-brand-800 text-brand-100`, teleconsult input focus `focus:ring-brand-500`, teleconsult slot pill `bg-brand-600 text-white`, submit CTA `bg-brand-600 hover:bg-brand-700`, query header `from-brand-700 to-slate-900`.
-  - `Badge.tsx`: Default variant updated to `bg-brand-50 text-brand-700 border-brand-200`.
-  - `Toast.tsx`: Info toast icon updated to `text-brand-400`.
-  - `global-error.tsx`: Root reload CTA updated to `bg-brand-600 hover:bg-brand-700`.
+  5. [`scripts/test_commit4_best_practices.mjs`](../scripts/test_commit4_best_practices.mjs) (Automated QA verification)
+- **Scope, Tokens & Best Practice Fixes Applied:**
+  - `Toast.tsx`: Restored semantic status color integrity by updating info toast icon to standard `text-sky-400`, eliminating conflation between informational notifications and clinical emerald tokens.
+  - `app/[slug]/page.tsx`:
+    - Replaced untokenized diagnostic banner gradient (`from-purple-700 to-slate-900`) with Clinical Emerald brand gradient (`from-brand-600 to-brand-800 text-brand-100`).
+    - Harmonized diagnostic report submission form and service cards (`Diagnostics` card, confidentiality badge, input focus states `focus:ring-brand-500`, file upload dropzone `border-brand-200 bg-brand-50/40 text-brand-600`, and submit CTA `bg-brand-600 hover:bg-brand-700`).
+    - Standardized healthcare commitment pillar icon container to `bg-brand-100 text-brand-700`.
+    - Added accessible `htmlFor`/`id` bindings and `aria-label` / `aria-hidden` attributes across diagnostic form elements.
+    - Decoupled monolithic booking flow into dedicated components under `components/public-booking/` (`AppointmentBookingForm.tsx`, `BookingConfirmationCard.tsx`, `TimeSlotPicker.tsx`).
+  - `Badge.tsx`: Standardized default variant to `bg-brand-50 text-brand-700 border-brand-200`.
+  - `global-error.tsx`: Retained `bg-brand-600 hover:bg-brand-700`.
 
 ---
 
