@@ -192,7 +192,15 @@ Updated all landing page components to reflect Option 2 (Clinical Emerald & Vita
 - **Preview Section ([`PreviewSection.tsx`](../components/landing/PreviewSection.tsx)):** Unified with active `brand-*` emerald tokens for all mockup components and tags.
 
 ### ✅ Phase 5: Doctor Dashboard Shell & Primary Tabs (Completed)
-- **Dashboard Shell ([`DashboardShell.tsx`](../components/dashboard/DashboardShell.tsx)):** Top navigation tabs unified (`bg-brand-600 text-white` active, `hover:text-brand-700 hover:bg-brand-50/70` inactive), doctor avatar ring (`border-brand-200`), live pulse dot (`bg-brand-500`).
+- **Dashboard Shell ([`DashboardShell.tsx`](../components/dashboard/DashboardShell.tsx)):**
+  - **Header Architecture & Redundancy Removal**: Streamlined desktop tab header by removing duplicate profile pill and logout button, establishing the floating glassmorphic top bar as the single source of truth for session and profile management.
+  - **Tailwind v3 Incompatibility Fix**: Replaced all 8 instances of `focus-visible:outline-hidden` with `focus-visible:outline-none` across hamburger toggle, header logout, drawer close, nav items, sidebar collapse toggle, and bottom navigation.
+  - **Accessibility (a11y) & WCAG Compliance**:
+    - Added `aria-hidden="true"` to active tab live pulsing dot (`bg-brand-500`).
+    - Added `aria-hidden="true"` across all decorative Lucide icons (`Menu`, `LogOut`, `X`, `PanelLeftOpen`, `PanelLeftClose`, `Activity`, and nav icons).
+    - Added `aria-current="page"` dynamic announcements on active navigation buttons across mobile drawer, desktop collapsible sidebar, and mobile bottom nav bar.
+    - Standardized doctor display name to `{formattedDoctorName}` across all desktop and mobile drawer headers.
+  - **Automated Verification**: [`scripts/test_commit5_best_practices.mjs`](../scripts/test_commit5_best_practices.mjs) (7/7 tests passed, 100%).
 - **Overview Tab ([`OverviewTab.tsx`](../components/dashboard/OverviewTab.tsx)):** Hero banner revamped to clinical emerald gradient (`from-brand-900 via-emerald-800 to-slate-900`), metrics cards with clean slate borders and brand accents, quick action CTAs (`bg-brand-600 hover:bg-brand-700`).
 - **Android App Tab ([`AndroidAppTab.tsx`](../components/dashboard/AndroidAppTab.tsx)):** APK build progress track (`bg-brand-600`), notice callout boxes, and download CTA buttons aligned with brand emerald tokens.
 - **Profile Tab ([`ProfileTab.tsx`](../components/dashboard/ProfileTab.tsx) & `profile/*`):** Profile view card, edit form, and avatar uploader migrated from legacy blue/indigo to clinical emerald (`brand-600`, `brand-50`, `border-brand-200`).
