@@ -41,6 +41,7 @@ Always run these before and after changes:
 - **Beside-Input Generate Button**: Position the blue password Generate button directly beside the password input box (`flex items-center gap-2`, matching `h-10` height and `rounded-xl`).
 - **Staff User ID Normalization**: Normalize User IDs via schema field validators by stripping leading `@`, trimming whitespace, and converting to lowercase.
 - **Immediate Session Invalidation**: Increment `token_version` on password change or reset to invalidate all existing JWT tokens.
+- **Doctor Speciality Selection**: Enforce mandatory `speciality` dropdown selection when creating/editing doctor roles, defaulting to `"General Physician"` if omitted.
 - **Canonical Practitioner Classification**: Use `is_doctor_role(role)` from [`app.models.staff`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) for all practitioner boundaries (`is_staff_doctor`, `list_practitioners`, and slot generation). Never infer doctor status from department (`department == 'Clinical'`).
 
 ### Don'ts:

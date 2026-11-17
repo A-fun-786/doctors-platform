@@ -530,12 +530,12 @@ def list_practitioners(
     )
 
     for s in staff_members:
-        if is_doctor_role(s.role):
+        if s.is_doctor:
             practitioners.append({
                 "id": s.id,
                 "name": s.full_name,
                 "role": s.role,
-                "speciality": s.role,
+                "speciality": s.speciality or s.role,
                 "department": s.department,
                 "is_primary": False,
             })

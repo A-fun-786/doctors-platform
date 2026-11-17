@@ -208,6 +208,7 @@ class StaffService:
             email=email,
             phone=data.phone.strip(),
             role=data.role.strip(),
+            speciality=data.speciality.strip() if data.speciality else None,
             department=data.department.strip() if data.department else "Clinical",
             employment_type=data.employment_type,
             status=data.status,
@@ -317,6 +318,11 @@ class StaffService:
                 setattr(staff, field, value.strip())
             else:
                 setattr(staff, field, value)
+
+        # If role is updated to a non-doctor role, ensure speciality is cleared
+        if "role" in update_dict and not staff.is_doctor:
+            if "speciality" not in update_dict:
+                staff.speciality = None
 
         try:
             self.db.commit()

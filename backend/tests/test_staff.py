@@ -541,3 +541,68 @@ def test_staff_update_email_collision_prevented(client, test_doctor_and_auth):
     )
     assert res_collide.status_code == 400
     assert "already exists" in res_collide.json()["detail"]
+
+
+def test_staff_doctor_speciality_creation_and_update(client, test_doctor_and_auth):
+    _, headers = test_doctor_and_auth
+
+    # 1. Create Doctor with explicit speciality
+    res_doc = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Aarav Mehta",
+            "phone": "+91 98765 77777",
+            "role": "Doctor",
+            "speciality": "Cardiologist",
+        },
+        headers=headers,
+    )
+    assert res_doc.status_code == 201
+    doc_data = res_doc.json()
+    assert doc_data["speciality"] == "Cardiologist"
+    doc_id = doc_data["id"]
+
+    # 2. Update Doctor's speciality
+    res_update = client.put(
+        f"/api/v1/staff/{doc_id}",
+        json={"speciality": "Neurologist"},
+        headers=headers,
+    )
+    assert res_update.status_code == 200
+    assert res_update.json()["speciality"] == "Neurologist"
+
+    # 3. Create Doctor without speciality -> defaults to General Physician
+    res_default = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Maya Sen",
+            "phone": "+91 98765 88888",
+            "role": "Junior Doctor",
+        },
+        headers=headers,
+    )
+    assert res_default.status_code == 201
+    assert res_default.json()["speciality"] == "General Physician"
+
+    # 4. Create non-doctor -> speciality is None
+    res_nurse = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Sunita",
+            "phone": "+91 98765 99999",
+            "role": "Nurse",
+        },
+        headers=headers,
+    )
+    assert res_nurse.status_code == 201
+    assert res_nurse.json()["speciality"] is None
+
+    # 5. Role downgrade: change doctor to receptionist -> speciality cleared
+    res_downgrade = client.put(
+        f"/api/v1/staff/{doc_id}",
+        json={"role": "Receptionist"},
+        headers=headers,
+    )
+    assert res_downgrade.status_code == 200
+    assert res_downgrade.json()["role"] == "Receptionist"
+    assert res_downgrade.json()["speciality"] is None

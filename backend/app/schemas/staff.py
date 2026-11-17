@@ -2,7 +2,8 @@ import re
 import uuid
 from datetime import date, datetime
 from typing import Optional, List, Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from app.models.staff import is_doctor_role
 
 # Core Type Literals
 StaffRole = Literal[
@@ -73,6 +74,7 @@ class StaffMemberCreate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     phone: str = Field(..., min_length=5, max_length=30)
     role: str = Field(..., min_length=1, max_length=50)
+    speciality: Optional[str] = Field(None, max_length=100, description="Mandatory medical speciality for doctors (e.g. Cardiologist, General Physician)")
     department: str = Field("Clinical", max_length=50)
     employment_type: EmploymentType = "full_time"
     status: StaffStatus = "active"
@@ -101,12 +103,30 @@ class StaffMemberCreate(BaseModel):
     def check_email(cls, v):
         return validate_staff_email(v)
 
+    @model_validator(mode="after")
+    def validate_doctor_speciality(self):
+        if self.role is not None:
+            if is_doctor_role(self.role):
+                if not self.speciality or not self.speciality.strip():
+                    self.speciality = "General Physician"
+                else:
+                    self.speciality = self.speciality.strip()
+            else:
+                if not self.speciality:
+                    self.speciality = None
+                else:
+                    self.speciality = self.speciality.strip()
+        elif self.speciality:
+            self.speciality = self.speciality.strip()
+        return self
+
 
 class StaffMemberUpdate(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=120)
     email: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = Field(None, min_length=5, max_length=30)
     role: Optional[str] = Field(None, min_length=1, max_length=50)
+    speciality: Optional[str] = Field(None, max_length=100)
     department: Optional[str] = Field(None, max_length=50)
     employment_type: Optional[EmploymentType] = None
     status: Optional[StaffStatus] = None
@@ -138,6 +158,23 @@ class StaffMemberUpdate(BaseModel):
     def check_email(cls, v):
         return validate_staff_email(v)
 
+    @model_validator(mode="after")
+    def validate_doctor_speciality(self):
+        if self.role is not None:
+            if is_doctor_role(self.role):
+                if not self.speciality or not self.speciality.strip():
+                    self.speciality = "General Physician"
+                else:
+                    self.speciality = self.speciality.strip()
+            else:
+                if not self.speciality:
+                    self.speciality = None
+                else:
+                    self.speciality = self.speciality.strip()
+        elif self.speciality:
+            self.speciality = self.speciality.strip()
+        return self
+
 
 class StaffMemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -149,6 +186,7 @@ class StaffMemberResponse(BaseModel):
     email: Optional[str] = None
     phone: str
     role: str
+    speciality: Optional[str] = None
     department: str
     employment_type: str
     status: str

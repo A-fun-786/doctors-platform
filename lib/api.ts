@@ -994,6 +994,7 @@ export interface StaffMember {
   email?: string | null;
   phone: string;
   role: string;
+  speciality?: string | null;
   department: string;
   employment_type: string;
   status: string;
@@ -1015,6 +1016,7 @@ export interface StaffMemberCreatePayload {
   email?: string;
   phone: string;
   role: string;
+  speciality?: string;
   department?: string;
   employment_type?: string;
   status?: string;
@@ -1032,6 +1034,7 @@ export interface StaffMemberUpdatePayload {
   email?: string;
   phone?: string;
   role?: string;
+  speciality?: string | null;
   department?: string;
   employment_type?: string;
   status?: string;

@@ -291,7 +291,7 @@ def generate_available_slots(
     )
     staff_doctors = [
         s for s in staff_members
-        if is_doctor_role(s.role)
+        if s.is_doctor
     ]
 
     # Handle specific practitioner slot generation

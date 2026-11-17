@@ -64,6 +64,31 @@ const ROLE_OPTIONS = [
   "Other",
 ];
 
+const SPECIALITY_OPTIONS = [
+  "General Physician",
+  "Cardiologist",
+  "Dermatologist",
+  "Pediatrician",
+  "Gynecologist & Obstetrician",
+  "Orthopedic Surgeon",
+  "Neurologist",
+  "ENT Specialist",
+  "Psychiatrist",
+  "Dentist",
+  "Ophthalmologist",
+  "Endocrinologist",
+  "Pulmonologist",
+  "Gastroenterologist",
+  "General Surgeon",
+  "Oncologist",
+  "Radiologist",
+  "Pathologist",
+  "Nephrologist",
+  "Urologist",
+  "Emergency Medicine",
+  "Other Specialist",
+];
+
 const DEPARTMENT_OPTIONS = [
   "All Departments",
   "Clinical",
@@ -125,7 +150,11 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   const startEditingStaff = (staff: StaffMember) => {
     setSuccessMsg(null);
     setErrorMsg(null);
-    setEditingStaff(staff);
+    const isDoc = staff.role.toLowerCase().includes("doctor");
+    setEditingStaff({
+      ...staff,
+      speciality: isDoc ? (staff.speciality || "General Physician") : (staff.speciality || ""),
+    });
     setEditPasswordInput("");
     setSelectedStaff(null);
     setEditModeEnteredAt(Date.now());
@@ -139,6 +168,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     if (editPasswordInput.trim().length > 0) return true;
     if (editing.full_name.trim() !== original.full_name.trim()) return true;
     if (editing.role !== original.role) return true;
+    if ((editing.speciality || "").trim() !== (original.speciality || "").trim()) return true;
     if (editing.department !== original.department) return true;
     if (editing.phone.trim() !== original.phone.trim()) return true;
     if ((editing.email || "").trim() !== (original.email || "").trim()) return true;
@@ -231,6 +261,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     email: "",
     phone: "",
     role: "Doctor",
+    speciality: "General Physician",
     department: "Clinical",
     employment_type: "full_time",
     base_salary_rupees: "50000",
@@ -300,6 +331,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   // Handle Add Staff
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isDoc = staffForm.role.toLowerCase().includes("doctor");
+    if (isDoc && !staffForm.speciality?.trim()) {
+      setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
+      return;
+    }
+
     if (staffForm.can_login && (!staffForm.password || staffForm.password.length < 6)) {
       setErrorMsg("Password must be at least 6 characters long.");
       return;
@@ -319,6 +356,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         email: staffForm.email ? staffForm.email.trim() : undefined,
         phone: staffForm.phone,
         role: staffForm.role,
+        speciality: isDoc ? (staffForm.speciality || "General Physician") : undefined,
         department: staffForm.department,
         employment_type: staffForm.employment_type,
         base_salary_paise: paise,
@@ -354,6 +392,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         email: "",
         phone: "",
         role: "Doctor",
+        speciality: "General Physician",
         department: "Clinical",
         employment_type: "full_time",
         base_salary_rupees: "50000",
@@ -423,6 +462,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
+    const isDoc = editingStaff.role.toLowerCase().includes("doctor");
+    if (isDoc && !editingStaff.speciality?.trim()) {
+      setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
+      return;
+    }
+
     if (editingStaff.can_login && !hasExistingLogin && !editPasswordInput) {
       setErrorMsg("A password (min 6 characters) is required when enabling portal login access.");
       return;
@@ -444,6 +489,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         email: editingStaff.email ? editingStaff.email.trim() : undefined,
         phone: editingStaff.phone,
         role: editingStaff.role,
+        speciality: isDoc ? (editingStaff.speciality || "General Physician") : null,
         department: editingStaff.department,
         employment_type: editingStaff.employment_type,
         status: editingStaff.status,
@@ -609,83 +655,125 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </div>
               </div>
 
-              {/* Row 1: Name, Role, Department */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-                {/* Full Name */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Full Name <span className="text-brand-600">*</span>
-                    </label>
-                  </div>
-                  <div className="relative flex items-center group">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Dr. Rajesh Verma or Priya Sharma"
-                      value={staffForm.full_name}
-                      onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
-                      className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs font-medium"
-                    />
-                  </div>
-                </div>
+              {/* Row 1: Name, Role, Specialist (Doctor Only), Department */}
+              {(() => {
+                const isDoctor = staffForm.role.toLowerCase().includes("doctor");
+                return (
+                  <div
+                    className={`grid grid-cols-1 ${
+                      isDoctor ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"
+                    } gap-4 sm:gap-5`}
+                  >
+                    {/* Full Name */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Full Name <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Dr. Rajesh Verma or Priya Sharma"
+                          value={staffForm.full_name}
+                          onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
+                          className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs font-medium"
+                        />
+                      </div>
+                    </div>
 
-                {/* Role */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Role / Designation <span className="text-brand-600">*</span>
-                    </label>
-                  </div>
-                  <div className="relative flex items-center group">
-                    <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <select
-                      value={staffForm.role}
-                      onChange={(e) => {
-                        const newRole = e.target.value;
-                        setStaffForm({
-                          ...staffForm,
-                          role: newRole,
-                          department: newRole.toLowerCase().includes("doctor") ? "Clinical" : staffForm.department,
-                        });
-                      }}
-                      className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                  </div>
-                </div>
+                    {/* Role */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Role / Designation <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <select
+                          value={staffForm.role}
+                          onChange={(e) => {
+                            const newRole = e.target.value;
+                            const isDoc = newRole.toLowerCase().includes("doctor");
+                            setStaffForm({
+                              ...staffForm,
+                              role: newRole,
+                              speciality: isDoc ? (staffForm.speciality || "General Physician") : "",
+                              department: isDoc ? "Clinical" : staffForm.department,
+                            });
+                          }}
+                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
+                        >
+                          {ROLE_OPTIONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                      </div>
+                    </div>
 
-                {/* Department */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Department <span className="text-brand-600">*</span>
-                    </label>
+                    {/* Specialist / Medical Speciality (Doctor Only) */}
+                    {isDoctor && (
+                      <div className="animate-in fade-in duration-150">
+                        <div className="h-5 flex items-center justify-between mb-1.5">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
+                            <span>Specialist</span>
+                            <span className="text-brand-600">*</span>
+                          </label>
+                          <span className="text-[10px] text-purple-600 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                            Required
+                          </span>
+                        </div>
+                        <div className="relative flex items-center group">
+                          <Stethoscope className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                          <select
+                            required
+                            value={staffForm.speciality || "General Physician"}
+                            onChange={(e) => setStaffForm({ ...staffForm, speciality: e.target.value })}
+                            className="w-full h-10 pl-11 pr-9 bg-purple-50/20 hover:bg-white focus:bg-white border border-purple-200 hover:border-purple-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
+                          >
+                            {SPECIALITY_OPTIONS.map((spec) => (
+                              <option key={spec} value={spec}>
+                                {spec}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Department */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Department <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <select
+                          value={staffForm.department}
+                          onChange={(e) => setStaffForm({ ...staffForm, department: e.target.value })}
+                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
+                        >
+                          {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative flex items-center group">
-                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <select
-                      value={staffForm.department}
-                      onChange={(e) => setStaffForm({ ...staffForm, department: e.target.value })}
-                      className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
-                    >
-                      {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Row 2: Phone & Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 pt-1">
@@ -1127,82 +1215,124 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </div>
               </div>
 
-              {/* Row 1: Full Name, Role, Department */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-                {/* Full Name */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Full Name <span className="text-brand-600">*</span>
-                    </label>
-                  </div>
-                  <div className="relative flex items-center group">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <input
-                      type="text"
-                      required
-                      value={editingStaff.full_name}
-                      onChange={(e) => setEditingStaff({ ...editingStaff, full_name: e.target.value })}
-                      className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 transition-all shadow-2xs font-medium"
-                    />
-                  </div>
-                </div>
+              {/* Row 1: Full Name, Role, Specialist (Doctor Only), Department */}
+              {(() => {
+                const isEditDoctor = editingStaff.role.toLowerCase().includes("doctor");
+                return (
+                  <div
+                    className={`grid grid-cols-1 ${
+                      isEditDoctor ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"
+                    } gap-4 sm:gap-5`}
+                  >
+                    {/* Full Name */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Full Name <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <input
+                          type="text"
+                          required
+                          value={editingStaff.full_name}
+                          onChange={(e) => setEditingStaff({ ...editingStaff, full_name: e.target.value })}
+                          className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 transition-all shadow-2xs font-medium"
+                        />
+                      </div>
+                    </div>
 
-                {/* Role */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Role / Designation <span className="text-brand-600">*</span>
-                    </label>
-                  </div>
-                  <div className="relative flex items-center group">
-                    <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <select
-                      value={editingStaff.role}
-                      onChange={(e) => {
-                        const newRole = e.target.value;
-                        setEditingStaff({
-                          ...editingStaff,
-                          role: newRole,
-                          department: newRole.toLowerCase().includes("doctor") ? "Clinical" : editingStaff.department,
-                        });
-                      }}
-                      className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                  </div>
-                </div>
+                    {/* Role */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Role / Designation <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <Stethoscope className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <select
+                          value={editingStaff.role}
+                          onChange={(e) => {
+                            const newRole = e.target.value;
+                            const isDoc = newRole.toLowerCase().includes("doctor");
+                            setEditingStaff({
+                              ...editingStaff,
+                              role: newRole,
+                              speciality: isDoc ? (editingStaff.speciality || "General Physician") : undefined,
+                              department: isDoc ? "Clinical" : editingStaff.department,
+                            });
+                          }}
+                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
+                        >
+                          {ROLE_OPTIONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                      </div>
+                    </div>
 
-                {/* Department */}
-                <div>
-                  <div className="h-5 flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                      Department <span className="text-brand-600">*</span>
-                    </label>
+                    {/* Specialist / Medical Speciality (Doctor Only) */}
+                    {isEditDoctor && (
+                      <div className="animate-in fade-in duration-150">
+                        <div className="h-5 flex items-center justify-between mb-1.5">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
+                            <span>Specialist</span>
+                            <span className="text-brand-600">*</span>
+                          </label>
+                          <span className="text-[10px] text-purple-600 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                            Required
+                          </span>
+                        </div>
+                        <div className="relative flex items-center group">
+                          <Stethoscope className="w-4 h-4 text-purple-600 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                          <select
+                            required
+                            value={editingStaff.speciality || "General Physician"}
+                            onChange={(e) => setEditingStaff({ ...editingStaff, speciality: e.target.value })}
+                            className="w-full h-10 pl-11 pr-9 bg-purple-50/20 hover:bg-white focus:bg-white border border-purple-200 hover:border-purple-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
+                          >
+                            {SPECIALITY_OPTIONS.map((spec) => (
+                              <option key={spec} value={spec}>
+                                {spec}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Department */}
+                    <div>
+                      <div className="h-5 flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                          Department <span className="text-brand-600">*</span>
+                        </label>
+                      </div>
+                      <div className="relative flex items-center group">
+                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                        <select
+                          value={editingStaff.department}
+                          onChange={(e) => setEditingStaff({ ...editingStaff, department: e.target.value })}
+                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
+                        >
+                          {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative flex items-center group">
-                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <select
-                      value={editingStaff.department}
-                      onChange={(e) => setEditingStaff({ ...editingStaff, department: e.target.value })}
-                      className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
-                    >
-                      {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Row 2: Phone & Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 pt-1">
@@ -1606,6 +1736,14 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                     <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100">
                       {selectedStaff.role}
                     </span>
+                    {selectedStaff.speciality && (
+                      <>
+                        <span className="text-xs text-slate-300">/</span>
+                        <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                          {selectedStaff.speciality}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">
@@ -2234,15 +2372,22 @@ export default function StaffTab({ doctor }: StaffTabProps) {
 
                         {/* Role */}
                         <td className="py-3.5 px-4">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                              isDoctor
-                                ? "bg-purple-50 text-purple-700 border-purple-200 font-bold"
-                                : "bg-slate-100 text-slate-700 border-slate-200"
-                            }`}
-                          >
-                            {staff.role}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                isDoctor
+                                  ? "bg-purple-50 text-purple-700 border-purple-200 font-bold"
+                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              {staff.role}
+                            </span>
+                            {staff.speciality && (
+                              <span className="text-[10px] font-semibold text-purple-600 bg-purple-50/60 px-2 py-0.5 rounded border border-purple-100 inline-block">
+                                {staff.speciality}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Department */}

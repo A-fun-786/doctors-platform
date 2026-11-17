@@ -1,6 +1,6 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.3.0  
+**Document Version:** 2.4.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
 **Last Updated:** November 17, 2026  
@@ -15,6 +15,7 @@ The **Staff Management & Authentication** system provides a multi-tenant, role-i
 - **Multi-Tenant Foundation:** All staff entities belong to a clinic owner (`doctors.id`), inheriting tenant configuration, working hours, and appointment pools.
 - **Dual-Portal Entry Point (`/login`):** Segregated tabs for **Admin** (clinic owners via email or Google OAuth) and **Staff** (personnel via User ID and password).
 - **Clinical Delegation:** Employed doctors can conduct consultations and complete visits under their own name while receptionists manage bookings and intake.
+- **Practitioner Classification & Specialities:** Doctors require a mandatory `speciality` dropdown selection (e.g. Cardiologist, Dermatologist, General Physician), displayed dynamically across appointment booking and staff directory views.
 
 ---
 

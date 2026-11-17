@@ -84,6 +84,7 @@ class StaffMember(Base, TimestampMixin):
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # Doctor, Junior Doctor, Nurse, Receptionist, Pharmacist, Lab Technician, Billing Executive, etc.
+    speciality: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Mandatory for doctors: Cardiologist, Pediatrician, General Physician, etc.
     department: Mapped[str] = mapped_column(String(50), nullable=False, default="Clinical")  # Clinical, Nursing, Front Desk, Pharmacy, Laboratory, Administration, Emergency, General
     employment_type: Mapped[str] = mapped_column(String(30), nullable=False, default="full_time")  # full_time, part_time, contract, shift
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")  # active, on_leave, inactive, terminated

@@ -117,4 +117,4 @@ def is_staff_doctor(doctor: Doctor) -> bool:
     staff = getattr(doctor, "_current_staff", None)
     if not staff:
         return False
-    return is_doctor_role(staff.role)
+    return staff.is_doctor
