@@ -512,3 +512,105 @@ def test_reschedule_allows_concurrent_slots_across_doctors(client, clinic_setup)
     assert resched_data["start_time"] == "10:00:00"
     assert resched_data["staff_id"] == str(staff1.id)
 
+
+def test_staff_doctor_overlapping_interval_collision(client, clinic_setup):
+    """Attempting overlapping bookings for the same staff doctor must be rejected with 409."""
+    headers = clinic_setup["headers"]
+    staff1 = clinic_setup["staff1"]
+    target_date = "2026-11-20"
+
+    # 1. Book Staff 1 from 14:00 to 15:00
+    res1 = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Wilson Alpha",
+            "date": target_date,
+            "start_time": "14:00:00",
+            "end_time": "15:00:00",
+            "staff_id": str(staff1.id),
+        },
+    )
+    assert res1.status_code == 201
+
+    # 2. Attempt partial tail overlap for Staff 1 (14:30 - 15:30)
+    res_overlap_tail = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Wilson Beta",
+            "date": target_date,
+            "start_time": "14:30:00",
+            "end_time": "15:30:00",
+            "staff_id": str(staff1.id),
+        },
+    )
+    assert res_overlap_tail.status_code == 409
+    assert f"Slot already booked for {staff1.full_name}" in res_overlap_tail.json()["detail"]
+
+    # 3. Attempt enclosed sub-interval for Staff 1 (14:15 - 14:45)
+    res_overlap_enclosed = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Wilson Gamma",
+            "date": target_date,
+            "start_time": "14:15:00",
+            "end_time": "14:45:00",
+            "staff_id": str(staff1.id),
+        },
+    )
+    assert res_overlap_enclosed.status_code == 409
+    assert f"Slot already booked for {staff1.full_name}" in res_overlap_enclosed.json()["detail"]
+
+
+def test_concurrent_different_doctors_overlapping_intervals_allowed(client, clinic_setup):
+    """Overlapping intervals across different practitioners in the same clinic are allowed."""
+    headers = clinic_setup["headers"]
+    staff1 = clinic_setup["staff1"]
+    staff2 = clinic_setup["staff2"]
+    target_date = "2026-11-20"
+
+    # Primary Doctor: 14:00 - 15:00
+    res_primary = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Primary",
+            "date": target_date,
+            "start_time": "14:00:00",
+            "end_time": "15:00:00",
+            "staff_id": None,
+        },
+    )
+    assert res_primary.status_code == 201
+
+    # Staff Doctor 1: 14:15 - 14:45 (Overlaps Primary Doctor)
+    res_staff1 = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Wilson",
+            "date": target_date,
+            "start_time": "14:15:00",
+            "end_time": "14:45:00",
+            "staff_id": str(staff1.id),
+        },
+    )
+    assert res_staff1.status_code == 201
+
+    # Staff Doctor 2: 14:30 - 15:30 (Overlaps Primary Doctor and Staff 1)
+    res_staff2 = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Patient Cuddy",
+            "date": target_date,
+            "start_time": "14:30:00",
+            "end_time": "15:30:00",
+            "staff_id": str(staff2.id),
+        },
+    )
+    assert res_staff2.status_code == 201
+
+
