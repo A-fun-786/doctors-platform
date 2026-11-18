@@ -46,6 +46,8 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
     handleNextWeek,
     handleGoToToday,
     getEventsForDate,
+    getAllEventsForDate,
+    ensureDateLoaded,
     refreshCurrentWeek,
     practitionerFilter,
     setPractitionerFilter,
@@ -147,6 +149,19 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
 
   // Right-side Drawer Hook
   const { drawerState, openEventDrawer, closeDrawer } = useCalendarDrawer();
+
+  // Ensure full operational calendar events for modalDate or drawer date are pre-loaded in cache
+  useEffect(() => {
+    if (modalDate) {
+      ensureDateLoaded(modalDate);
+    }
+  }, [modalDate, ensureDateLoaded]);
+
+  useEffect(() => {
+    if (drawerState.isOpen && drawerState.date) {
+      ensureDateLoaded(drawerState.date);
+    }
+  }, [drawerState.isOpen, drawerState.date, ensureDateLoaded]);
 
   // Mobile bottom sheet toggles for MiniCalendar & WorkingHours
   const [showMobileMiniCal, setShowMobileMiniCal] = useState(false);
@@ -343,7 +358,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         endTime={modalEndTime}
         initialTab={slotActionInitialTab}
         submitting={modalSubmitting}
-        existingEvents={getEventsForDate(modalDate)}
+        existingEvents={getAllEventsForDate(modalDate)}
         selectedStaffId={selectedStaffId}
         setSelectedStaffId={setSelectedStaffId}
         onBookPatient={(formData) =>
@@ -351,7 +366,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             formData,
             refreshCurrentWeek,
             showToast,
-            getEventsForDate(modalDate)
+            getAllEventsForDate(modalDate)
           )
         }
         onMarkLeave={(formData) =>
@@ -359,7 +374,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             formData,
             refreshCurrentWeek,
             showToast,
-            getEventsForDate(modalDate)
+            getAllEventsForDate(modalDate)
           )
         }
         practitioners={practitioners}
@@ -390,7 +405,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         reason={newApptReason}
         setReason={setNewApptReason}
         submitting={modalSubmitting}
-        existingEvents={getEventsForDate(modalDate)}
+        existingEvents={getAllEventsForDate(modalDate)}
         selectedStaffId={selectedStaffId}
         setSelectedStaffId={setSelectedStaffId}
         onSubmit={(e) =>
@@ -398,7 +413,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             e,
             refreshCurrentWeek,
             showToast,
-            getEventsForDate(modalDate)
+            getAllEventsForDate(modalDate)
           )
         }
         practitioners={practitioners}
@@ -419,13 +434,13 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         reason={blockReason}
         setReason={setBlockReason}
         submitting={modalSubmitting}
-        existingEvents={getEventsForDate(modalDate)}
+        existingEvents={getAllEventsForDate(modalDate)}
         onSubmit={(e) =>
           handleBlockSubmit(
             e,
             refreshCurrentWeek,
             showToast,
-            getEventsForDate(modalDate)
+            getAllEventsForDate(modalDate)
           )
         }
       />
@@ -470,7 +485,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             onClose={closeDrawer}
             onRefreshCalendar={refreshCurrentWeek}
             showToast={showToast}
-            existingEvents={getEventsForDate(drawerState.date)}
+            existingEvents={getAllEventsForDate(drawerState.date)}
             workingHoursConfig={workingHoursConfig}
             isStaffDoctor={isStaffDoctor}
           />

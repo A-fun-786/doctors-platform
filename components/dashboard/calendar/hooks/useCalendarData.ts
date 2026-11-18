@@ -53,9 +53,9 @@ export function useCalendarData() {
     return computeWeekRangeTitle(currentWeekDays);
   }, [currentWeekDays]);
 
-  // Get events for a specific date from live API data.
-  // Empty days cleanly return [] so fake demo patients never leak into the calendar.
-  const getEventsForDate = useCallback(
+  // Get all events for a specific date (unfiltered across all clinic practitioners).
+  // Used for conflict checking, booking validations, and multi-doctor coordination.
+  const getAllEventsForDate = useCallback(
     (dateStr: string): CalendarEvent[] => {
       const liveEvents = apiCalendarData[dateStr];
       if (liveEvents && liveEvents.length > 0) {
@@ -66,16 +66,49 @@ export function useCalendarData() {
     [apiCalendarData]
   );
 
+  // Get events for a specific date filtered by the active practitionerFilter.
+  // Used for calendar view rendering (WeekView, DayView, MonthView, AgendaView, miniCalDays).
+  // Empty days cleanly return [] so fake demo patients never leak into the calendar.
+  const getEventsForDate = useCallback(
+    (dateStr: string): CalendarEvent[] => {
+      const liveEvents = apiCalendarData[dateStr];
+      if (!liveEvents || liveEvents.length === 0) {
+        return [];
+      }
+      if (!practitionerFilter || practitionerFilter === "ALL") {
+        return liveEvents;
+      }
+      const isPrimary = practitionerFilter === "PRIMARY" || practitionerFilter === "primary";
+      return liveEvents.filter((ev) => {
+        // Clinic-wide holidays affect all views
+        if (ev.type === "HOLIDAY") return true;
+
+        if (ev.type === "APPOINTMENT") {
+          const evStaff = ev.staff_id || null;
+          return isPrimary ? evStaff === null : evStaff === practitionerFilter;
+        }
+
+        // Leave/Blocked schedules: primary doctor personal leave only shown when primary or ALL
+        if (isPrimary) {
+          return true;
+        }
+        return false;
+      });
+    },
+    [apiCalendarData, practitionerFilter]
+  );
+
   // Mini calendar days generator with event indicator dots
   const miniCalDays: MiniCalDayItem[] = useMemo(() => {
     return generateMiniCalDays(miniCalMonth, selectedDate, getEventsForDate);
   }, [miniCalMonth, selectedDate, getEventsForDate]);
 
-  // Fetch live operational calendar from backend API
+  // Fetch live operational calendar from backend API across all clinic practitioners
+  // to ensure all clinic events are cached in memory for complete conflict checks.
   const fetchCalendar = useCallback(async (startIso: string, endIso: string) => {
     try {
       setLoading(true);
-      const res = await getDoctorCalendar(startIso, endIso, practitionerFilter);
+      const res = await getDoctorCalendar(startIso, endIso);
       const map: Record<string, CalendarEvent[]> = {};
       let totalEvents = 0;
       res.dates?.forEach((d) => {
@@ -84,11 +117,10 @@ export function useCalendarData() {
           totalEvents += d.events.length;
         }
       });
-      setApiCalendarData(map);
+      setApiCalendarData((prev) => ({ ...prev, ...map }));
       logger.info("Calendar", `Loaded operational calendar for ${startIso} to ${endIso}`, {
         datesCount: res.dates?.length || 0,
         totalEvents,
-        practitionerFilter,
       });
     } catch (err: unknown) {
       logger.warn("Calendar", "Backend calendar fetch notice, defaulting to empty calendar view", {
@@ -97,7 +129,34 @@ export function useCalendarData() {
     } finally {
       setLoading(false);
     }
-  }, [practitionerFilter]);
+  }, []);
+
+  // Ensure calendar data for an arbitrary target date is loaded into cache
+  const ensureDateLoaded = useCallback(
+    async (dateStr: string) => {
+      if (!dateStr || apiCalendarData[dateStr]) return;
+      try {
+        const res = await getDoctorCalendar(dateStr, dateStr);
+        if (res?.dates) {
+          setApiCalendarData((prev) => {
+            const next = { ...prev };
+            res.dates.forEach((d) => {
+              if (d.date && d.events) {
+                next[d.date] = d.events;
+              }
+            });
+            return next;
+          });
+        }
+      } catch (err: unknown) {
+        logger.warn("Calendar", "Backend single-date calendar fetch notice", {
+          date: dateStr,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    [apiCalendarData]
+  );
 
   useEffect(() => {
     if (currentWeekDays.length > 0) {
@@ -179,6 +238,8 @@ export function useCalendarData() {
     handleNextWeek,
     handleGoToToday,
     getEventsForDate,
+    getAllEventsForDate,
+    ensureDateLoaded,
     refreshCurrentWeek,
     practitionerFilter,
     setPractitionerFilter,

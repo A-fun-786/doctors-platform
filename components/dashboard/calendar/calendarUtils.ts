@@ -109,10 +109,11 @@ export function findConflictingEvents(
 ): CalendarEvent[] {
   return events.filter((ev) => {
     if (ev.status === "CANCELLED") return false;
+    if ((ev.type as string) === "AVAILABLE") return false;
     if (!isIntervalOverlapping(start, end, ev.start, ev.end)) return false;
 
     // If target doctor is specified, only flag conflicts with that specific doctor
-    if (targetStaffId !== undefined) {
+    if (targetStaffId !== undefined && targetStaffId !== "ALL" && targetStaffId !== "all") {
       const isPrimaryTarget = !targetStaffId || targetStaffId === "PRIMARY" || targetStaffId === "primary";
       const target = isPrimaryTarget ? null : targetStaffId;
       if (ev.type === "APPOINTMENT") {
