@@ -13,6 +13,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "flagcdn.com",
+      },
     ],
   },
   async rewrites() {
@@ -62,7 +66,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com",
               "style-src 'self' 'unsafe-inline' https://accounts.google.com",
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com",
+              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com https://flagcdn.com",
               "font-src 'self' data:",
               "connect-src 'self' https://gosmartclinic.com https://www.gosmartclinic.com https://api.gosmartclinic.com https://accounts.google.com https://*.sentry.io https://backend-production-b26c.up.railway.app https://*.railway.app http://127.0.0.1:8000 http://localhost:8000",
               "frame-src 'self' https://accounts.google.com",
