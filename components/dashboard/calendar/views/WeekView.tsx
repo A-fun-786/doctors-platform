@@ -26,8 +26,8 @@ interface WeekViewProps {
   onSelectDate: (dateStr: string) => void;
   getEventsForDate: (dateStr: string) => CalendarEvent[];
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onQuickAddSlot?: (date: string, start: string, end: string) => void;
-  onEmptySlotClick?: (date: string, start: string, end: string) => void;
+  onQuickAddSlot?: (date: string, start: string, end: string, staffId?: string) => void;
+  onEmptySlotClick?: (date: string, start: string, end: string, staffId?: string) => void;
   workingHoursConfig?: WorkingHoursConfig;
 }
 
