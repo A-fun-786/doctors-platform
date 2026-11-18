@@ -1,7 +1,7 @@
 import uuid
 import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Date, ForeignKey, Index, Integer, String, Text, Time, Uuid, text
+from sqlalchemy import Date, ForeignKey, Index, Integer, String, Text, Time, Uuid, text, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
@@ -144,3 +144,78 @@ class Appointment(Base, TimestampMixin):
         if self.doctor:
             return self.doctor.full_name
         return None
+
+
+@event.listens_for(Appointment.__table__, "after_create")
+def _create_appointment_overlap_triggers(target, connection, **kw):
+    """Enforce overlap exclusion at the database level."""
+    if connection.dialect.name == "sqlite":
+        connection.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_appointment_no_overlap_insert
+            BEFORE INSERT ON appointments
+            FOR EACH ROW
+            WHEN NEW.status != 'CANCELLED'
+            BEGIN
+                SELECT RAISE(ABORT, 'Slot overlap detected: practitioner already booked')
+                WHERE EXISTS (
+                    SELECT 1 FROM appointments
+                    WHERE doctor_id = NEW.doctor_id
+                      AND date = NEW.date
+                      AND status != 'CANCELLED'
+                      AND start_time < NEW.end_time
+                      AND end_time > NEW.start_time
+                      AND (
+                          (NEW.staff_id IS NULL AND staff_id IS NULL)
+                          OR (NEW.staff_id IS NOT NULL AND staff_id = NEW.staff_id)
+                      )
+                );
+            END;
+        """))
+        connection.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_appointment_no_overlap_update
+            BEFORE UPDATE ON appointments
+            FOR EACH ROW
+            WHEN NEW.status != 'CANCELLED'
+            BEGIN
+                SELECT RAISE(ABORT, 'Slot overlap detected: practitioner already booked')
+                WHERE EXISTS (
+                    SELECT 1 FROM appointments
+                    WHERE id != NEW.id
+                      AND doctor_id = NEW.doctor_id
+                      AND date = NEW.date
+                      AND status != 'CANCELLED'
+                      AND start_time < NEW.end_time
+                      AND end_time > NEW.start_time
+                      AND (
+                          (NEW.staff_id IS NULL AND staff_id IS NULL)
+                          OR (NEW.staff_id IS NOT NULL AND staff_id = NEW.staff_id)
+                      )
+                );
+            END;
+        """))
+    elif connection.dialect.name == "postgresql":
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS btree_gist;"))
+        connection.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'uq_primary_doctor_no_overlap'
+                ) THEN
+                    ALTER TABLE appointments ADD CONSTRAINT uq_primary_doctor_no_overlap
+                    EXCLUDE USING gist (
+                        doctor_id WITH =,
+                        (tsrange(date + start_time, date + end_time, '[)')) WITH &&
+                    ) WHERE (status != 'CANCELLED' AND staff_id IS NULL);
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'uq_staff_doctor_no_overlap'
+                ) THEN
+                    ALTER TABLE appointments ADD CONSTRAINT uq_staff_doctor_no_overlap
+                    EXCLUDE USING gist (
+                        doctor_id WITH =,
+                        staff_id WITH =,
+                        (tsrange(date + start_time, date + end_time, '[)')) WITH &&
+                    ) WHERE (status != 'CANCELLED' AND staff_id IS NOT NULL);
+                END IF;
+            END $$;
+        """))

@@ -197,14 +197,15 @@ def create_appointment(
         staff_id=payload.staff_id,
     )
 
-    # Check existing BOOKED appointment at same slot for THIS doctor
+    # Check existing active appointment overlapping with requested interval for THIS doctor
     conflict_query = (
         db.query(Appointment)
         .filter(
             Appointment.doctor_id == doctor_id,
             Appointment.date == payload.date,
-            Appointment.start_time == payload.start_time,
-            Appointment.status == "BOOKED",
+            Appointment.status != "CANCELLED",
+            Appointment.start_time < payload.end_time,
+            Appointment.end_time > payload.start_time,
         )
     )
     if payload.staff_id is not None:
@@ -404,8 +405,9 @@ def reschedule_appointment(
         .filter(
             Appointment.doctor_id == doctor_id,
             Appointment.date == payload.date,
-            Appointment.start_time == payload.start_time,
-            Appointment.status == "BOOKED",
+            Appointment.status != "CANCELLED",
+            Appointment.start_time < payload.end_time,
+            Appointment.end_time > payload.start_time,
             Appointment.id != appointment_id,
         )
     )
