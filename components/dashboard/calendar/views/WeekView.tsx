@@ -252,16 +252,18 @@ export default function WeekView({
                     const dayEvents = getEventsForDate(day.dateStr);
 
                     // Find events overlapping this 30-minute window
-                    const cellEvents = dayEvents.filter((ev) =>
-                      doesEventOverlapSlot(ev, slotStart, slotEnd)
+                    const cellEvents = dayEvents.filter(
+                      (ev) => ev.status !== "CANCELLED" && doesEventOverlapSlot(ev, slotStart, slotEnd)
                     );
 
-                    // Extract specific event types
-                    const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-                    const leaveEvent = cellEvents.find(
+                    // Extract specific event types - supports concurrent multi-doctor appointments & events
+                    const apptEvents = cellEvents.filter((ev) => ev.type === "APPOINTMENT");
+                    const leaveEvents = cellEvents.filter(
                       (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
                     );
-                    const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+                    const blockedEvents = cellEvents.filter((ev) => ev.type === "BLOCKED");
+                    const hasEvents = cellEvents.length > 0;
+                    const isMulti = cellEvents.length > 1;
 
                     return (
                       <div
@@ -270,38 +272,80 @@ export default function WeekView({
                           day.isSelected ? "bg-blue-50/15" : "hover:bg-slate-50/60"
                         }`}
                       >
-                        {apptEvent ? (
-                          /* FILLED CALENDAR SLOT: PREFERENCE ACCENTED APPOINTMENT */
-                          <div
-                            onClick={() => onEventClick(apptEvent, day.dateStr)}
-                            className={`w-full h-full min-h-[38px] px-2 py-1 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
-                            title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-slate-900 truncate w-full">
-                              {apptEvent.patient_name || "Patient"}
-                            </span>
-                          </div>
-                        ) : leaveEvent ? (
-                          /* DOCTOR LEAVE / CLINIC HOLIDAY */
-                          <div
-                            onClick={() => onEventClick(leaveEvent, day.dateStr)}
-                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
-                            title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-amber-950 truncate w-full">
-                              {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
-                            </span>
-                          </div>
-                        ) : blockedEvent ? (
-                          /* BLOCKED PERIOD */
-                          <div
-                            onClick={() => onEventClick(blockedEvent, day.dateStr)}
-                            className="w-full h-full min-h-[38px] px-2 py-1 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center"
-                            title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
-                          >
-                            <span className="text-[11px] font-bold text-purple-950 truncate w-full">
-                              {blockedEvent.reason || "Blocked Period"}
-                            </span>
+                        {hasEvents ? (
+                          <div className="flex flex-col gap-1 w-full h-full justify-center">
+                            {/* ALL BOOKED APPOINTMENTS IN THIS 30-MIN SLOT (MULTI-DOCTOR CONCURRENCY SUPPORT) */}
+                            {apptEvents.map((apptEvent, aIdx) => {
+                              const docName = apptEvent.doctor_name || apptEvent.staff_name;
+                              return (
+                                <div
+                                  key={
+                                    apptEvent.appointment_id ||
+                                    `${day.dateStr}-${timeRow}-appt-${aIdx}`
+                                  }
+                                  onClick={() => onEventClick(apptEvent, day.dateStr)}
+                                  className={`w-full ${
+                                    isMulti ? "min-h-[30px] py-1" : "h-full min-h-[38px] py-1"
+                                  } px-1.5 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex flex-col items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
+                                  title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${docName ? ` • ${docName}` : ""}${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
+                                >
+                                  <span className="text-[11px] font-bold text-slate-900 truncate w-full leading-tight">
+                                    {apptEvent.patient_name || "Patient"}
+                                  </span>
+                                  {isMulti && docName && (
+                                    <span className="text-[9px] font-semibold text-blue-700 truncate w-full leading-tight">
+                                      {docName}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* DOCTOR LEAVE / CLINIC HOLIDAY */}
+                            {leaveEvents.map((leaveEvent, lIdx) => {
+                              const docName = leaveEvent.doctor_name || leaveEvent.staff_name;
+                              return (
+                                <div
+                                  key={
+                                    leaveEvent.schedule_id ||
+                                    `${day.dateStr}-${timeRow}-leave-${lIdx}`
+                                  }
+                                  onClick={() => onEventClick(leaveEvent, day.dateStr)}
+                                  className={`w-full ${
+                                    isMulti ? "min-h-[30px] py-1" : "h-full min-h-[38px] py-1"
+                                  } px-1.5 rounded-md bg-amber-50/95 border border-amber-300 border-l-[3px] border-l-amber-500 text-amber-950 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none flex flex-col items-center justify-center text-center`}
+                                  title={`${leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday"}: ${format12Hour(leaveEvent.start)} - ${format12Hour(leaveEvent.end)}${docName ? ` • ${docName}` : ""}${leaveEvent.reason ? ` (${leaveEvent.reason})` : ""}`}
+                                >
+                                  <span className="text-[11px] font-bold text-amber-950 truncate w-full leading-tight">
+                                    {leaveEvent.reason || (leaveEvent.type === "LEAVE" ? "Doctor Leave" : "Clinic Holiday")}
+                                  </span>
+                                  {isMulti && docName && (
+                                    <span className="text-[9px] font-semibold text-amber-800 truncate w-full leading-tight">
+                                      {docName}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* BLOCKED PERIOD */}
+                            {blockedEvents.map((blockedEvent, bIdx) => (
+                              <div
+                                key={
+                                  blockedEvent.schedule_id ||
+                                  `${day.dateStr}-${timeRow}-blocked-${bIdx}`
+                                }
+                                onClick={() => onEventClick(blockedEvent, day.dateStr)}
+                                className={`w-full ${
+                                  isMulti ? "min-h-[30px] py-1" : "h-full min-h-[38px] py-1"
+                                } px-1.5 rounded-md bg-purple-50/90 border border-purple-200 border-l-[3px] border-l-purple-600 text-purple-950 hover:border-purple-400 hover:shadow-xs transition-all cursor-pointer select-none flex flex-col items-center justify-center text-center`}
+                                title={`Blocked: ${format12Hour(blockedEvent.start)} - ${format12Hour(blockedEvent.end)})${blockedEvent.reason ? ` (${blockedEvent.reason})` : ""}`}
+                              >
+                                <span className="text-[11px] font-bold text-purple-950 truncate w-full leading-tight">
+                                  {blockedEvent.reason || "Blocked Period"}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           /* PREFERENCE-COLORED EMPTY SLOT */
