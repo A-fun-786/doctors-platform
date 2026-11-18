@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status, status as http_status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor, is_staff_doctor
@@ -99,7 +99,7 @@ def list_practitioners(
 def list_appointments(
     request: Request,
     status: Optional[str] = Query(None, description="Filter by status (BOOKED, COMPLETED, CANCELLED)"),
-    staff_id: Optional[uuid.UUID] = Query(None, description="Filter by staff doctor UUID"),
+    staff_id: Optional[str] = Query(None, description="Filter by staff doctor UUID or 'primary'"),
     primary_only: Optional[bool] = Query(None, description="Filter by primary doctor only"),
     from_date: Optional[date] = Query(None, alias="from", description="Filter from date"),
     to_date: Optional[date] = Query(None, alias="to", description="Filter to date"),
@@ -111,15 +111,32 @@ def list_appointments(
     """
     List appointments for the authenticated doctor with pagination and optional filters.
     """
+    target_staff_id: Optional[uuid.UUID] = None
+
     # Staff Doctor restriction: can only view their own bookings
     if is_staff_doctor(current_doctor):
-        staff_id = current_doctor._current_staff.id
+        target_staff_id = current_doctor._current_staff.id
         primary_only = False
+    elif staff_id:
+        normalized = staff_id.strip().lower()
+        if normalized in ("primary", "owner"):
+            primary_only = True
+            target_staff_id = None
+        elif normalized in ("all", "none", ""):
+            target_staff_id = None
+        else:
+            try:
+                target_staff_id = uuid.UUID(staff_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid staff_id format. Must be a valid UUID or 'primary'.",
+                )
 
     items, total = appointment_service.list_appointments(
         doctor_id=current_doctor.id,
         status_filter=status,
-        staff_id=staff_id,
+        staff_id=target_staff_id,
         primary_only=primary_only,
         from_date=from_date,
         to_date=to_date,

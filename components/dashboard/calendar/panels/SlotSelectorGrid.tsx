@@ -107,9 +107,10 @@ export default function SlotSelectorGrid({
 
           if (doesEventOverlapSlot(ev, start, end)) {
             // For appointments, only conflict if it belongs to the target doctor
+            const isPrimaryTarget = !targetStaffId || targetStaffId === "PRIMARY" || targetStaffId === "primary";
+            const targetId = isPrimaryTarget ? null : targetStaffId;
             if (ev.type === "APPOINTMENT") {
               const evStaffId = ev.staff_id || null;
-              const targetId = targetStaffId || null;
               if (evStaffId !== targetId) {
                 // Different doctor - does not conflict
                 continue;
@@ -118,7 +119,7 @@ export default function SlotSelectorGrid({
               reason = "Already Booked";
               break;
             } else if (ev.type === "LEAVE") {
-              if (targetStaffId) {
+              if (targetId) {
                 // Primary doctor leave does not block staff doctor
                 continue;
               }

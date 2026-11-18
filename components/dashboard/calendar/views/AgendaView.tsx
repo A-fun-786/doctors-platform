@@ -63,8 +63,8 @@ export default function AgendaView({
   const filteredEvents = useMemo(() => {
     return relevantEvents.filter(({ event }) => {
       // Practitioner filter
-      if (selectedPractitionerId) {
-        if (selectedPractitionerId === "PRIMARY") {
+      if (selectedPractitionerId && selectedPractitionerId !== "ALL") {
+        if (selectedPractitionerId === "PRIMARY" || selectedPractitionerId === "primary") {
           if (event.staff_id !== null && event.staff_id !== undefined) return false;
         } else {
           if (event.staff_id !== selectedPractitionerId) return false;

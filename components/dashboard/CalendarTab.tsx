@@ -154,7 +154,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
 
   // Canonical staff ID for modals when an empty slot or new appointment is triggered
   const effectiveStaffId = useMemo(() => {
-    if (!practitionerFilter || practitionerFilter === "ALL" || practitionerFilter === "PRIMARY") {
+    if (!practitionerFilter || practitionerFilter === "ALL" || practitionerFilter === "PRIMARY" || practitionerFilter === "primary") {
       return "";
     }
     return practitionerFilter;

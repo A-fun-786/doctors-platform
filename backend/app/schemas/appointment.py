@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, time, datetime
-from typing import Optional, List, Literal
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Any, Optional, List, Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 AppointmentStatus = Literal["BOOKED", "COMPLETED", "CANCELLED"]
 
@@ -23,6 +23,13 @@ class AppointmentCreateRequest(BaseModel):
     reason: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("staff_id", mode="before")
+    @classmethod
+    def normalize_staff_id(cls, v: Any) -> Optional[uuid.UUID]:
+        if v is None or v == "" or (isinstance(v, str) and v.strip().lower() in ("primary", "all", "none")):
+            return None
+        return v
+
     @model_validator(mode="after")
     def validate_time_range(self) -> "AppointmentCreateRequest":
         if self.end_time <= self.start_time:
@@ -38,6 +45,13 @@ class AppointmentRescheduleRequest(BaseModel):
     date: date
     start_time: time
     end_time: time
+
+    @field_validator("staff_id", mode="before")
+    @classmethod
+    def normalize_staff_id(cls, v: Any) -> Optional[uuid.UUID]:
+        if v is None or v == "" or (isinstance(v, str) and v.strip().lower() in ("primary", "all", "none")):
+            return None
+        return v
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "AppointmentRescheduleRequest":

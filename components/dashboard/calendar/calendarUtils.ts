@@ -113,7 +113,8 @@ export function findConflictingEvents(
 
     // If target doctor is specified, only flag conflicts with that specific doctor
     if (targetStaffId !== undefined) {
-      const target = targetStaffId || null;
+      const isPrimaryTarget = !targetStaffId || targetStaffId === "PRIMARY" || targetStaffId === "primary";
+      const target = isPrimaryTarget ? null : targetStaffId;
       if (ev.type === "APPOINTMENT") {
         const evStaff = ev.staff_id || null;
         return evStaff === target;

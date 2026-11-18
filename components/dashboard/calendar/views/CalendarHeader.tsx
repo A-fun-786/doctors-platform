@@ -136,7 +136,7 @@ export default function CalendarHeader({
         ? `All Doctors (${practitioners.length})`
         : "All Doctors";
     }
-    if (selectedPractitionerId === "PRIMARY") {
+    if (selectedPractitionerId === "PRIMARY" || selectedPractitionerId === "primary") {
       const primaryDoc = practitioners.find((p) => p.is_primary);
       return primaryDoc ? `${primaryDoc.name} (Primary)` : "Primary Doctor";
     }
@@ -290,20 +290,18 @@ export default function CalendarHeader({
                   }}
                   aria-expanded={isDoctorDropdownOpen}
                   aria-haspopup="listbox"
-                  className={`flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border rounded-xl px-3 py-1.5 shadow-2xs transition-all cursor-pointer ${
-                    isDoctorDropdownOpen
+                  className={`flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border rounded-xl px-3 py-1.5 shadow-2xs transition-all cursor-pointer ${isDoctorDropdownOpen
                       ? "border-brand-500 ring-2 ring-brand-500/20 text-brand-900 bg-white"
                       : "border-slate-200 text-slate-800"
-                  }`}
+                    }`}
                 >
                   <Stethoscope className="w-4 h-4 text-brand-600 shrink-0" />
                   <span className="text-xs font-bold max-w-[150px] sm:max-w-[200px] truncate">
                     {currentSelectionLabel}
                   </span>
                   <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-                      isDoctorDropdownOpen ? "rotate-180 text-brand-600" : ""
-                    }`}
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isDoctorDropdownOpen ? "rotate-180 text-brand-600" : ""
+                      }`}
                   />
                 </button>
 
@@ -344,11 +342,10 @@ export default function CalendarHeader({
                             onPractitionerChange(null);
                             setIsDoctorDropdownOpen(false);
                           }}
-                          className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                            !selectedPractitionerId || selectedPractitionerId === "ALL"
+                          className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${!selectedPractitionerId || selectedPractitionerId === "ALL"
                               ? "bg-brand-50 text-brand-700 font-bold"
                               : "text-slate-700 hover:bg-slate-50 font-medium"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center shrink-0">
@@ -380,11 +377,10 @@ export default function CalendarHeader({
                               onPractitionerChange(val);
                               setIsDoctorDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                              isSelected
+                            className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${isSelected
                                 ? "bg-brand-50 text-brand-700 font-bold"
                                 : "text-slate-700 hover:bg-slate-50 font-medium"
-                            }`}
+                              }`}
                           >
                             <div className="min-w-0 pr-2">
                               <div className="text-xs font-semibold text-slate-900 truncate">
@@ -455,11 +451,10 @@ export default function CalendarHeader({
                   setIsDatePickerOpen((prev) => !prev);
                   setIsDoctorDropdownOpen(false);
                 }}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${
-                  isDatePickerOpen
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${isDatePickerOpen
                     ? "bg-white shadow-2xs border border-brand-300 text-brand-700 font-extrabold"
                     : "hover:bg-white hover:shadow-2xs border border-transparent text-slate-900 font-bold"
-                }`}
+                  }`}
                 title="Click to choose a date from calendar"
                 aria-expanded={isDatePickerOpen}
                 aria-haspopup="dialog"
@@ -469,9 +464,8 @@ export default function CalendarHeader({
                   {displayTitle}
                 </h2>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                    isDatePickerOpen ? "rotate-180 text-brand-600" : ""
-                  }`}
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isDatePickerOpen ? "rotate-180 text-brand-600" : ""
+                    }`}
                 />
               </button>
 
@@ -596,11 +590,10 @@ export default function CalendarHeader({
               type="button"
               onClick={() => onViewModeChange("agenda")}
               aria-pressed={viewMode === "agenda"}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${
-                viewMode === "agenda"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${viewMode === "agenda"
                   ? "bg-white text-brand-700 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-              }`}
+                }`}
             >
               Agenda
             </button>
@@ -608,11 +601,10 @@ export default function CalendarHeader({
               type="button"
               onClick={() => onViewModeChange("day")}
               aria-pressed={viewMode === "day"}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${
-                viewMode === "day"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${viewMode === "day"
                   ? "bg-white text-brand-700 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-              }`}
+                }`}
             >
               Day
             </button>
@@ -620,11 +612,10 @@ export default function CalendarHeader({
               type="button"
               onClick={() => onViewModeChange("week")}
               aria-pressed={viewMode === "week"}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${
-                viewMode === "week"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${viewMode === "week"
                   ? "bg-white text-brand-700 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-              }`}
+                }`}
             >
               Week
             </button>
@@ -632,11 +623,10 @@ export default function CalendarHeader({
               type="button"
               onClick={() => onViewModeChange("month")}
               aria-pressed={viewMode === "month"}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${
-                viewMode === "month"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer ${viewMode === "month"
                   ? "bg-white text-brand-700 shadow-xs font-bold"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-              }`}
+                }`}
             >
               Month
             </button>

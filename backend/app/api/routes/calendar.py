@@ -23,7 +23,7 @@ router = APIRouter(tags=["calendar"])
 def get_doctor_calendar(
     from_date: date = Query(..., alias="from", description="Start date (YYYY-MM-DD)"),
     to_date: date = Query(..., alias="to", description="End date (YYYY-MM-DD)"),
-    staff_id: Optional[uuid.UUID] = Query(None, description="Filter calendar by staff member UUID"),
+    staff_id: Optional[str] = Query(None, description="Filter calendar by staff member UUID or 'primary'"),
     primary_only: Optional[bool] = Query(None, description="Filter calendar by primary doctor only"),
     current_doctor: Doctor = Depends(get_current_doctor),
     db: Session = Depends(get_db),
@@ -45,16 +45,33 @@ def get_doctor_calendar(
             detail="Date range exceeds 31 days",
         )
 
+    target_staff_id: Optional[uuid.UUID] = None
+
     # Staff Doctor restriction: can only see their own bookings
     if is_staff_doctor(current_doctor):
-        staff_id = current_doctor._current_staff.id
+        target_staff_id = current_doctor._current_staff.id
         primary_only = False
+    elif staff_id:
+        normalized = staff_id.strip().lower()
+        if normalized in ("primary", "owner"):
+            primary_only = True
+            target_staff_id = None
+        elif normalized in ("all", "none", ""):
+            target_staff_id = None
+        else:
+            try:
+                target_staff_id = uuid.UUID(staff_id)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid staff_id format. Must be a valid UUID or 'primary'.",
+                )
 
     return calendar_service.get_doctor_calendar(
         doctor_id=current_doctor.id,
         from_date=from_date,
         to_date=to_date,
         db=db,
-        staff_id=staff_id,
+        staff_id=target_staff_id,
         primary_only=primary_only,
     )

@@ -280,6 +280,7 @@ export interface AppointmentReschedulePayload {
 export interface AppointmentFilterParams {
   status?: AppointmentStatus | string;
   staff_id?: string;
+  primary_only?: boolean;
   from?: string;
   to?: string;
   page?: number;
@@ -697,7 +698,11 @@ export async function getDoctorAvailableSlots(
   staffId?: string | null
 ): Promise<AvailableSlot[]> {
   const params = new URLSearchParams({ date });
-  if (staffId) params.set("staff_id", staffId);
+  if (staffId === "PRIMARY" || staffId === "primary") {
+    params.set("staff_id", "primary");
+  } else if (staffId && staffId !== "ALL") {
+    params.set("staff_id", staffId);
+  }
   return apiFetch<AvailableSlot[]>(`/api/v1/doctor/available-slots?${params.toString()}`, {
     method: "GET",
     requireAuth: true,
@@ -713,7 +718,11 @@ export async function getPublicAvailableSlots(
   staffId?: string | null
 ): Promise<AvailableSlot[]> {
   const params = new URLSearchParams({ date });
-  if (staffId) params.set("staff_id", staffId);
+  if (staffId === "PRIMARY" || staffId === "primary") {
+    params.set("staff_id", "primary");
+  } else if (staffId && staffId !== "ALL") {
+    params.set("staff_id", staffId);
+  }
   return apiFetch<AvailableSlot[]>(
     `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?${params.toString()}`,
     {
@@ -777,10 +786,17 @@ export async function updateDoctorWorkingHours(
 export async function createAppointment(
   payload: AppointmentCreatePayload
 ): Promise<AppointmentEntry> {
+  const sanitizedPayload: AppointmentCreatePayload = {
+    ...payload,
+    staff_id:
+      payload.staff_id === "PRIMARY" || payload.staff_id === "primary" || payload.staff_id === "ALL" || !payload.staff_id
+        ? undefined
+        : payload.staff_id,
+  };
   return apiFetch<AppointmentEntry>("/api/v1/doctor/appointments", {
     method: "POST",
     requireAuth: true,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(sanitizedPayload),
   });
 }
 
@@ -792,7 +808,11 @@ export async function getDoctorAppointments(
 ): Promise<AppointmentListResponse> {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
-  if (filters?.staff_id) params.set("staff_id", filters.staff_id);
+  if (filters?.staff_id === "PRIMARY" || filters?.staff_id === "primary" || filters?.primary_only) {
+    params.set("primary_only", "true");
+  } else if (filters?.staff_id && filters.staff_id !== "ALL") {
+    params.set("staff_id", filters.staff_id);
+  }
   if (filters?.from) params.set("from", filters.from);
   if (filters?.to) params.set("to", filters.to);
   if (filters?.page) params.set("page", String(filters.page));
@@ -842,10 +862,17 @@ export async function rescheduleAppointment(
   id: string,
   payload: AppointmentReschedulePayload
 ): Promise<AppointmentEntry> {
+  const sanitizedPayload: AppointmentReschedulePayload = {
+    ...payload,
+    staff_id:
+      payload.staff_id === "PRIMARY" || payload.staff_id === "primary" || payload.staff_id === "ALL" || !payload.staff_id
+        ? undefined
+        : payload.staff_id,
+  };
   return apiFetch<AppointmentEntry>(`/api/v1/doctor/appointments/${encodeURIComponent(id)}`, {
     method: "PATCH",
     requireAuth: true,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(sanitizedPayload),
   });
 }
 
@@ -866,9 +893,9 @@ export async function getDoctorCalendar(
     from,
     to,
   });
-  if (staffId === "PRIMARY") {
+  if (staffId === "PRIMARY" || staffId === "primary") {
     params.set("primary_only", "true");
-  } else if (staffId) {
+  } else if (staffId && staffId !== "ALL") {
     params.set("staff_id", staffId);
   }
 

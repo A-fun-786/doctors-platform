@@ -459,6 +459,62 @@ def test_calendar_and_appointments_doctor_filtering(client, clinic_setup):
     assert len(items_staff2) == 1
     assert items_staff2[0]["patient_name"] == "Staff 2 Patient"
 
+    # Issue #22: Test passing string "PRIMARY" as staff_id to /doctor/calendar does not 422
+    res_cal_primary_str = client.get(
+        f"/api/v1/doctor/calendar?from={target_date}&to={target_date}&staff_id=PRIMARY",
+        headers=headers,
+    )
+    assert res_cal_primary_str.status_code == 200
+    cal_events = res_cal_primary_str.json()["dates"][0]["events"]
+    assert len(cal_events) == 1
+    assert cal_events[0]["patient_name"] == "Primary Patient"
+
+    # Issue #22: Test passing string "PRIMARY" as staff_id to /doctor/appointments does not 422
+    res_apt_primary_str = client.get(
+        f"/api/v1/doctor/appointments?from={target_date}&to={target_date}&staff_id=PRIMARY",
+        headers=headers,
+    )
+    assert res_apt_primary_str.status_code == 200
+    apt_items = res_apt_primary_str.json()["items"]
+    assert len(apt_items) == 1
+    assert apt_items[0]["patient_name"] == "Primary Patient"
+
+    # Issue #22: Test query available slots with staff_id="PRIMARY" does not 422 or error
+    res_slots_primary = client.get(
+        f"/api/v1/doctor/available-slots?date={target_date}&staff_id=PRIMARY",
+        headers=headers,
+    )
+    assert res_slots_primary.status_code == 200
+
+    # Issue #22: Test creating appointment with staff_id="PRIMARY" normalizes to None (not 422)
+    res_create_primary_str = client.post(
+        "/api/v1/doctor/appointments",
+        headers=headers,
+        json={
+            "patient_name": "Primary Sent String Patient",
+            "date": target_date,
+            "start_time": "14:00:00",
+            "end_time": "14:30:00",
+            "staff_id": "PRIMARY",
+        },
+    )
+    assert res_create_primary_str.status_code == 201
+    created_apt = res_create_primary_str.json()
+    assert created_apt["staff_id"] is None
+
+    # Verify genuinely invalid UUID string still safely returns 422
+    res_invalid_cal = client.get(
+        f"/api/v1/doctor/calendar?from={target_date}&to={target_date}&staff_id=not-a-valid-uuid",
+        headers=headers,
+    )
+    assert res_invalid_cal.status_code == 422
+
+    res_invalid_apt = client.get(
+        f"/api/v1/doctor/appointments?from={target_date}&to={target_date}&staff_id=not-a-valid-uuid",
+        headers=headers,
+    )
+    assert res_invalid_apt.status_code == 422
+
 
 def test_reschedule_allows_concurrent_slots_across_doctors(client, clinic_setup):
     """

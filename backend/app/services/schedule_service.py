@@ -269,9 +269,9 @@ def generate_available_slots(
     )
 
     # Determine if query is for a specific practitioner
-    is_primary_only = (staff_id == "primary")
+    is_primary_only = bool(staff_id and str(staff_id).strip().lower() == "primary")
     target_staff_uuid = None
-    if staff_id and staff_id != "primary":
+    if staff_id and not is_primary_only:
         if isinstance(staff_id, str):
             try:
                 target_staff_uuid = uuid.UUID(staff_id)
