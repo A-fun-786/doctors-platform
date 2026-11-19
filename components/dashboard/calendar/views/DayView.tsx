@@ -173,38 +173,44 @@ export default function DayView({
                   doesEventOverlapSlot(ev, slotStart, slotEnd)
                 );
 
-                const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
+                const { apptEvent, apptEvents, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                 // 1. Booked Patient Appointment (Clean: only Name & Visit Reason)
-                if (apptEvent) {
-                  const event = apptEvent;
-                  const patientName = event.patient_name || "Patient";
-                  const reason = event.reason || "General Visit";
-
+                if (apptEvents && apptEvents.length > 0) {
                   return (
                     <React.Fragment key={timeRow}>
                       {shiftDivider}
-                      <div
-                        onClick={() => onEventClick(event, selectedDate)}
-                        className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
-                          <div
-                            className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
-                          >
-                            {format12Hour(event.start)} – {format12Hour(event.end)}
-                          </div>
+                      <div className="space-y-1.5 w-full">
+                        {apptEvents.map((event, idx) => {
+                          const patientName = event.patient_name || "Patient";
+                          const reason = event.reason || "General Visit";
 
-                          <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" aria-hidden="true" />
-                            <span className="font-bold text-slate-900 truncate">
-                              {patientName}
-                            </span>
-                            <span className="text-slate-500 font-normal truncate">
-                              {" — "}{reason}
-                            </span>
-                          </div>
-                        </div>
+                          return (
+                            <div
+                              key={event.appointment_id || event.id || `${timeRow}-${event.staff_id || event.doctor_id || idx}`}
+                              onClick={() => onEventClick(event, selectedDate)}
+                              className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
+                            >
+                              <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
+                                <div
+                                  className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
+                                >
+                                  {format12Hour(event.start)} – {format12Hour(event.end)}
+                                </div>
+
+                                <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" aria-hidden="true" />
+                                  <span className="font-bold text-slate-900 truncate">
+                                    {patientName}
+                                  </span>
+                                  <span className="text-slate-500 font-normal truncate">
+                                    {" — "}{reason}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </React.Fragment>
                   );

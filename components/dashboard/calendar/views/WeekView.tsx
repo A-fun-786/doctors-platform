@@ -264,7 +264,7 @@ export default function WeekView({
                         );
 
                         // Extract specific event types
-                        const { apptEvent, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
+                        const { apptEvent, apptEvents, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                         return (
                           <div
@@ -272,16 +272,21 @@ export default function WeekView({
                             className={`p-1 border-r border-slate-200 last:border-r-0 relative group transition-colors ${day.isSelected ? "bg-brand-50" : "hover:bg-slate-50"
                               }`}
                           >
-                            {apptEvent ? (
-                              /* FILLED CALENDAR SLOT: PREFERENCE ACCENTED APPOINTMENT */
-                              <div
-                                onClick={() => onEventClick(apptEvent, day.dateStr)}
-                                className={`w-full h-full min-h-[38px] px-2 py-1 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
-                                title={`Appointment: ${apptEvent.patient_name || "Patient"} (${format12Hour(apptEvent.start)} - ${format12Hour(apptEvent.end)})${apptEvent.reason ? ` • ${apptEvent.reason}` : ""}`}
-                              >
-                                <span className="text-[11px] font-bold text-slate-900 truncate w-full">
-                                  {apptEvent.patient_name || "Patient"}
-                                </span>
+                            {apptEvents && apptEvents.length > 0 ? (
+                              /* FILLED CALENDAR SLOT: PREFERENCE ACCENTED APPOINTMENT(S) */
+                              <div className="w-full h-full flex flex-col gap-1 min-h-[38px]">
+                                {apptEvents.map((evt, idx) => (
+                                  <div
+                                    key={evt.appointment_id || evt.id || `${day.dateStr}-${timeRow}-${evt.staff_id || evt.doctor_id || idx}`}
+                                    onClick={() => onEventClick(evt, day.dateStr)}
+                                    className={`w-full min-h-[38px] px-2 py-1 rounded-md border text-slate-900 hover:shadow-xs transition-all cursor-pointer select-none flex items-center justify-center text-center group/appt ${prefStyles.apptBorder}`}
+                                    title={`Appointment: ${evt.patient_name || apptEvent?.patient_name || "Patient"} (${format12Hour(evt.start)} - ${format12Hour(evt.end)})${evt.reason ? ` • ${evt.reason}` : ""}`}
+                                  >
+                                    <span className="text-[11px] font-bold text-slate-900 truncate w-full">
+                                      {evt.patient_name || apptEvent?.patient_name || "Patient"}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             ) : leaveEvent ? (
                               /* DOCTOR LEAVE / CLINIC HOLIDAY */

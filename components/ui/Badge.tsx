@@ -1,4 +1,5 @@
 import React from "react";
+import { cn } from "@/lib/utils";
 
 export type BadgeVariant =
   | "default"
@@ -8,12 +9,12 @@ export type BadgeVariant =
   | "purple"
   | "outline";
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
   children: React.ReactNode;
 }
 
-const VARIANT_STYLES: Record<BadgeVariant, string> = {
+export const VARIANT_STYLES: Record<BadgeVariant, string> = {
   default: "bg-brand-50 text-brand-700 border-brand-200",
   success: "bg-emerald-50 text-emerald-700 border-emerald-200",
   warning: "bg-amber-50 text-amber-700 border-amber-200",
@@ -30,7 +31,11 @@ export default function Badge({
 }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded border transition-colors ${VARIANT_STYLES[variant]} ${className}`}
+      className={cn(
+        "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded border transition-colors",
+        VARIANT_STYLES[variant],
+        className
+      )}
       {...props}
     >
       {children}

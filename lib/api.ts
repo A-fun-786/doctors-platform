@@ -287,9 +287,11 @@ export interface CalendarEvent {
   patient_address?: string;
   notes?: string;
   status?: AppointmentStatus;
+  id?: string;
   appointment_id?: string;
   schedule_id?: string;
   doctor_id?: string;
+  staff_id?: string;
   patient_id?: string;
   patient_email?: string;
   created_at?: string;

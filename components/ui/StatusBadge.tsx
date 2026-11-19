@@ -1,4 +1,6 @@
 import React from "react";
+import Badge, { BadgeVariant, VARIANT_STYLES } from "./Badge";
+import { cn } from "@/lib/utils";
 
 export type StatusType =
   | "BOOKED"
@@ -9,33 +11,45 @@ export type StatusType =
   | "LEAVE"
   | "HOLIDAY"
   | "BLOCKED"
-  | string;
+  | (string & {});
 
 export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: StatusType;
   size?: "sm" | "md";
 }
 
-export function getStatusBadgeStyles(status: StatusType): string {
+/**
+ * Maps appointment/schedule statuses to design system Badge variants.
+ */
+export function getStatusBadgeVariant(status: StatusType): BadgeVariant {
   const normalized = (status || "").toUpperCase();
   switch (normalized) {
     case "BOOKED":
     case "CONFIRMED":
-      return "bg-brand-50 text-brand-800 border-brand-200";
+      return "default";
     case "COMPLETED":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "success";
     case "CANCELLED":
     case "REJECTED":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "danger";
     case "PENDING":
     case "LEAVE":
     case "HOLIDAY":
-      return "bg-amber-50 text-amber-700 border-amber-200";
+      return "warning";
     case "BLOCKED":
-      return "bg-purple-50 text-purple-700 border-purple-200";
+      return "purple";
     default:
-      return "bg-slate-100 text-slate-600 border-slate-200";
+      return "outline";
   }
+}
+
+/**
+ * Backward-compatible helper returning the color token string for a status.
+ * Reuses single-source-of-truth tokens from Badge.tsx.
+ */
+export function getStatusBadgeStyles(status: StatusType): string {
+  const variant = getStatusBadgeVariant(status);
+  return VARIANT_STYLES[variant];
 }
 
 export default function StatusBadge({
@@ -45,19 +59,19 @@ export default function StatusBadge({
   children,
   ...props
 }: StatusBadgeProps) {
-  const styles = getStatusBadgeStyles(status);
+  const variant = getStatusBadgeVariant(status);
   const sizeStyles =
     size === "sm"
       ? "text-[10px] sm:text-[11px] px-2 py-0.5"
       : "text-xs px-2.5 py-1";
 
   return (
-    <span
-      className={`inline-flex items-center font-semibold rounded-full border transition-colors ${styles} ${sizeStyles} ${className}`}
+    <Badge
+      variant={variant}
+      className={cn("font-semibold rounded-full", sizeStyles, className)}
       {...props}
     >
       {children || status}
-    </span>
+    </Badge>
   );
 }
-
