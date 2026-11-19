@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -269,7 +269,7 @@ def test_2_24_non_aligned_window(db_session, test_doctor):
     ))
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 2
     assert slots == [
         {"start": "09:00", "end": "09:30"},

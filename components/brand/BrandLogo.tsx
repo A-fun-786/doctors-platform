@@ -47,7 +47,8 @@ export function BrandLogo({
             alt={icon.alt}
             width={64}
             height={64}
-            className="w-full h-full object-contain rounded-lg"
+            priority
+            className="w-full h-full object-contain"
           />
         )}
       </div>
