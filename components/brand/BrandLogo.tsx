@@ -10,6 +10,7 @@ interface BrandLogoProps {
   href?: string | null;
   className?: string;
   textClassName?: string;
+  priority?: boolean;
 }
 
 export function BrandLogo({
@@ -19,6 +20,7 @@ export function BrandLogo({
   href = "/",
   className = "",
   textClassName = "",
+  priority = false,
 }: BrandLogoProps) {
   const iconSizeClasses = {
     sm: "w-7 h-7",
@@ -47,7 +49,7 @@ export function BrandLogo({
             alt={icon.alt}
             width={64}
             height={64}
-            priority
+            priority={priority}
             className="w-full h-full object-contain"
           />
         )}

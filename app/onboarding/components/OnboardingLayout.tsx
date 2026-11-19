@@ -39,7 +39,7 @@ export function OnboardingHeader({
     >
       <div className="w-full max-w-5xl mx-auto flex items-center justify-between">
         {/* Brand Identity — Uses dynamic BrandLogo configuration */}
-        <BrandLogo size="sm" href={null} />
+        <BrandLogo size="sm" href={null} priority />
 
         {/* Progress — hidden on completion / saving */}
         {showProgress && (

@@ -312,8 +312,9 @@ export function Step3ContactPhone({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <FieldLabel>Helpline &amp; Appointments Contact Number *</FieldLabel>
+        <FieldLabel htmlFor="onboarding-phone-input">Helpline &amp; Appointments Contact Number *</FieldLabel>
         <OnboardingPhoneInput
+          id="onboarding-phone-input"
           country={country}
           localNumber={localNumber}
           onCountryChange={onCountryChange}

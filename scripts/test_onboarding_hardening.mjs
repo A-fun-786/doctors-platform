@@ -235,7 +235,10 @@ describe("Phone Validation & Trunk Zero Stripping", () => {
 describe("Architectural Alignment & Config Cleanliness", () => {
   test("OnboardingLayout uses BrandLogo instead of raw icons and text", () => {
     assert.ok(onboardingLayout.includes('import { BrandLogo } from "@/components/brand/BrandLogo"'));
-    assert.ok(onboardingLayout.includes('<BrandLogo size="sm" href={null} />'));
+    assert.ok(
+      onboardingLayout.includes('<BrandLogo size="sm" href={null} />') ||
+        onboardingLayout.includes('<BrandLogo size="sm" href={null} priority />')
+    );
     assert.strictEqual(onboardingLayout.includes("StethoscopeHeartPulseIcon"), false);
   });
 
@@ -270,5 +273,5 @@ console.log(`============================================================`);
 if (stats.failed > 0) {
   process.exit(1);
 } else {
-  console.log(`\n🎉 ALL 18 ONBOARDING HARDENING & COMPLIANCE TESTS PASSED!\n`);
+  console.log(`\n🎉 ALL ${stats.total} ONBOARDING HARDENING & COMPLIANCE TESTS PASSED!\n`);
 }

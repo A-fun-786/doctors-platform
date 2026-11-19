@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { BRAND_CONFIG } from "@/config/brand.config";
+import { HOSPITAL_THEME_COLORS } from "@/config/theme.config";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -8,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: BRAND_CONFIG.description,
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0284c7",
+    background_color: HOSPITAL_THEME_COLORS.hospital.cardBg,
+    theme_color: HOSPITAL_THEME_COLORS.brand[600],
     icons: [
       {
         src: BRAND_CONFIG.assets.icon192,
