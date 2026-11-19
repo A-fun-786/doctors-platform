@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.docspace.template.ui.theme.Brand600
+import com.docspace.template.ui.theme.Brand700
 
 /**
  * Reusable Card Scaffold for DocSpace Android feature services.
@@ -36,6 +39,14 @@ fun DocSpaceCardScaffold(
     iconContentDescription: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val safeGradientColors = remember(gradientColors) {
+        when {
+            gradientColors.isEmpty() -> listOf(Brand600, Brand700)
+            gradientColors.size == 1 -> listOf(gradientColors[0], gradientColors[0])
+            else -> gradientColors
+        }
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -49,7 +60,7 @@ fun DocSpaceCardScaffold(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.horizontalGradient(gradientColors))
+                    .background(Brush.horizontalGradient(safeGradientColors))
                     .padding(20.dp)
             ) {
                 Column {

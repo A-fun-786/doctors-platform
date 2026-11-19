@@ -23,8 +23,8 @@ fun LabDiagnosticsCard(
         title = stringResource(R.string.title_lab_reports_portal),
         badgeText = stringResource(R.string.badge_diagnostics),
         icon = Icons.Default.Description,
-        iconContentDescription = "Lab",
-        gradientColors = listOf(Purple600, Color(0xFF7E22CE)),
+        iconContentDescription = stringResource(R.string.cd_lab_card_icon),
+        gradientColors = listOf(Purple600, Purple700),
         modifier = modifier
     ) {
         Column(

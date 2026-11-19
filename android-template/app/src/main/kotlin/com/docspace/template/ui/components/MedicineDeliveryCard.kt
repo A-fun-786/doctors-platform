@@ -23,8 +23,8 @@ fun MedicineDeliveryCard(
         title = stringResource(R.string.title_clinic_pharmacy),
         badgeText = stringResource(R.string.badge_prescriptions),
         icon = Icons.Default.Medication,
-        iconContentDescription = "Pharmacy",
-        gradientColors = listOf(Emerald600, Color(0xFF047857)),
+        iconContentDescription = stringResource(R.string.cd_pharmacy_card_icon),
+        gradientColors = listOf(Emerald600, Emerald700),
         modifier = modifier
     ) {
         Column(
