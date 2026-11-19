@@ -11,6 +11,7 @@ import {
   Loader2,
   MapPin,
   ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import {
   PublicDoctorProfileResponse,
@@ -19,7 +20,9 @@ import {
   getPublicAvailableSlots,
   DEFAULT_DOCTOR_AVATAR,
 } from "@/lib/api";
-import { format12Hour } from "@/components/dashboard/calendar/calendarUtils";
+import { format12Hour, formatDateToYYYYMMDD } from "@/components/dashboard/calendar/calendarUtils";
+import { logger } from "@/lib/logger";
+import Toast from "@/components/ui/Toast";
 import TimeSlotPicker from "./TimeSlotPicker";
 import BookingConfirmationCard from "./BookingConfirmationCard";
 
@@ -28,6 +31,8 @@ export interface AppointmentBookingFormProps {
   slug: string;
   consultationType: "in_clinic" | "video_consultation";
   onReturnHome: () => void;
+  staffId?: string;
+  staff_id?: string;
 }
 
 export default function AppointmentBookingForm({
@@ -35,7 +40,10 @@ export default function AppointmentBookingForm({
   slug,
   consultationType,
   onReturnHome,
+  staffId,
+  staff_id,
 }: AppointmentBookingFormProps) {
+  const activeStaffId = staffId || staff_id;
   const isInClinic = consultationType === "in_clinic";
 
   const [date, setDate] = useState("");
@@ -48,16 +56,20 @@ export default function AppointmentBookingForm({
   const [patientPhone, setPatientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successBookingId, setSuccessBookingId] = useState<string | null>(null);
 
-  // Set default date to tomorrow in YYYY-MM-DD format
+  // Set default date to tomorrow in local YYYY-MM-DD format (avoids UTC drift)
   useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    setDate(tomorrow.toISOString().split("T")[0]);
+    setDate(formatDateToYYYYMMDD(tomorrow));
   }, []);
 
-  // Load available slots dynamically on date change
+  // Today in local YYYY-MM-DD format to prevent past-date selection
+  const minDate = formatDateToYYYYMMDD(new Date());
+
+  // Load available slots dynamically on date or practitioner change
   useEffect(() => {
     if (!slug || !date) {
       setAvailableSlots([]);
@@ -66,7 +78,9 @@ export default function AppointmentBookingForm({
     }
     let isMounted = true;
     setSlotsLoading(true);
-    getPublicAvailableSlots(slug, date)
+    setErrorMessage(null);
+
+    getPublicAvailableSlots(slug, date, activeStaffId)
       .then((slots) => {
         if (isMounted) {
           const list = slots || [];
@@ -79,29 +93,48 @@ export default function AppointmentBookingForm({
         }
       })
       .catch((err) => {
-        console.error(`Failed to load ${consultationType} available slots:`, err);
+        logger.error(
+          "PublicBooking",
+          `Failed to load ${consultationType} available slots`,
+          err,
+          { slug, date, consultationType, staffId: activeStaffId }
+        );
         if (isMounted) {
           setAvailableSlots([]);
           setSelectedSlot("");
+          setErrorMessage("Failed to load available slots. Please try another date.");
         }
       })
       .finally(() => {
         if (isMounted) setSlotsLoading(false);
       });
+
     return () => {
       isMounted = false;
     };
-  }, [slug, date, consultationType]);
+  }, [slug, date, consultationType, activeStaffId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!doctor) return;
+
     if (!selectedSlot) {
-      alert("Please select an available time slot");
+      setErrorMessage("Please select an available time slot before confirming.");
       return;
     }
+
     try {
       setSubmitting(true);
+      setErrorMessage(null);
+
+      logger.action("PublicBooking", `Submitting ${consultationType} booking request`, {
+        slug,
+        date,
+        selectedSlot,
+        patientName,
+        staffId: activeStaffId,
+      });
+
       const res = await bookPublicAppointment(slug, {
         patient_name: patientName,
         patient_email: patientEmail,
@@ -110,10 +143,27 @@ export default function AppointmentBookingForm({
         appointment_time: selectedSlot,
         appointment_type: consultationType,
         notes: notes,
+        ...(activeStaffId ? { staff_id: activeStaffId } : {}),
       });
+
+      logger.info("PublicBooking", `Appointment booked successfully (${res.booking_id})`, {
+        bookingId: res.booking_id,
+        slug,
+        consultationType,
+      });
+
       setSuccessBookingId(res.booking_id);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : `Failed to ${isInClinic ? "book appointment" : "schedule video consultation"}`);
+      const fallbackMsg = `Failed to ${isInClinic ? "book appointment" : "schedule video consultation"}`;
+      const msg = err instanceof Error ? err.message : fallbackMsg;
+      setErrorMessage(msg);
+      logger.error("PublicBooking", msg, err, {
+        slug,
+        date,
+        selectedSlot,
+        consultationType,
+        staffId: activeStaffId,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -125,10 +175,14 @@ export default function AppointmentBookingForm({
     setPatientEmail("");
     setPatientPhone("");
     setNotes("");
+    setErrorMessage(null);
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast Feedback */}
+      {errorMessage && <Toast message={errorMessage} type="error" />}
+
       {/* Top Navigation & Breadcrumb */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <button
@@ -219,14 +273,46 @@ export default function AppointmentBookingForm({
             />
           ) : (
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+              {/* Inline Error Alert Banner */}
+              {errorMessage && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm flex items-start gap-3 shadow-xs animate-in fade-in"
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900">Booking could not be processed</p>
+                    <p className="text-xs text-red-700 mt-0.5 leading-relaxed">{errorMessage}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setErrorMessage(null)}
+                    aria-label="Dismiss error notification"
+                    className="text-slate-400 hover:text-slate-700 p-0.5 rounded-md hover:bg-red-100 transition-colors cursor-pointer"
+                  >
+                    <span className="sr-only">Dismiss</span>
+                    ✕
+                  </button>
+                </div>
+              )}
+
               {/* Shared Time Slot Picker */}
               <TimeSlotPicker
                 selectedDate={date}
-                onDateChange={setDate}
+                onDateChange={(newDate) => {
+                  setDate(newDate);
+                  if (errorMessage) setErrorMessage(null);
+                }}
                 availableSlots={availableSlots}
                 slotsLoading={slotsLoading}
                 selectedSlot={selectedSlot}
-                onSelectSlot={setSelectedSlot}
+                onSelectSlot={(newSlot) => {
+                  setSelectedSlot(newSlot);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                minDate={minDate}
+                dateInputId="booking-preferred-date"
                 dateLabel={isInClinic ? "Preferred Date" : "Consultation Date"}
                 slotLabel={isInClinic ? "Preferred Time Slot" : "Consultation Time Slot"}
                 emptyMessage="No available slots on this date. Please choose another date."
@@ -235,67 +321,95 @@ export default function AppointmentBookingForm({
               {/* Patient Info */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label
+                    htmlFor="booking-patient-name"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                  >
                     Patient Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
+                      id="booking-patient-name"
                       type="text"
                       required
                       value={patientName}
-                      onChange={(e) => setPatientName(e.target.value)}
+                      onChange={(e) => {
+                        setPatientName(e.target.value);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
                       placeholder="Full name"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full h-10 pl-11 pr-3.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label
+                    htmlFor="booking-patient-phone"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                  >
                     Contact Phone <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
+                      id="booking-patient-phone"
                       type="tel"
                       required
                       value={patientPhone}
-                      onChange={(e) => setPatientPhone(e.target.value)}
+                      onChange={(e) => {
+                        setPatientPhone(e.target.value);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
                       placeholder="+1 (555) 000-0000"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full h-10 pl-11 pr-3.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label
+                    htmlFor="booking-patient-email"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                  >
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
+                      id="booking-patient-email"
                       type="email"
                       required
                       value={patientEmail}
-                      onChange={(e) => setPatientEmail(e.target.value)}
+                      onChange={(e) => {
+                        setPatientEmail(e.target.value);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
                       placeholder="patient@example.com"
-                      className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full h-10 pl-11 pr-3.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="booking-visit-notes"
+                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                >
                   Reason for Visit / Symptoms
                 </label>
                 <textarea
+                  id="booking-visit-notes"
                   rows={2}
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
                   placeholder="Describe symptoms, routine check-up, follow-up, or general health concerns..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 />
               </div>
 
@@ -303,6 +417,7 @@ export default function AppointmentBookingForm({
                 <button
                   type="submit"
                   disabled={submitting}
+                  aria-busy={submitting}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   {submitting ? (
@@ -325,4 +440,3 @@ export default function AppointmentBookingForm({
     </div>
   );
 }
-

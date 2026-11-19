@@ -162,24 +162,29 @@ def get_public_available_slots(
     request: Request,
     slug: str,
     date: date = Query(..., description="Query date for available slots"),
+    staff_id: Optional[str] = Query(None, description="Optional practitioner or staff identifier"),
     db: Session = Depends(get_db),
 ):
     """
     Public, rate-limited endpoint returning available 30-minute slots for a tenant practice.
     Employs an in-memory TTL cache to alleviate high-frequency database reads.
+    Supports optional practitioner/staff scoping.
     """
     tenant = get_active_tenant_by_slug(slug, db)
 
-    cached_slots = get_cached_slots(tenant.doctor.id, date)
-    if cached_slots is not None:
-        return [AvailableSlotResponse(**slot) for slot in cached_slots]
+    if staff_id is None:
+        cached_slots = get_cached_slots(tenant.doctor.id, date)
+        if cached_slots is not None:
+            return [AvailableSlotResponse(**slot) for slot in cached_slots]
 
     slots = schedule_service.generate_available_slots(
         doctor_id=tenant.doctor.id,
         query_date=date,
         db=db,
+        staff_id=staff_id,
     )
-    set_cached_slots(tenant.doctor.id, date, slots)
+    if staff_id is None:
+        set_cached_slots(tenant.doctor.id, date, slots)
     return [AvailableSlotResponse(**slot) for slot in slots]
 
 

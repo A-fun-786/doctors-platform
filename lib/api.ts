@@ -106,6 +106,7 @@ export interface AppointmentBookingPayload {
   appointment_time: string;
   appointment_type: "in_clinic" | "video_consultation";
   notes?: string;
+  staff_id?: string;
 }
 
 export interface ReportUploadPayload {
@@ -674,13 +675,19 @@ export async function getDoctorAvailableSlots(date: string): Promise<AvailableSl
 
 /**
  * Retrieve public available booking slots for a tenant practice by slug on a specific date.
+ * Optionally filter by staff/practitioner identifier.
  */
 export async function getPublicAvailableSlots(
   slug: string,
-  date: string
+  date: string,
+  staffId?: string
 ): Promise<AvailableSlot[]> {
+  const queryParams = new URLSearchParams({ date });
+  if (staffId) {
+    queryParams.set("staff_id", staffId);
+  }
   return apiFetch<AvailableSlot[]>(
-    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
+    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?${queryParams.toString()}`,
     {
       method: "GET",
     }
