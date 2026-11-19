@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +25,37 @@ import com.docspace.template.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@Composable
+private fun RowScope.TimeSlotChip(
+    slot: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) Brand600 else Slate50)
+            .border(
+                1.dp,
+                if (isSelected) Brand600 else Slate200,
+                RoundedCornerShape(8.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = slot,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isSelected) Color.White else Slate700,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentBookingCard(
@@ -34,13 +66,16 @@ fun AppointmentBookingCard(
         "02:00 PM", "03:30 PM", "04:45 PM"
     )
 
-    var selectedSlot by remember { mutableStateOf(timeSlots[0]) }
-    var patientName by remember { mutableStateOf("") }
-    var patientPhone by remember { mutableStateOf("") }
-    var patientEmail by remember { mutableStateOf("") }
-    var symptomsNotes by remember { mutableStateOf("") }
-    var isSubmitted by remember { mutableStateOf(false) }
-    var bookingId by remember { mutableStateOf("APT-" + UUID.randomUUID().toString().take(8).uppercase()) }
+    var selectedSlot by rememberSaveable { mutableStateOf(timeSlots[0]) }
+    var patientName by rememberSaveable { mutableStateOf("") }
+    var patientPhone by rememberSaveable { mutableStateOf("") }
+    var patientEmail by rememberSaveable { mutableStateOf("") }
+    var symptomsNotes by rememberSaveable { mutableStateOf("") }
+    var isSubmitted by rememberSaveable { mutableStateOf(false) }
+    var bookingId by rememberSaveable { mutableStateOf("APT-" + UUID.randomUUID().toString().take(8).uppercase()) }
+
+    var nameError by rememberSaveable { mutableStateOf(false) }
+    var phoneError by rememberSaveable { mutableStateOf(false) }
 
     val currentDate = remember {
         val calendar = Calendar.getInstance()
@@ -58,8 +93,8 @@ fun AppointmentBookingCard(
         subtitle = stringResource(R.string.subtitle_in_clinic_visit),
         badgeText = clinicBadge,
         icon = Icons.Default.CalendarMonth,
-        iconContentDescription = "Appointment",
-        gradientColors = listOf(Color(0xFF2563EB), Color(0xFF1D4ED8)),
+        iconContentDescription = stringResource(R.string.cd_in_clinic_card_icon),
+        gradientColors = listOf(Brand600, Brand700),
         modifier = modifier
     ) {
         if (isSubmitted) {
@@ -80,7 +115,7 @@ fun AppointmentBookingCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
+                        contentDescription = stringResource(R.string.cd_success_icon),
                         tint = Emerald600,
                         modifier = Modifier.size(34.dp)
                     )
@@ -98,7 +133,11 @@ fun AppointmentBookingCard(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Your booking reference is $bookingId. An appointment record has been created for ${DoctorConfig.DOCTOR_NAME}.",
+                    text = stringResource(
+                        R.string.msg_booking_reference,
+                        bookingId,
+                        DoctorConfig.DOCTOR_NAME
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Slate600,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -115,6 +154,8 @@ fun AppointmentBookingCard(
                         patientPhone = ""
                         patientEmail = ""
                         symptomsNotes = ""
+                        nameError = false
+                        phoneError = false
                     },
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -153,7 +194,7 @@ fun AppointmentBookingCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Event,
-                            contentDescription = "Date",
+                            contentDescription = stringResource(R.string.cd_date_icon),
                             tint = Brand600,
                             modifier = Modifier.size(18.dp)
                         )
@@ -178,81 +219,53 @@ fun AppointmentBookingCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 3 column slots
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        timeSlots.take(3).forEach { slot ->
-                            val isSelected = slot == selectedSlot
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Brand600 else Slate50)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) Brand600 else Slate200,
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { selectedSlot = slot }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        timeSlots.chunked(3).forEach { rowSlots ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = slot,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isSelected) Color.White else Slate700,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        timeSlots.drop(3).take(3).forEach { slot ->
-                            val isSelected = slot == selectedSlot
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Brand600 else Slate50)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) Brand600 else Slate200,
-                                        RoundedCornerShape(8.dp)
+                                rowSlots.forEach { slot ->
+                                    TimeSlotChip(
+                                        slot = slot,
+                                        isSelected = slot == selectedSlot,
+                                        onClick = { selectedSlot = slot }
                                     )
-                                    .clickable { selectedSlot = slot }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = slot,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isSelected) Color.White else Slate700,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                )
+                                }
                             }
                         }
                     }
                 }
 
+                // Patient Details Section Header
+                Text(
+                    text = stringResource(R.string.lbl_patient_details),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Slate600,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                )
+
                 // Patient Name
                 OutlinedTextField(
                     value = patientName,
-                    onValueChange = { patientName = it },
-                    label = { Text("Patient Full Name") },
-                    placeholder = { Text("e.g. John Smith") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Person, contentDescription = "Name", tint = Slate400)
+                    onValueChange = {
+                        patientName = it
+                        if (nameError && it.isNotBlank()) nameError = false
                     },
+                    label = { Text(stringResource(R.string.lbl_full_name)) },
+                    placeholder = { Text(stringResource(R.string.placeholder_patient_name)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = stringResource(R.string.cd_name_icon),
+                            tint = Slate400
+                        )
+                    },
+                    isError = nameError,
+                    supportingText = if (nameError) {
+                        { Text(stringResource(R.string.err_name_required), color = MaterialTheme.colorScheme.error) }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -265,12 +278,23 @@ fun AppointmentBookingCard(
                 // Phone Number
                 OutlinedTextField(
                     value = patientPhone,
-                    onValueChange = { patientPhone = it },
-                    label = { Text("Contact Phone") },
-                    placeholder = { Text("+1 (555) 000-0000") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Phone, contentDescription = "Phone", tint = Slate400)
+                    onValueChange = {
+                        patientPhone = it
+                        if (phoneError && it.isNotBlank()) phoneError = false
                     },
+                    label = { Text(stringResource(R.string.lbl_phone_number)) },
+                    placeholder = { Text(stringResource(R.string.placeholder_phone_number)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = stringResource(R.string.cd_phone_icon),
+                            tint = Slate400
+                        )
+                    },
+                    isError = phoneError,
+                    supportingText = if (phoneError) {
+                        { Text(stringResource(R.string.err_phone_required), color = MaterialTheme.colorScheme.error) }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -284,10 +308,14 @@ fun AppointmentBookingCard(
                 OutlinedTextField(
                     value = patientEmail,
                     onValueChange = { patientEmail = it },
-                    label = { Text("Email Address") },
-                    placeholder = { Text("patient@example.com") },
+                    label = { Text(stringResource(R.string.lbl_email_optional)) },
+                    placeholder = { Text(stringResource(R.string.placeholder_email)) },
                     leadingIcon = {
-                        Icon(Icons.Default.Email, contentDescription = "Email", tint = Slate400)
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = stringResource(R.string.cd_email_icon),
+                            tint = Slate400
+                        )
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -302,8 +330,8 @@ fun AppointmentBookingCard(
                 OutlinedTextField(
                     value = symptomsNotes,
                     onValueChange = { symptomsNotes = it },
-                    label = { Text("Reason for Visit / Symptoms") },
-                    placeholder = { Text("Briefly describe symptoms or routine checkup...") },
+                    label = { Text(stringResource(R.string.lbl_symptoms_optional)) },
+                    placeholder = { Text(stringResource(R.string.placeholder_symptoms)) },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -316,7 +344,13 @@ fun AppointmentBookingCard(
                 // Confirm Appointment Button
                 Button(
                     onClick = {
-                        isSubmitted = true
+                        val hasName = patientName.isNotBlank()
+                        val hasPhone = patientPhone.isNotBlank()
+                        nameError = !hasName
+                        phoneError = !hasPhone
+                        if (hasName && hasPhone) {
+                            isSubmitted = true
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -335,7 +369,7 @@ fun AppointmentBookingCard(
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Confirm",
+                        contentDescription = stringResource(R.string.cd_confirm_icon),
                         modifier = Modifier.size(16.dp)
                     )
                 }

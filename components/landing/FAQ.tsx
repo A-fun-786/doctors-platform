@@ -71,41 +71,47 @@ export default function FAQ() {
             return (
               <div
                 key={faq.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${isOpen
+                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${isOpen
                   ? "border-emerald-300 shadow-sm ring-1 ring-emerald-500/20"
                   : "border-slate-200/80 hover:border-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
                   }`}
-                onClick={() => handleToggle(idx)}
               >
-                {/* Header Row */}
-                <div className="w-full px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4 select-none">
+                {/* Header Row Button */}
+                <button
+                  type="button"
+                  id={`faq-trigger-${faq.id}`}
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${faq.id}`}
+                  onClick={() => handleToggle(idx)}
+                  className="w-full px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4 text-left select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group transition-colors"
+                >
                   <span
-                    className={`text-sm sm:text-base font-semibold flex-1 leading-snug transition-colors ${isOpen ? "text-emerald-950 font-bold" : "text-slate-800"
+                    className={`text-sm sm:text-base font-semibold flex-1 leading-snug transition-colors ${isOpen ? "text-emerald-950 font-bold" : "text-slate-800 group-hover:text-slate-900"
                       }`}
                   >
                     {faq.question}
                   </span>
 
-                  {/* Arrow Icon Button that rotates on open */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggle(idx);
-                    }}
+                  {/* Arrow Icon that rotates on open */}
+                  <span
                     className={`p-1.5 -mr-1.5 rounded-full transition-all duration-200 ${isOpen
                       ? "bg-emerald-50 text-emerald-600 rotate-180"
-                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                      : "text-slate-400 group-hover:text-slate-600 group-hover:bg-slate-100"
                       }`}
-                    aria-label={isOpen ? "Collapse answer" : "Expand answer"}
+                    aria-hidden="true"
                   >
                     <ChevronDown className="w-5 h-5 shrink-0" />
-                  </button>
-                </div>
+                  </span>
+                </button>
 
                 {/* Collapsible Answer Body */}
                 {isOpen && (
-                  <div className="px-6 sm:px-8 pb-5 pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 bg-slate-50/50">
+                  <div
+                    id={`faq-answer-${faq.id}`}
+                    role="region"
+                    aria-labelledby={`faq-trigger-${faq.id}`}
+                    className="px-6 sm:px-8 pb-5 pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 bg-slate-50/50"
+                  >
                     {faq.answer}
                   </div>
                 )}

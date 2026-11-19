@@ -23,8 +23,8 @@ fun VideoConsultationCard(
         title = stringResource(R.string.title_video_consultation),
         badgeText = stringResource(R.string.badge_telehealth),
         icon = Icons.Default.Videocam,
-        iconContentDescription = "Video",
-        gradientColors = listOf(Indigo600, Color(0xFF4338CA)),
+        iconContentDescription = stringResource(R.string.cd_video_card_icon),
+        gradientColors = listOf(Indigo600, Indigo700),
         modifier = modifier
     ) {
         Column(

@@ -8,10 +8,11 @@ import {
   Building2,
   Users,
 } from "lucide-react";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 export default function PreviewSection() {
   return (
-    <section className="py-20 bg-slate-900 text-white">
+    <section id="preview" className="py-20 bg-slate-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
@@ -45,7 +46,7 @@ export default function PreviewSection() {
                 </div>
                 <div className="bg-slate-900 px-4 py-1 rounded-md text-xs font-mono text-slate-300 border border-slate-700 flex items-center gap-2 max-w-xs truncate">
                   <span className="text-emerald-400 text-[10px]">https://</span>
-                  <span>carewellpolyclinic.gosmartclinic.com</span>
+                  <span>carewellpolyclinic.{BRAND_CONFIG.slug}.com</span>
                 </div>
                 <div className="w-12" />
               </div>

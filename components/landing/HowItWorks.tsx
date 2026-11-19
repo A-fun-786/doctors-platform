@@ -1,4 +1,5 @@
 import { Building2, Sliders, Rocket, CheckCircle } from "lucide-react";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 const steps = [
   {
@@ -34,7 +35,7 @@ export default function HowItWorks() {
             Quick &amp; Easy Setup
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-            How GoSmartClinic Works
+            How {BRAND_CONFIG.name} Works
           </h2>
           <p className="text-base sm:text-lg text-slate-600">
             Get your clinic online and running in three simple steps.
@@ -47,11 +48,11 @@ export default function HowItWorks() {
           <div className="hidden lg:block absolute top-1/2 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-emerald-200 via-emerald-400 to-emerald-200 -translate-y-12 z-0" />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
-            {steps.map((item, idx) => {
+            {steps.map((item) => {
               const Icon = item.icon;
               return (
                 <div
-                  key={idx}
+                  key={item.step}
                   className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-8 text-center relative flex flex-col items-center hover:bg-white hover:border-emerald-300 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                 >
                   {/* Step Number Badge */}

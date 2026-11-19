@@ -4,7 +4,8 @@ import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPu
 // Master Brand Switch — update this single variable to rebrand the entire app.
 // All derived properties (slug, storage keys, titles, etc.) update automatically.
 // =========================================================================
-export const PRIMARY_BRAND_NAME = "GoSmartClinic";
+export const PRIMARY_BRAND_NAME =
+  process.env.NEXT_PUBLIC_BRAND_NAME || "DocSpace";
 
 // 🎨 ICON SWITCH: Change type to "svg" or "image", or swap component
 export const PRIMARY_BRAND_ICON = {

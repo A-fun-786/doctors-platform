@@ -1,4 +1,5 @@
-import { Star, Building2, Quote, ShieldCheck, Sparkles } from "lucide-react";
+import { Star, Building2, Quote, ShieldCheck } from "lucide-react";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 interface TestimonialItem {
   name: string;
@@ -22,7 +23,7 @@ const testimonials: TestimonialItem[] = [
     rating: 5,
     highlight: "+42% More Appointments",
     quote:
-      "Managing 14 visiting doctors with different timings used to be very stressful. GoSmartClinic gave our clinic its own branded website. Patient waiting times dropped drastically and our appointments grew by 42%.",
+      `Managing 14 visiting doctors with different timings used to be very stressful. ${BRAND_CONFIG.name} gave our clinic its own branded website. Patient waiting times dropped drastically and our appointments grew by 42%.`,
     metricBadge: "14 Doctors Managed",
   },
   {
@@ -34,7 +35,7 @@ const testimonials: TestimonialItem[] = [
     rating: 5,
     highlight: "Zero Commission Fees",
     quote:
-      "Instead of paying heavy commission fees to third-party listing apps, GoSmartClinic gave us our own direct clinic website. Patients book appointments directly and download their test reports online.",
+      `Instead of paying heavy commission fees to third-party listing apps, ${BRAND_CONFIG.name} gave us our own direct clinic website. Patients book appointments directly and download their test reports online.`,
     metricBadge: "2,500+ Patients Served",
   },
   {
@@ -95,9 +96,9 @@ export default function Testimonials() {
 
         {/* Testimonials Cards Grid (Responsive: 1-col mobile, 2-col tablet, 3-col desktop) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((item, idx) => (
+          {testimonials.map((item) => (
             <div
-              key={idx}
+              key={item.name}
               className="bg-white rounded-2xl p-7 border border-slate-200 shadow-xs hover:shadow-xl hover:border-brand-300 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group relative"
             >
               <div>
