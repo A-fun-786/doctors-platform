@@ -2,7 +2,7 @@
 
 > **Target Project:** `doctors-platform` (Next.js 14 Frontend, FastAPI Backend, Jetpack Compose Android Template)  
 > **Initiative:** Clean Architecture, Code De-duplication & Quality Hardening  
-> **Last Updated:** 2026-11-09  
+> **Last Updated:** 2026-11-19  
 > **Status:** All Phases 1 to 4 Complete & Fully Verified (319+ Tests Passed)
 
 ---
@@ -256,6 +256,17 @@ Frontend UI consistency enforce karna, duplicate inline Tailwind card styling ko
   - Updated `StatusType` to `"BOOKED" | ... | (string & {})` to preserve literal IDE autocomplete while allowing extensible string values.
   - Refactored `StatusBadge` to compose `Badge` internally and reuse `VARIANT_STYLES` from `Badge.tsx`, eliminating duplicate badge tokens.
 - **Automated Verification:** Added `scripts/test_commit8_best_practices.mjs` (12/12 passed).
+
+### 🛡️ Commit 9 Best Practice Hardening & Review Resolution
+- **Elimination of Silent Error Swallowing (`AndroidAppTab.tsx`):**
+  - Integrated `@/lib/logger` to capture errors with full context instead of empty `.catch(() => { })` blocks and unhandled promise rejections.
+  - Extracted centralized `fetchLogs(taskId: string)` helper with structured warning logging (`logger.warn`) and state updates, consolidating redundant polling and console open log fetches.
+  - Instrumented `handleIconUpload` and `handleStartBuild` with `logger.action` and `logger.error` to provide complete observability into artifact compilation and icon updates.
+  - Enhanced clipboard copy (`handleCopyApkUrl`) with non-silent user fallback and action/warning logs (`logger.action` / `logger.warn`).
+- **Atomic Commit Scoping & Clean Architecture Alignment:**
+  - Strictly isolated documentation progress synchronization (`docs:`) from production TypeScript UI code refactorings (`refactor:`).
+  - Maintained canonical single-source-of-truth progress tracker in `docs/refactoring_progress.md` without duplicate root tracking files.
+- **Automated Verification:** Added `scripts/test_commit9_best_practices.mjs` (11/11 passed).
 
 ---
 
