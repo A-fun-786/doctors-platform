@@ -103,7 +103,7 @@ def test_2_15_basic_4h_window(db_session, test_doctor):
     ))
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 8
     expected = [
         {"start": "09:00", "end": "09:30"},
@@ -127,7 +127,7 @@ def test_2_16_multiple_available_windows(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 16
     assert slots[0] == {"start": "09:00", "end": "09:30"}
     assert slots[7] == {"start": "12:30", "end": "13:00"}
@@ -144,7 +144,7 @@ def test_2_17_leave_subtraction(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 4
     expected = [
         {"start": "09:00", "end": "09:30"},
@@ -164,7 +164,7 @@ def test_2_18_holiday_full_day(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert slots == []
 
 
@@ -177,7 +177,7 @@ def test_2_19_blocked_window(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 6
     starts = [s["start"] for s in slots]
     assert "11:00" not in starts
@@ -200,7 +200,7 @@ def test_2_20_booked_appointment(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 7
     starts = [s["start"] for s in slots]
     assert "10:00" not in starts
@@ -222,7 +222,7 @@ def test_2_21_cancelled_appointment(db_session, test_doctor):
     ])
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 8
     starts = [s["start"] for s in slots]
     assert "10:00" in starts
@@ -253,7 +253,7 @@ def test_2_22_completed_appointment(db_session, test_doctor):
 def test_2_23_no_available_schedule(db_session, test_doctor):
     """Test 2.23: No AVAILABLE schedule entries on date -> 0 slots []."""
     q_date = date(2026, 11, 18)
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert slots == []
 
 
@@ -269,7 +269,7 @@ def test_2_24_non_aligned_window(db_session, test_doctor):
     ))
     db_session.commit()
 
-    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session)
+    slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert len(slots) == 2
     assert slots == [
         {"start": "09:00", "end": "09:30"},
