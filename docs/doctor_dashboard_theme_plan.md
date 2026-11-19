@@ -1,15 +1,23 @@
 # 🏥 Doctor Dashboard & Working Hours — Theme Color Migration Plan
 
-**File:** [`docs/doctor_dashboard_theme_plan.md`](file:///d:/doctors-platform/docs/doctor_dashboard_theme_plan.md)  
-**Theme Reference:** [`config/theme.config.ts`](file:///d:/doctors-platform/config/theme.config.ts)  
+**File:** `docs/doctor_dashboard_theme_plan.md`  
+**Theme Reference:** [`config/theme.config.ts`](../config/theme.config.ts)  
 **Theme Style:** Clinical Emerald & Vitality Mint (Fresh Healing Theme)  
-**Status:** Approved for Implementation (with DayView/WeekView calendar slot styling preserved)  
+**Status:** Master Architectural Roadmap & Implementation Spec (Part 1/4 in PR #12)  
 
 ---
 
+> [!NOTE]
+> **Multi-Part Implementation Roadmap & Architecture Spec:**  
+> This document serves as the overarching design system roadmap and architectural specification for the 4-part Clinical Emerald theme harmonization across the entire Doctor Dashboard:
+> - **Part 1 (PR #12):** Dashboard Shell, Overview tab, Profile service tokens, Calendar appointment drawer badge, and Android App tab.
+> - **Part 2:** Profile Tab, Settings, and modal sub-views.
+> - **Part 3 (PR #15):** Working Hours Modal (`EditWorkingHoursModal.tsx`) and Mobile Clinic Capsule (`MobileClinicStatusCapsule.tsx`).
+> - **Part 4 (PR #16):** Calendar Sidebar widget (`WorkingHoursCard.tsx`), Mini Calendar, and Horizon Day Strip.
+
 ## 1. Executive Summary & Purpose
 
-The objective of this plan is to eliminate legacy colors (such as hardcoded `blue-*` and `indigo-*`) across the **Doctor Dashboard Main Tabs** and specifically within the **Doctor Working Hours Management UI**, migrating them strictly to the single source of truth defined in [`config/theme.config.ts`](file:///d:/doctors-platform/config/theme.config.ts).
+The objective of this plan is to eliminate legacy colors (such as hardcoded `blue-*` and `indigo-*`) across the **Doctor Dashboard Main Tabs** and specifically within the **Doctor Working Hours Management UI**, migrating them strictly to the single source of truth defined in [`config/theme.config.ts`](../config/theme.config.ts).
 
 ### 🔒 User Design Specification:
 > **Important:** The calendar slot colors in `DayView` and `WeekView` (`SHIFT_THEME_PALETTES` — Shift 1 Warm Amber, Shift 2 Sky Blue, Shift 3 Emerald Green, Shift 4 Royal Violet) are **preserved as-is without alteration**.
@@ -151,9 +159,9 @@ As explicitly directed, `DayView` and `WeekView` calendar slots preserve their e
 
 | UI Element / File | Location | Current Legacy Class | New Clinical Theme Class | Visual Rationale & Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **WeekView Legend Appointment Dot**<br>[`WeekView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/WeekView.tsx) | Line 92 | `w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700` | `w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700` | Replaces legacy blue square dot with Clinical Emerald (`brand-600`) indicator matching confirmed appointment branding. |
-| **DayView Legend Patient Dot**<br>[`DayView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/DayView.tsx) | Line 84 | `w-1.5 h-1.5 rounded-full bg-blue-500` | `w-1.5 h-1.5 rounded-full bg-brand-500` | Harmonizes small patient appointment legend dot with Diagnostic Mint (`brand-500`). |
-| **DayView Summary KPI Icon**<br>[`DayView.tsx`](file:///d:/doctors-platform/components/dashboard/calendar/views/DayView.tsx) | Line 108 | `bg-blue-50 text-blue-600` | `bg-blue-50 text-blue-600` | 🔒 **PRESERVED AS-IS (NO CHANGE):** Explicit user instruction to retain original blue styling for KPI card icon. |
+| **WeekView Legend Appointment Dot**<br>[`WeekView.tsx`](../components/dashboard/calendar/views/WeekView.tsx) | Line 92 | `w-2.5 h-2.5 rounded-xs bg-blue-600 border border-blue-700` | `w-2.5 h-2.5 rounded-xs bg-brand-600 border border-brand-700` | Replaces legacy blue square dot with Clinical Emerald (`brand-600`) indicator matching confirmed appointment branding. |
+| **DayView Legend Patient Dot**<br>[`DayView.tsx`](../components/dashboard/calendar/views/DayView.tsx) | Line 84 | `w-1.5 h-1.5 rounded-full bg-blue-500` | `w-1.5 h-1.5 rounded-full bg-brand-500` | Harmonizes small patient appointment legend dot with Diagnostic Mint (`brand-500`). |
+| **DayView Summary KPI Icon**<br>[`DayView.tsx`](../components/dashboard/calendar/views/DayView.tsx) | Line 108 | `bg-blue-50 text-blue-600` | `bg-blue-50 text-blue-600` | 🔒 **PRESERVED AS-IS (NO CHANGE):** Explicit user instruction to retain original blue styling for KPI card icon. |
 
 ---
 
