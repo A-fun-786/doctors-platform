@@ -51,6 +51,7 @@ Always run these before and after changes:
 
 ### Don'ts:
 - **Do NOT allow staff doctors to book, cancel, or reschedule**: Return 403 Forbidden on the backend and omit booking/cancellation buttons in the UI.
+- **Do NOT allow non-doctor staff to complete appointments**: Return 403 Forbidden on the backend (`detail="Non-doctor staff members are not permitted to complete appointments."`) and omit the Mark Completed button in the UI (`canComplete = false`).
 - **Do NOT allow staff members to modify clinic schedules or working hours**: All schedule entries (LEAVE, BLOCKED, HOLIDAY, AVAILABLE) and clinic-wide shift changes must be restricted to clinic owner doctors (`require_doctor_owner`).
 - **Do NOT require email for staff logins**: Staff authenticate via clinic-assigned User ID (`username`) + password. Email is purely optional.
 - **Do NOT reintroduce dynamic text in toolbar buttons**: Do not put dynamic dates inside button labels (e.g. `Day (Nov 6)`). Keep button labels static (`Day`, `Agenda`, `All`, `Confirmed`).

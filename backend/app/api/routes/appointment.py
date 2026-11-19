@@ -213,8 +213,15 @@ def complete_appointment(
     """
     Complete an existing BOOKED appointment.
     """
-    # If staff doctor, ensure they only complete their own appointments
-    if is_staff_doctor(current_doctor):
+    # Enforce practitioner RBAC:
+    # 1. Staff members who are NOT doctors (receptionists, nurses, etc.) cannot complete appointments
+    if getattr(current_doctor, "_is_staff", False):
+        if not is_staff_doctor(current_doctor):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Non-doctor staff members are not permitted to complete appointments.",
+            )
+        # 2. Staff doctors can only complete their own appointments
         appt = appointment_service.get_appointment(
             doctor_id=current_doctor.id,
             appointment_id=id,
