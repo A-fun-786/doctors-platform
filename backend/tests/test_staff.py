@@ -732,3 +732,41 @@ def test_delete_staff_after_cancellation_or_no_appointments_succeeds(client, tes
     # Delete succeeds with 204
     del_res = client.delete(f"/api/v1/staff/{staff_id}", headers=headers)
     assert del_res.status_code == 204
+
+
+def test_clinic_owner_sees_compensation_and_notes(client, test_doctor_and_auth):
+    """Test (#33): Clinic owner can view compensation, emergency contact, and notes."""
+    _, headers = test_doctor_and_auth
+
+    create_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Confidential Staff",
+            "phone": "+91 98765 77788",
+            "role": "Doctor",
+            "speciality": "Cardiologist",
+            "base_salary_paise": 9500000,
+            "emergency_contact": "Spouse (+919876500011)",
+            "notes": "Highly confidential HR evaluation notes",
+        },
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    staff_id = create_res.json()["id"]
+
+    # Owner GET list -> fields are present
+    list_res = client.get("/api/v1/staff", headers=headers)
+    assert list_res.status_code == 200
+    target = next((s for s in list_res.json() if s["id"] == staff_id), None)
+    assert target is not None
+    assert target["base_salary_paise"] == 9500000
+    assert target["emergency_contact"] == "Spouse (+919876500011)"
+    assert target["notes"] == "Highly confidential HR evaluation notes"
+
+    # Owner GET single -> fields are present
+    single_res = client.get(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert single_res.status_code == 200
+    data = single_res.json()
+    assert data["base_salary_paise"] == 9500000
+    assert data["emergency_contact"] == "Spouse (+919876500011)"
+    assert data["notes"] == "Highly confidential HR evaluation notes"

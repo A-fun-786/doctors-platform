@@ -48,6 +48,7 @@ Always run these before and after changes:
 - **Immediate Session Invalidation**: Increment `token_version` on password change or reset to invalidate all existing JWT tokens.
 - **Doctor Speciality Selection**: Enforce mandatory `speciality` dropdown selection when creating/editing doctor roles, defaulting to `"General Physician"` if omitted.
 - **Canonical Practitioner Classification**: Use `is_doctor_role(role)` from [`app.models.staff`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) for all practitioner boundaries (`is_staff_doctor`, `list_practitioners`, and slot generation). Never infer doctor status from department (`department == 'Clinical'`).
+- **Mask Sensitive Staff Roster Data**: Mask compensation (`base_salary_paise`), emergency contact, and administrative notes to `None` in `GET /api/v1/staff` and `GET /api/v1/staff/{staff_id}` for non-owner staff accounts. Restrict full financial and personal HR visibility to clinic owner doctors.
 
 ### Don'ts:
 - **Do NOT allow staff doctors to book, cancel, or reschedule**: Return 403 Forbidden on the backend and omit booking/cancellation buttons in the UI.

@@ -999,7 +999,7 @@ export interface StaffMember {
   employment_type: string;
   status: string;
   joining_date: string;
-  base_salary_paise: number;
+  base_salary_paise?: number | null;
   emergency_contact?: string | null;
   notes?: string | null;
   can_login?: boolean;
@@ -1039,7 +1039,7 @@ export interface StaffMemberUpdatePayload {
   employment_type?: string;
   status?: string;
   joining_date?: string;
-  base_salary_paise?: number;
+  base_salary_paise?: number | null;
   emergency_contact?: string;
   notes?: string;
   can_login?: boolean;
