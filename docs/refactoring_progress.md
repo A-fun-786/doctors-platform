@@ -245,6 +245,18 @@ Frontend UI consistency enforce karna, duplicate inline Tailwind card styling ko
 - **Files:** `DayView.tsx` & `WeekView.tsx` — **REFACTORED**
 - **Action:** Integrated centralized `resolveCellEvents` helper while preserving exact single-row responsive layout rules and test assertions.
 
+### 🛡️ Commit 8 Best Practice Hardening & Review Resolution
+- **Multi-Doctor Concurrency Fix (`calendarUtils.ts`, `DayView.tsx`, `WeekView.tsx`):**
+  - Replaced `.find(...)` single-event scan with `.filter((ev) => ev.type === "APPOINTMENT")` to return `apptEvents: CalendarEvent[]`, retaining `apptEvent: apptEvents[0]` for backward compatibility.
+  - Updated `DayView.tsx` and `WeekView.tsx` to render all concurrent appointments in a slot so multi-practitioner clinic bookings are never silently dropped.
+- **Tailwind CSS Specificity & Conflict Elimination (`lib/utils.ts`, `Card.tsx`, `Badge.tsx`):**
+  - Added `clsx` and `tailwind-merge` dependencies and created centralized `cn(...inputs)` utility in `lib/utils.ts`.
+  - Replaced raw string interpolation in all `<Card>` and `<Badge>` primitives with `cn(...)`, resolving specificity collisions when consumer overrides (`rounded-xl sm:rounded-2xl`, `p-5 sm:p-6 md:p-7`) are provided.
+- **TypeScript Union Widening & Primitive Composition (`StatusBadge.tsx` vs `Badge.tsx`):**
+  - Updated `StatusType` to `"BOOKED" | ... | (string & {})` to preserve literal IDE autocomplete while allowing extensible string values.
+  - Refactored `StatusBadge` to compose `Badge` internally and reuse `VARIANT_STYLES` from `Badge.tsx`, eliminating duplicate badge tokens.
+- **Automated Verification:** Added `scripts/test_commit8_best_practices.mjs` (12/12 passed).
+
 ---
 
 ## 🧪 Phase 3 Verification & Test Results (100% Pass)
