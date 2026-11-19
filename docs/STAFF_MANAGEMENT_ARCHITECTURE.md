@@ -174,6 +174,8 @@ curl -X POST http://localhost:8000/api/v1/staff \
 - **Do NOT allow non-doctor staff to complete appointments:**
   - Backend must return `403 Forbidden` (`Non-doctor staff members are not permitted to complete appointments.`).
   - UI must hide the "Mark Completed" button for non-doctor staff (`canComplete = false`).
+- **Do NOT hard delete staff members with existing appointments:**
+  - `delete_staff` checks for active (`BOOKED`) and completed (`COMPLETED`) appointments and rejects deletion with `400 Bad Request`. Personnel with medical history must be deactivated (`status = 'inactive'`) to preserve audit trails.
 - **Do NOT allow staff members to mutate schedules or working hours:**
   - Schedule creations, deletions, and working-hours updates on `/doctor/schedule` and `/doctor/working-hours` require `require_doctor_owner` and return `403 Forbidden` for all staff members (receptionists and staff doctors).
 - **Do NOT require email for staff logins:**

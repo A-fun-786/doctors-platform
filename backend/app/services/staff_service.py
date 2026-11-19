@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.models.doctor import Doctor
 from app.models.staff import StaffMember
+from app.models.appointment import Appointment
 from app.schemas.staff import (
     StaffMemberCreate,
     StaffMemberUpdate,
@@ -368,6 +369,41 @@ class StaffService:
         staff = self.get_staff_by_id(doctor_id, staff_id)
         if not staff:
             return False
+
+        # Guard against silent reassignment and DB slot collision:
+        # Check for active (BOOKED) appointments linked to this staff member
+        active_appts = self.db.scalar(
+            select(func.count(Appointment.id)).where(
+                Appointment.doctor_id == doctor_id,
+                Appointment.staff_id == staff_id,
+                Appointment.status == "BOOKED",
+            )
+        ) or 0
+        if active_appts > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot delete staff member with {active_appts} active appointment(s). "
+                    "Please reassign, reschedule, or cancel their appointments before deleting."
+                ),
+            )
+
+        # Check for completed historical clinical appointments
+        completed_appts = self.db.scalar(
+            select(func.count(Appointment.id)).where(
+                Appointment.doctor_id == doctor_id,
+                Appointment.staff_id == staff_id,
+                Appointment.status == "COMPLETED",
+            )
+        ) or 0
+        if completed_appts > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot delete staff member with {completed_appts} completed consultation record(s). "
+                    "Please set their status to 'inactive' to preserve clinical audit trails."
+                ),
+            )
 
         self.db.delete(staff)
         self.db.commit()
