@@ -1,742 +1,598 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import BrandLogo from "@/components/brand/BrandLogo";
-import { BRAND_CONFIG } from "@/config/brand.config";
-import {
-  CheckCircle2,
-  Calendar,
-  Video,
-  Pill,
-  FileText,
-  ArrowRight,
-  ArrowLeft,
-  Building2,
-  MapPin,
-  Stethoscope,
-  Phone,
-  Copy,
-  Check,
-  ExternalLink,
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * GoSmartClinic — Clinic Setup Wizard (Onboarding)
+ *
+ * Architecture:
+ *   app/onboarding/
+ *   ├── page.tsx                          ← orchestrator (this file)
+ *   ├── constants/
+ *   │   ├── steps.ts                      ← WIZARD_STEPS config
+ *   │   └── dialCodes.ts                  ← Re-exports from @/lib/dialCodes
+ *   └── components/
+ *       ├── OnboardingLayout.tsx          ← Header (BrandLogo), Sidebar, MobileStepBadge
+ *       ├── OnboardingStepContent.tsx     ← Step1–Step4 pure form components
+ *       └── OnboardingPhoneInput.tsx      ← Re-exports from @/components/ui/PhoneInput
+ *
+ * Standards:
+ *   • WCAG 2.1 AA — aria-*, role=*, focus management, combobox
+ *   • Clean redirect — saves configuration and navigates directly to /dashboard
+ *   • Logger integration — all actions, API calls, errors tracked (no PII)
+ *   • Field-level validation — inline errors per field, 7–15 digit phone validation
+ *   • TypeScript strict — no `any`, narrow error types
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
   Loader2,
-  ShieldCheck,
-  Upload,
-  RotateCcw,
 } from "lucide-react";
+
 import {
   getDoctorProfile,
   updateDoctorProfile,
   uploadDoctorAvatar,
-  ServicesConfig,
   DEFAULT_DOCTOR_AVATAR,
+  DoctorProfileResponse,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import {
+  COUNTRY_DIAL_CODES,
+  CountryDialCode,
+  detectDefaultCountry,
+  parseStoredPhone,
+  stripLeadingZero,
+} from "@/lib/dialCodes";
 
-const SPECIALITY_SUGGESTIONS = [
-  "General Physician",
-  "Cardiologist",
-  "Dermatologist",
-  "Pediatrician",
-  "Gynecologist & Obstetrician",
-  "Orthopedic Surgeon",
-  "Neurologist",
-  "ENT Specialist",
-  "Psychiatrist",
-  "Dentist",
-  "Ophthalmologist",
-  "Endocrinologist",
-];
+import { WIZARD_STEPS, TOTAL_STEPS } from "./constants/steps";
+import {
+  OnboardingHeader,
+  OnboardingSidebar,
+  MobileStepBadge,
+} from "./components/OnboardingLayout";
+import {
+  Step1ClinicName,
+  Step2ClinicLogo,
+  Step3ContactPhone,
+  Step4ClinicLocation,
+} from "./components/OnboardingStepContent";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+type FieldErrors = Partial<Record<"clinicName" | "phone" | "address" | "logo", string>>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logger module tag
+// ─────────────────────────────────────────────────────────────────────────────
+const MOD = "Onboarding";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const router = useRouter();
+
+  // ── UI states ───────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [copied, setCopied] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [step, setStep] = useState<number>(1);
 
-  // Form states
-  const [fullName, setFullName] = useState("");
+  // ── Global + field errors ───────────────────────────────────────────────
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // ── Data ────────────────────────────────────────────────────────────────
+  const [profileData, setProfileData] = useState<DoctorProfileResponse | null>(null);
   const [clinicName, setClinicName] = useState("");
-  const [location, setLocation] = useState("");
-  const [speciality, setSpeciality] = useState("");
-  const [bio, setBio] = useState("");
-  const [phone, setPhone] = useState("");
-  const [tenantSlug, setTenantSlug] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string>(DEFAULT_DOCTOR_AVATAR);
+  const [clinicLogoUrl, setClinicLogoUrl] = useState<string>("");
+  const [country, setCountry] = useState<CountryDialCode>(COUNTRY_DIAL_CODES[0]);
+  const [localNumber, setLocalNumber] = useState("");
+  const [address, setAddress] = useState("");
 
-  // Services selection
-  const [services, setServices] = useState<ServicesConfig>({
-    appointment: true,
-    video_consultation: true,
-    medicine_inventory: false,
-    lab_reports: false,
-  });
+  // Combined international phone string (with leading trunk zeros stripped)
+  const cleanedLocalNumber = stripLeadingZero(localNumber);
+  const combinedPhone = `${country?.dial || "+92"} ${cleanedLocalNumber}`.trim();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load profile on mount
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    async function loadData() {
+    async function loadProfile() {
+      logger.info(MOD, "Loading doctor profile for onboarding");
+      const t0 = performance.now();
       try {
         const profile = await getDoctorProfile();
-        setFullName(profile.full_name || "");
+        const elapsed = Math.round(performance.now() - t0);
+
+        logger.api(MOD, "Profile loaded", {
+          tenantSlug: profile.tenant_slug,
+          onboardingCompleted: profile.onboarding_completed,
+          hasClinicName: !!profile.clinic_name,
+          elapsedMs: elapsed,
+        });
+
+        setProfileData(profile);
         setClinicName(profile.clinic_name || "");
-        setLocation(profile.location || "");
-        setSpeciality(profile.speciality || "");
-        setBio(profile.bio || "");
-        setPhone(profile.phone || "");
-        setTenantSlug(profile.tenant_slug || "");
-        if (profile.avatar_url) {
-          setAvatarUrl(profile.avatar_url);
-        }
-        if (profile.services) {
-          setServices(profile.services);
+        setAddress(profile.location || "");
+
+        // Parse stored international phone into country + local
+        if (profile.phone) {
+          const { country: parsedCountry, localNumber: parsedLocal } =
+            parseStoredPhone(profile.phone);
+          setCountry(parsedCountry);
+          setLocalNumber(parsedLocal);
+          logger.debug(MOD, "Parsed stored phone", {
+            countryCode: parsedCountry?.code,
+            dialCode: parsedCountry?.dial,
+          });
+        } else {
+          // Detect client country from browser locale only on client mount
+          setCountry(detectDefaultCountry());
         }
 
-        // If doctor already completed onboarding, allow viewing/editing but default to step 1
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Failed to load doctor profile. Please log in again.");
+        // Resolve logo
+        if (profile.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR) {
+          setClinicLogoUrl(profile.avatar_url);
+        } else if (profile.app_icon_url) {
+          setClinicLogoUrl(profile.app_icon_url);
         }
+
+        // Set logger user context (non-PII fields only)
+        logger.setUserContext({
+          tenantSlug: profile.tenant_slug || undefined,
+          role: "doctor",
+        });
+      } catch (err: unknown) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to load profile.";
+        logger.error(MOD, "Failed to load doctor profile", err instanceof Error ? err : new Error(String(err)));
+        setGlobalError(msg);
         router.replace("/login");
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
+    loadProfile();
   }, [router]);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ─────────────────────────────────────────────────────────────────────────
+  // Logo Upload & Reset
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleLogoSelect = useCallback(async (file: File) => {
+    // Client-side validation
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file (PNG, JPG, or WebP).");
+      const msg = "Please select a valid image file (PNG, JPG, or WebP).";
+      setFieldErrors((prev) => ({ ...prev, logo: msg }));
+      logger.warn(MOD, "Logo upload rejected — invalid MIME type", { mimeType: file.type });
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      setError("Image file size should be less than 2MB.");
+      const msg = "Logo file size must be less than 2 MB.";
+      setFieldErrors((prev) => ({ ...prev, logo: msg }));
+      logger.warn(MOD, "Logo upload rejected — file too large", { sizeBytes: file.size });
       return;
     }
+
+    setFieldErrors((prev) => ({ ...prev, logo: undefined }));
+    setGlobalError(null);
+
+    logger.action(MOD, "User uploading clinic logo", {
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    });
+
+    const t0 = performance.now();
     try {
-      setError(null);
+      setUploadingLogo(true);
       const res = await uploadDoctorAvatar(file);
-      setAvatarUrl(res.avatar_url);
+      const elapsed = Math.round(performance.now() - t0);
+      setClinicLogoUrl(res.avatar_url);
+      logger.api(MOD, "Logo upload succeeded", { elapsedMs: elapsed });
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to upload avatar photo.");
+      const msg = err instanceof Error ? err.message : "Failed to upload logo.";
+      setFieldErrors((prev) => ({ ...prev, logo: msg }));
+      logger.error(MOD, "Logo upload API failed", err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setUploadingLogo(false);
+    }
+  }, []);
+
+  const handleResetLogo = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Explicit removal persists DEFAULT_DOCTOR_AVATAR on save
+    setClinicLogoUrl("");
+    setFieldErrors((prev) => ({ ...prev, logo: undefined }));
+    logger.action(MOD, "User removed clinic logo");
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Field validation — returns field-level error or null
+  // ─────────────────────────────────────────────────────────────────────────
+  function validateStep(stepId: number): FieldErrors {
+    const errors: FieldErrors = {};
+    switch (stepId) {
+      case 1:
+        if (!clinicName.trim()) {
+          errors.clinicName = "Please enter your clinic name.";
+        } else if (clinicName.trim().length < 3) {
+          errors.clinicName = "Clinic name must be at least 3 characters.";
+        }
+        break;
+      case 2:
+        // Logo is optional — no validation errors
+        break;
+      case 3: {
+        const digits = localNumber.replace(/\D/g, "");
+        if (!digits) {
+          errors.phone = "Please enter a contact number.";
+        } else if (digits.length < 7 || digits.length > 15) {
+          errors.phone = "Phone number must be between 7 and 15 digits.";
+        }
+        break;
       }
+      case 4:
+        if (!address.trim()) {
+          errors.address = "Please enter the clinic address.";
+        } else if (address.trim().length < 10) {
+          errors.address = "Please provide a more complete address.";
+        }
+        break;
     }
-  };
+    return errors;
+  }
 
-  const toggleService = (key: keyof ServicesConfig) => {
-    setServices((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const handleStep1Submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim()) {
-      setError("Please enter your full name.");
+  // ─────────────────────────────────────────────────────────────────────────
+  // Navigation
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleNext = useCallback(() => {
+    setGlobalError(null);
+    const errors = validateStep(step);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      logger.debug(MOD, "Step validation failed", { step, errors });
       return;
     }
-    if (!clinicName.trim()) {
-      setError("Please enter your clinic or hospital name.");
-      return;
-    }
-    if (!speciality.trim()) {
-      setError("Please select or enter your medical speciality.");
-      return;
-    }
-    setError(null);
-    setStep(2);
-  };
+    setFieldErrors({});
+    logger.action(MOD, `Step ${step} completed`, { step });
 
-  const handleCompleteOnboarding = async () => {
+    if (step < TOTAL_STEPS) {
+      setStep((prev) => prev + 1);
+    } else {
+      handleFinalizeSetup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, clinicName, localNumber, address, clinicLogoUrl, country]);
+
+  const handleBack = useCallback(() => {
+    setGlobalError(null);
+    setFieldErrors({});
+    if (step > 1) {
+      logger.action(MOD, "User navigated back", { from: step });
+      setStep((prev) => prev - 1);
+    }
+  }, [step]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Enter key — advances step (except textarea on step 4)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Support Ctrl+Enter / Cmd+Enter on any step (including step 4 textarea)
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey && step !== 4) {
+        e.preventDefault();
+        handleNext();
+      }
+    },
+    [step, handleNext]
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Finalize — save to API and redirect straight to /dashboard
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleFinalizeSetup = async () => {
+    // Final full-form validation sweep
+    const allErrors: FieldErrors = {
+      ...validateStep(1),
+      ...validateStep(3),
+      ...validateStep(4),
+    };
+    if (Object.keys(allErrors).length > 0) {
+      setFieldErrors(allErrors);
+      // Navigate to the first failing step
+      if (allErrors.clinicName) setStep(1);
+      else if (allErrors.phone) setStep(3);
+      else if (allErrors.address) setStep(4);
+      return;
+    }
+
+    logger.action(MOD, "User submitting onboarding form", {
+      hasLogo: !!clinicLogoUrl,
+      countryCode: country?.code || "PK",
+    });
+
+    const t0 = performance.now();
     try {
       setSaving(true);
-      setError(null);
+      setGlobalError(null);
+
+      // Persist removed logo as DEFAULT_DOCTOR_AVATAR rather than falling back to previous avatar
+      const finalAvatar = clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR;
+      const finalAppIcon = clinicLogoUrl ? clinicLogoUrl : undefined;
 
       const updated = await updateDoctorProfile({
-        full_name: fullName.trim(),
-        avatar_url: avatarUrl,
         clinic_name: clinicName.trim(),
-        location: location.trim(),
-        speciality: speciality.trim(),
-        bio: bio.trim(),
-        phone: phone.trim(),
-        services,
+        phone: combinedPhone,
+        location: address.trim(),
+        avatar_url: finalAvatar,
+        app_icon_url: finalAppIcon,
+        full_name: profileData?.full_name,
+        speciality: profileData?.speciality ?? undefined,
+        bio: profileData?.bio ?? undefined,
+        services: profileData?.services,
         onboarding_completed: true,
       });
 
-      if (updated.tenant_slug) {
-        setTenantSlug(updated.tenant_slug);
-      }
-      setStep(3);
+      const elapsed = Math.round(performance.now() - t0);
+
+      logger.info(MOD, "Onboarding completed successfully, redirecting to dashboard", {
+        tenantSlug: updated.tenant_slug,
+        elapsedMs: elapsed,
+      });
+
+      router.push("/dashboard");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to save onboarding configuration. Please try again.");
-      }
+      const msg =
+        err instanceof Error ? err.message : "Failed to save clinic setup.";
+      setGlobalError(msg);
+      logger.error(
+        MOD,
+        "Onboarding save failed",
+        err instanceof Error ? err : new Error(String(err)),
+        { step }
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const patientUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/${tenantSlug}`
-    : `/${tenantSlug}`;
-
-  const copyPatientLink = () => {
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(patientUrl).catch(() => {});
-      }
-    } catch {
-      // Insecure context or clipboard access failure
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── LOADING SCREEN ────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md mb-4 p-2">
-          <BRAND_CONFIG.icon.component className="w-full h-full animate-pulse" />
-        </div>
-        <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
-          <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
-          <span>Preparing practice onboarding...</span>
-        </div>
+      <div
+        className="min-h-screen bg-hospital-surface flex flex-col items-center justify-center gap-4"
+        aria-live="polite"
+        aria-busy="true"
+        role="status"
+      >
+        <Loader2
+          className="w-10 h-10 text-brand-600 animate-spin stroke-[2.2]"
+          aria-hidden="true"
+        />
+        <p className="text-sm font-bold text-hospital-navy tracking-wide">
+          Loading Practice Workspace…
+        </p>
       </div>
     );
   }
 
+  // Derived layout flag
+  const showProgress = !saving;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── MAIN RENDER ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_100%_70%_at_50%_-10%,rgba(16,185,129,0.08),rgba(248,250,252,0))] flex flex-col">
-      {/* Top Header */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-emerald-100/70 sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <BrandLogo size="md" />
-          <div className="flex items-center gap-2 text-xs font-semibold text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200 shadow-xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
-            <span>Practice Onboarding</span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen w-full flex flex-col bg-hospital-surface text-hospital-textMain selection:bg-brand-100 selection:text-brand-900">
 
-      {/* Main Container */}
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-10 w-full flex-1">
-        {/* Step Progress Indicator */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-600">
-                Step {step} of 3
-              </span>
-              <span className="text-xs text-slate-400">•</span>
-              <span className="text-xs font-medium text-slate-600">
-                {step === 1 && "Doctor & Clinic Profile"}
-                {step === 2 && "Platform Services"}
-                {step === 3 && "Practice Ready"}
-              </span>
-            </div>
-            <span className="text-xs font-semibold text-brand-700">
-              {step === 1 ? "33%" : step === 2 ? "66%" : "100%"}
-            </span>
-          </div>
-          <div className="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-brand-500 to-brand-600 h-full rounded-full transition-all duration-300 ease-out shadow-xs"
-              style={{ width: step === 1 ? "33%" : step === 2 ? "66%" : "100%" }}
+      {/* ── HEADER ───────────────────────────────────────────────────────── */}
+      <OnboardingHeader
+        currentStep={step}
+        totalSteps={TOTAL_STEPS}
+        showProgress={showProgress}
+      />
+
+      {/* ── MOBILE STEP BADGE ─────────────────────────────────────────────── */}
+      {showProgress && <MobileStepBadge currentStep={step} />}
+
+      {/* ── BODY ─────────────────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 lg:p-10" id="main-content">
+
+        {/* ── SAVING STATE ─────────────────────────────────────────────── */}
+        {saving && (
+          <div
+            className="w-full max-w-lg bg-white border border-hospital-border rounded-2xl sm:rounded-3xl p-8 sm:p-12 shadow-xl shadow-slate-200/50 flex flex-col items-center justify-center gap-6 text-center my-auto"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2
+              className="w-14 h-14 text-brand-600 animate-spin stroke-[2]"
+              aria-hidden="true"
             />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
-            {error}
+            <div className="space-y-2">
+              <h2 className="text-2xl font-extrabold text-hospital-navy tracking-tight">
+                Just a moment…
+              </h2>
+              <p className="text-sm text-hospital-textMuted leading-relaxed">
+                Saving your clinic configuration and opening your dashboard.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* STEP 1: DOCTOR & CLINIC DETAILS */}
-        {step === 1 && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm shadow-emerald-950/5 p-4 sm:p-6 md:p-8 space-y-6 relative overflow-hidden">
-            {/* Top clinical accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-700" />
+        {/* ── WIZARD STEPS (Centered Card on md+) ─────────────────────────── */}
+        {!saving && (
+          <div className="w-full max-w-4xl bg-white border border-hospital-border rounded-2xl sm:rounded-3xl shadow-xl shadow-slate-200/50 flex flex-col md:flex-row my-auto min-h-[500px]">
 
-            <div className="space-y-1">
-              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                Practice &amp; Doctor Details
-              </h1>
-              <p className="text-sm text-slate-600">
-                Enter your practice details. These will be highlighted on your patient-facing webpage.
-              </p>
-            </div>
+            {/* Sidebar */}
+            <OnboardingSidebar currentStep={step} />
 
-            <form onSubmit={handleStep1Submit} className="space-y-6">
-              {/* Doctor Profile Image Upload */}
-              <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">
-                  Doctor Profile Photo
-                </label>
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-brand-200 shadow-sm shrink-0 bg-white">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={avatarUrl}
-                      alt="Doctor Profile Preview"
-                      className="w-full h-full object-cover"
+            {/* Content panel */}
+            <div
+              key={`step-panel-${step}`}
+              className="flex-1 flex flex-col justify-between p-6 sm:p-8 md:p-10 bg-white rounded-2xl sm:rounded-3xl md:rounded-l-none animate-in fade-in-50 duration-200"
+              onKeyDown={handleKeyDown}
+            >
+              <div className="space-y-6">
+
+                {/* Step heading */}
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-800 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200">
+                    Step {step} of {TOTAL_STEPS}
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-hospital-textMain tracking-tight">
+                    {WIZARD_STEPS[step - 1]?.title}
+                  </h2>
+                  <p className="text-sm text-hospital-textMuted">
+                    {WIZARD_STEPS[step - 1]?.description}
+                  </p>
+                </div>
+
+                {/* Global error banner */}
+                {globalError && (
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-sm font-semibold text-red-700 flex items-start gap-2.5 shadow-2xs"
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1 animate-pulse"
+                      aria-hidden="true"
                     />
+                    <span>{globalError}</span>
                   </div>
-                  <div className="space-y-2 text-center sm:text-left flex-1">
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-brand-600/20 cursor-pointer transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Photo</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          className="hidden"
-                        />
-                      </label>
-                      {avatarUrl !== DEFAULT_DOCTOR_AVATAR && (
-                        <button
-                          type="button"
-                          onClick={() => setAvatarUrl(DEFAULT_DOCTOR_AVATAR)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Reset to Default</span>
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      {avatarUrl === DEFAULT_DOCTOR_AVATAR
-                        ? "Currently using default healthcare avatar. You can upload your own custom photo (PNG, JPG, WebP)."
-                        : "Custom photo selected. This will appear on your patient portal."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Doctor Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Doctor Full Name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Stethoscope className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Dr. Ahmed Khan, MD"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Clinic Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Clinic / Hospital Name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={clinicName}
-                    onChange={(e) => setClinicName(e.target.value)}
-                    placeholder="e.g. Apex Health Clinic & Care Center"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Speciality */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Primary Speciality <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={speciality}
-                  onChange={(e) => setSpeciality(e.target.value)}
-                  placeholder="e.g. Cardiologist or General Physician"
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all mb-2"
-                />
-                {/* Suggestions pill list */}
-                <div className="flex flex-wrap gap-1.5">
-                  {SPECIALITY_SUGGESTIONS.slice(0, 6).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setSpeciality(item)}
-                      className={`text-xs px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
-                        speciality === item
-                          ? "bg-brand-50 border-brand-300 text-brand-700 font-semibold shadow-xs"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-brand-50/50 hover:border-brand-200 hover:text-brand-800"
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Clinic Location / Address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. 402 Medical Arts Tower, 5th Avenue, New York, NY"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Practice Contact Phone
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +1 (555) 234-5678"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* About Section */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  About Section / Doctor Bio
-                </label>
-                <textarea
-                  rows={4}
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Share your medical background, certifications, experience, and patient care philosophy..."
-                  className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-600 transition-all resize-y"
-                />
-              </div>
-
-              <div className="pt-4 flex flex-col sm:flex-row sm:justify-end">
-                <button
-                  type="submit"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md hover:shadow-brand-600/25 active:scale-[0.99] transition-all cursor-pointer"
-                >
-                  <span>Continue to Services</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* STEP 2: SERVICES SELECTION */}
-        {step === 2 && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm shadow-emerald-950/5 p-4 sm:p-6 md:p-8 space-y-6 relative overflow-hidden">
-            {/* Top clinical accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-700" />
-
-            <div className="space-y-1">
-              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                Select Platform Services
-              </h1>
-              <p className="text-sm text-slate-600">
-                Choose the services you want to offer patients through your personalized practice portal. You can change these anytime from your dashboard.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              {/* Service 1: In-Clinic Appointments */}
-              <div
-                onClick={() => toggleService("appointment")}
-                className={`cursor-pointer rounded-xl border p-5 transition-all flex flex-col justify-between ${
-                  services.appointment
-                    ? "border-brand-600 bg-brand-50/40 shadow-sm ring-2 ring-brand-500/20"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs"
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-800 border border-brand-200/60 flex items-center justify-center">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                        services.appointment
-                          ? "bg-brand-600 border-brand-600 text-white shadow-xs"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {services.appointment && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900">In-Clinic Appointments</h3>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Enable patients to view available calendar slots and book in-person consultations online.
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-brand-700 bg-brand-100/70 border border-brand-200/50 px-2 py-0.5 rounded">
-                    Patient Booking
-                  </span>
-                </div>
-              </div>
-
-              {/* Service 2: Video Consultation */}
-              <div
-                onClick={() => toggleService("video_consultation")}
-                className={`cursor-pointer rounded-xl border p-5 transition-all flex flex-col justify-between ${
-                  services.video_consultation
-                    ? "border-brand-600 bg-brand-50/40 shadow-sm ring-2 ring-brand-500/20"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs"
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200/60 flex items-center justify-center">
-                      <Video className="w-5 h-5" />
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                        services.video_consultation
-                          ? "bg-brand-600 border-brand-600 text-white shadow-xs"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {services.video_consultation && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Video Consultation</h3>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Provide telehealth sessions with scheduled video appointment booking for patients anywhere.
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 border border-emerald-200/50 px-2 py-0.5 rounded">
-                    Telehealth
-                  </span>
-                </div>
-              </div>
-
-              {/* Service 3: Medicine Inventory & Orders */}
-              <div
-                onClick={() => toggleService("medicine_inventory")}
-                className={`cursor-pointer rounded-xl border p-5 transition-all flex flex-col justify-between ${
-                  services.medicine_inventory
-                    ? "border-brand-600 bg-brand-50/40 shadow-sm ring-2 ring-brand-500/20"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs"
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-teal-100 text-teal-800 border border-teal-200/60 flex items-center justify-center">
-                      <Pill className="w-5 h-5" />
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                        services.medicine_inventory
-                          ? "bg-brand-600 border-brand-600 text-white shadow-xs"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {services.medicine_inventory && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Medicine Inventory &amp; Orders</h3>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Manage clinic pharmacy supplies and allow patients to request prescribed medicines and refills.
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-teal-800 bg-teal-100/70 border border-teal-200/50 px-2 py-0.5 rounded">
-                    Pharmacy Management
-                  </span>
-                </div>
-              </div>
-
-              {/* Service 4: Lab Reports Management */}
-              <div
-                onClick={() => toggleService("lab_reports")}
-                className={`cursor-pointer rounded-xl border p-5 transition-all flex flex-col justify-between ${
-                  services.lab_reports
-                    ? "border-brand-600 bg-brand-50/40 shadow-sm ring-2 ring-brand-500/20"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs"
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-lg bg-brand-100/80 text-brand-800 border border-brand-200/60 flex items-center justify-center">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                        services.lab_reports
-                          ? "bg-brand-600 border-brand-600 text-white shadow-xs"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      {services.lab_reports && <Check className="w-3 h-3 stroke-[3]" />}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Lab Reports Management</h3>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                      Allow patients to upload diagnostic tests, pathology, and imaging reports directly for review.
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-brand-800 bg-brand-100/70 border border-brand-200/50 px-2 py-0.5 rounded">
-                    Diagnostics &amp; Records
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-center"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={saving}
-                onClick={handleCompleteOnboarding}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md hover:shadow-brand-600/25 active:scale-[0.99] transition-all cursor-pointer text-center"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Publishing Practice...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Publish &amp; Launch Webpage</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
                 )}
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* STEP 3: SUCCESS & LAUNCH */}
-        {step === 3 && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm shadow-emerald-950/5 p-4 sm:p-8 md:p-10 space-y-6 sm:space-y-8 text-center relative overflow-hidden">
-            {/* Top clinical accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-500 via-brand-600 to-emerald-700" />
+                {/* ── STEP 1 — CLINIC NAME ─────────────────────────── */}
+                {step === 1 && (
+                  <Step1ClinicName
+                    clinicName={clinicName}
+                    onChange={(v) => {
+                      setClinicName(v);
+                      if (fieldErrors.clinicName)
+                        setFieldErrors((p) => ({ ...p, clinicName: undefined }));
+                    }}
+                    fieldError={fieldErrors.clinicName}
+                  />
+                )}
 
-            <div className="mx-auto w-16 h-16 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 shadow-sm shadow-brand-600/10">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
+                {/* ── STEP 2 — CLINIC LOGO ─────────────────────────── */}
+                {step === 2 && (
+                  <Step2ClinicLogo
+                    logoUrl={clinicLogoUrl}
+                    uploading={uploadingLogo}
+                    onFileSelect={handleLogoSelect}
+                    onReset={handleResetLogo}
+                    fieldError={fieldErrors.logo}
+                  />
+                )}
 
-            <div className="space-y-2 max-w-md mx-auto">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-                Practice Webpage is Live!
-              </h1>
-              <p className="text-sm text-slate-600">
-                Congratulations, <span className="font-semibold text-slate-900">{fullName}</span>! Your dedicated patient portal has been provisioned and is ready for appointments and inquiries.
-              </p>
-            </div>
+                {/* ── STEP 3 — CONTACT PHONE ───────────────────────── */}
+                {step === 3 && (
+                  <Step3ContactPhone
+                    country={country}
+                    localNumber={localNumber}
+                    onCountryChange={(c) => {
+                      setCountry(c);
+                      logger.action(MOD, "Country dial code changed", {
+                        countryCode: c.code,
+                        dial: c.dial,
+                      });
+                    }}
+                    onLocalNumberChange={(v) => {
+                      setLocalNumber(v);
+                      if (fieldErrors.phone)
+                        setFieldErrors((p) => ({ ...p, phone: undefined }));
+                    }}
+                    fieldError={fieldErrors.phone}
+                  />
+                )}
 
-            {/* URL Box */}
-            <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 max-w-lg mx-auto">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2 text-left">
-                Your Public Patient Link
-              </span>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
-                <input
-                  type="text"
-                  readOnly
-                  value={patientUrl}
-                  className="bg-transparent text-xs sm:text-sm font-mono text-slate-800 flex-1 outline-none truncate"
-                />
+                {/* ── STEP 4 — CLINIC LOCATION ─────────────────────── */}
+                {step === 4 && (
+                  <Step4ClinicLocation
+                    address={address}
+                    onChange={(v) => {
+                      setAddress(v);
+                      if (fieldErrors.address)
+                        setFieldErrors((p) => ({ ...p, address: undefined }));
+                    }}
+                    fieldError={fieldErrors.address}
+                  />
+                )}
+              </div>
+
+              {/* ── FOOTER NAVIGATION ──────────────────────────────── */}
+              <div className="pt-6 mt-8 border-t border-hospital-border flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={copyPatientLink}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors shrink-0 cursor-pointer text-center"
+                  onClick={handleBack}
+                  disabled={step === 1}
+                  aria-label="Go to previous step"
+                  className={[
+                    "inline-flex items-center justify-center gap-1.5",
+                    "px-5 py-2.5 min-h-[44px] min-w-[80px]",
+                    "text-xs font-bold rounded-xl",
+                    "bg-white hover:bg-slate-100 border border-hospital-border",
+                    "text-hospital-textMain transition-colors cursor-pointer",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                    "disabled:opacity-30 disabled:pointer-events-none",
+                  ].join(" ")}
                 >
-                  {copied ? (
+                  <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Back</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={saving || uploadingLogo}
+                  aria-label={
+                    step === TOTAL_STEPS
+                      ? "Finish setup and launch clinic"
+                      : "Go to next step"
+                  }
+                  className={[
+                    "inline-flex items-center justify-center gap-1.5",
+                    "px-7 py-2.5 min-h-[44px] min-w-[120px]",
+                    "text-xs font-bold rounded-xl",
+                    "bg-brand-600 hover:bg-brand-700 active:scale-95",
+                    "text-white shadow-md shadow-brand-600/25 transition-all",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
+                    "disabled:opacity-50 disabled:pointer-events-none",
+                  ].join(" ")}
+                >
+                  {step === TOTAL_STEPS ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-brand-600" />
-                      <span className="text-brand-700">Copied!</span>
+                      <span>Finish &amp; Launch</span>
+                      <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Link</span>
+                      <span>Next</span>
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                     </>
                   )}
                 </button>
               </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <Link
-                href={`/${tenantSlug}`}
-                target="_blank"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md hover:shadow-brand-600/25 active:scale-[0.99] transition-all text-center"
-              >
-                <span>View Patient Webpage</span>
-                <ExternalLink className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/dashboard"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 text-sm font-semibold rounded-xl transition-colors text-center"
-              >
-                <span>Go to Doctor Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
             </div>
           </div>
         )}
