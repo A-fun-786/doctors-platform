@@ -19,7 +19,7 @@ import {
   MapPin,
   Image as ImageIcon,
 } from "lucide-react";
-import { CountryDialCode } from "../constants/dialCodes";
+import { CountryDialCode } from "@/lib/dialCodes";
 import { OnboardingPhoneInput } from "./OnboardingPhoneInput";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ export function Step1ClinicName({ clinicName, onChange, fieldError }: Step1Props
 interface Step2Props {
   logoUrl: string;
   uploading: boolean;
-  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileSelect: (file: File) => void;
   onReset: (e: React.MouseEvent) => void;
   fieldError?: string | null;
 }
@@ -124,7 +124,7 @@ interface Step2Props {
 export function Step2ClinicLogo({
   logoUrl,
   uploading,
-  onUpload,
+  onFileSelect,
   onReset,
   fieldError,
 }: Step2Props) {
@@ -149,11 +149,20 @@ export function Step2ClinicLogo({
     setIsDragging(false);
     if (uploading) return;
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0 && fileInputRef.current) {
-      fileInputRef.current.files = files;
-      const changeEvent = new Event("change", { bubbles: true });
-      fileInputRef.current.dispatchEvent(changeEvent);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      onFileSelect(file);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    onFileSelect(file);
+    // Clear input value so selecting the exact same file after reset fires change event
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -217,25 +226,31 @@ export function Step2ClinicLogo({
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
               disabled={uploading}
-              onChange={onUpload}
+              onChange={handleFileInputChange}
               className="hidden"
               id="clinic-logo-upload"
-              aria-label="Upload clinic logo file"
+              tabIndex={-1}
+              aria-hidden="true"
             />
-            <label
-              htmlFor="clinic-logo-upload"
+            {/* Keyboard-accessible button for file selection (replaces inaccessible label-wrapped hidden input) */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               className={[
                 "inline-flex items-center justify-center gap-1.5",
                 "px-4 py-2.5 min-h-[44px] min-w-[120px]",
                 "bg-brand-600 hover:bg-brand-700 active:scale-95",
                 "text-white text-xs font-bold rounded-xl",
                 "cursor-pointer shadow-sm shadow-brand-600/25 transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
                 uploading ? "opacity-60 pointer-events-none" : "",
               ].join(" ")}
+              aria-label={logoUrl ? "Change clinic logo" : "Upload clinic logo file"}
             >
               <Upload className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{logoUrl ? "Change Logo" : "Upload File"}</span>
-            </label>
+            </button>
 
             {logoUrl && (
               <button
@@ -248,6 +263,7 @@ export function Step2ClinicLogo({
                   "bg-white hover:bg-slate-100 border border-hospital-border",
                   "text-hospital-textMuted hover:text-hospital-textMain",
                   "text-xs font-semibold rounded-xl transition-all cursor-pointer",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
                   "disabled:opacity-50 disabled:pointer-events-none",
                 ].join(" ")}
                 aria-label="Remove uploaded logo"

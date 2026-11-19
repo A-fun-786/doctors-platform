@@ -5,15 +5,14 @@
  * OnboardingLayout — Full-screen shell for the clinic setup wizard.
  *
  * Renders:
- *   • Fixed header bar  (brand left, progress right)
+ *   • Fixed header bar  (brand left with dynamic BrandLogo, progress right)
  *   • Responsive sidebar (desktop only, md+)
  *   • Scrollable content area (right panel / full-width on mobile)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { Check, ShieldCheck } from "lucide-react";
-import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPulseIcon";
-import { BRAND_CONFIG } from "@/config/brand.config";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { WIZARD_STEPS } from "../constants/steps";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,13 +38,8 @@ export function OnboardingHeader({
       className="h-14 bg-white border-b border-hospital-border px-4 sm:px-6 flex items-center shrink-0 z-20 select-none"
     >
       <div className="w-full max-w-5xl mx-auto flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5" aria-label={BRAND_CONFIG.name}>
-          <StethoscopeHeartPulseIcon className="w-7 h-7" aria-hidden="true" />
-          <span className="text-sm font-extrabold text-hospital-textMain tracking-tight">
-            {BRAND_CONFIG.name}
-          </span>
-        </div>
+        {/* Brand Identity — Uses dynamic BrandLogo configuration */}
+        <BrandLogo size="sm" href={null} />
 
         {/* Progress — hidden on completion / saving */}
         {showProgress && (
