@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_doctor
+from app.api.deps import get_current_doctor, require_doctor_owner
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -41,7 +41,7 @@ router = APIRouter(tags=["schedule"])
 def create_schedule(
     request: Request,
     payload: Union[ScheduleCreateRequest, List[ScheduleCreateRequest], ScheduleBulkCreateRequest],
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     """
@@ -115,7 +115,7 @@ def get_doctor_schedule(
 )
 def delete_doctor_schedule(
     schedule_id: uuid.UUID,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     """
@@ -226,7 +226,7 @@ def get_doctor_working_hours(
 def update_doctor_working_hours(
     request: Request,
     payload: DoctorWorkingHoursUpdate,
-    current_doctor: Doctor = Depends(get_current_doctor),
+    current_doctor: Doctor = Depends(require_doctor_owner),
     db: Session = Depends(get_db),
 ):
     """
