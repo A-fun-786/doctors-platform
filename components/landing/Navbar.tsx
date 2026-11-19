@@ -44,13 +44,17 @@ export default function Navbar() {
     { label: "FAQ", href: "/#faq" },
   ];
 
-  const handleLinkClick = (href: string) => {
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     setMobileMenuOpen(false);
-    if (href.startsWith("/#")) {
-      const targetId = href.replace("/#", "");
+    if (href.startsWith("/#") || href.startsWith("#")) {
+      const targetId = href.replace(/^\/?#/, "");
       const elem = document.getElementById(targetId);
       if (elem) {
+        e.preventDefault();
         elem.scrollIntoView({ behavior: "smooth" });
+        if (typeof window !== "undefined" && window.history.pushState) {
+          window.history.pushState(null, "", `#${targetId}`);
+        }
       }
     }
   };
@@ -79,7 +83,7 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => handleLinkClick(link.href)}
+                onClick={(e) => handleLinkClick(e, link.href)}
                 className="text-sm font-semibold text-slate-700 hover:text-brand-600 transition-colors"
               >
                 {link.label}
@@ -93,7 +97,7 @@ export default function Navbar() {
               href="/login"
               className="inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3.5 sm:px-5 py-1.5 sm:py-2.5 rounded-full shadow-xs hover:shadow transition-all hover:scale-[1.01] active:scale-98 whitespace-nowrap"
             >
-              SignUp / LogIn
+              Signup / Login
             </Link>
           </div>
         </div>
@@ -130,7 +134,7 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={() => handleLinkClick(link.href)}
+                  onClick={(e) => handleLinkClick(e, link.href)}
                   className="flex items-center px-4 py-3 rounded-xl text-base font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
                 >
                   {link.label}

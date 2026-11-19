@@ -70,11 +70,11 @@ export default function Features() {
 
         {/* Feature Grid: 1-col mobile, 2-col tablet, 3-col centered desktop */}
         <div className="flex flex-wrap justify-center gap-8">
-          {features.map((feature, idx) => {
+          {features.map((feature) => {
             const Icon = feature.icon;
             return (
               <div
-                key={idx}
+                key={feature.title}
                 className="w-full md:w-[calc(50%-1rem)] lg:w-[calc((100%-4rem)/3)] bg-white rounded-2xl p-7 border border-slate-200/90 shadow-xs hover:shadow-lg hover:border-brand-300 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group"
               >
                 <div>

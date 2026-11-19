@@ -22,29 +22,34 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2">
               <li>
-                <Link href="#features" className="hover:text-white transition-colors">
+                <Link href="/#features" className="hover:text-white transition-colors">
                   Features
                 </Link>
               </li>
               <li>
-                <Link href="#how-it-works" className="hover:text-white transition-colors">
+                <Link href="/#preview" className="hover:text-white transition-colors">
+                  Live Preview
+                </Link>
+              </li>
+              <li>
+                <Link href="/#how-it-works" className="hover:text-white transition-colors">
                   How It Works
                 </Link>
               </li>
               <li>
-                <Link href="#testimonials" className="hover:text-white transition-colors">
+                <Link href="/#testimonials" className="hover:text-white transition-colors">
                   Testimonials
                 </Link>
               </li>
               <li>
-                <Link href="#faq" className="hover:text-white transition-colors">
+                <Link href="/#faq" className="hover:text-white transition-colors">
                   FAQ
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Links: Portals & Legal */}
+          {/* Links: Clinic Portals */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider text-xs">
               Clinic Portals
@@ -59,21 +64,6 @@ export default function Footer() {
                 <Link href="/login" className="hover:text-white transition-colors">
                   Clinic Login
                 </Link>
-              </li>
-              <li>
-                <a href="#about" className="hover:text-white transition-colors">
-                  About GoSmartClinic
-                </a>
-              </li>
-              <li>
-                <a href="#privacy" className="hover:text-white transition-colors">
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="#terms" className="hover:text-white transition-colors">
-                  Terms of Service
-                </a>
               </li>
             </ul>
           </div>

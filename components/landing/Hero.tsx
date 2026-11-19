@@ -4,6 +4,7 @@ import {
   Globe,
   Building2,
 } from "lucide-react";
+import { BRAND_CONFIG } from "@/config/brand.config";
 
 export default function Hero() {
   return (
@@ -65,7 +66,7 @@ export default function Hero() {
                   </div>
                   <div className="bg-white px-3 py-0.5 rounded text-[11px] text-slate-500 font-mono flex items-center gap-1 border border-slate-200">
                     <Globe className="w-3 h-3 text-emerald-600" />
-                    <span>carewellpolyclinic.gosmartclinic.com</span>
+                    <span>carewellpolyclinic.{BRAND_CONFIG.slug}.com</span>
                   </div>
                   <div className="w-6" />
                 </div>
