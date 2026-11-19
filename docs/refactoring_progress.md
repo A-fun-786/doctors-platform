@@ -323,6 +323,24 @@ Jetpack Compose service feature cards ke beech ~80% duplicate scaffolding (Surfa
 - **File:** `AppointmentBookingCard.kt` — **REFACTORED**
 - **Action:** Replaced outer surface and gradient header with `DocSpaceCardScaffold`, while preserving full booking form interaction state, time slots selection, and success confirmation view.
 
+### 🛡️ Commit 10 Best Practice Hardening & Review Resolution
+- **Complete String Localization & Parameterized Formatting (`AppointmentBookingCard.kt`, `strings.xml`):**
+  - Bound all 5 patient detail labels (`lbl_patient_details`, `lbl_full_name`, `lbl_phone_number`, `lbl_email_optional`, `lbl_symptoms_optional`) and 4 field placeholders to localized `stringResource(R.string.*)`.
+  - Added parameterized format string `msg_booking_reference` (`%1$s`, `%2$s`) in `strings.xml` and eliminated hardcoded string interpolation in booking confirmation receipts.
+  - Standardized accessibility `contentDescription` resources across all feature cards (`cd_in_clinic_card_icon`, `cd_video_card_icon`, `cd_pharmacy_card_icon`, `cd_lab_card_icon`, `cd_date_icon`, `cd_name_icon`, `cd_phone_icon`, `cd_email_icon`, `cd_confirm_icon`, `cd_success_icon`).
+- **State Preservation Across Configuration Changes (`AppointmentBookingCard.kt`):**
+  - Migrated all form and submission states (`selectedSlot`, `patientName`, `patientPhone`, `patientEmail`, `symptomsNotes`, `isSubmitted`, `bookingId`, `nameError`, `phoneError`) from `remember` to `rememberSaveable`.
+  - Guarantees seamless state survival during screen rotations, foldable posture changes, and system configuration updates.
+- **Form Submission Validation & Accessible UX (`AppointmentBookingCard.kt`):**
+  - Added strict validation on confirm CTA requiring `patientName.isNotBlank() && patientPhone.isNotBlank()` before transitioning to confirmation state.
+  - Integrated `isError` flags and localized `supportingText` error indicators (`err_name_required`, `err_phone_required`) for immediate user feedback.
+  - Updated form reset handler in "Book Another Appointment" to clear all validation error states.
+- **DRY Slot Grid, Component Extraction & Theme Tokens (`AppointmentBookingCard.kt`, `DocSpaceCardScaffold.kt`, Cards):**
+  - Extracted reusable `TimeSlotChip` composable with `RowScope` slot styling and refactored time slot grid using `timeSlots.chunked(3)`, eliminating duplicated 25-line row layout blocks.
+  - Replaced hardcoded hex colors (`Color(0xFF2563EB)`, `Color(0xFF1D4ED8)`, `Color(0xFF4338CA)`, `Color(0xFF047857)`, `Color(0xFF7E22CE)`) with semantic theme tokens (`Brand600`, `Brand700`, `Indigo600`, `Indigo700`, `Emerald600`, `Emerald700`, `Purple600`, `Purple700`).
+  - Added safe gradient color fallback in `DocSpaceCardScaffold.kt` (`when { isEmpty() -> listOf(Brand600, Brand700); size == 1 -> listOf(c, c); else -> gradientColors }`) to prevent runtime `IllegalArgumentException` in `Brush.horizontalGradient`.
+- **Automated Verification:** Added `scripts/test_commit10_best_practices.mjs` (16/16 passed).
+
 ---
 
 ## 🧪 Phase 4 Verification & Test Results (100% Pass)
