@@ -1,4 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">{{APP_NAME}}</string>
+
+    <!-- Service Badges -->
+    <string name="badge_telehealth">Telehealth</string>
+    <string name="badge_prescriptions">Prescriptions</string>
+    <string name="badge_diagnostics">Diagnostics</string>
+    <string name="badge_default_clinic">Doctor Clinic</string>
+
+    <!-- In-Clinic Consultation -->
+    <string name="title_in_clinic_visit">Book In-Clinic Visit</string>
+    <string name="subtitle_in_clinic_visit">Select your preferred date &amp; time slot for your in-person clinic consultation.</string>
+    <string name="lbl_preferred_date">PREFERRED DATE</string>
+    <string name="lbl_available_time_slot">AVAILABLE TIME SLOT</string>
+    <string name="lbl_patient_details">PATIENT DETAILS</string>
+    <string name="lbl_full_name">Full Name *</string>
+    <string name="lbl_phone_number">Phone Number *</string>
+    <string name="lbl_email_optional">Email Address (Optional)</string>
+    <string name="lbl_symptoms_optional">Symptoms / Reason for Visit (Optional)</string>
+    <string name="btn_confirm_appointment">Confirm In-Clinic Appointment</string>
+    <string name="btn_book_another">Book Another Appointment</string>
+    <string name="msg_appointment_requested">Appointment Requested!</string>
+
+    <!-- Video Consultation -->
+    <string name="title_video_consultation">Video Consultation</string>
+    <string name="desc_video_consultation">High-definition, secure video appointments from home. Meeting links and dial-in tokens are provided directly for verified patients.</string>
+    <string name="btn_schedule_video">Schedule Telehealth Call</string>
+
+    <!-- Pharmacy & Medicine Delivery -->
+    <string name="title_clinic_pharmacy">Clinic Pharmacy</string>
+    <string name="desc_clinic_pharmacy">Request repeat medicine refills and prescription deliveries directly prepared by the clinic pharmacy.</string>
+    <string name="btn_order_medicines">Order Medicines &amp; Refills</string>
+
+    <!-- Lab Diagnostics -->
+    <string name="title_lab_reports_portal">Lab Reports Portal</string>
+    <string name="desc_lab_reports">Upload diagnostic documents, blood work tests, and imaging records prior to your appointment.</string>
+    <string name="btn_upload_reports">Upload Diagnostic Records</string>
 </resources>

@@ -23,9 +23,9 @@ export const BRAND_CONFIG = {
   // Identity
   name: PRIMARY_BRAND_NAME,
   slug: brandSlug,
-  tagline: "The Digital Healthcare Presence Platform for Doctors",
+  tagline: "Simple & Smart Software for Modern Clinics",
   description:
-    "The digital healthcare platform enabling doctors to create, customize, and scale their own branded website and mobile presence effortlessly.",
+    "An easy-to-use platform for clinics to manage doctor appointments, bills, patient records, and daily visits in one place.",
 
   // Dynamic UI Strings
   poweredBy: `Powered by ${PRIMARY_BRAND_NAME}`,
@@ -56,7 +56,7 @@ export const BRAND_CONFIG = {
   // SEO & Browser Tab Title Formatter
   formatMetaTitle: (pageTitle?: string) => {
     if (!pageTitle) {
-      return `${PRIMARY_BRAND_NAME} — The Digital Healthcare Presence Platform for Doctors`;
+      return `${PRIMARY_BRAND_NAME} — Simple Clinic Management Software`;
     }
     return `${pageTitle} - ${PRIMARY_BRAND_NAME}`;
   },

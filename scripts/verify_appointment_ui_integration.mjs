@@ -84,7 +84,11 @@ runCheck("V2", "AppointmentDetailsPanel status guard disables edit/reschedule fo
 runCheck("V3", "Public booking page (app/[slug]/page.tsx) dynamic slot generation", () => {
   const publicPagePath = path.join(projectRoot, "app", "[slug]", "page.tsx");
   assert.ok(fs.existsSync(publicPagePath), "app/[slug]/page.tsx must exist");
-  const code = fs.readFileSync(publicPagePath, "utf-8");
+  const bookingFormPath = path.join(projectRoot, "components", "public-booking", "AppointmentBookingForm.tsx");
+  const slotPickerPath = path.join(projectRoot, "components", "public-booking", "TimeSlotPicker.tsx");
+  const code = fs.readFileSync(publicPagePath, "utf-8") +
+    (fs.existsSync(bookingFormPath) ? fs.readFileSync(bookingFormPath, "utf-8") : "") +
+    (fs.existsSync(slotPickerPath) ? fs.readFileSync(slotPickerPath, "utf-8") : "");
 
   assert.ok(!code.includes("const TIME_SLOTS ="), "Must NOT define static TIME_SLOTS array");
   assert.ok(code.includes("getPublicAvailableSlots"), "Must invoke getPublicAvailableSlots");

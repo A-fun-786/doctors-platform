@@ -15,7 +15,7 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Links: Platform */}
+          {/* Links: Platform Navigation */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider text-xs">
               Platform
@@ -32,32 +32,37 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="hover:text-white transition-colors">
-                  Doctor Registration
+                <Link href="#testimonials" className="hover:text-white transition-colors">
+                  Testimonials
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="hover:text-white transition-colors">
-                  Doctor Login
+                <Link href="#faq" className="hover:text-white transition-colors">
+                  FAQ
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Links: Company & Legal */}
+          {/* Links: Portals & Legal */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider text-xs">
-              Company
+              Clinic Portals
             </h4>
             <ul className="space-y-2">
               <li>
-                <a href="#about" className="hover:text-white transition-colors">
-                  About Us
-                </a>
+                <Link href="/register" className="hover:text-white transition-colors">
+                  Clinic Registration
+                </Link>
               </li>
               <li>
-                <a href="#contact" className="hover:text-white transition-colors">
-                  Contact
+                <Link href="/login" className="hover:text-white transition-colors">
+                  Clinic Login
+                </Link>
+              </li>
+              <li>
+                <a href="#about" className="hover:text-white transition-colors">
+                  About GoSmartClinic
                 </a>
               </li>
               <li>
@@ -77,7 +82,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <p>{BRAND_CONFIG.copyright()}</p>
-          <p>Multi-Tenant White-Label Healthcare Infrastructure</p>
+          <p>Smart &amp; Simple Software for Clinics</p>
         </div>
       </div>
     </footer>

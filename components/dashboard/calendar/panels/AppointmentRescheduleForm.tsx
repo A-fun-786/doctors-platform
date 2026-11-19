@@ -160,19 +160,19 @@ export default function AppointmentRescheduleForm({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Back to Details</span>
         </button>
-        <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200">
           Edit Mode
         </span>
       </div>
 
       {/* Current Slot Info Callout */}
-      <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-blue-900">
-        <div className="font-semibold text-[11px] text-blue-700 uppercase tracking-wider mb-0.5">
+      <div className="p-3 bg-brand-50 rounded-xl border border-brand-200 text-xs text-brand-950">
+        <div className="font-semibold text-[11px] text-brand-700 uppercase tracking-wider mb-0.5">
           Currently Scheduled For:
         </div>
         <div className="font-bold">
@@ -183,25 +183,26 @@ export default function AppointmentRescheduleForm({
       {/* Error Feedback Banner */}
       {formError && (
         <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 font-medium">{formError}</div>
         </div>
       )}
 
       {/* Field: Appointment Date */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+        <label htmlFor="reschedule-date" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
           <span>Target Appointment Date</span>
         </label>
         <input
+          id="reschedule-date"
           type="date"
           value={targetDate}
           onChange={(e) => {
             setTargetDate(e.target.value);
             setSelectedSlot(null); // reset slot selection when date changes
           }}
-          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-2xs"
+          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all shadow-2xs"
           required
         />
       </div>
@@ -218,16 +219,17 @@ export default function AppointmentRescheduleForm({
 
       {/* Field: Visit Reason */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5 text-blue-600" />
+        <label htmlFor="reschedule-reason" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
           <span>Visit Reason / Consultation Note</span>
         </label>
         <input
+          id="reschedule-reason"
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. Follow-up Consultation"
-          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-2xs"
+          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all shadow-2xs"
         />
         {/* Quick Reason Pills */}
         <div className="flex flex-wrap gap-1.5 pt-1">
@@ -238,7 +240,7 @@ export default function AppointmentRescheduleForm({
               onClick={() => setReason(r)}
               className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors ${
                 reason === r
-                  ? "bg-blue-600 text-white"
+                  ? "bg-brand-600 text-white"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-600"
               }`}
             >
@@ -250,15 +252,16 @@ export default function AppointmentRescheduleForm({
 
       {/* Field: Additional Clinical Notes */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-700">
+        <label htmlFor="reschedule-notes" className="text-xs font-bold text-slate-700">
           Additional Clinical Notes (Optional)
         </label>
         <textarea
+          id="reschedule-notes"
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Internal notes for medical team..."
-          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-2xs resize-none"
+          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all shadow-2xs resize-none"
         />
       </div>
 
@@ -276,9 +279,9 @@ export default function AppointmentRescheduleForm({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 text-center cursor-pointer"
+          className="w-full sm:w-auto px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 text-center cursor-pointer"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4" aria-hidden="true" />
           <span>Save Changes</span>
         </button>
       </div>
