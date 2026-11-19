@@ -36,7 +36,7 @@ Dead code ko eliminate karna, duplicate OAuth token handling ko retire karna, au
   - **Outcome:** **271 lines** of dead, duplicated OAuth callback logic removed.
 
 #### 2. Centralized Tenant Dependency & Eager-Load Optimization: `backend/app/api/deps.py`
-- **File:** [`backend/app/api/deps.py`](file:///d:/doctors-platform/backend/app/api/deps.py#L51-L67) — **MODIFIED**
+- **File:** [`backend/app/api/deps.py`](../backend/app/api/deps.py) — **MODIFIED**
 - **Action:** Created reusable dependency `get_active_tenant_by_slug` with `joinedload` eager-loading:
   ```python
   def get_active_tenant_by_slug(slug: str, db: Session = Depends(get_db)) -> Tenant:
@@ -61,13 +61,13 @@ Dead code ko eliminate karna, duplicate OAuth token handling ko retire karna, au
 - **Benefit:** DRY (Don't Repeat Yourself) principle enforced across all public-facing tenant endpoints, and database lazy-load query eliminated.
 
 #### 3. Route De-duplication: `backend/app/api/routes/public.py`
-- **File:** [`backend/app/api/routes/public.py`](file:///d:/doctors-platform/backend/app/api/routes/public.py#L5) — **MODIFIED**
+- **File:** [`backend/app/api/routes/public.py`](../backend/app/api/routes/public.py) — **MODIFIED**
 - **Action:**
   - Removed private duplicate helper `_get_active_tenant_or_404(slug, db)`.
   - Replaced all calls in `get_public_doctor_profile`, `upload_lab_report`, and `order_medicine` with the shared `get_active_tenant_by_slug(slug, db)`.
 
 #### 4. Route De-duplication: `backend/app/api/routes/schedule.py`
-- **File:** [`backend/app/api/routes/schedule.py`](file:///d:/doctors-platform/backend/app/api/routes/schedule.py#L7) — **MODIFIED**
+- **File:** [`backend/app/api/routes/schedule.py`](../backend/app/api/routes/schedule.py) — **MODIFIED**
 - **Action:**
   - In `get_public_available_slots` (`/public/tenants/{slug}/available-slots`), replaced the redundant 10-line raw SQLAlchemy database query block with:
     ```python
@@ -167,8 +167,13 @@ Direct endpoint validation through live HTTP client requests:
 - **Action:** Extracted successful booking receipt UI with green confirmation badge (`CheckCircle2`), mono booking ID reference, doctor notification details, and navigation action buttons ("Book Another" / "Return to Practice Home").
 
 #### 3. Created Unified AppointmentBookingForm: `components/public-booking/AppointmentBookingForm.tsx`
-- **File:** `components/public-booking/AppointmentBookingForm.tsx` (260 lines) — **NEW**
+- **File:** `components/public-booking/AppointmentBookingForm.tsx` (320+ lines) — **NEW**
 - **Action:** Consolidated duplicate booking form states, date change dynamic slot generation (`getPublicAvailableSlots`), form submission (`bookPublicAppointment`), error handling, and doctor context header into a unified component parameterized by `consultationType: "in_clinic" | "video_consultation"`.
+- **Commit 7 Best Practice Hardening:**
+  - **UTC Drift Elimination:** Replaced `tomorrow.toISOString().split("T")[0]` with `formatDateToYYYYMMDD(tomorrow)` from `calendarUtils.ts` to preserve accurate local dates across all UTC offsets. Added `minDate` guard on `TimeSlotPicker` to prevent past-date selection.
+  - **Structured Logging & Non-blocking Error UI:** Replaced `console.error` and blocking browser `alert(...)` dialogs with structured `logger` from `@/lib/logger` (`logger.action`, `logger.info`, `logger.error`), inline accessible error banners with dismiss buttons, and non-blocking `Toast` notifications.
+  - **WCAG 2.1 AA a11y & Input Ergonomics:** Added explicit `htmlFor` / `id` associations for all form fields, `aria-pressed` for slot chips, `aria-busy={submitting}` on confirmation buttons, and standardized input ergonomics (`h-10 pl-11 pr-3.5`).
+  - **Multi-Practitioner Extensibility:** Enhanced `AppointmentBookingFormProps` and `getPublicAvailableSlots` / `bookPublicAppointment` with optional `staffId` / `staff_id` support for multi-doctor practice booking.
 
 #### 4. Streamlined Public Patient Portal: `app/[slug]/page.tsx`
 - **File:** `app/[slug]/page.tsx` — **REFACTORED**
