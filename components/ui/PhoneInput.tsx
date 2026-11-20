@@ -116,7 +116,7 @@ export function PhoneInput({
   const idPrefix = customId || `phone-${baseReactId.replace(/:/g, "")}`;
   const listboxId = `${idPrefix}-listbox`;
   const errorId = `${idPrefix}-error`;
-  const inputId = `${idPrefix}-input`;
+  const inputId = customId || `${idPrefix}-input`;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);

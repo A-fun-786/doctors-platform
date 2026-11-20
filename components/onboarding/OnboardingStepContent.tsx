@@ -20,7 +20,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { CountryDialCode } from "@/lib/dialCodes";
-import { OnboardingPhoneInput } from "./OnboardingPhoneInput";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
@@ -313,7 +313,7 @@ export function Step3ContactPhone({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <FieldLabel htmlFor="onboarding-phone-input">Helpline &amp; Appointments Contact Number *</FieldLabel>
-        <OnboardingPhoneInput
+        <PhoneInput
           id="onboarding-phone-input"
           country={country}
           localNumber={localNumber}

@@ -13,7 +13,7 @@
 
 import { Check, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { WIZARD_STEPS } from "../constants/steps";
+import { WIZARD_STEPS } from "./steps";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Header

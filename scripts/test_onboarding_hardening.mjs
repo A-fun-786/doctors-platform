@@ -71,11 +71,11 @@ const onboardingPage = fs.readFileSync(
   "utf-8"
 );
 const onboardingLayout = fs.readFileSync(
-  path.join(projectRoot, "app", "onboarding", "components", "OnboardingLayout.tsx"),
+  path.join(projectRoot, "components", "onboarding", "OnboardingLayout.tsx"),
   "utf-8"
 );
 const stepContent = fs.readFileSync(
-  path.join(projectRoot, "app", "onboarding", "components", "OnboardingStepContent.tsx"),
+  path.join(projectRoot, "components", "onboarding", "OnboardingStepContent.tsx"),
   "utf-8"
 );
 const phoneInput = fs.readFileSync(
@@ -137,9 +137,9 @@ describe("Logo Upload, Reset & Removal Persistence", () => {
       onboardingPage.includes(
         "clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR"
       ) ||
-        onboardingPage.includes(
-          "finalAvatar = clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR"
-        )
+      onboardingPage.includes(
+        "finalAvatar = clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR"
+      )
     );
     // Ensure it does not fallback to profileData?.avatar_url
     assert.strictEqual(
@@ -237,7 +237,7 @@ describe("Architectural Alignment & Config Cleanliness", () => {
     assert.ok(onboardingLayout.includes('import { BrandLogo } from "@/components/brand/BrandLogo"'));
     assert.ok(
       onboardingLayout.includes('<BrandLogo size="sm" href={null} />') ||
-        onboardingLayout.includes('<BrandLogo size="sm" href={null} priority />')
+      onboardingLayout.includes('<BrandLogo size="sm" href={null} priority />')
     );
     assert.strictEqual(onboardingLayout.includes("StethoscopeHeartPulseIcon"), false);
   });
@@ -247,9 +247,10 @@ describe("Architectural Alignment & Config Cleanliness", () => {
     assert.ok(fs.existsSync(path.join(projectRoot, "lib", "dialCodes.ts")));
   });
 
-  test("Backward compatible re-exports exist under onboarding directory", () => {
-    assert.ok(fs.existsSync(path.join(projectRoot, "app", "onboarding", "components", "OnboardingPhoneInput.tsx")));
-    assert.ok(fs.existsSync(path.join(projectRoot, "app", "onboarding", "constants", "dialCodes.ts")));
+  test("Onboarding components live under components/onboarding", () => {
+    assert.ok(fs.existsSync(path.join(projectRoot, "components", "onboarding", "OnboardingLayout.tsx")));
+    assert.ok(fs.existsSync(path.join(projectRoot, "components", "onboarding", "OnboardingStepContent.tsx")));
+    assert.ok(fs.existsSync(path.join(projectRoot, "components", "onboarding", "steps.ts")));
   });
 
   test("next.config.mjs remotePatterns cleans up flagcdn.com while retaining CSP", () => {

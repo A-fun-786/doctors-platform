@@ -6,14 +6,15 @@
  *
  * Architecture:
  *   app/onboarding/
- *   ├── page.tsx                          ← orchestrator (this file)
- *   ├── constants/
- *   │   ├── steps.ts                      ← WIZARD_STEPS config
- *   │   └── dialCodes.ts                  ← Re-exports from @/lib/dialCodes
- *   └── components/
- *       ├── OnboardingLayout.tsx          ← Header (BrandLogo), Sidebar, MobileStepBadge
- *       ├── OnboardingStepContent.tsx     ← Step1–Step4 pure form components
- *       └── OnboardingPhoneInput.tsx      ← Re-exports from @/components/ui/PhoneInput
+ *   └── page.tsx                          ← orchestrator (this file)
+ *   components/onboarding/
+ *   ├── steps.ts                          ← WIZARD_STEPS config
+ *   ├── OnboardingLayout.tsx              ← Header (BrandLogo), Sidebar, MobileStepBadge
+ *   └── OnboardingStepContent.tsx         ← Step1–Step4 pure form components
+ *   components/ui/
+ *   └── PhoneInput.tsx                    ← Reusable phone picker with dial codes
+ *   lib/
+ *   └── dialCodes.ts                      ← Phone dial codes and helpers
  *
  * Standards:
  *   • WCAG 2.1 AA — aria-*, role=*, focus management, combobox
@@ -50,18 +51,18 @@ import {
   validatePhoneNumber,
 } from "@/lib/dialCodes";
 
-import { WIZARD_STEPS, TOTAL_STEPS } from "./constants/steps";
+import { WIZARD_STEPS, TOTAL_STEPS } from "@/components/onboarding/steps";
 import {
   OnboardingHeader,
   OnboardingSidebar,
   MobileStepBadge,
-} from "./components/OnboardingLayout";
+} from "@/components/onboarding/OnboardingLayout";
 import {
   Step1ClinicName,
   Step2ClinicLogo,
   Step3ContactPhone,
   Step4ClinicLocation,
-} from "./components/OnboardingStepContent";
+} from "@/components/onboarding/OnboardingStepContent";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
