@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Toast from "@/components/ui/Toast";
 import { CalendarTabProps } from "./calendar/types";
 import { useCalendarData } from "./calendar/hooks/useCalendarData";
@@ -152,12 +152,28 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
   const [showMobileMiniCal, setShowMobileMiniCal] = useState(false);
   const [showMobileWorkingHours, setShowMobileWorkingHours] = useState(false);
 
+  // Canonical staff ID for modals when an empty slot or new appointment is triggered
+  const effectiveStaffId = useMemo(() => {
+    if (!practitionerFilter || practitionerFilter === "ALL" || practitionerFilter === "PRIMARY") {
+      return "";
+    }
+    return practitionerFilter;
+  }, [practitionerFilter]);
+
   // Quick slot create on hover in WeekView
   const handleQuickAddSlot = useCallback(
-    (dateStr: string, start: string, end: string) => {
-      openAddAppointment(dateStr, start, end);
+    (dateStr: string, start: string, end: string, slotStaffId?: string) => {
+      openAddAppointment(dateStr, start, end, slotStaffId || effectiveStaffId);
     },
-    [openAddAppointment]
+    [openAddAppointment, effectiveStaffId]
+  );
+
+  // Empty slot click to book or block slot (preserves filtered practitioner)
+  const handleEmptySlotClick = useCallback(
+    (date: string, start: string, end: string, slotStaffId?: string) => {
+      openSlotActionModal(date, start, end, "booking", slotStaffId || effectiveStaffId);
+    },
+    [openSlotActionModal, effectiveStaffId]
   );
 
   // Month date click navigates and switches to week view
@@ -223,7 +239,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
           onBookAppointment={
             isStaffDoctor
               ? undefined
-              : () => openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+              : () => openAddAppointment(selectedDate, "10:00", "10:30", effectiveStaffId)
           }
           practitioners={practitioners}
           selectedPractitionerId={practitionerFilter}
@@ -261,7 +277,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onBookAppointment={
                 isStaffDoctor
                   ? undefined
-                  : () => openAddAppointment(selectedDate, "10:00", "10:30", practitionerFilter || "")
+                  : () => openAddAppointment(selectedDate, "10:00", "10:30", effectiveStaffId)
               }
               practitioners={practitioners}
               selectedPractitionerId={practitionerFilter}
@@ -276,7 +292,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               getEventsForDate={getEventsForDate}
               onEventClick={openEventDrawer}
               onQuickAddSlot={isStaffDoctor ? undefined : handleQuickAddSlot}
-              onEmptySlotClick={isStaffDoctor ? undefined : openSlotActionModal}
+              onEmptySlotClick={isStaffDoctor ? undefined : handleEmptySlotClick}
               workingHoursConfig={workingHoursConfig}
             />
           )}
@@ -289,13 +305,9 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
               onBookPatient={
                 isStaffDoctor
                   ? undefined
-                  : () => openSlotActionModal(selectedDate, "10:00", "10:30", "booking")
+                  : () => handleEmptySlotClick(selectedDate, "10:00", "10:30")
               }
-              onEmptySlotClick={
-                isStaffDoctor
-                  ? undefined
-                  : (date, start, end) => openSlotActionModal(date, start, end, "booking")
-              }
+              onEmptySlotClick={isStaffDoctor ? undefined : handleEmptySlotClick}
               onEventClick={openEventDrawer}
             />
           )}
@@ -350,6 +362,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             getEventsForDate(modalDate)
           )
         }
+        practitioners={practitioners}
       />
 
       {/* MODAL: Edit Working Hours */}
@@ -388,6 +401,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             getEventsForDate(modalDate)
           )
         }
+        practitioners={practitioners}
       />
 
       {/* MODAL: Block Time / Leave */}

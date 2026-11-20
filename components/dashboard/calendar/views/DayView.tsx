@@ -21,9 +21,9 @@ interface DayViewProps {
   selectedDate: string;
   events: CalendarEvent[];
   workingHoursConfig?: WorkingHoursConfig;
-  onBookPatient?: () => void;
+  onBookPatient?: (staffId?: string) => void;
   onEventClick: (event: CalendarEvent, date: string) => void;
-  onEmptySlotClick?: (date: string, start: string, end: string) => void;
+  onEmptySlotClick?: (date: string, start: string, end: string, staffId?: string) => void;
 }
 
 export default function DayView({
