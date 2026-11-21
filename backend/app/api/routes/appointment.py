@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor, is_staff_doctor
-from app.core.cache import get_idempotency_result, set_idempotency_result, invalidate_slot_cache
+from app.core.cache import invalidate_slot_cache
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -50,22 +50,15 @@ def create_appointment(
             detail="Staff doctors are not permitted to book appointments. Please contact clinic reception.",
         )
 
-    cache_key = None
-    if idempotency_key:
-        cache_key = f"idempotency:{current_doctor.id}:{idempotency_key}"
-        cached = get_idempotency_result(cache_key)
-        if cached is not None:
-            return cached
-
-    appointment = appointment_service.create_appointment(
+    response_data, replayed = appointment_service.create_appointment_with_idempotency(
         doctor_id=current_doctor.id,
         payload=payload,
         db=db,
+        idempotency_key=idempotency_key,
+        endpoint="POST:/doctor/appointments",
     )
-    invalidate_slot_cache(current_doctor.id)
-    response_data = AppointmentResponse.model_validate(appointment)
-    if cache_key:
-        set_idempotency_result(cache_key, response_data)
+    if not replayed:
+        invalidate_slot_cache(current_doctor.id)
     return response_data
 
 
