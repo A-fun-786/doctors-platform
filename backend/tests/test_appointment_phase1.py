@@ -3,41 +3,16 @@ from datetime import date, time
 from pathlib import Path
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from alembic.config import Config
 from alembic import command
 
-from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.schemas.schedule import ScheduleCreateRequest
 from app.schemas.appointment import AppointmentCreateRequest
 from app.core.database import engine as app_engine
-
-
-# In-memory database fixture for model testing
-TEST_DATABASE_URL = "sqlite:///:memory:"
-test_engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def db():
-    Base.metadata.create_all(bind=test_engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=test_engine)
 
 
 def test_models_and_relationships(db):

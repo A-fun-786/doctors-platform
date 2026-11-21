@@ -1,8 +1,6 @@
 import concurrent.futures
-import hashlib
 import os
 import re
-import secrets
 import smtplib
 import tempfile
 import uuid
@@ -35,7 +33,6 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import auth_service, generate_unique_tenant_slug
 from app.services.email_service import (
-    EmailService,
     MemoryEmailBackend,
     SMTPEmailBackend,
     email_service,

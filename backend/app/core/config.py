@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "docspace-super-secret-jwt-key-minimum-32-chars-for-hs256"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    BCRYPT_ROUNDS: int = 12
 
     # Rate Limiting (SlowAPI)
     RATE_LIMIT_GLOBAL: str = "100/minute"

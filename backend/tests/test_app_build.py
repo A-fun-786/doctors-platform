@@ -93,24 +93,8 @@ def test_prepare_project_workspace():
             shutil.rmtree(workspace, ignore_errors=True)
 
 
-def test_app_build_routes():
-    from fastapi.testclient import TestClient
-    from sqlalchemy import create_engine
-    from sqlalchemy.pool import StaticPool
-    from sqlalchemy.orm import sessionmaker
-    from app.main import app
-    from app.core.database import get_db
-    from app.models.base import Base
+def test_app_build_routes(client, db_session):
     from app.core.security import create_access_token
-
-    test_engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-    Base.metadata.create_all(bind=test_engine)
-    db = TestingSession()
 
     doc = Doctor(
         id=uuid.uuid4(),
@@ -118,8 +102,8 @@ def test_app_build_routes():
         full_name="Dr. App Builder",
         is_active=True,
     )
-    db.add(doc)
-    db.flush()
+    db_session.add(doc)
+    db_session.flush()
 
     tenant = Tenant(
         id=uuid.uuid4(),
@@ -127,45 +111,36 @@ def test_app_build_routes():
         slug="dr-app-builder",
         clinic_name="Wellness Center",
     )
-    db.add(tenant)
-    db.commit()
+    db_session.add(tenant)
+    db_session.commit()
 
     token = create_access_token(subject=str(doc.id))
 
-    def override_db():
-        try:
-            yield db
-        finally:
-            pass
+    # Test preview
+    res = client.get(
+        "/api/v1/doctor/app/preview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["app_name"] == "Wellness Center"
+    assert data["package_name"] == "com.docspace.drappbuilder.wellnesscenter"
 
-    app.dependency_overrides[get_db] = override_db
+    # Test build trigger
+    res_build = client.post(
+        "/api/v1/doctor/app/build",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res_build.status_code == 202
+    build_data = res_build.json()
+    assert "task_id" in build_data
+    task_id = build_data["task_id"]
 
-    with TestClient(app) as client:
-        # Test preview
-        res = client.get(
-            "/api/v1/doctor/app/preview",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["app_name"] == "Wellness Center"
-        assert data["package_name"] == "com.docspace.drappbuilder.wellnesscenter"
-
-        # Test build trigger
-        res_build = client.post(
-            "/api/v1/doctor/app/build",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert res_build.status_code == 202
-        build_data = res_build.json()
-        assert "task_id" in build_data
-        task_id = build_data["task_id"]
-
-        # Test status
-        res_status = client.get(
-            f"/api/v1/doctor/app/build/{task_id}/status",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert res_status.status_code == 200
-        assert res_status.json()["task_id"] == task_id
+    # Test status
+    res_status = client.get(
+        f"/api/v1/doctor/app/build/{task_id}/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res_status.status_code == 200
+    assert res_status.json()["task_id"] == task_id
 

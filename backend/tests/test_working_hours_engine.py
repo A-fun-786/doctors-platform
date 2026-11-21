@@ -1,64 +1,16 @@
 import uuid
 from pathlib import Path
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from alembic.config import Config
 from alembic import command
 
-from app.core.database import get_db
-from app.core.rate_limit import limiter
 from app.core.security import create_access_token
 from app.core.cache import set_cached_slots, get_cached_slots
-from app.main import app
-from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.services import schedule_service
 from datetime import date, time, datetime
-
-TEST_DATABASE_URL = "sqlite:///:memory:"
-test_engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def db_session():
-    Base.metadata.create_all(bind=test_engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def client(db_session):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture(autouse=True)
-def reset_limiter():
-    limiter.reset()
-    yield
-    limiter.reset()
 
 
 @pytest.fixture

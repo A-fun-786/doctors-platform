@@ -12,7 +12,11 @@ from app.core.config import get_settings
 settings = get_settings()
 
 # Bcrypt context for all new password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=settings.BCRYPT_ROUNDS,
+)
 
 # Pre-computed bcrypt hash on startup for constant-time comparison when email is not found
 DUMMY_BCRYPT_HASH: str = pwd_context.hash("dummy_constant_time_timing_mitigation_secret")

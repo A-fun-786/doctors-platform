@@ -9,14 +9,9 @@ Tests for Phase 8 Productionization additions:
 from datetime import date, time
 from unittest.mock import MagicMock, patch
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.core.database import Base, get_db, create_session_with_retry
+from app.core.database import create_session_with_retry
 from app.core.cache import clear_all_caches, get_cached_slots
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
@@ -29,36 +24,6 @@ def reset_caches():
     clear_all_caches()
     yield
     clear_all_caches()
-
-
-@pytest.fixture
-def test_db():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-@pytest.fixture
-def client(test_db):
-    def override_get_db():
-        try:
-            yield test_db
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture

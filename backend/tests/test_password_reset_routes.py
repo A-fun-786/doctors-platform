@@ -16,7 +16,6 @@ from app.core.security import (
     generate_verification_token,
     hash_password,
     hash_token,
-    verify_password,
 )
 from app.models.base import Base
 from app.models.doctor import Doctor

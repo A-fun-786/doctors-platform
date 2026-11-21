@@ -9,7 +9,6 @@ from app.main import app
 from app.core.database import get_db
 from app.models.base import Base
 from app.models.doctor import Doctor
-from app.models.tenant import Tenant
 from app.core.rate_limit import limiter
 from app.core.security import (
     generate_verification_token,
@@ -25,7 +24,6 @@ from app.schemas.auth import (
     validate_password_strength,
     sanitize_full_name,
     sanitize_phone,
-    EmailRegisterRequest,
 )
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
