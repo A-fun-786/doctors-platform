@@ -13,7 +13,9 @@ from app.models.schedule import Schedule
 from app.schemas.appointment import (
     AppointmentCreateRequest,
     AppointmentRescheduleRequest,
+    AppointmentResponse,
 )
+from app.services import idempotency_service
 
 
 def _time_to_minutes(t: time) -> int:
@@ -173,19 +175,15 @@ def _validate_slot_against_schedule(
                 )
 
 
-def create_appointment(
+def _stage_appointment(
     doctor_id: uuid.UUID,
     payload: AppointmentCreateRequest,
     db: Session,
     now: Optional[datetime] = None,
 ) -> Appointment:
     """
-    Create a new appointment:
-    - Validate staff_id belongs to doctor tenant if provided and doctor is active
-    - Validate schedule availability and absence of exclusions
-    - Validate slot is not already BOOKED for this specific doctor
-    - Insert with status = BOOKED
-    - Catch race-condition IntegrityError from unique index and return 409
+    Validate appointment constraints and stage a new Appointment on the session
+    without committing.
     """
     staff = None
     if payload.staff_id is not None:
@@ -273,12 +271,136 @@ def create_appointment(
         status="BOOKED",
     )
     db.add(appointment)
+    return appointment
+
+
+def create_appointment(
+    doctor_id: uuid.UUID,
+    payload: AppointmentCreateRequest,
+    db: Session,
+    now: Optional[datetime] = None,
+) -> Appointment:
+    """
+    Create a new appointment:
+    - Validate staff_id belongs to doctor tenant if provided and doctor is active
+    - Validate schedule availability and absence of exclusions
+    - Validate slot is not already BOOKED for this specific doctor
+    - Insert with status = BOOKED
+    - Catch race-condition IntegrityError from unique index and return 409
+    """
+    appointment = _stage_appointment(
+        doctor_id=doctor_id,
+        payload=payload,
+        db=db,
+        now=now,
+    )
     try:
         db.commit()
         db.refresh(appointment)
         return appointment
     except IntegrityError:
         db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Slot already booked for this doctor",
+        )
+
+
+def create_appointment_with_idempotency(
+    doctor_id: uuid.UUID,
+    payload: AppointmentCreateRequest,
+    db: Session,
+    idempotency_key: Optional[str] = None,
+    endpoint: str = "POST:/doctor/appointments",
+    now: Optional[datetime] = None,
+) -> Tuple[AppointmentResponse, bool]:
+    """
+    Create an appointment with optional DB-backed Idempotency-Key enforcement.
+    Returns (AppointmentResponse, replayed) where replayed=True when an existing
+    matching idempotency record was returned.
+    """
+    normalized_key = idempotency_service.normalize_idempotency_key(idempotency_key)
+    if normalized_key is None:
+        appointment = create_appointment(
+            doctor_id=doctor_id,
+            payload=payload,
+            db=db,
+            now=now,
+        )
+        return AppointmentResponse.model_validate(appointment), False
+
+    request_hash = idempotency_service.compute_request_hash(payload)
+
+    existing_record = idempotency_service.lookup_idempotency_record(
+        db=db,
+        doctor_id=doctor_id,
+        endpoint=endpoint,
+        idempotency_key=normalized_key,
+        request_hash=request_hash,
+        now=now,
+    )
+    if existing_record is not None:
+        return AppointmentResponse.model_validate(existing_record.response_body), True
+
+    # Claim the idempotency slot before checking/inserting the appointment so
+    # concurrent transactions serialize on the unique index instead of racing.
+    record = idempotency_service.build_idempotency_record(
+        doctor_id=doctor_id,
+        endpoint=endpoint,
+        idempotency_key=normalized_key,
+        request_hash=request_hash,
+        status_code=status.HTTP_201_CREATED,
+        now=now,
+    )
+    db.add(record)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing_record = idempotency_service.lookup_idempotency_record(
+            db=db,
+            doctor_id=doctor_id,
+            endpoint=endpoint,
+            idempotency_key=normalized_key,
+            request_hash=request_hash,
+            now=now,
+        )
+        if existing_record is not None:
+            return AppointmentResponse.model_validate(existing_record.response_body), True
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Concurrent request conflict for Idempotency-Key; please retry",
+        )
+
+    try:
+        appointment = _stage_appointment(
+            doctor_id=doctor_id,
+            payload=payload,
+            db=db,
+            now=now,
+        )
+        db.flush()
+        db.refresh(appointment)
+        response_data = AppointmentResponse.model_validate(appointment)
+        record.appointment_id = appointment.id
+        record.response_body = response_data.model_dump(mode="json")
+        db.commit()
+        return response_data, False
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        existing_record = idempotency_service.lookup_idempotency_record(
+            db=db,
+            doctor_id=doctor_id,
+            endpoint=endpoint,
+            idempotency_key=normalized_key,
+            request_hash=request_hash,
+            now=now,
+        )
+        if existing_record is not None:
+            return AppointmentResponse.model_validate(existing_record.response_body), True
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Slot already booked for this doctor",
