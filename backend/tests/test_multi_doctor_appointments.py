@@ -1,11 +1,12 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core import time as clinic_time
 from app.core.database import get_db
 from app.core.security import create_access_token
 from app.main import app
@@ -49,6 +50,11 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def freeze_clinic_now(monkeypatch):
+    monkeypatch.setattr(clinic_time, "get_clinic_now", lambda now=None: now or datetime(2026, 10, 1, 8, 0))
 
 
 @pytest.fixture

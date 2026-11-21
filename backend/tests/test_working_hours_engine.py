@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from alembic.config import Config
 from alembic import command
 
+from app.core import time as clinic_time
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token
@@ -59,6 +60,11 @@ def reset_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def freeze_clinic_now(monkeypatch):
+    monkeypatch.setattr(clinic_time, "get_clinic_now", lambda now=None: now or datetime(2026, 10, 1, 8, 0))
 
 
 @pytest.fixture

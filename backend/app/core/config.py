@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import List, Union
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "GoSmartClinic API"
     ENVIRONMENT: str = "development"
+    CLINIC_TIMEZONE: str = "Asia/Kolkata"
     DATABASE_URL: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/doctor_platform"
     )
@@ -65,8 +67,16 @@ class Settings(BaseSettings):
     S3_REGION_NAME: str = "auto"
     S3_PUBLIC_CUSTOM_DOMAIN: str = ""  # e.g. https://uploads.yourdomain.com
 
-    @field_validator("CORS_ORIGINS", mode="after")
+    @field_validator("CLINIC_TIMEZONE", mode="after")
+    @classmethod
+    def validate_clinic_timezone(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"Invalid CLINIC_TIMEZONE '{v}'") from exc
+        return v
 
+    @field_validator("CORS_ORIGINS", mode="after")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str):

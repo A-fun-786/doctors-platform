@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Dict, Union
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core import time as clinic_time
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
@@ -159,8 +160,8 @@ def generate_available_slots(
     2. Shift Fallback: If no AVAILABLE records exist and doctor has working_hours:
        - Check query_date.weekday() against closed_days (ISO: Mon=0 ... Sun=6).
        - Slice enabled shifts into 30m slots.
-    3. Past-Slot Guard: If query_date == date.today(), filter out candidate intervals
-       where end_time <= datetime.now().time().
+    3. Past-Slot Guard: Return [] if query_date is in the past; if query_date == clinic today,
+       filter out candidate intervals where end_time <= clinic_now.time().
     4. Multi-Doctor Capacity & Exclusions:
        - If specific doctor requested (primary or staff):
          - Subtract holiday and specific doctor's leaves/blocks and occupied appointments.
@@ -171,6 +172,10 @@ def generate_available_slots(
          - If unavailable < total capacity, slot is available!
     5. Return deduplicated, sorted available slots.
     """
+    current_dt = clinic_time.get_clinic_now(now)
+    if query_date < current_dt.date():
+        return []
+
     available_schedules = (
         db.query(Schedule)
         .filter(
@@ -227,7 +232,6 @@ def generate_available_slots(
 
     # Step C: Past-Slot Guard
     # If query_date is today, filter out candidate intervals where end_time <= now.time()
-    current_dt = now or datetime.now()
     if query_date == current_dt.date():
         curr_time = current_dt.time()
         filtered_candidates: List[Tuple[int, int]] = []
