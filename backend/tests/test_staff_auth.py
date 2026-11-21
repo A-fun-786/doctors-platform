@@ -286,9 +286,22 @@ def test_staff_cannot_perform_admin_mutations(client, doctor_fixture):
     staff_token = auth_res.json()["access_token"]
     staff_headers = {"Authorization": f"Bearer {staff_token}"}
 
-    # Staff CAN read clinic roster
+    # Staff CAN read clinic roster, but sensitive compensation and personal data are masked (#33)
     list_res = client.get("/api/v1/staff", headers=staff_headers)
     assert list_res.status_code == 200
+    roster = list_res.json()
+    assert len(roster) > 0
+    for member in roster:
+        assert member["base_salary_paise"] is None
+        assert member["emergency_contact"] is None
+        assert member["notes"] is None
+
+    # Individual staff get is also masked for staff accounts (#33)
+    single_res = client.get(f"/api/v1/staff/{staff_id}", headers=staff_headers)
+    assert single_res.status_code == 200
+    assert single_res.json()["base_salary_paise"] is None
+    assert single_res.json()["emergency_contact"] is None
+    assert single_res.json()["notes"] is None
 
     # Staff CANNOT create staff (forbidden 403)
     post_res = client.post(

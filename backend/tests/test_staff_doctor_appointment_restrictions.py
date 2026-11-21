@@ -471,3 +471,98 @@ def test_specialist_staff_doctor_classification_and_nurse_exclusion(
     assert res_nurse_book.status_code == 400
     assert "not a clinical practitioner" in res_nurse_book.json()["detail"]
 
+
+def test_non_doctor_staff_cannot_complete_any_appointment(
+    client, db_session, clinic_owner, staff_doctor, receptionist_headers
+):
+    """Test 9 (#25): Non-doctor staff (e.g. Receptionist) cannot complete any appointment."""
+    q_date = date(2026, 11, 20)
+
+    # 1. Primary doctor appointment
+    appt_owner = Appointment(
+        doctor_id=clinic_owner.id,
+        staff_id=None,
+        patient_name="Owner Patient",
+        date=q_date,
+        start_time=time(10, 0),
+        end_time=time(10, 30),
+        status="BOOKED",
+    )
+    # 2. Staff doctor appointment
+    appt_staff = Appointment(
+        doctor_id=clinic_owner.id,
+        staff_id=staff_doctor.id,
+        patient_name="Staff Doctor Patient",
+        date=q_date,
+        start_time=time(11, 0),
+        end_time=time(11, 30),
+        status="BOOKED",
+    )
+    db_session.add_all([appt_owner, appt_staff])
+    db_session.commit()
+
+    # Receptionist attempts to complete owner appointment -> 403
+    res_comp_owner = client.post(
+        f"/api/v1/doctor/appointments/{appt_owner.id}/complete",
+        headers=receptionist_headers,
+    )
+    assert res_comp_owner.status_code == 403
+    assert "Non-doctor staff members are not permitted to complete appointments" in res_comp_owner.json()["detail"]
+
+    # Receptionist attempts to complete staff doctor appointment -> 403
+    res_comp_staff = client.post(
+        f"/api/v1/doctor/appointments/{appt_staff.id}/complete",
+        headers=receptionist_headers,
+    )
+    assert res_comp_staff.status_code == 403
+    assert "Non-doctor staff members are not permitted to complete appointments" in res_comp_staff.json()["detail"]
+
+
+def test_nurse_cannot_complete_appointments(
+    client, db_session, clinic_owner
+):
+    """Test 10 (#25): Non-doctor nurse cannot complete appointments."""
+    q_date = date(2026, 11, 20)
+
+    nurse = StaffMember(
+        doctor_id=clinic_owner.id,
+        full_name="Sister Mary",
+        phone="+919876543299",
+        role="Nurse",
+        department="Nursing",
+        status="active",
+        can_login=True,
+    )
+    db_session.add(nurse)
+    db_session.commit()
+
+    token = create_access_token(
+        subject=str(nurse.id),
+        claims={
+            "doctor_id": str(clinic_owner.id),
+            "user_type": "staff",
+            "role": "Nurse",
+            "staff_id": str(nurse.id),
+        },
+    )
+    nurse_headers = {"Authorization": f"Bearer {token}"}
+
+    appt = Appointment(
+        doctor_id=clinic_owner.id,
+        staff_id=None,
+        patient_name="Clinic Patient",
+        date=q_date,
+        start_time=time(15, 0),
+        end_time=time(15, 30),
+        status="BOOKED",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    res = client.post(
+        f"/api/v1/doctor/appointments/{appt.id}/complete",
+        headers=nurse_headers,
+    )
+    assert res.status_code == 403
+    assert "Non-doctor staff members are not permitted to complete appointments" in res.json()["detail"]
+

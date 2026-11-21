@@ -12,6 +12,7 @@ from app.core.security import create_access_token
 from app.main import app
 from app.models.base import Base
 from app.models.doctor import Doctor
+from app.models.staff import StaffMember
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -344,3 +345,141 @@ def test_overlapping_available_rejection(client, headers_a):
     }, headers=headers_a)
     assert res3.status_code == 400
     assert "Overlapping AVAILABLE schedule window" in res3.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# RBAC Tests: Staff members must NOT mutate schedules / working hours (#24)
+# ---------------------------------------------------------------------------
+
+
+def _create_staff_and_headers(db_session, doctor, role="Receptionist"):
+    """Helper: create a staff member under the given doctor and return auth headers."""
+    staff = StaffMember(
+        doctor_id=doctor.id,
+        full_name=f"Staff {role}",
+        phone="0000000000",
+        role=role,
+        department="Clinical" if role != "Receptionist" else "Front Desk",
+        status="active",
+        can_login=True,
+    )
+    db_session.add(staff)
+    db_session.commit()
+    db_session.refresh(staff)
+    token = create_access_token(
+        str(staff.id),
+        claims={"user_type": "staff", "token_version": staff.token_version},
+    )
+    return {"Authorization": f"Bearer {token}"}, staff
+
+
+def test_staff_receptionist_cannot_create_schedule(client, doctor_a, db_session):
+    """Staff receptionist receives 403 when creating schedule entries."""
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="Receptionist")
+    payload = {
+        "date": "2026-12-01",
+        "start_time": "09:00:00",
+        "end_time": "13:00:00",
+        "type": "AVAILABLE",
+    }
+    res = client.post("/api/v1/doctor/schedule", json=payload, headers=staff_headers)
+    assert res.status_code == 403
+
+
+def test_staff_doctor_cannot_create_schedule(client, doctor_a, db_session):
+    """Staff doctor receives 403 when creating schedule entries."""
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="General Physician")
+    payload = {
+        "date": "2026-12-02",
+        "start_time": "09:00:00",
+        "end_time": "13:00:00",
+        "type": "LEAVE",
+        "reason": "Personal leave",
+    }
+    res = client.post("/api/v1/doctor/schedule", json=payload, headers=staff_headers)
+    assert res.status_code == 403
+
+
+def test_staff_cannot_delete_schedule(client, doctor_a, headers_a, db_session):
+    """Staff member receives 403 when deleting a schedule entry."""
+    # Owner creates a schedule entry
+    create_res = client.post("/api/v1/doctor/schedule", json={
+        "date": "2026-12-03", "start_time": "09:00:00", "end_time": "12:00:00", "type": "AVAILABLE"
+    }, headers=headers_a)
+    assert create_res.status_code == 201
+    entry_id = create_res.json()["id"]
+
+    # Staff attempts to delete
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="Receptionist")
+    del_res = client.delete(f"/api/v1/doctor/schedule/{entry_id}", headers=staff_headers)
+    assert del_res.status_code == 403
+
+
+def test_staff_cannot_update_working_hours(client, doctor_a, db_session):
+    """Staff member receives 403 when updating clinic working hours."""
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="General Physician")
+    payload = {
+        "shifts": [
+            {
+                "id": "morning",
+                "label": "Morning",
+                "start": "09:00",
+                "end": "13:00",
+                "enabled": True,
+            }
+        ],
+        "closed_days": [],
+    }
+    res = client.put("/api/v1/doctor/working-hours", json=payload, headers=staff_headers)
+    assert res.status_code == 403
+
+
+def test_staff_can_read_schedule(client, doctor_a, headers_a, db_session):
+    """Staff members can still read schedule entries (GET endpoints remain open)."""
+    # Owner creates an entry
+    client.post("/api/v1/doctor/schedule", json={
+        "date": "2026-12-04", "start_time": "09:00:00", "end_time": "12:00:00", "type": "AVAILABLE"
+    }, headers=headers_a)
+
+    # Staff reads
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="Receptionist")
+    list_res = client.get("/api/v1/doctor/schedule?from=2026-12-04&to=2026-12-04", headers=staff_headers)
+    assert list_res.status_code == 200
+    assert list_res.json()["total"] >= 1
+
+
+def test_staff_can_read_working_hours(client, doctor_a, db_session):
+    """Staff members can still read working hours (GET endpoint remains open)."""
+    staff_headers, _ = _create_staff_and_headers(db_session, doctor_a, role="Receptionist")
+    res = client.get("/api/v1/doctor/working-hours", headers=staff_headers)
+    assert res.status_code == 200
+
+
+def test_owner_can_still_create_schedule(client, headers_a):
+    """Clinic owner can still create schedule entries (sanity check after RBAC change)."""
+    payload = {
+        "date": "2026-12-05",
+        "start_time": "09:00:00",
+        "end_time": "13:00:00",
+        "type": "AVAILABLE",
+    }
+    res = client.post("/api/v1/doctor/schedule", json=payload, headers=headers_a)
+    assert res.status_code == 201
+
+
+def test_owner_can_still_update_working_hours(client, headers_a):
+    """Clinic owner can still update working hours (sanity check after RBAC change)."""
+    payload = {
+        "shifts": [
+            {
+                "id": "morning",
+                "label": "Morning",
+                "start": "09:00",
+                "end": "13:00",
+                "enabled": True,
+            }
+        ],
+        "closed_days": [],
+    }
+    res = client.put("/api/v1/doctor/working-hours", json=payload, headers=headers_a)
+    assert res.status_code == 200

@@ -1,9 +1,9 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.4.0  
+**Document Version:** 2.5.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
-**Last Updated:** November 17, 2026  
+**Last Updated:** November 20, 2026  
 
 ---
 
@@ -31,6 +31,7 @@ The **Staff Management & Authentication** system provides a multi-tenant, role-i
 | [`backend/app/services/auth_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/auth_service.py) | Authenticates staff User IDs, verifies passwords, issues JWTs, and enforces portal boundaries. |
 | [`backend/app/api/deps.py`](file:///Users/emanur/doctors-platform/backend/app/api/deps.py) | Injects tenant context, checks JWT `token_version`, and enforces `is_staff_doctor` restrictions. |
 | [`backend/app/api/routes/staff.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/staff.py) | Endpoints for listing, creating, updating, resetting passwords, and removing staff members. |
+| [`backend/app/api/routes/schedule.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/schedule.py) | Enforces `require_doctor_owner` on schedule entry creation, deletion, and working hours updates (returns 403 for staff). |
 | [`components/auth/EmailAuthForm.tsx`](file:///Users/emanur/doctors-platform/components/auth/EmailAuthForm.tsx) | Dual-tab login UI with 1-click tab switching when accounts attempt the wrong portal. |
 | [`components/dashboard/StaffTab.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/StaffTab.tsx) | Executive minimalist roster UI, interactive KPI filter bar, 3-card forms, and beside-box password generator. |
 | [`lib/api.ts`](file:///Users/emanur/doctors-platform/lib/api.ts) | Frontend client SDK types and methods for staff operations. |
@@ -170,6 +171,15 @@ curl -X POST http://localhost:8000/api/v1/staff \
 - **Do NOT allow staff doctors to book, cancel, or reschedule:**
   - Backend must return `403 Forbidden` (`is_staff_doctor(current_doctor)`).
   - UI must hide booking buttons and action menus (`isStaffDoctor`).
+- **Do NOT allow non-doctor staff to complete appointments:**
+  - Backend must return `403 Forbidden` (`Non-doctor staff members are not permitted to complete appointments.`).
+  - UI must hide the "Mark Completed" button for non-doctor staff (`canComplete = false`).
+- **Staff Roster Data Isolation:**
+  - Sensitive compensation (`base_salary_paise`), emergency contacts, and administrative notes are masked to `None` for all non-owner staff accounts calling `GET /api/v1/staff` and `GET /api/v1/staff/{id}`. Only clinic owners can inspect compensation and private notes.
+- **Do NOT hard delete staff members with existing appointments:**
+  - `delete_staff` checks for active (`BOOKED`) and completed (`COMPLETED`) appointments and rejects deletion with `400 Bad Request`. Personnel with medical history must be deactivated (`status = 'inactive'`) to preserve audit trails.
+- **Do NOT allow staff members to mutate schedules or working hours:**
+  - Schedule creations, deletions, and working-hours updates on `/doctor/schedule` and `/doctor/working-hours` require `require_doctor_owner` and return `403 Forbidden` for all staff members (receptionists and staff doctors).
 - **Do NOT require email for staff logins:**
   - Staff authenticate via User ID (`username`) + password.
 - **Keep Agenda Table strictly locked in width:**

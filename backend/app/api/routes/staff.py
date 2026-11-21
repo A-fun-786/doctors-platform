@@ -17,6 +17,19 @@ from app.services.staff_service import StaffService
 router = APIRouter(prefix="/staff", tags=["Staff Management"])
 
 
+def _serialize_staff_member(staff, is_owner: bool) -> StaffMemberResponse:
+    """
+    Serialize staff member. If requester is not the clinic owner,
+    mask sensitive compensation and personal HR fields (#33).
+    """
+    data = StaffMemberResponse.model_validate(staff)
+    if not is_owner:
+        data.base_salary_paise = None
+        data.emergency_contact = None
+        data.notes = None
+    return data
+
+
 @router.get(
     "/summary",
     response_model=StaffSummaryMetricsResponse,
@@ -44,13 +57,15 @@ def list_staff(
     db: Session = Depends(get_db),
 ):
     service = StaffService(db)
-    return service.list_staff(
+    items = service.list_staff(
         doctor_id=current_doctor.id,
         department=department,
         role=role,
         status=status,
         search=search,
     )
+    is_owner = not getattr(current_doctor, "_is_staff", False)
+    return [_serialize_staff_member(item, is_owner=is_owner) for item in items]
 
 
 @router.post(
@@ -82,7 +97,8 @@ def get_staff_member(
     staff = service.get_staff_by_id(current_doctor.id, staff_id)
     if not staff:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member not found")
-    return staff
+    is_owner = not getattr(current_doctor, "_is_staff", False)
+    return _serialize_staff_member(staff, is_owner=is_owner)
 
 
 @router.put(

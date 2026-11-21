@@ -54,6 +54,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
   const isStaff = doctor.user_type === "staff";
   const STAFF_DOCTOR_ROLES = ["doctor", "junior doctor", "consultant", "physician", "surgeon", "specialist"];
   const isStaffDoctor = isStaff && STAFF_DOCTOR_ROLES.includes((doctor.role || "").trim().toLowerCase());
+  const canCompleteAppointment = !isStaff || isStaffDoctor;
 
   useEffect(() => {
     if (isStaffDoctor && doctor.staff_id) {
@@ -473,6 +474,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             existingEvents={getEventsForDate(drawerState.date)}
             workingHoursConfig={workingHoursConfig}
             isStaffDoctor={isStaffDoctor}
+            canComplete={canCompleteAppointment}
           />
         )}
 

@@ -191,7 +191,7 @@ class StaffMemberResponse(BaseModel):
     employment_type: str
     status: str
     joining_date: date
-    base_salary_paise: int
+    base_salary_paise: Optional[int] = None
     emergency_contact: Optional[str] = None
     notes: Optional[str] = None
     can_login: bool = False

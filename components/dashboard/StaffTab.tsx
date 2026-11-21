@@ -1467,7 +1467,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       type="number"
                       min="0"
                       step="500"
-                      value={Math.round(editingStaff.base_salary_paise / 100)}
+                      value={Math.round((editingStaff.base_salary_paise ?? 0) / 100)}
                       onChange={(e) =>
                         setEditingStaff({
                           ...editingStaff,
@@ -1805,7 +1805,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Monthly Salary</span>
                 <span className="text-sm font-bold text-slate-900 mt-0.5 block">
-                  {selectedStaff.base_salary_paise > 0 ? formatINR(selectedStaff.base_salary_paise) : "—"}
+                  {selectedStaff.base_salary_paise && selectedStaff.base_salary_paise > 0 ? formatINR(selectedStaff.base_salary_paise) : "—"}
                 </span>
               </div>
               <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">

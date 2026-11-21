@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, time
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -13,6 +14,7 @@ from app.models.base import Base
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 from app.models.staff import StaffMember
+from app.models.appointment import Appointment
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 test_engine = create_engine(
@@ -606,3 +608,165 @@ def test_staff_doctor_speciality_creation_and_update(client, test_doctor_and_aut
     assert res_downgrade.status_code == 200
     assert res_downgrade.json()["role"] == "Receptionist"
     assert res_downgrade.json()["speciality"] is None
+
+
+def test_delete_staff_with_active_appointments_blocked(client, test_doctor_and_auth, db_session):
+    """Test (#26): Cannot delete a staff member who has active (BOOKED) appointments."""
+    doctor, headers = test_doctor_and_auth
+
+    # 1. Create a staff doctor
+    create_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Ananya Roy",
+            "phone": "+91 98765 11122",
+            "role": "Doctor",
+            "speciality": "Pediatrician",
+        },
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    staff_id = uuid.UUID(create_res.json()["id"])
+
+    # 2. Add an active appointment for this staff doctor
+    appt = Appointment(
+        doctor_id=doctor.id,
+        staff_id=staff_id,
+        patient_name="Baby John",
+        date=date(2026, 12, 1),
+        start_time=time(10, 0),
+        end_time=time(10, 30),
+        status="BOOKED",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    # 3. Attempt to delete the staff doctor -> must be rejected with 400
+    del_res = client.delete(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert del_res.status_code == 400
+    assert "active appointment" in del_res.json()["detail"].lower()
+    assert "reassign" in del_res.json()["detail"].lower()
+
+    # Verify staff still exists
+    get_res = client.get(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert get_res.status_code == 200
+
+
+def test_delete_staff_with_completed_appointments_blocked(client, test_doctor_and_auth, db_session):
+    """Test (#26): Cannot delete a staff member who has completed consultations to preserve clinical records."""
+    doctor, headers = test_doctor_and_auth
+
+    # 1. Create a staff doctor
+    create_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Vikram Seth",
+            "phone": "+91 98765 33344",
+            "role": "Doctor",
+            "speciality": "Cardiologist",
+        },
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    staff_id = uuid.UUID(create_res.json()["id"])
+
+    # 2. Add a completed appointment for this staff doctor
+    appt = Appointment(
+        doctor_id=doctor.id,
+        staff_id=staff_id,
+        patient_name="Senior Patient",
+        date=date(2026, 11, 1),
+        start_time=time(11, 0),
+        end_time=time(11, 30),
+        status="COMPLETED",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    # 3. Attempt to delete -> must be rejected with 400
+    del_res = client.delete(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert del_res.status_code == 400
+    assert "completed consultation record" in del_res.json()["detail"].lower()
+    assert "inactive" in del_res.json()["detail"].lower()
+
+    # 4. Deactivating (setting status to inactive) succeeds
+    update_res = client.put(
+        f"/api/v1/staff/{staff_id}",
+        json={"status": "inactive"},
+        headers=headers,
+    )
+    assert update_res.status_code == 200
+    assert update_res.json()["status"] == "inactive"
+
+
+def test_delete_staff_after_cancellation_or_no_appointments_succeeds(client, test_doctor_and_auth, db_session):
+    """Test (#26): Deleting a staff doctor with only cancelled appointments (or 0 appointments) succeeds."""
+    doctor, headers = test_doctor_and_auth
+
+    create_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Temp Doctor",
+            "phone": "+91 98765 55566",
+            "role": "Doctor",
+            "speciality": "General Physician",
+        },
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    staff_id = uuid.UUID(create_res.json()["id"])
+
+    # Add a cancelled appointment
+    appt = Appointment(
+        doctor_id=doctor.id,
+        staff_id=staff_id,
+        patient_name="Cancelled Patient",
+        date=date(2026, 12, 10),
+        start_time=time(9, 0),
+        end_time=time(9, 30),
+        status="CANCELLED",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    # Delete succeeds with 204
+    del_res = client.delete(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert del_res.status_code == 204
+
+
+def test_clinic_owner_sees_compensation_and_notes(client, test_doctor_and_auth):
+    """Test (#33): Clinic owner can view compensation, emergency contact, and notes."""
+    _, headers = test_doctor_and_auth
+
+    create_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Confidential Staff",
+            "phone": "+91 98765 77788",
+            "role": "Doctor",
+            "speciality": "Cardiologist",
+            "base_salary_paise": 9500000,
+            "emergency_contact": "Spouse (+919876500011)",
+            "notes": "Highly confidential HR evaluation notes",
+        },
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    staff_id = create_res.json()["id"]
+
+    # Owner GET list -> fields are present
+    list_res = client.get("/api/v1/staff", headers=headers)
+    assert list_res.status_code == 200
+    target = next((s for s in list_res.json() if s["id"] == staff_id), None)
+    assert target is not None
+    assert target["base_salary_paise"] == 9500000
+    assert target["emergency_contact"] == "Spouse (+919876500011)"
+    assert target["notes"] == "Highly confidential HR evaluation notes"
+
+    # Owner GET single -> fields are present
+    single_res = client.get(f"/api/v1/staff/{staff_id}", headers=headers)
+    assert single_res.status_code == 200
+    data = single_res.json()
+    assert data["base_salary_paise"] == 9500000
+    assert data["emergency_contact"] == "Spouse (+919876500011)"
+    assert data["notes"] == "Highly confidential HR evaluation notes"
