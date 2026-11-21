@@ -1,10 +1,11 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core import time as clinic_time
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.staff import StaffMember, is_doctor_role
@@ -19,6 +20,28 @@ def _time_to_minutes(t: time) -> int:
     return t.hour * 60 + t.minute
 
 
+def _validate_slot_not_in_past(
+    slot_date: date,
+    end_time: time,
+    is_reschedule: bool = False,
+    now: Optional[datetime] = None,
+) -> None:
+    """Reject appointments on past dates or today's already-elapsed time slots."""
+    current_dt = clinic_time.get_clinic_now(now)
+    action = "reschedule an appointment to" if is_reschedule else "create an appointment on"
+    if slot_date < current_dt.date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot {action} a past date",
+        )
+    if slot_date == current_dt.date() and end_time <= current_dt.time():
+        slot_action = "reschedule an appointment to" if is_reschedule else "create an appointment in"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot {slot_action} an elapsed time slot",
+        )
+
+
 def _validate_slot_against_schedule(
     doctor_id: uuid.UUID,
     slot_date: date,
@@ -27,11 +50,18 @@ def _validate_slot_against_schedule(
     db: Session,
     is_reschedule: bool = False,
     staff_id: Optional[uuid.UUID] = None,
+    now: Optional[datetime] = None,
 ) -> None:
     """
-    Validate that [start_time, end_time) falls cleanly within an AVAILABLE window
-    and does not overlap any LEAVE, HOLIDAY, or BLOCKED period.
+    Validate that [start_time, end_time) is not in the past, falls cleanly within
+    an AVAILABLE window, and does not overlap any LEAVE, HOLIDAY, or BLOCKED period.
     """
+    _validate_slot_not_in_past(
+        slot_date=slot_date,
+        end_time=end_time,
+        is_reschedule=is_reschedule,
+        now=now,
+    )
     s_start = _time_to_minutes(start_time)
     s_end = _time_to_minutes(end_time)
 
@@ -147,6 +177,7 @@ def create_appointment(
     doctor_id: uuid.UUID,
     payload: AppointmentCreateRequest,
     db: Session,
+    now: Optional[datetime] = None,
 ) -> Appointment:
     """
     Create a new appointment:
@@ -195,6 +226,7 @@ def create_appointment(
         db=db,
         is_reschedule=False,
         staff_id=payload.staff_id,
+        now=now,
     )
 
     # Check existing active appointment overlapping with requested interval for THIS doctor
@@ -344,6 +376,7 @@ def reschedule_appointment(
     appointment_id: uuid.UUID,
     payload: AppointmentRescheduleRequest,
     db: Session,
+    now: Optional[datetime] = None,
 ) -> Appointment:
     """
     Reschedule an existing appointment:
@@ -398,6 +431,7 @@ def reschedule_appointment(
         db=db,
         is_reschedule=True,
         staff_id=target_staff_id,
+        now=now,
     )
 
     conflict_query = (

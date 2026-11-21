@@ -6,7 +6,7 @@ Tests for Phase 8 Productionization additions:
 - Appointment creation idempotency key support
 - Database session retry mechanism
 """
-from datetime import date, time
+from datetime import date, datetime, time
 from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
@@ -16,6 +16,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
+from app.core import time as clinic_time
 from app.core.database import Base, get_db, create_session_with_retry
 from app.core.cache import clear_all_caches, get_cached_slots
 from app.models.doctor import Doctor
@@ -29,6 +30,11 @@ def reset_caches():
     clear_all_caches()
     yield
     clear_all_caches()
+
+
+@pytest.fixture(autouse=True)
+def freeze_clinic_now(monkeypatch):
+    monkeypatch.setattr(clinic_time, "get_clinic_now", lambda now=None: now or datetime(2026, 10, 1, 8, 0))
 
 
 @pytest.fixture
