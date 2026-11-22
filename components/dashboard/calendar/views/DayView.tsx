@@ -14,6 +14,7 @@ import {
   getSlotShiftTheme,
   SHIFT_THEME_PALETTES,
   DEFAULT_WORKING_HOURS,
+  resolveCellEvents,
 } from "../calendarUtils";
 import Badge from "@/components/ui/Badge";
 
@@ -68,7 +69,7 @@ export default function DayView({
                 key={shift.id || idx}
                 className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${theme.pillBg} ${theme.pillText} ${theme.pillBorder}`}
               >
-                <span className={`w-2 h-2 rounded-full ${theme.indicator} shrink-0`} />
+                <span className={`w-2 h-2 rounded-full ${theme.indicator} shrink-0`} aria-hidden="true" />
                 <span className="font-semibold text-[11px]">
                   {shift.label || `Schedule ${idx + 1}`} ({format12Hour(shift.start)} – {format12Hour(shift.end)})
                 </span>
@@ -81,11 +82,11 @@ export default function DayView({
           <span className="hidden sm:inline">Dynamic Schedule Slots</span>
           <span className="hidden sm:inline text-slate-300">•</span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
             Appointment (Patient)
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
             Doctor Leave
           </span>
         </div>
@@ -172,42 +173,44 @@ export default function DayView({
                   doesEventOverlapSlot(ev, slotStart, slotEnd)
                 );
 
-                const apptEvent = cellEvents.find((ev) => ev.type === "APPOINTMENT");
-                const leaveEvent = cellEvents.find(
-                  (ev) => ev.type === "LEAVE" || ev.type === "HOLIDAY"
-                );
-                const blockedEvent = cellEvents.find((ev) => ev.type === "BLOCKED");
+                const { apptEvent, apptEvents, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
 
                 // 1. Booked Patient Appointment (Clean: only Name & Visit Reason)
-                if (apptEvent) {
-                  const event = apptEvent;
-                  const patientName = event.patient_name || "Patient";
-                  const reason = event.reason || "General Visit";
-
+                if (apptEvents && apptEvents.length > 0) {
                   return (
                     <React.Fragment key={timeRow}>
                       {shiftDivider}
-                      <div
-                        onClick={() => onEventClick(event, selectedDate)}
-                        className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
-                          <div
-                            className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
-                          >
-                            {format12Hour(event.start)} – {format12Hour(event.end)}
-                          </div>
+                      <div className="space-y-1.5 w-full">
+                        {apptEvents.map((event, idx) => {
+                          const patientName = event.patient_name || "Patient";
+                          const reason = event.reason || "General Visit";
 
-                          <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                            <span className="font-bold text-slate-900 truncate">
-                              {patientName}
-                            </span>
-                            <span className="text-slate-500 font-normal truncate">
-                              {" — "}{reason}
-                            </span>
-                          </div>
-                        </div>
+                          return (
+                            <div
+                              key={event.appointment_id || event.id || `${timeRow}-${event.staff_id || event.doctor_id || idx}`}
+                              onClick={() => onEventClick(event, selectedDate)}
+                              className={`p-2.5 sm:p-3.5 rounded-xl transition-all flex items-center justify-between gap-2 sm:gap-3 cursor-pointer ${prefStyles.bookedBorder}`}
+                            >
+                              <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
+                                <div
+                                  className={`font-mono text-[11px] sm:text-xs font-bold ${prefStyles.timeText} min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`}
+                                >
+                                  {format12Hour(event.start)} – {format12Hour(event.end)}
+                                </div>
+
+                                <div className="min-w-0 flex-1 truncate text-xs text-slate-900 flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0" aria-hidden="true" />
+                                  <span className="font-bold text-slate-900 truncate">
+                                    {patientName}
+                                  </span>
+                                  <span className="text-slate-500 font-normal truncate">
+                                    {" — "}{reason}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </React.Fragment>
                   );

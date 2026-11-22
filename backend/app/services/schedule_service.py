@@ -150,6 +150,7 @@ def generate_available_slots(
     query_date: date,
     db: Session,
     now: Optional[datetime] = None,
+    staff_id: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """
     Deterministic 30-minute slot generation engine:

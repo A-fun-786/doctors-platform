@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node scripts/test_calendar_utils.mjs && node scripts/test_calendar_no_demo_fallback.mjs && node scripts/test_calendar_sidebar_theme.mjs",
+    "test": "node scripts/test_calendar_utils.mjs && node scripts/test_calendar_no_demo_fallback.mjs && node scripts/test_calendar_sidebar_theme.mjs && node scripts/test_onboarding_hardening.mjs",
+    "test:onboarding": "node scripts/test_onboarding_hardening.mjs",
     "test:calendar": "node scripts/test_calendar_utils.mjs",
     "test:calendar:sidebar": "node scripts/test_calendar_sidebar_theme.mjs",
     "test:calendar:no-demo": "node scripts/test_calendar_no_demo_fallback.mjs",
@@ -24,10 +25,12 @@
   },
   "dependencies": {
     "@sentry/nextjs": "^11.4.0",
+    "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "^14.2.24",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.19",

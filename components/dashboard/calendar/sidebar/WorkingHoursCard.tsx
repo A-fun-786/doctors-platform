@@ -9,6 +9,7 @@ import {
   calculateShiftSlotCount,
   timeToMinutes,
 } from "../calendarUtils";
+import { Card } from "@/components/ui/Card";
 
 interface WorkingHoursCardProps {
   config?: WorkingHoursConfig;
@@ -28,7 +29,7 @@ export default function WorkingHoursCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs space-y-3">
+    <Card className="p-4 space-y-3">
       {/* Card Header */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
@@ -38,7 +39,7 @@ export default function WorkingHoursCard({
           <div>
             <h3 className="text-xs font-bold text-slate-900 leading-tight">Working Hours</h3>
             <span className="text-[10px] text-brand-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
               {enabledShifts.length} {enabledShifts.length === 1 ? "Shift" : "Shifts"} Active
             </span>
           </div>
@@ -92,7 +93,7 @@ export default function WorkingHoursCard({
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200 block">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200 block">
                     {slots} slots
                   </span>
                   <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
@@ -109,7 +110,7 @@ export default function WorkingHoursCard({
       {enabledShifts.length > 0 && (
         <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-medium px-0.5">
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true" />
             Total Capacity:
           </span>
           <span className="font-bold text-slate-800">
@@ -117,6 +118,6 @@ export default function WorkingHoursCard({
           </span>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

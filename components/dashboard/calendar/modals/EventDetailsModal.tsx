@@ -33,7 +33,7 @@ export default function EventDetailsModal({
               ? "text-amber-600"
               : isBlocked
               ? "text-purple-600"
-              : "text-blue-600"
+              : "text-brand-600"
           }`}
         >
           {event.type === "LEAVE" ? "Doctor Leave" : event.type === "HOLIDAY" ? "Clinic Holiday" : event.type}

@@ -30,12 +30,12 @@ export default function MobileHorizonDayStrip({
         <button
           type="button"
           onClick={onOpenFullMonth}
-          className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 active:bg-blue-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+          className="flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-700 active:bg-brand-50 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
           title="Open Full Month Calendar"
         >
           <CalendarIcon className="w-3.5 h-3.5" />
           <span>Full Month</span>
-          <ChevronDown className="w-3 h-3 text-blue-500" />
+          <ChevronDown className="w-3 h-3 text-brand-500" />
         </button>
       </div>
 
@@ -53,11 +53,14 @@ export default function MobileHorizonDayStrip({
               key={day.dateStr}
               type="button"
               onClick={() => onSelectDate(day.dateStr)}
+              aria-label={`${day.dayName}, ${day.dateStr}${isToday ? " (Today)" : ""}${isSelected ? " (Selected)" : ""}`}
+              aria-current={isToday ? "date" : undefined}
+              aria-pressed={isSelected}
               className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl transition-all cursor-pointer relative min-h-[54px] ${
                 isSelected
-                  ? "bg-blue-600 text-white shadow-xs font-bold scale-[1.03]"
+                  ? "bg-brand-600 text-white shadow-xs font-bold scale-[1.03]"
                   : isToday
-                  ? "border border-blue-400 bg-blue-50/60 text-blue-900 font-semibold hover:bg-blue-100/50"
+                  ? "border border-brand-300 bg-brand-50 text-brand-900 font-semibold hover:bg-brand-100"
                   : "hover:bg-slate-100 text-slate-700 font-medium"
               }`}
               title={`${day.dayName}, ${day.dateStr}`}
@@ -66,9 +69,9 @@ export default function MobileHorizonDayStrip({
               <span
                 className={`text-[10px] uppercase font-semibold leading-none mb-1 ${
                   isSelected
-                    ? "text-blue-100"
+                    ? "text-brand-100"
                     : isToday
-                    ? "text-blue-600"
+                    ? "text-brand-600"
                     : "text-slate-400"
                 }`}
               >
@@ -81,11 +84,11 @@ export default function MobileHorizonDayStrip({
               </span>
 
               {/* Activity indicator dot */}
-              <div className="flex items-center justify-center gap-0.5 mt-1 h-1.5">
+              <div className="flex items-center justify-center gap-0.5 mt-1 h-1.5" aria-hidden="true">
                 {hasAppointments && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      isSelected ? "bg-white" : "bg-blue-600"
+                      isSelected ? "bg-white" : "bg-brand-600"
                     }`}
                   />
                 )}

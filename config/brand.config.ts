@@ -4,12 +4,15 @@ import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPu
 // Master Brand Switch — update this single variable to rebrand the entire app.
 // All derived properties (slug, storage keys, titles, etc.) update automatically.
 // =========================================================================
-export const PRIMARY_BRAND_NAME = "GoSmartClinic";
+export const PRIMARY_BRAND_NAME =
+  process.env.NEXT_PUBLIC_BRAND_NAME || "DocSpace";
 
 // 🎨 ICON SWITCH: Change type to "svg" or "image", or swap component
 export const PRIMARY_BRAND_ICON = {
-  type: "svg" as "svg" | "image",
-  imageSrc: "/gosmartclinic-icon.png",
+  type: "image" as "svg" | "image",
+  imageSrc: "/emblem-only.png",
+  fullLogo: "/logo.webp",
+  fullLogoPng: "/logo.png",
   component: StethoscopeHeartPulseIcon,
   alt: `${PRIMARY_BRAND_NAME} Icon`,
 };
@@ -23,9 +26,35 @@ export const BRAND_CONFIG = {
   // Identity
   name: PRIMARY_BRAND_NAME,
   slug: brandSlug,
-  tagline: "The Digital Healthcare Presence Platform for Doctors",
+  tagline: "Simple & Smart Software for Modern Clinics",
   description:
-    "The digital healthcare platform enabling doctors to create, customize, and scale their own branded website and mobile presence effortlessly.",
+    "An easy-to-use platform for clinics to manage doctor appointments, bills, patient records, and daily visits in one place.",
+
+  // Central Brand Assets (Single Source of Truth)
+  assets: {
+    favicon: "/favicon.ico",
+    favicon16: "/favicon-16.png",
+    favicon32: "/favicon-32.png",
+    appleTouchIcon: "/apple-touch-icon.png",
+    icon192: "/icon-192.png",
+    icon512: "/icon-512.png",
+    emblem: "/emblem-only.png",
+    logo: "/logo.png",
+    logoWebp: "/logo.webp",
+    logo2x: "/logo@2x.png",
+  },
+
+  // Dynamic Metadata Icons Helper for Next.js App Router (Favicons & Apple Touch)
+  getMetadataIcons: () => ({
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  }),
 
   // Dynamic UI Strings
   poweredBy: `Powered by ${PRIMARY_BRAND_NAME}`,
@@ -56,7 +85,7 @@ export const BRAND_CONFIG = {
   // SEO & Browser Tab Title Formatter
   formatMetaTitle: (pageTitle?: string) => {
     if (!pageTitle) {
-      return `${PRIMARY_BRAND_NAME} — The Digital Healthcare Presence Platform for Doctors`;
+      return `${PRIMARY_BRAND_NAME} — Simple Clinic Management Software`;
     }
     return `${pageTitle} - ${PRIMARY_BRAND_NAME}`;
   },

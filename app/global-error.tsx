@@ -27,7 +27,7 @@ export default function RootGlobalError({
           <button
             type="button"
             onClick={() => reset()}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-colors shadow-sm"
+            className="px-5 py-2.5 rounded-xl bg-brand-600 text-white font-semibold text-sm hover:bg-brand-700 transition-colors shadow-sm"
           >
             Reload Platform
           </button>

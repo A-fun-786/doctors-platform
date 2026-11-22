@@ -82,12 +82,12 @@ assertHasClasses(
 );
 assertHasClasses(
   miniCalSrc,
-  ["border-brand-600", "text-brand-600", "bg-brand-50/50", "hover:bg-brand-100/60"],
+  ["border-brand-600", "text-brand-600", "bg-brand-50", "hover:bg-brand-100"],
   "MiniCalendar (Today unselected state)"
 );
 assertHasClasses(
   miniCalSrc,
-  ["bg-brand-100", "text-brand-800", "hover:bg-brand-200/80"],
+  ["bg-brand-100", "text-brand-800", "hover:bg-brand-200"],
   "MiniCalendar (Selected other dates)"
 );
 assert.ok(
