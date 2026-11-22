@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_SCHEDULE: str = "30/minute"
     RATE_LIMIT_APPOINTMENT: str = "20/minute"
 
+    # Idempotency
+    IDEMPOTENCY_TTL_SECONDS: int = 86400
+
     # Observability & Monitoring (Sentry & Structlog)
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
