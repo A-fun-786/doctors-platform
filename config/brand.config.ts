@@ -5,7 +5,7 @@ import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPu
 // All derived properties (slug, storage keys, titles, etc.) update automatically.
 // =========================================================================
 export const PRIMARY_BRAND_NAME =
-  process.env.NEXT_PUBLIC_BRAND_NAME || "DocSpace";
+  process.env.NEXT_PUBLIC_BRAND_NAME || "GoSmart Clinic";
 
 // 🎨 ICON SWITCH: Change type to "svg" or "image", or swap component
 export const PRIMARY_BRAND_ICON = {
