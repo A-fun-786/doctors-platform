@@ -4,7 +4,8 @@ import { StethoscopeHeartPulseIcon } from "@/components/brand/StethoscopeHeartPu
 // Master Brand Switch — update this single variable to rebrand the entire app.
 // All derived properties (slug, storage keys, titles, etc.) update automatically.
 // =========================================================================
-export const PRIMARY_BRAND_NAME = "GoSmartClinic";
+export const PRIMARY_BRAND_NAME =
+  process.env.NEXT_PUBLIC_BRAND_NAME || "DocSpace";
 
 // 🎨 ICON SWITCH: Change type to "svg" or "image", or swap component
 export const PRIMARY_BRAND_ICON = {
@@ -25,9 +26,9 @@ export const BRAND_CONFIG = {
   // Identity
   name: PRIMARY_BRAND_NAME,
   slug: brandSlug,
-  tagline: "The Digital Healthcare Presence Platform for Doctors",
+  tagline: "Simple & Smart Software for Modern Clinics",
   description:
-    "The digital healthcare platform enabling doctors to create, customize, and scale their own branded website and mobile presence effortlessly.",
+    "An easy-to-use platform for clinics to manage doctor appointments, bills, patient records, and daily visits in one place.",
 
   // Central Brand Assets (Single Source of Truth)
   assets: {
@@ -84,7 +85,7 @@ export const BRAND_CONFIG = {
   // SEO & Browser Tab Title Formatter
   formatMetaTitle: (pageTitle?: string) => {
     if (!pageTitle) {
-      return `${PRIMARY_BRAND_NAME} — The Digital Healthcare Presence Platform for Doctors`;
+      return `${PRIMARY_BRAND_NAME} — Simple Clinic Management Software`;
     }
     return `${pageTitle} - ${PRIMARY_BRAND_NAME}`;
   },

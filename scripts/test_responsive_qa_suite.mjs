@@ -65,7 +65,11 @@ const adaptiveDataView = fs.readFileSync(path.join(projectRoot, "components", "l
 const responsiveGrid = fs.readFileSync(path.join(projectRoot, "components", "layout", "ResponsiveGrid.tsx"), "utf-8");
 const pageContainer = fs.readFileSync(path.join(projectRoot, "components", "layout", "PageContainer.tsx"), "utf-8");
 const toastUi = fs.readFileSync(path.join(projectRoot, "components", "ui", "Toast.tsx"), "utf-8");
-const publicSlugPage = fs.readFileSync(path.join(projectRoot, "app", "[slug]", "page.tsx"), "utf-8");
+const bookingFormFile = path.join(projectRoot, "components", "public-booking", "AppointmentBookingForm.tsx");
+const slotPickerFile = path.join(projectRoot, "components", "public-booking", "TimeSlotPicker.tsx");
+const publicSlugPage = fs.readFileSync(path.join(projectRoot, "app", "[slug]", "page.tsx"), "utf-8") +
+  (fs.existsSync(bookingFormFile) ? fs.readFileSync(bookingFormFile, "utf-8") : "") +
+  (fs.existsSync(slotPickerFile) ? fs.readFileSync(slotPickerFile, "utf-8") : "");
 const navbarLanding = fs.readFileSync(path.join(projectRoot, "components", "landing", "Navbar.tsx"), "utf-8");
 
 console.log("\n================================================================================");
@@ -142,8 +146,8 @@ verifyCheck("B", 3, "Mobile hamburger menu and mobile action navigation", () => 
   assert.ok(dashboardShell.includes("<header className=\"md:hidden sticky top-0"), "Sticky mobile header present in DashboardShell");
   assert.ok(dashboardShell.includes("Menu"), "Hamburger Menu icon present in mobile topbar");
   assert.ok(dashboardShell.includes("aria-label=\"Open navigation menu\""), "Accessible hamburger menu button");
-  assert.ok(navbarLanding.includes("flex md:hidden items-center"), "Landing Navbar includes responsive mobile actions container");
-  assert.ok(navbarLanding.includes("Sign Up"), "Landing Navbar includes direct mobile Sign Up button");
+  assert.ok(navbarLanding.includes("lg:hidden") && navbarLanding.includes("Menu"), "Landing Navbar includes responsive mobile drawer toggle");
+  assert.ok(navbarLanding.includes("SignUp / LogIn") || navbarLanding.includes("Signup / Login"), "Landing Navbar includes mobile action button");
   assert.ok(navbarLanding.includes("href=\"/login\""), "Landing Navbar includes direct mobile Login link");
 });
 
@@ -203,7 +207,7 @@ verifyCheck("C", 4, "Charts remain readable on small screens", () => {
 
 verifyCheck("C", 5, "Lists and pagination adapt", () => {
   assert.ok(overviewTab.includes("todayAppointments.map"), "Appointment list iterates cleanly");
-  assert.ok(publicSlugPage.includes("inClinicAvailableSlots.map") || publicSlugPage.includes("videoAvailableSlots.map"), "Slot list adapts smoothly");
+  assert.ok(publicSlugPage.includes("availableSlots.map") || publicSlugPage.includes("inClinicAvailableSlots.map") || publicSlugPage.includes("videoAvailableSlots.map"), "Slot list adapts smoothly");
 });
 
 verifyCheck("C", 6, "Empty, loading and error states", () => {

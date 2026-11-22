@@ -251,7 +251,7 @@ export default function EditWorkingHoursModal({
     >
       <form onSubmit={handleSave} className="space-y-4">
         {/* Total Slot Capacity Banner */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-brand-50/90 via-teal-50/60 to-brand-50/90 border border-brand-200/80 text-brand-950">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-brand-50/90 via-brand-50/60 to-brand-50/90 border border-brand-200/80 text-brand-950">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-brand-600 shrink-0" />
             <div>
@@ -309,7 +309,7 @@ export default function EditWorkingHoursModal({
                         value={shift.label}
                         onChange={(e) => handleLabelChange(shift.id, e.target.value)}
                         placeholder={`Schedule ${index + 1}`}
-                        className="text-xs font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-400 focus:border-brand-600 focus:outline-hidden w-full max-w-[200px] transition-all py-0.5"
+                        className="text-xs font-bold text-slate-900 bg-transparent border-b border-dashed border-slate-200 hover:border-slate-400 focus:border-brand-600 focus:outline-none w-full max-w-[200px] transition-all py-0.5"
                       />
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${
                         shift.enabled
@@ -329,8 +329,9 @@ export default function EditWorkingHoursModal({
                         checked={shift.enabled}
                         onChange={() => handleToggleShift(shift.id)}
                         className="sr-only peer"
+                        aria-label={`Enable ${shift.label || `Schedule ${index + 1}`}`}
                       />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
                     </label>
 
                     {/* Delete Session Button */}
@@ -359,7 +360,7 @@ export default function EditWorkingHoursModal({
                           onChange={(e) =>
                             handleTimeChange(shift.id, "start", e.target.value)
                           }
-                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                         >
                           {TIME_OPTIONS_30M.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -381,7 +382,7 @@ export default function EditWorkingHoursModal({
                           onChange={(e) =>
                             handleTimeChange(shift.id, "end", e.target.value)
                           }
-                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
+                          className="w-full text-xs font-semibold pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                         >
                           {TIME_OPTIONS_30M.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -407,7 +408,7 @@ export default function EditWorkingHoursModal({
             className="w-full py-2.5 px-3 rounded-xl border border-dashed border-brand-300 bg-brand-50/40 hover:bg-brand-100/70 text-brand-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span>Add Another Schedule Window ({shifts.length}/4)</span>
+            <span>+ Add Another Schedule Window ({shifts.length}/4)</span>
           </button>
         )}
 
@@ -423,7 +424,7 @@ export default function EditWorkingHoursModal({
           <button
             type="submit"
             disabled={!!validationError || isSaving}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-500/20 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
           >
             {isSaving ? (
               <>

@@ -26,6 +26,8 @@ import {
   getAppDownloadUrl,
 } from "@/lib/api";
 import { BRAND_CONFIG } from "@/config/brand.config";
+import { Card } from "@/components/ui/Card";
+import { logger } from "@/lib/logger";
 
 interface AndroidAppTabProps {
   doctor: DoctorMeResponse;
@@ -45,6 +47,17 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [buildLogs, setBuildLogs] = useState<string>("");
 
+  const fetchLogs = async (taskId: string) => {
+    try {
+      const l = await getAppBuildLogs(taskId);
+      setBuildLogs(l.logs);
+    } catch (err: unknown) {
+      logger.warn("AndroidAppTab", `Failed to fetch build logs for task ${taskId}`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
   useEffect(() => {
     getAppPreview()
       .then((previewData) => {
@@ -54,7 +67,9 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           setBuildTaskId(previewData.latest_apk.task_id);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        logger.error("AndroidAppTab", "Failed to load initial Android app preview", err);
+      });
   }, []);
 
   // Poll for Android App build status
@@ -67,19 +82,21 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         const res = await getAppBuildStatus(buildTaskId);
         setBuildStatus(res);
         if (showLogs) {
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         }
         if (res.status === "completed") {
           setBuildingApp(false);
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         } else if (res.status === "failed") {
           setBuildingApp(false);
           setBuildError(res.error || "Compilation failed. Check build logs.");
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         }
       } catch (err: unknown) {
         setBuildingApp(false);
-        setBuildError(err instanceof Error ? err.message : "Error checking build status");
+        const msg = err instanceof Error ? err.message : "Error checking build status";
+        logger.error("AndroidAppTab", msg, err, { buildTaskId });
+        setBuildError(msg);
       }
     }, 2500);
 
@@ -99,10 +116,18 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
       await uploadAppIcon(file);
       setAppIconPreview(URL.createObjectURL(file));
       setIconUploadSuccess("Custom app icon updated successfully!");
-      const updatedPreview = await getAppPreview().catch(() => null);
+      logger.action("AndroidAppTab", "Uploaded custom app icon", { fileName: file.name, fileSize: file.size });
+      const updatedPreview = await getAppPreview().catch((err: unknown) => {
+        logger.warn("AndroidAppTab", "Failed to refresh app preview after icon upload", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      });
       if (updatedPreview) setAppPreview(updatedPreview);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to upload icon");
+      const msg = err instanceof Error ? err.message : "Failed to upload icon";
+      logger.error("AndroidAppTab", msg, err);
+      alert(msg);
     } finally {
       setUploadingIcon(false);
     }
@@ -124,9 +149,48 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         app_name: res.app_name,
         package_name: res.package_name,
       });
+      logger.action("AndroidAppTab", "Initiated Android app compilation", {
+        taskId: res.task_id,
+        appName: res.app_name,
+        packageName: res.package_name,
+      });
     } catch (err: unknown) {
       setBuildingApp(false);
-      setBuildError(err instanceof Error ? err.message : "Failed to initiate app compilation");
+      const msg = err instanceof Error ? err.message : "Failed to initiate app compilation";
+      logger.error("AndroidAppTab", msg, err);
+      setBuildError(msg);
+    }
+  };
+
+  const handleCopyApkUrl = async (taskId: string) => {
+    const url = getAppDownloadUrl(taskId);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopiedApkUrl(true);
+        setTimeout(() => setCopiedApkUrl(false), 2000);
+        logger.action("AndroidAppTab", "Copied APK download link to clipboard", { taskId });
+      } else {
+        throw new Error("Clipboard API unavailable in this environment");
+      }
+    } catch (err: unknown) {
+      logger.warn("AndroidAppTab", "Failed to copy APK download link to clipboard", {
+        error: err instanceof Error ? err.message : String(err),
+        taskId,
+        url,
+      });
+      if (typeof window !== "undefined") {
+        window.prompt("Copy APK download link:", url);
+      }
+    }
+  };
+
+  const handleToggleLogs = () => {
+    const nextState = !showLogs;
+    setShowLogs(nextState);
+    if (nextState && buildTaskId) {
+      logger.action("AndroidAppTab", "Toggled live build console view", { buildTaskId, show: nextState });
+      fetchLogs(buildTaskId);
     }
   };
 
@@ -134,7 +198,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
   const fullName = profile?.full_name || doctor.full_name || "";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <Card className="overflow-hidden">
       <div className="p-4 sm:p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shrink-0">
@@ -364,18 +428,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      const url = getAppDownloadUrl(buildStatus.task_id);
-                      try {
-                        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-                          navigator.clipboard.writeText(url).catch(() => {});
-                        }
-                      } catch {
-                        // ignore
-                      }
-                      setCopiedApkUrl(true);
-                      setTimeout(() => setCopiedApkUrl(false), 2000);
-                    }}
+                    onClick={() => handleCopyApkUrl(buildStatus.task_id)}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-xs transition-colors cursor-pointer"
                   >
                     {copiedApkUrl ? (
@@ -401,15 +454,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextState = !showLogs;
-                    setShowLogs(nextState);
-                    if (nextState && buildTaskId) {
-                      getAppBuildLogs(buildTaskId)
-                        .then((l) => setBuildLogs(l.logs))
-                        .catch(() => {});
-                    }
-                  }}
+                  onClick={handleToggleLogs}
                   className="text-xs font-semibold text-slate-700 hover:text-brand-600 flex items-center gap-1.5 transition-colors"
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -435,6 +480,6 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
