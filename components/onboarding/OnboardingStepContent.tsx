@@ -353,7 +353,7 @@ export function Step4ClinicLocation({ address, onChange, fieldError }: Step4Prop
             rows={4}
             value={address}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="e.g. Suite 402, 4th Floor, City Medical Tower, Central Avenue, Karachi"
+            placeholder="e.g. Suite 402, 4th Floor, City Medical Tower, Barakhamba Road, Connaught Place, New Delhi - 110001"
             aria-required="true"
             aria-describedby={fieldError ? "address-error" : undefined}
             aria-invalid={!!fieldError}
