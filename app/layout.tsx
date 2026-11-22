@@ -5,6 +5,7 @@ import { BRAND_CONFIG } from "@/config/brand.config";
 export const metadata: Metadata = {
   title: BRAND_CONFIG.formatMetaTitle(),
   description: BRAND_CONFIG.description,
+  icons: BRAND_CONFIG.getMetadataIcons(),
 };
 
 export const viewport: Viewport = {

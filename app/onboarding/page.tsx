@@ -6,14 +6,15 @@
  *
  * Architecture:
  *   app/onboarding/
- *   ├── page.tsx                          ← orchestrator (this file)
- *   ├── constants/
- *   │   ├── steps.ts                      ← WIZARD_STEPS config
- *   │   └── dialCodes.ts                  ← Re-exports from @/lib/dialCodes
- *   └── components/
- *       ├── OnboardingLayout.tsx          ← Header (BrandLogo), Sidebar, MobileStepBadge
- *       ├── OnboardingStepContent.tsx     ← Step1–Step4 pure form components
- *       └── OnboardingPhoneInput.tsx      ← Re-exports from @/components/ui/PhoneInput
+ *   └── page.tsx                          ← orchestrator (this file)
+ *   components/onboarding/
+ *   ├── steps.ts                          ← WIZARD_STEPS config
+ *   ├── OnboardingLayout.tsx              ← Header (BrandLogo), Sidebar, MobileStepBadge
+ *   └── OnboardingStepContent.tsx         ← Step1–Step4 pure form components
+ *   components/ui/
+ *   └── PhoneInput.tsx                    ← Reusable phone picker with dial codes
+ *   lib/
+ *   └── dialCodes.ts                      ← Phone dial codes and helpers
  *
  * Standards:
  *   • WCAG 2.1 AA — aria-*, role=*, focus management, combobox
@@ -47,20 +48,21 @@ import {
   detectDefaultCountry,
   parseStoredPhone,
   stripLeadingZero,
+  validatePhoneNumber,
 } from "@/lib/dialCodes";
 
-import { WIZARD_STEPS, TOTAL_STEPS } from "./constants/steps";
+import { WIZARD_STEPS, TOTAL_STEPS } from "@/components/onboarding/steps";
 import {
   OnboardingHeader,
   OnboardingSidebar,
   MobileStepBadge,
-} from "./components/OnboardingLayout";
+} from "@/components/onboarding/OnboardingLayout";
 import {
   Step1ClinicName,
   Step2ClinicLogo,
   Step3ContactPhone,
   Step4ClinicLocation,
-} from "./components/OnboardingStepContent";
+} from "@/components/onboarding/OnboardingStepContent";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -142,8 +144,6 @@ export default function OnboardingPage() {
         // Resolve logo
         if (profile.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR) {
           setClinicLogoUrl(profile.avatar_url);
-        } else if (profile.app_icon_url) {
-          setClinicLogoUrl(profile.app_icon_url);
         }
 
         // Set logger user context (non-PII fields only)
@@ -156,7 +156,9 @@ export default function OnboardingPage() {
           err instanceof Error ? err.message : "Failed to load profile.";
         logger.error(MOD, "Failed to load doctor profile", err instanceof Error ? err : new Error(String(err)));
         setGlobalError(msg);
-        router.replace("/login");
+        if (msg.includes("Session expired") || msg.includes("401") || msg.includes("Unauthorized")) {
+          router.replace("/login");
+        }
       } finally {
         setLoading(false);
       }
@@ -219,93 +221,46 @@ export default function OnboardingPage() {
   // ─────────────────────────────────────────────────────────────────────────
   // Field validation — returns field-level error or null
   // ─────────────────────────────────────────────────────────────────────────
-  function validateStep(stepId: number): FieldErrors {
-    const errors: FieldErrors = {};
-    switch (stepId) {
-      case 1:
-        if (!clinicName.trim()) {
-          errors.clinicName = "Please enter your clinic name.";
-        } else if (clinicName.trim().length < 3) {
-          errors.clinicName = "Clinic name must be at least 3 characters.";
+  const validateStep = useCallback(
+    (stepId: number): FieldErrors => {
+      const errors: FieldErrors = {};
+      switch (stepId) {
+        case 1:
+          if (!clinicName.trim()) {
+            errors.clinicName = "Please enter your clinic name.";
+          } else if (clinicName.trim().length < 3) {
+            errors.clinicName = "Clinic name must be at least 3 characters.";
+          }
+          break;
+        case 2:
+          // Logo is optional — no validation errors
+          break;
+        case 3: {
+          const cleaned = stripLeadingZero(localNumber);
+          if (!cleaned) {
+            errors.phone = "Please enter a contact number.";
+          } else if (!validatePhoneNumber(cleaned)) {
+            errors.phone = "Phone number must be between 7 and 15 digits.";
+          }
+          break;
         }
-        break;
-      case 2:
-        // Logo is optional — no validation errors
-        break;
-      case 3: {
-        const digits = localNumber.replace(/\D/g, "");
-        if (!digits) {
-          errors.phone = "Please enter a contact number.";
-        } else if (digits.length < 7 || digits.length > 15) {
-          errors.phone = "Phone number must be between 7 and 15 digits.";
-        }
-        break;
+        case 4:
+          if (!address.trim()) {
+            errors.address = "Please enter the clinic address.";
+          } else if (address.trim().length < 10) {
+            errors.address = "Please provide a more complete address.";
+          }
+          break;
       }
-      case 4:
-        if (!address.trim()) {
-          errors.address = "Please enter the clinic address.";
-        } else if (address.trim().length < 10) {
-          errors.address = "Please provide a more complete address.";
-        }
-        break;
-    }
-    return errors;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Navigation
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleNext = useCallback(() => {
-    setGlobalError(null);
-    const errors = validateStep(step);
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      logger.debug(MOD, "Step validation failed", { step, errors });
-      return;
-    }
-    setFieldErrors({});
-    logger.action(MOD, `Step ${step} completed`, { step });
-
-    if (step < TOTAL_STEPS) {
-      setStep((prev) => prev + 1);
-    } else {
-      handleFinalizeSetup();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, clinicName, localNumber, address, clinicLogoUrl, country]);
-
-  const handleBack = useCallback(() => {
-    setGlobalError(null);
-    setFieldErrors({});
-    if (step > 1) {
-      logger.action(MOD, "User navigated back", { from: step });
-      setStep((prev) => prev - 1);
-    }
-  }, [step]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Enter key — advances step (except textarea on step 4)
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // Support Ctrl+Enter / Cmd+Enter on any step (including step 4 textarea)
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleNext();
-        return;
-      }
-      if (e.key === "Enter" && !e.shiftKey && step !== 4) {
-        e.preventDefault();
-        handleNext();
-      }
+      return errors;
     },
-    [step, handleNext]
+    [clinicName, localNumber, address]
   );
 
   // ─────────────────────────────────────────────────────────────────────────
   // Finalize — save to API and redirect straight to /dashboard
   // ─────────────────────────────────────────────────────────────────────────
-  const handleFinalizeSetup = async () => {
+  const handleFinalizeSetup = useCallback(async () => {
     // Final full-form validation sweep
     const allErrors: FieldErrors = {
       ...validateStep(1),
@@ -333,14 +288,13 @@ export default function OnboardingPage() {
 
       // Persist removed logo as DEFAULT_DOCTOR_AVATAR rather than falling back to previous avatar
       const finalAvatar = clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR;
-      const finalAppIcon = clinicLogoUrl ? clinicLogoUrl : undefined;
 
       const updated = await updateDoctorProfile({
         clinic_name: clinicName.trim(),
         phone: combinedPhone,
         location: address.trim(),
         avatar_url: finalAvatar,
-        app_icon_url: finalAppIcon,
+        app_icon_url: clinicLogoUrl ? clinicLogoUrl : "",
         full_name: profileData?.full_name,
         speciality: profileData?.speciality ?? undefined,
         bio: profileData?.bio ?? undefined,
@@ -369,7 +323,79 @@ export default function OnboardingPage() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    validateStep,
+    clinicLogoUrl,
+    country,
+    clinicName,
+    combinedPhone,
+    address,
+    profileData,
+    router,
+    step,
+  ]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Navigation
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleNext = useCallback(() => {
+    setGlobalError(null);
+    const errors = validateStep(step);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      logger.debug(MOD, "Step validation failed", { step, errors });
+      return;
+    }
+    setFieldErrors({});
+    logger.action(MOD, `Step ${step} completed`, { step });
+
+    if (step < TOTAL_STEPS) {
+      setStep((prev) => prev + 1);
+    } else {
+      handleFinalizeSetup();
+    }
+  }, [step, validateStep, handleFinalizeSetup]);
+
+  const handleBack = useCallback(() => {
+    setGlobalError(null);
+    setFieldErrors({});
+    if (step > 1) {
+      logger.action(MOD, "User navigated back", { from: step });
+      setStep((prev) => prev - 1);
+    }
+  }, [step]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Enter key — advances step (except textarea on step 4 or interactive elements)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Do not intercept Enter when target is an interactive non-text element (buttons, links, textareas)
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "BUTTON" ||
+          target.tagName === "A" ||
+          target.tagName === "TEXTAREA" ||
+          target.getAttribute("role") === "button" ||
+          target.getAttribute("role") === "option")
+      ) {
+        return;
+      }
+
+      // Support Ctrl+Enter / Cmd+Enter on any step (including step 4 textarea)
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey && step !== 4) {
+        e.preventDefault();
+        handleNext();
+      }
+    },
+    [step, handleNext]
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // ── LOADING SCREEN ────────────────────────────────────────────────────────
@@ -379,16 +405,40 @@ export default function OnboardingPage() {
       <div
         className="min-h-screen bg-hospital-surface flex flex-col items-center justify-center gap-4"
         aria-live="polite"
-        aria-busy="true"
+        aria-busy={!globalError}
         role="status"
       >
-        <Loader2
-          className="w-10 h-10 text-brand-600 animate-spin stroke-[2.2]"
-          aria-hidden="true"
-        />
-        <p className="text-sm font-bold text-hospital-navy tracking-wide">
-          Loading Practice Workspace…
-        </p>
+        {globalError ? (
+          <div className="max-w-md p-6 bg-white border border-red-200 rounded-2xl shadow-lg text-center space-y-4 mx-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">
+              !
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-hospital-navy">Connection Error</h2>
+              <p className="text-sm text-red-600">{globalError}</p>
+            </div>
+            <button
+              onClick={() => {
+                setLoading(true);
+                setGlobalError(null);
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <Loader2
+              className="w-10 h-10 text-brand-600 animate-spin stroke-[2.2]"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-bold text-hospital-navy tracking-wide">
+              Loading Practice Workspace…
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -448,7 +498,7 @@ export default function OnboardingPage() {
             {/* Content panel */}
             <div
               key={`step-panel-${step}`}
-              className="flex-1 flex flex-col justify-between p-6 sm:p-8 md:p-10 bg-white rounded-2xl sm:rounded-3xl md:rounded-l-none animate-in fade-in-50 duration-200"
+              className="flex-1 flex flex-col justify-between p-6 sm:p-8 md:p-10 bg-white rounded-2xl sm:rounded-3xl md:rounded-l-none"
               onKeyDown={handleKeyDown}
             >
               <div className="space-y-6">

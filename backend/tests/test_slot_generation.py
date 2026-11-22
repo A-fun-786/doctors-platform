@@ -313,8 +313,17 @@ def test_2_27_public_slot_rate_limit(client, test_tenant):
     assert status_codes[30] == 429
 
 
-def test_doctor_authenticated_available_slots(client, db_session, test_doctor, auth_headers):
+def test_doctor_authenticated_available_slots(client, db_session, test_doctor, auth_headers, monkeypatch):
     """Verify GET /api/v1/doctor/available-slots with authenticated doctor."""
+    import app.services.schedule_service as sched_service
+
+    class MockDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 21, 8, 0, 0)
+
+    monkeypatch.setattr(sched_service, "datetime", MockDatetime)
+
     q_date = "2026-11-21"
     db_session.add(Schedule(
         doctor_id=test_doctor.id,

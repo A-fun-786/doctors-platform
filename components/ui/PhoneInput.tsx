@@ -67,7 +67,7 @@ export function CountryFlag({
       srcSet={`https://flagcdn.com/w80/${code}.png 2x`}
       width={width}
       height={height}
-      alt={country?.name ? `${country.name} flag` : "Flag"}
+      alt=""
       onError={() => setLoadFailed(true)}
       className="shrink-0 rounded-[2px] object-cover shadow-xs border border-slate-200/80"
       aria-hidden="true"
@@ -116,7 +116,7 @@ export function PhoneInput({
   const idPrefix = customId || `phone-${baseReactId.replace(/:/g, "")}`;
   const listboxId = `${idPrefix}-listbox`;
   const errorId = `${idPrefix}-error`;
-  const inputId = `${idPrefix}-input`;
+  const inputId = customId || `${idPrefix}-input`;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -283,7 +283,6 @@ export function PhoneInput({
                 "absolute left-0 top-full mt-1.5 z-50",
                 "w-[calc(100vw-3rem)] max-w-xs sm:w-72 bg-white border border-hospital-border rounded-xl",
                 "shadow-xl shadow-slate-900/10 overflow-hidden",
-                "animate-in fade-in-0 zoom-in-95 duration-100",
               ].join(" ")}
             >
               {/* Search input (Combobox) */}
