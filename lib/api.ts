@@ -1028,6 +1028,58 @@ export interface StaffMemberCreatePayload {
   password?: string;
 }
 
+export const DOCTOR_ROLE_KEYWORDS = [
+  "doctor",
+  "physician",
+  "specialist",
+  "consultant",
+  "surgeon",
+  "pediatrician",
+  "cardiologist",
+  "dermatologist",
+  "gynecologist",
+  "orthopedic",
+  "neurologist",
+  "dentist",
+  "practitioner",
+  "resident",
+  "fellow",
+] as const;
+
+export const NON_DOCTOR_ROLE_KEYWORDS = [
+  "assistant",
+  "technician",
+  "nurse",
+  "receptionist",
+  "pharmacist",
+  "billing",
+  "admin",
+  "clerk",
+  "attendant",
+] as const;
+
+/**
+ * Canonical practitioner classifier matching backend is_doctor_role() in app.models.staff.
+ * Returns true if the role string represents a medical doctor/practitioner.
+ * Excludes support personnel (nurses, assistants, technicians, etc.) even if their role
+ * contains clinical keywords.
+ */
+export function isDoctorRole(role?: string | null): boolean {
+  if (!role) return false;
+  const r = role.trim().toLowerCase();
+  if (NON_DOCTOR_ROLE_KEYWORDS.some((kw) => r.includes(kw))) {
+    return false;
+  }
+  return DOCTOR_ROLE_KEYWORDS.some((kw) => r.includes(kw));
+}
+
+export interface StaffSummaryMetrics {
+  total_staff: number;
+  active_staff: number;
+  doctors_count: number;
+  departments_count: number;
+}
+
 export interface StaffMemberUpdatePayload {
   full_name?: string;
   username?: string;
@@ -1060,6 +1112,16 @@ export async function listStaff(params?: {
   if (params?.search) query.set("search", params.search);
   const qs = query.toString();
   return apiFetch<StaffMember[]>(`/api/v1/staff${qs ? `?${qs}` : ""}`, {
+    method: "GET",
+    requireAuth: true,
+  });
+}
+
+/**
+ * Fetch high-level Staff Management KPI summary metrics for the clinic.
+ */
+export async function getStaffSummary(): Promise<StaffSummaryMetrics> {
+  return apiFetch<StaffSummaryMetrics>("/api/v1/staff/summary", {
     method: "GET",
     requireAuth: true,
   });

@@ -25,7 +25,7 @@ import CalendarDrawer from "./calendar/panels/CalendarDrawer";
 import AppointmentDetailsPanel from "./calendar/panels/AppointmentDetailsPanel";
 import LeaveDetailsPanel from "./calendar/panels/LeaveDetailsPanel";
 import { format12Hour, saveDoctorWorkingHours, parseYYYYMMDD, formatDateToYYYYMMDD } from "./calendar/calendarUtils";
-import { getDoctorWorkingHours, getClinicPractitioners, Practitioner } from "@/lib/api";
+import { getDoctorWorkingHours, getClinicPractitioners, Practitioner, isDoctorRole } from "@/lib/api";
 import { logger } from "@/lib/logger";
 
 export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: CalendarTabProps) {
@@ -52,8 +52,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
   } = useCalendarData();
 
   const isStaff = doctor.user_type === "staff";
-  const STAFF_DOCTOR_ROLES = ["doctor", "junior doctor", "consultant", "physician", "surgeon", "specialist"];
-  const isStaffDoctor = isStaff && STAFF_DOCTOR_ROLES.includes((doctor.role || "").trim().toLowerCase());
+  const isStaffDoctor = isStaff && isDoctorRole(doctor.role);
   const canCompleteAppointment = !isStaff || isStaffDoctor;
 
   useEffect(() => {

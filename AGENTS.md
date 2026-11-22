@@ -1,5 +1,5 @@
 # Agent Guidelines & Repository Architecture (AGENTS.md)
-*Last updated: November 20, 2026*
+*Last updated: November 22, 2026*
 
 ## Quick Verification Commands
 Always run these before and after changes:
@@ -24,8 +24,12 @@ Always run these before and after changes:
   - Auth Service & Login: [`backend/app/services/auth_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/auth_service.py), [`components/auth/EmailAuthForm.tsx`](file:///Users/emanur/doctors-platform/components/auth/EmailAuthForm.tsx)
   - Staff Service: [`backend/app/services/staff_service.py`](file:///Users/emanur/doctors-platform/backend/app/services/staff_service.py)
   - Staff Doctor Restrictions: [`backend/app/api/deps.py`](file:///Users/emanur/doctors-platform/backend/app/api/deps.py), [`backend/app/api/routes/appointment.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/appointment.py), [`backend/app/api/routes/calendar.py`](file:///Users/emanur/doctors-platform/backend/app/api/routes/calendar.py)
+  - Canonical Role Classifier: [`backend/app/models/staff.py`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) (`is_doctor_role`), [`lib/api.ts`](file:///Users/emanur/doctors-platform/lib/api.ts) (`isDoctorRole`)
   - Tests: [`backend/tests/test_staff_auth.py`](file:///Users/emanur/doctors-platform/backend/tests/test_staff_auth.py), [`backend/tests/test_staff.py`](file:///Users/emanur/doctors-platform/backend/tests/test_staff.py)
   - Deep Doc: [`docs/STAFF_MANAGEMENT_ARCHITECTURE.md`](file:///Users/emanur/doctors-platform/docs/STAFF_MANAGEMENT_ARCHITECTURE.md)
+- **Dashboard & Overview UI:**
+  - Overview Component: [`components/dashboard/OverviewTab.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/OverviewTab.tsx) (uses O(1) server-side total counting and local calendar date normalization)
+  - Shell & Navigation: [`components/dashboard/DashboardShell.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/DashboardShell.tsx)
 - **Calendar & Appointment UI:**
   - Main Tab: [`components/dashboard/CalendarTab.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/CalendarTab.tsx)
   - Header & Date Picker: [`components/dashboard/calendar/views/CalendarHeader.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/views/CalendarHeader.tsx)
@@ -47,8 +51,10 @@ Always run these before and after changes:
 - **Staff User ID Normalization**: Normalize User IDs via schema field validators by stripping leading `@`, trimming whitespace, and converting to lowercase.
 - **Immediate Session Invalidation**: Increment `token_version` on password change or reset to invalidate all existing JWT tokens.
 - **Doctor Speciality Selection**: Enforce mandatory `speciality` dropdown selection when creating/editing doctor roles, defaulting to `"General Physician"` if omitted.
-- **Canonical Practitioner Classification**: Use `is_doctor_role(role)` from [`app.models.staff`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) for all practitioner boundaries (`is_staff_doctor`, `list_practitioners`, and slot generation). Never infer doctor status from department (`department == 'Clinical'`).
+- **Canonical Practitioner Classification**: Use `is_doctor_role(role)` from [`app.models.staff`](file:///Users/emanur/doctors-platform/backend/app/models/staff.py) on backend and `isDoctorRole(role)` from [`lib/api.ts`](file:///Users/emanur/doctors-platform/lib/api.ts) on frontend for all practitioner boundaries (`is_staff_doctor`, `list_practitioners`, and slot generation). Never infer doctor status from department (`department == 'Clinical'`) or fragile substring checks (`role.includes('doctor')`).
 - **Mask Sensitive Staff Roster Data**: Mask compensation (`base_salary_paise`), emergency contact, and administrative notes to `None` in `GET /api/v1/staff` and `GET /api/v1/staff/{staff_id}` for non-owner staff accounts. Restrict full financial and personal HR visibility to clinic owner doctors.
+- **Scalable KPI Queries**: When retrieving count metrics (e.g. booked/completed counts in `OverviewTab`), query with `page_size: 1` and extract `total` instead of fetching large item batches into memory.
+- **Local Date Derivation**: Construct calendar query dates from local client date components (`getFullYear()`, `getMonth()`, `getDate()`) to avoid UTC midnight skew across different time zones.
 
 ### Don'ts:
 - **Do NOT allow staff doctors to book, cancel, or reschedule**: Return 403 Forbidden on the backend and omit booking/cancellation buttons in the UI.
