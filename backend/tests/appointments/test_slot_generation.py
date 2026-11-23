@@ -203,7 +203,10 @@ def test_2_22_completed_appointment(db_session, test_doctor):
 
 
 def test_2_23_no_available_schedule(db_session, test_doctor):
-    """Test 2.23: No AVAILABLE schedule entries on date -> 0 slots []."""
+    """Test 2.23: No AVAILABLE schedule entries and empty shifts -> 0 slots []."""
+    test_doctor.working_hours = {"shifts": [], "closed_days": []}
+    db_session.commit()
+
     q_date = date(2026, 11, 18)
     slots = schedule_service.generate_available_slots(test_doctor.id, q_date, db_session, now=datetime(2026, 11, 19, 8, 0))
     assert slots == []

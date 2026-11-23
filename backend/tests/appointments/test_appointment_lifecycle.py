@@ -252,7 +252,10 @@ def test_3_6_create_during_blocked_period(client, db_session, doctor_a, headers_
     assert "Slot overlaps with BLOCKED period" in res.json()["detail"]
 
 
-def test_3_7_create_with_no_schedule(client, headers_a):
+def test_3_7_create_with_no_schedule(client, db_session, doctor_a, headers_a):
+    doctor_a.working_hours = {"shifts": [], "closed_days": []}
+    db_session.commit()
+
     res = client.post(
         "/api/v1/doctor/appointments",
         headers=headers_a,

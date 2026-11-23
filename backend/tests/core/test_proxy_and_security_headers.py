@@ -146,7 +146,7 @@ def test_proxy_and_tls_artifacts_exist():
     """Ensure production proxy files, templates, and certificates are present."""
     from pathlib import Path
 
-    root_dir = Path(__file__).resolve().parent.parent.parent
+    root_dir = Path(__file__).resolve().parents[3]
     nginx_conf = root_dir / "nginx" / "nginx.conf"
     default_conf = root_dir / "nginx" / "conf.d" / "default.conf"
     dev_proxy_conf = root_dir / "nginx" / "conf.d" / "dev-proxy.conf.example"
