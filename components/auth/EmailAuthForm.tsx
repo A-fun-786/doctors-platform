@@ -41,6 +41,107 @@ declare global {
   }
 }
 
+const GOOGLE_GSI_SRC = "https://accounts.google.com/gsi/client";
+let googleGsiLoadPromise: Promise<void> | null = null;
+
+function loadGoogleGsiScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Google Sign-In requires a browser environment."));
+  }
+  if (window.google?.accounts?.id) {
+    return Promise.resolve();
+  }
+  if (googleGsiLoadPromise) {
+    return googleGsiLoadPromise;
+  }
+
+  googleGsiLoadPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${GOOGLE_GSI_SRC}"]`
+    );
+
+    if (existingScript) {
+      const status = existingScript.dataset.gsiStatus;
+      if (status === "error" || (status === "loaded" && !window.google?.accounts?.id)) {
+        existingScript.remove();
+      } else {
+        const cleanup = () => {
+          existingScript.removeEventListener("load", onLoad);
+          existingScript.removeEventListener("error", onError);
+          clearInterval(pollTimer);
+        };
+        const onLoad = () => {
+          cleanup();
+          googleGsiLoadPromise = null;
+          if (window.google?.accounts?.id) {
+            existingScript.dataset.gsiStatus = "loaded";
+            resolve();
+          } else {
+            existingScript.dataset.gsiStatus = "error";
+            existingScript.remove();
+            reject(new Error("Google Sign-In SDK loaded without initializing."));
+          }
+        };
+        const onError = () => {
+          cleanup();
+          existingScript.dataset.gsiStatus = "error";
+          existingScript.remove();
+          googleGsiLoadPromise = null;
+          reject(new Error("Failed to load Google Sign-In SDK."));
+        };
+
+        existingScript.addEventListener("load", onLoad);
+        existingScript.addEventListener("error", onError);
+
+        // Fallback if the script already finished loading before listeners attached
+        const pollStart = Date.now();
+        const pollTimer = window.setInterval(() => {
+          if (window.google?.accounts?.id) {
+            existingScript.dataset.gsiStatus = "loaded";
+            cleanup();
+            googleGsiLoadPromise = null;
+            resolve();
+          } else if (Date.now() - pollStart > 8000) {
+            cleanup();
+            googleGsiLoadPromise = null;
+            reject(new Error("Timed out waiting for Google Sign-In SDK."));
+          }
+        }, 100);
+        return;
+      }
+    }
+
+    const script = document.createElement("script");
+    script.src = GOOGLE_GSI_SRC;
+    script.async = true;
+    script.defer = true;
+    script.dataset.gsiStatus = "loading";
+
+    script.onload = () => {
+      googleGsiLoadPromise = null;
+      if (window.google?.accounts?.id) {
+        script.dataset.gsiStatus = "loaded";
+        resolve();
+      } else {
+        script.dataset.gsiStatus = "error";
+        script.remove();
+        reject(new Error("Google Sign-In SDK loaded without initializing."));
+      }
+    };
+
+    script.onerror = () => {
+      script.dataset.gsiStatus = "error";
+      script.remove();
+      googleGsiLoadPromise = null;
+      reject(new Error("Failed to load Google Sign-In SDK."));
+    };
+
+    document.body.appendChild(script);
+  });
+
+  return googleGsiLoadPromise;
+}
+
 interface EmailAuthFormProps {
   mode: "login" | "register" | "verify";
   initialEmail?: string;
@@ -95,6 +196,9 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleScriptError, setGoogleScriptError] = useState(false);
+  const [googleRetryCount, setGoogleRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const googleButtonRef = useRef<HTMLDivElement>(null);
@@ -132,57 +236,60 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
     }
   };
 
+  const handleGoogleAuthRef = useRef(handleGoogleAuth);
+  handleGoogleAuthRef.current = handleGoogleAuth;
+
   useEffect(() => {
     if (!googleClientId || step === "verify") return;
 
     let isMounted = true;
+    setGoogleScriptError(false);
 
     const renderGoogleButton = () => {
-      if (!isMounted || !window.google || !googleButtonRef.current) return;
+      if (!isMounted || !window.google?.accounts?.id || !googleButtonRef.current) return;
+
       window.google.accounts.id.initialize({
         client_id: googleClientId,
-        callback: (res: { credential: string }) => handleGoogleAuth(res.credential),
+        callback: (res: { credential: string }) => handleGoogleAuthRef.current(res.credential),
       });
 
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
+      const container = googleButtonRef.current;
+      container.innerHTML = "";
+      const containerWidth = container.offsetWidth;
+      const buttonWidth = containerWidth > 0 ? Math.min(Math.max(containerWidth, 200), 400) : 360;
+
+      window.google.accounts.id.renderButton(container, {
         theme: "outline",
         size: "large",
-        width: "100%",
+        width: buttonWidth,
         text: mode === "register" ? "signup_with" : "signin_with",
         shape: "rectangular",
       });
+
+      setGoogleReady(true);
     };
 
     if (window.google?.accounts?.id) {
       renderGoogleButton();
-      return () => {
-        isMounted = false;
-      };
+    } else {
+      setGoogleReady(false);
+      loadGoogleGsiScript()
+        .then(() => {
+          renderGoogleButton();
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          logger.warn("Auth", "Failed to load Google Sign-In SDK", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          setGoogleScriptError(true);
+        });
     }
-
-    const existingScript = document.querySelector<HTMLScriptElement>(
-      'script[src="https://accounts.google.com/gsi/client"]'
-    );
-    if (existingScript) {
-      existingScript.addEventListener("load", renderGoogleButton);
-      return () => {
-        isMounted = false;
-        existingScript.removeEventListener("load", renderGoogleButton);
-      };
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = renderGoogleButton;
-    document.body.appendChild(script);
 
     return () => {
       isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleClientId, mode, step]);
+  }, [googleClientId, mode, step, googleRetryCount]);
 
   const handleVerifyCode = async (codeToVerify?: string) => {
     const rawCode = (codeToVerify || verificationCode).trim();
@@ -672,22 +779,52 @@ export default function EmailAuthForm({ mode, initialEmail = "", initialToken = 
             </form>
 
             {/* Google Sign-In Option */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div className="relative flex py-1 items-center justify-center">
-                <span className="text-xs text-slate-400 uppercase tracking-wider bg-white px-2">or continue with</span>
-              </div>
-
-              {googleLoading ? (
-                <div className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
-                  <span>Authenticating with Google...</span>
+            {googleClientId && (
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="relative flex py-1 items-center justify-center">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider bg-white px-2">or continue with</span>
                 </div>
-              ) : (
-                <div className="w-full flex justify-center min-h-[44px]">
+
+                {googleLoading && (
+                  <div className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                    <span>Authenticating with Google...</span>
+                  </div>
+                )}
+
+                {!googleLoading && googleScriptError && (
+                  <div className="w-full flex items-center justify-between gap-2 py-2.5 px-3.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 text-xs">
+                    <span>Google Sign-In couldn&apos;t load.</span>
+                    <button
+                      type="button"
+                      onClick={() => setGoogleRetryCount((c) => c + 1)}
+                      className="font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer shrink-0"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {!googleLoading && !googleReady && !googleScriptError && (
+                  <div className="w-full h-[44px] flex items-center justify-center gap-2 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-400 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Loading Google Sign-In...</span>
+                  </div>
+                )}
+
+                <div
+                  className={
+                    googleLoading || googleScriptError
+                      ? "hidden"
+                      : googleReady
+                        ? "w-full flex justify-center min-h-[44px]"
+                        : "w-full flex justify-center h-0 overflow-hidden"
+                  }
+                >
                   <div ref={googleButtonRef} className="w-full flex justify-center" />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Security / Workspace Assurance */}
             <div className="bg-brand-50/60 rounded-xl p-3 border border-brand-100 flex items-start gap-2.5 text-xs text-slate-700">
