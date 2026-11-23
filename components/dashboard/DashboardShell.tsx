@@ -15,7 +15,12 @@ import {
   ChevronRight,
   Activity,
 } from "lucide-react";
-import { DoctorMeResponse, DoctorProfileResponse, DEFAULT_DOCTOR_AVATAR } from "@/lib/api";
+import {
+  DoctorMeResponse,
+  DoctorProfileResponse,
+  DEFAULT_DOCTOR_AVATAR,
+  DEFAULT_CLINIC_LOGO,
+} from "@/lib/api";
 import BrandLogo from "@/components/brand/BrandLogo";
 
 export type DashboardTabId =
@@ -36,7 +41,8 @@ interface DashboardShellProps {
 }
 
 interface ProfileDropdownMenuProps {
-  avatar: string;
+  clinicLogo: string;
+  clinicName: string;
   formattedDoctorName: string;
   email: string;
   speciality: string;
@@ -46,7 +52,8 @@ interface ProfileDropdownMenuProps {
 }
 
 function ProfileDropdownMenu({
-  avatar,
+  clinicLogo,
+  clinicName,
   formattedDoctorName,
   email,
   speciality,
@@ -64,20 +71,26 @@ function ProfileDropdownMenu({
           <div className="relative shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={avatar}
-              alt={formattedDoctorName}
-              className="w-10 h-10 rounded-full border border-slate-200 object-cover shadow-2xs"
+              src={clinicLogo}
+              alt={clinicName}
+              className="w-10 h-10 rounded-full border border-slate-200 object-contain bg-white p-0.5 shadow-2xs"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (target.src !== DEFAULT_CLINIC_LOGO) {
+                  target.src = DEFAULT_CLINIC_LOGO;
+                }
+              }}
             />
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 truncate">
+            <div className="text-xs font-bold text-slate-900 truncate" title={clinicName}>
+              {clinicName}
+            </div>
+            <div className="text-[11px] text-slate-600 font-medium truncate">
               {formattedDoctorName}
             </div>
-            <div className="text-[11px] text-slate-500 truncate">{email}</div>
-            <div className="text-[10px] text-brand-700 font-semibold truncate mt-0.5">
-              {speciality}
-            </div>
+            <div className="text-[10px] text-slate-400 truncate">{email}</div>
           </div>
         </div>
       </div>
@@ -221,7 +234,22 @@ export default function DashboardShell({
     navItems.push({ id: "android", label: "Android App", icon: Smartphone });
   }
 
-  const avatar = profile?.avatar_url || doctor.avatar_url || DEFAULT_DOCTOR_AVATAR;
+  // Resolve clinic logo: prioritize custom uploaded logo/icon, fallback to DEFAULT_CLINIC_LOGO (fixes #51, ref #49)
+  const clinicLogo =
+    profile?.app_icon_url && profile.app_icon_url !== DEFAULT_DOCTOR_AVATAR && profile.app_icon_url !== ""
+      ? profile.app_icon_url
+      : profile?.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR && profile.avatar_url !== ""
+      ? profile.avatar_url
+      : doctor.avatar_url && doctor.avatar_url !== DEFAULT_DOCTOR_AVATAR && doctor.avatar_url !== ""
+      ? doctor.avatar_url
+      : DEFAULT_CLINIC_LOGO;
+
+  // Resolve clinic name: prioritize clinic_name from profile or tenant, fallback to doctor's clinic or generic
+  const clinicName =
+    profile?.clinic_name?.trim() ||
+    doctor.tenant?.clinic_name?.trim() ||
+    (doctor.full_name?.trim() ? `${doctor.full_name.trim()}'s Clinic` : "My Clinic");
+
   const doctorDisplayName = doctor.full_name?.trim() || "Doctor";
   const formattedDoctorName = doctorDisplayName.toLowerCase().startsWith("dr.")
     ? doctorDisplayName
@@ -290,14 +318,20 @@ export default function DashboardShell({
               }`}
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="true"
-              aria-label="Doctor profile and session menu"
+              aria-label="Clinic profile and session menu"
             >
               <div className="relative shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={avatar}
-                  alt={formattedDoctorName}
-                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 object-cover shadow-xs"
+                  src={clinicLogo}
+                  alt={clinicName}
+                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 object-contain bg-white p-0.5 shadow-xs"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== DEFAULT_CLINIC_LOGO) {
+                      target.src = DEFAULT_CLINIC_LOGO;
+                    }
+                  }}
                 />
                 <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
               </div>
@@ -311,7 +345,8 @@ export default function DashboardShell({
             {/* Mobile Dropdown Popover */}
             {isProfileMenuOpen && (
               <ProfileDropdownMenu
-                avatar={avatar}
+                clinicLogo={clinicLogo}
+                clinicName={clinicName}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
                 speciality={profile?.speciality || "General Practice"}
@@ -352,23 +387,32 @@ export default function DashboardShell({
               }`}
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="true"
-              aria-label="Doctor profile and session menu"
+              aria-label="Clinic profile and session menu"
             >
-              {/* Doctor Avatar with Active Status Dot */}
+              {/* Clinic Icon with Active Status Dot */}
               <div className="relative shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={avatar}
-                  alt={formattedDoctorName}
-                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 group-hover:ring-brand-500 object-cover shadow-xs transition-all"
+                  src={clinicLogo}
+                  alt={clinicName}
+                  className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 group-hover:ring-brand-500 object-contain bg-white p-0.5 shadow-xs transition-all"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== DEFAULT_CLINIC_LOGO) {
+                      target.src = DEFAULT_CLINIC_LOGO;
+                    }
+                  }}
                 />
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>
 
-              {/* Doctor Name & Speciality Text */}
+              {/* Clinic Name & Speciality Text */}
               <div className="text-left hidden sm:block min-w-0">
-                <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[150px] lg:max-w-[200px]">
-                  {formattedDoctorName}
+                <p
+                  className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[150px] lg:max-w-[200px]"
+                  title={clinicName}
+                >
+                  {clinicName}
                 </p>
                 <p className="text-[10px] text-slate-500 font-medium leading-tight truncate max-w-[150px] lg:max-w-[200px]">
                   {profile?.speciality || "Healthcare Practice"}
@@ -386,7 +430,8 @@ export default function DashboardShell({
             {/* Profile Dropdown Popover Menu */}
             {isProfileMenuOpen && (
               <ProfileDropdownMenu
-                avatar={avatar}
+                clinicLogo={clinicLogo}
+                clinicName={clinicName}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
                 speciality={profile?.speciality || "Healthcare Practice"}
@@ -438,19 +483,28 @@ export default function DashboardShell({
               </button>
             </div>
 
-            {/* Doctor Info Card */}
+            {/* Clinic & Doctor Info Card */}
             <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={avatar}
-                alt={doctor.full_name || "Doctor"}
-                className="w-10 h-10 rounded-full border-2 border-brand-200 object-cover shrink-0"
+                src={clinicLogo}
+                alt={clinicName}
+                className="w-10 h-10 rounded-full border-2 border-brand-200 object-contain bg-white p-0.5 shrink-0"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (target.src !== DEFAULT_CLINIC_LOGO) {
+                    target.src = DEFAULT_CLINIC_LOGO;
+                  }
+                }}
               />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-900 truncate">
+                <p className="text-sm font-bold text-slate-900 truncate" title={clinicName}>
+                  {clinicName}
+                </p>
+                <p className="text-xs text-slate-600 font-medium truncate">
                   {formattedDoctorName}
                 </p>
-                <p className="text-xs text-slate-500 truncate">{doctor.email}</p>
+                <p className="text-[11px] text-slate-400 truncate">{doctor.email}</p>
               </div>
             </div>
 
