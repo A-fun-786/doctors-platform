@@ -44,6 +44,10 @@ export const BRAND_CONFIG = {
     logo2x: "/logo@2x.png",
   },
 
+  // Default Fallbacks
+  defaultClinicLogo: "/emblem-only.png",
+  defaultLogo: "/logo.png",
+
   // Dynamic Metadata Icons Helper for Next.js App Router (Favicons & Apple Touch)
   getMetadataIcons: () => ({
     icon: [

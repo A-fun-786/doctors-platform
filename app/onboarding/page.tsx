@@ -39,6 +39,7 @@ import {
   updateDoctorProfile,
   uploadDoctorAvatar,
   DEFAULT_DOCTOR_AVATAR,
+  DEFAULT_CLINIC_LOGO,
   DoctorProfileResponse,
 } from "@/lib/api";
 import { logger } from "@/lib/logger";
@@ -142,8 +143,10 @@ export default function OnboardingPage() {
         }
 
         // Resolve logo
-        if (profile.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR) {
+        if (profile.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR && profile.avatar_url !== DEFAULT_CLINIC_LOGO) {
           setClinicLogoUrl(profile.avatar_url);
+        } else if (profile.app_icon_url && profile.app_icon_url !== DEFAULT_CLINIC_LOGO) {
+          setClinicLogoUrl(profile.app_icon_url);
         }
 
         // Set logger user context (non-PII fields only)
@@ -288,13 +291,15 @@ export default function OnboardingPage() {
 
       // Persist removed logo as DEFAULT_DOCTOR_AVATAR rather than falling back to previous avatar
       const finalAvatar = clinicLogoUrl ? clinicLogoUrl : DEFAULT_DOCTOR_AVATAR;
+      // Auto-apply default clinic logo if not uploaded
+      const finalAppIcon = clinicLogoUrl ? clinicLogoUrl : DEFAULT_CLINIC_LOGO;
 
       const updated = await updateDoctorProfile({
         clinic_name: clinicName.trim(),
         phone: combinedPhone,
         location: address.trim(),
         avatar_url: finalAvatar,
-        app_icon_url: clinicLogoUrl ? clinicLogoUrl : "",
+        app_icon_url: finalAppIcon,
         full_name: profileData?.full_name,
         speciality: profileData?.speciality ?? undefined,
         bio: profileData?.bio ?? undefined,
