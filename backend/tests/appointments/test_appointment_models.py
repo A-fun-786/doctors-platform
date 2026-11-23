@@ -141,7 +141,7 @@ def test_migration_006_upgrade_downgrade(tmp_path):
     db_file = tmp_path / "test_mig.db"
     db_url = f"sqlite:///{db_file}"
 
-    ini_path = Path(__file__).resolve().parent.parent / "alembic.ini"
+    ini_path = Path(__file__).resolve().parents[2] / "alembic.ini"
     alembic_cfg = Config(str(ini_path))
     alembic_cfg.set_main_option("script_location", str(ini_path.parent / "alembic"))
     alembic_cfg.set_main_option("sqlalchemy.url", db_url)

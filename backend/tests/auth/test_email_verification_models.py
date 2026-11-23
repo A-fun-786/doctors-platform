@@ -114,7 +114,7 @@ def test_alembic_migration_010_upgrade_and_downgrade():
         sqlite_url = f"sqlite:///{db_path}"
 
         alembic_cfg = Config()
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
         alembic_cfg.set_main_option("sqlalchemy.url", sqlite_url)
 
@@ -203,7 +203,7 @@ def test_alembic_migration_012_upgrade_and_downgrade():
         sqlite_url = f"sqlite:///{db_path}"
 
         alembic_cfg = Config()
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
         alembic_cfg.set_main_option("sqlalchemy.url", sqlite_url)
 

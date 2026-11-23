@@ -33,6 +33,8 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import auth_service, generate_unique_tenant_slug
 from app.services.email_service import (
+    ConsoleEmailBackend,
+    EmailService,
     MemoryEmailBackend,
     SMTPEmailBackend,
     email_service,
@@ -599,6 +601,20 @@ def test_layer3_concurrent_same_name_tenant_slug_collision(db_session):
     assert len(set(slugs)) == 10
 
 
+def test_layer1_email_service_backends():
+    """Verify MemoryEmailBackend and ConsoleEmailBackend record verification emails."""
+    mem = MemoryEmailBackend()
+    svc_mem = EmailService(backend=mem)
+    svc_mem.send_verification_email("doc@test.com", "Dr. Test", "123456", "tokenabc")
+    assert len(mem.outbox) == 1
+    assert mem.outbox[0]["to"] == "doc@test.com"
+
+    con = ConsoleEmailBackend()
+    svc_con = EmailService(backend=con)
+    svc_con.send_verification_email("doc2@test.com", "Dr. Test 2", "654321", "tokenxyz")
+    assert len(con.outbox) == 1
+
+
 def test_layer3_email_service_failure_resilience():
     """
     Simulate SMTP timeout/connection error; verify tenacity retry executes 3 times before raising.
@@ -680,7 +696,7 @@ def test_layer2_unverified_account_reregistration_allowed_until_verified(client,
         .filter(
             EmailVerificationToken.doctor_id == doc.id,
             EmailVerificationToken.purpose == "email_verification",
-            EmailVerificationToken.used_at == None,
+            EmailVerificationToken.used_at.is_(None),
         )
         .order_by(EmailVerificationToken.created_at.desc())
         .first()

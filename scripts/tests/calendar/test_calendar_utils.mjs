@@ -14,7 +14,7 @@ import ts from "typescript";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, "..");
+const projectRoot = path.resolve(__dirname, "..", "..", "..");
 const calendarUtilsPath = path.join(projectRoot, "components", "dashboard", "calendar", "calendarUtils.ts");
 const modalsHookPath = path.join(projectRoot, "components", "dashboard", "calendar", "hooks", "useCalendarModals.ts");
 
