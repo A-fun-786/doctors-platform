@@ -316,5 +316,190 @@ Each phase documents:
   - Documented all 13 Alembic migrations (`001`–`013`) and automatic PostgreSQL `alembic_version VARCHAR(128)` handling.
   - Updated the Railway and Vercel Environment Variables Reference tables with the complete production configuration (Resend, Cloudflare R2, Neon `-pooler`, feature flags, `TRUSTED_PROXY_COUNT=1`, and `NEXT_PUBLIC_SENTRY_DSN`), redacted partial secrets, and standardized custom domain examples to `gosmartclinic.com`.
 
+---
+
+## Automated Verification Scorecard (All Phases 1–4)
+
+| Suite / Tool | Command | Result | Details |
+| :--- | :--- | :--- | :--- |
+| **Alembic Migration Chain (`001` → `013`)** | `alembic upgrade head` (clean DB) | ✅ **PASSED** | All 6 tables (`alembic_version`, `appointments`, `doctors`, `email_verification_tokens`, `schedules`, `tenants`) and `token_version` created cleanly |
+| **Backend Pytest Suite** | `cd backend && .venv/bin/python -m pytest tests/ -q` | ✅ **230 passed, 0 failed** | Covers auth, lockout, `token_version` revocation, uploads, public booking, slot conflicts, storage, proxy headers, and health checks |
+| **Backend Ruff Linter** | `cd backend && .venv/bin/ruff check .` | ✅ **0 errors** | Down from 12 lint errors to 0 (`All checks passed!`) |
+| **Frontend NPM Security Audit** | `npm audit --omit=dev` | ✅ **0 vulnerabilities** | Down from 8 production (`1 critical, 2 high, 5 moderate`) / 15 total vulnerabilities to 0 |
+| **Frontend TypeScript Check** | `npx tsc --noEmit` | ✅ **0 errors** | Strict type verification across Next.js `15.5.29` & Sentry configs |
+| **Frontend ESLint** | `npm run lint` | ✅ **0 warnings / 0 errors** | Clean `eslint-config-next@15.5.29` verification |
+| **Frontend Unit & Hardening Suites** | `npm test` | ✅ **67/67 passed (100%)** | Calendar Utilities (`32/32`), No-Demo-Fallback (`11/11`), Sidebar Theme (`10/10`), Onboarding Hardening (`24/24`) |
+| **Frontend Production Build** | `npm run build` | ✅ **PASSED (4.7s)** | Next.js `15.5.29` standalone production bundle & all 12 routes compiled |
+
+---
+
+## Developer Manual Testing Guide (End-to-End Test Cases)
+
+### Prerequisites — Start Local Stack
+```bash
+# Terminal 1: Start FastAPI Backend (port 8000)
+cd backend
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+# Terminal 2: Start Next.js Frontend (port 3000)
+npm run dev
+```
+*(For live production smoke testing, replace `http://127.0.0.1:8000` with `https://backend-production-b26c.up.railway.app` and `http://localhost:3000` with `https://doctors-platform-eight.vercel.app`.)*
+
+---
+
+### TC-01: Public Patient Appointment Booking, Idempotency & Double-Booking Prevention (`Phase 1 / P0-1`)
+- **Objective:** Verify that an unauthenticated patient can book an available slot on a doctor's public portal, network retries with the same `Idempotency-Key` do not fail, and a second patient cannot double-book the same slot.
+- **Browser UI Steps:**
+  1. Open `http://localhost:3000/<doctor-slug>` (or `/dr/<doctor-slug>`).
+  2. Select a future weekday (Monday–Saturday) and click an available 30-minute time slot (e.g., `10:00 AM`).
+  3. Enter Patient Name (`Rahul Sharma`), Phone (`+91 9876543210`), Email (`rahul@example.com`), and Notes, then click **Confirm Appointment**.
+  4. **Expected UI Result:** Booking confirmation screen displays a `Booking Reference` (`APT-XXXXXXXX`). Refreshing the available slots for that date no longer lists `10:00 AM`, and the appointment appears immediately on the doctor's **Dashboard → Calendar** and **Overview** tabs.
+- **CLI `curl` Verification:**
+  ```bash
+  # 1. Book a slot (Expected: HTTP 201 Created with booking_id "APT-...")
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/public/tenants/<doctor-slug>/appointments" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: manual-test-key-001" \
+    -d '{
+      "patient_name": "Rahul Sharma",
+      "patient_email": "rahul@example.com",
+      "patient_phone": "+919876543210",
+      "appointment_date": "2026-12-01",
+      "appointment_time": "10:00 AM",
+      "start_time": "10:00",
+      "end_time": "10:30",
+      "appointment_type": "in_clinic",
+      "notes": "First consultation"
+    }'
+
+  # 2. Replay exact same request with same Idempotency-Key (Expected: HTTP 201 returning identical booking_id)
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/public/tenants/<doctor-slug>/appointments" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: manual-test-key-001" \
+    -d '{
+      "patient_name": "Rahul Sharma",
+      "patient_phone": "+919876543210",
+      "appointment_date": "2026-12-01",
+      "appointment_time": "10:00 AM",
+      "appointment_type": "in_clinic"
+    }'
+
+  # 3. Attempt to book the same slot without the idempotency key (Expected: HTTP 409 Conflict "Slot already booked")
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/public/tenants/<doctor-slug>/appointments" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "patient_name": "Second Patient",
+      "patient_phone": "+919999988888",
+      "appointment_date": "2026-12-01",
+      "appointment_time": "10:00 AM",
+      "appointment_type": "in_clinic"
+    }'
+  ```
+
+---
+
+### TC-02: Feature-Flag Gating of Non-Persistent Lab Reports & Medicine Orders (`Phase 1 / P0-2`)
+- **Objective:** Verify that unimplemented lab report and medicine order endpoints cannot silently discard patient submissions when `ENABLE_EXPERIMENTAL_CLINICAL_SERVICES=false` (default).
+- **Steps & Expected Results:**
+  ```bash
+  # 1. Check public profile services (Expected: medicine_inventory: false, lab_reports: false)
+  curl -s "http://127.0.0.1:8000/api/v1/public/tenants/<doctor-slug>" | jq .services
+
+  # 2. Direct POST to /reports or /medicine-orders (Expected: HTTP 400 if disabled on tenant, or HTTP 501 Not Implemented if enabled on tenant)
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/public/tenants/<doctor-slug>/reports" \
+    -H "Content-Type: application/json" \
+    -d '{"patient_name":"Test","patient_phone":"1234567890","report_type":"Blood","file_name":"a.pdf"}'
+  ```
+
+---
+
+### TC-03: Android APK Builder Lockdown & Cross-Tenant IDOR Protection (`Phase 1 / P0-6`)
+- **Objective:** Confirm in-container APK builds are disabled (`503`) by default and that Doctor B cannot view Doctor A's build status or logs (`404`).
+- **Browser UI Steps:**
+  1. Log into the Doctor Dashboard (`http://localhost:3000/dashboard`) and open the **Android App** tab.
+  2. **Expected UI Result:** The build button displays **"Builds Disabled on Server"** (disabled state) and a notice banner explains that on-demand compilation is disabled in the web container while custom branding/icon uploads remain active.
+- **CLI `curl` Verification:**
+  ```bash
+  # 1. Preview endpoint reports builds_enabled: false
+  curl -s "http://127.0.0.1:8000/api/v1/doctor/app/preview" \
+    -H "Authorization: Bearer <DOCTOR_A_JWT>" | jq .builds_enabled
+
+  # 2. Triggering a build returns HTTP 503 Service Unavailable
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/doctor/app/build" \
+    -H "Authorization: Bearer <DOCTOR_A_JWT>"
+
+  # 3. Querying another doctor's task_id with Doctor B's JWT returns HTTP 404 Not Found
+  curl -i "http://127.0.0.1:8000/api/v1/doctor/app/build/<DOCTOR_A_TASK_ID>/status" \
+    -H "Authorization: Bearer <DOCTOR_B_JWT>"
+  ```
+
+---
+
+### TC-04: Image Upload Security — Stored XSS (SVG/HTML), Oversize DoS & URL Scheme Validation (`Phase 2 / P0-4`)
+- **Objective:** Verify that avatar and app icon uploads reject SVG scripts, spoofed MIME types, >2 MB files, and `javascript:` profile URLs while re-encoding valid PNG/JPEG/WebP images.
+- **CLI `curl` Verification:**
+  ```bash
+  # 1. Attempt Stored XSS via SVG upload (Expected: HTTP 400 Bad Request)
+  printf '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>' > /tmp/xss.svg
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/doctor/avatar" \
+    -H "Authorization: Bearer <DOCTOR_JWT>" \
+    -F "file=@/tmp/xss.svg;type=image/svg+xml"
+
+  # 2. Attempt MIME spoofing: HTML file declared as image/png (Expected: HTTP 400 Bad Request)
+  printf '<html><script>alert(1)</script></html>' > /tmp/fake.png
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/doctor/app/icon" \
+    -H "Authorization: Bearer <DOCTOR_JWT>" \
+    -F "file=@/tmp/fake.png;type=image/png"
+
+  # 3. Attempt >2 MB upload (Expected: HTTP 413 Content Too Large)
+  dd if=/dev/zero of=/tmp/huge.png bs=1048576 count=3
+  curl -i -X POST "http://127.0.0.1:8000/api/v1/doctor/avatar" \
+    -H "Authorization: Bearer <DOCTOR_JWT>" \
+    -F "file=@/tmp/huge.png;type=image/png"
+
+  # 4. Attempt javascript: URI in profile update (Expected: HTTP 422 Unprocessable Entity)
+  curl -i -X PUT "http://127.0.0.1:8000/api/v1/doctor/profile" \
+    -H "Authorization: Bearer <DOCTOR_JWT>" \
+    -H "Content-Type: application/json" \
+    -d '{"avatar_url": "javascript:alert(document.cookie)"}'
+  rm -f /tmp/xss.svg /tmp/fake.png /tmp/huge.png
+  ```
+
+---
+
+### TC-05: Password Login Brute-Force Lockout (`Phase 3 / P1-1`)
+- **Objective:** Verify that 5 consecutive failed password login attempts lock the doctor account for 15 minutes (`HTTP 403 Forbidden`), even if the attacker changes their IP address or enters the correct password on attempt #6.
+- **Steps & Expected Results:**
+  1. Attempt to log in at `POST /api/v1/auth/login` 5 times with an invalid password for a registered doctor account:
+     - Attempts 1–5 return `HTTP 401 Unauthorized` (`"Invalid email or password"`).
+  2. On attempt #6 (even from a different IP or after waiting 60 seconds for the IP rate limit window to reset), submit the **correct** password:
+     - **Expected Result:** `HTTP 403 Forbidden` with `"Account is temporarily locked due to repeated failed login attempts. Please try again later."`
+
+---
+
+### TC-06: Instant JWT Session Revocation on Password Reset (`Phase 3 / P1-2`)
+- **Objective:** Confirm that resetting a doctor's password increments `token_version` and immediately invalidates all previously issued 24-hour JWT tokens.
+- **Steps & Expected Results:**
+  1. Log in via `POST /api/v1/auth/login` and save the returned `access_token` as `OLD_JWT`.
+  2. Confirm `GET /api/v1/auth/me` with `Authorization: Bearer $OLD_JWT` returns `HTTP 200 OK`.
+  3. Trigger a password reset via `POST /api/v1/auth/forgot-password` and complete `POST /api/v1/auth/reset-password` with a new password (receiving `NEW_JWT`).
+  4. Call `GET /api/v1/auth/me` again with `Authorization: Bearer $OLD_JWT`:
+     - **Expected Result:** `HTTP 401 Unauthorized` (`"Could not validate credentials"`).
+  5. Call `GET /api/v1/auth/me` with `Authorization: Bearer $NEW_JWT`:
+     - **Expected Result:** `HTTP 200 OK`.
+
+---
+
+### TC-07: Health Check Sanitization & Dashboard Clinic-Timezone KPIs (`Phase 3 & 4`)
+- **Objective:** Verify `/api/v1/health/database` never leaks raw database exception strings on failure and that Dashboard Overview KPI cards show accurate `Asia/Kolkata` today appointments and total counts.
+- **Steps & Expected Results:**
+  1. Call `curl -i http://127.0.0.1:8000/api/v1/health/database` → returns `HTTP 200 OK` with `{"status":"healthy","database":"connected"}` (and when DB is unreachable, returns `HTTP 503` containing only `{"detail":{"status":"unhealthy","database":"disconnected"}}` with no `"error"` key).
+  2. Open **Dashboard → Overview** (`http://localhost:3000/dashboard`) and inspect the **Network** tab:
+     - Confirm 3 parallel requests are fired: `from=<YYYY-MM-DD in IST>&to=<YYYY-MM-DD in IST>&page_size=100`, `status=BOOKED&page_size=1`, and `status=COMPLETED&page_size=1`.
+     - Confirm the **Upcoming Booked** and **Completed Visits** KPI cards display the exact `total` counts from the backend response.
+
+
 
 
