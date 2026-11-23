@@ -12,6 +12,7 @@ from app.schemas.appointment import (
     AppointmentCreateRequest,
     AppointmentRescheduleRequest,
 )
+from app.schemas.schedule import resolve_doctor_working_hours
 
 
 def _time_to_minutes(t: time) -> int:
@@ -59,21 +60,21 @@ def _validate_slot_against_schedule(
                 detail="Slot does not fall within any AVAILABLE schedule window",
             )
     else:
-        # Step B: Fall back to doctor working_hours
+        # Step B: Fall back to doctor working_hours (or default shifts if unconfigured)
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if not doctor or not doctor.working_hours:
+        if not doctor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No AVAILABLE schedule window for this date",
             )
 
-        working_hours = doctor.working_hours
-        if isinstance(working_hours, str):
-            import json
-            try:
-                working_hours = json.loads(working_hours)
-            except Exception:
-                working_hours = {}
+        working_hours = resolve_doctor_working_hours(doctor.working_hours)
+        shifts = working_hours.get("shifts", [])
+        if not shifts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No AVAILABLE schedule window for this date",
+            )
 
         closed_days = working_hours.get("closed_days", [])
         # Support schema/JS convention (0=Sun, 1=Mon...6=Sat) and ISO Sunday (6)
@@ -85,7 +86,6 @@ def _validate_slot_against_schedule(
                 detail="Clinic is closed on this date",
             )
 
-        shifts = working_hours.get("shifts", [])
         in_shift_window = False
         for shift in shifts:
             if shift.get("enabled", True):

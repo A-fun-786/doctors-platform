@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
-from app.schemas.schedule import ScheduleCreateRequest
+from app.schemas.schedule import ScheduleCreateRequest, resolve_doctor_working_hours
 
 
 def _time_to_minutes(t: time) -> int:
@@ -187,16 +187,10 @@ def generate_available_slots(
                 candidate_slots.append((curr, curr + 30))
                 curr += 30
     else:
-        # Step B: Shift Fallback from Doctor.working_hours
+        # Step B: Shift Fallback from Doctor.working_hours (or default shifts if unconfigured)
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if doctor and doctor.working_hours:
-            working_hours = doctor.working_hours
-            if isinstance(working_hours, str):
-                import json
-                try:
-                    working_hours = json.loads(working_hours)
-                except Exception:
-                    working_hours = {}
+        if doctor:
+            working_hours = resolve_doctor_working_hours(doctor.working_hours)
 
             closed_days = working_hours.get("closed_days", [])
             # Evaluate closed days (JS/Schema convention: 0=Sun, 1=Mon...6=Sat, plus ISO Sunday=6)

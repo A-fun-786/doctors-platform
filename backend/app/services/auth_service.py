@@ -1,3 +1,4 @@
+import copy
 import re
 import secrets
 from datetime import datetime, timezone, timedelta
@@ -32,6 +33,7 @@ from app.schemas.auth import (
     sanitize_full_name,
     sanitize_phone,
 )
+from app.schemas.schedule import DEFAULT_DOCTOR_WORKING_HOURS
 from app.services.email_service import email_service
 
 settings = get_settings()
@@ -145,6 +147,7 @@ class AuthService:
                     auth_provider="google",
                     provider_id=provider_id,
                     is_active=True,
+                    working_hours=copy.deepcopy(DEFAULT_DOCTOR_WORKING_HOURS),
                     email_verified=True,
                     email_verified_at=datetime.now(timezone.utc),
                 )
@@ -279,6 +282,7 @@ class AuthService:
                     auth_provider="email",
                     hashed_password=hashed_pw,
                     is_active=True,
+                    working_hours=copy.deepcopy(DEFAULT_DOCTOR_WORKING_HOURS),
                     email_verified=False,
                 )
                 db.add(doctor)

@@ -1,6 +1,7 @@
+import json
 import uuid
 from datetime import date, time, datetime
-from typing import Optional, List, Literal
+from typing import Any, Optional, List, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ScheduleType = Literal["AVAILABLE", "LEAVE", "HOLIDAY", "BLOCKED"]
@@ -125,5 +126,18 @@ DEFAULT_DOCTOR_WORKING_HOURS: dict = {
     ],
     "closed_days": [0],
 }
+
+
+def resolve_doctor_working_hours(raw_working_hours: Optional[Union[dict, str]]) -> dict[str, Any]:
+    """Return parsed working hours dict, falling back to DEFAULT_DOCTOR_WORKING_HOURS when unconfigured."""
+    if isinstance(raw_working_hours, str):
+        try:
+            raw_working_hours = json.loads(raw_working_hours)
+        except Exception:
+            raw_working_hours = {}
+
+    if isinstance(raw_working_hours, dict) and "shifts" in raw_working_hours:
+        return raw_working_hours
+    return DEFAULT_DOCTOR_WORKING_HOURS
 
 

@@ -733,3 +733,57 @@ def test_reschedule_within_working_hours_succeeds(client, auth_headers, test_doc
     assert reschedule_ok.json()["end_time"] == "17:00:00"
 
 
+def test_booking_and_slots_with_null_working_hours_uses_default(client, auth_headers, test_doctor, db_session):
+    """
+    A doctor with unconfigured working_hours (None) falls back to DEFAULT_DOCTOR_WORKING_HOURS
+    for both slot generation and direct appointment booking.
+    """
+    from app.schemas.schedule import DEFAULT_DOCTOR_WORKING_HOURS
+
+    assert test_doctor.working_hours is None
+
+    # Wednesday 2026-12-02: open under default shifts (10:00-13:00, 16:00-20:00 -> 14 slots)
+    slots = schedule_service.generate_available_slots(test_doctor.id, date(2026, 12, 2), db_session)
+    assert len(slots) == 14
+    assert slots[0] == {"start": "10:00", "end": "10:30"}
+
+    res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Default Shift Patient",
+            "date": "2026-12-02",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert res.status_code == 201
+
+    # Sunday 2026-11-29: closed under default closed_days [0]
+    closed_res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Patient",
+            "date": "2026-11-29",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert closed_res.status_code == 400
+    assert "Clinic is closed on this date" in closed_res.json()["detail"]
+
+    # Registering a new doctor seeds DEFAULT_DOCTOR_WORKING_HOURS directly
+    from app.services.auth_service import AuthService
+
+    reg_res = AuthService.register_email(
+        db=db_session,
+        email="new_default_hours@example.com",
+        password="StrongPassword123!",
+        full_name="Dr. New Default",
+    )
+    created_doc = db_session.query(Doctor).filter(Doctor.id == reg_res.doctor.id).first()
+    assert created_doc is not None
+    assert created_doc.working_hours == DEFAULT_DOCTOR_WORKING_HOURS
+
+
