@@ -86,6 +86,10 @@ const nextConfig = fs.readFileSync(
   path.join(projectRoot, "next.config.mjs"),
   "utf-8"
 );
+const apiTs = fs.readFileSync(
+  path.join(projectRoot, "lib", "api.ts"),
+  "utf-8"
+);
 
 // ============================================================================
 // SUITE 1: Dead Code Elimination (Review Item 1)
@@ -146,6 +150,21 @@ describe("Logo Upload, Reset & Removal Persistence", () => {
       onboardingPage.includes("clinicLogoUrl || profileData?.avatar_url || DEFAULT_DOCTOR_AVATAR"),
       false
     );
+  });
+
+  test("DEFAULT_CLINIC_LOGO is exported and defaults to brand emblem", () => {
+    assert.ok(apiTs.includes("export const DEFAULT_CLINIC_LOGO = BRAND_CONFIG.assets.emblem"));
+  });
+
+  test("Step2ClinicLogo auto-applies DEFAULT_CLINIC_LOGO preview when logoUrl is empty", () => {
+    assert.ok(stepContent.includes("DEFAULT_CLINIC_LOGO"));
+    assert.ok(stepContent.includes("src={DEFAULT_CLINIC_LOGO}"));
+    assert.ok(stepContent.includes("Default Logo"));
+  });
+
+  test("Finalize setup auto-applies DEFAULT_CLINIC_LOGO to app_icon_url when not uploaded", () => {
+    assert.ok(onboardingPage.includes("finalAppIcon = clinicLogoUrl ? clinicLogoUrl : DEFAULT_CLINIC_LOGO"));
+    assert.ok(onboardingPage.includes("app_icon_url: finalAppIcon"));
   });
 });
 

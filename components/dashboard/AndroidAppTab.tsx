@@ -24,6 +24,7 @@ import {
   getAppBuildStatus,
   getAppBuildLogs,
   getAppDownloadUrl,
+  DEFAULT_CLINIC_LOGO,
 } from "@/lib/api";
 import { BRAND_CONFIG } from "@/config/brand.config";
 import { Card } from "@/components/ui/Card";
@@ -272,18 +273,21 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
             </h3>
 
             <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col sm:flex-row items-center gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-brand-600 border-2 border-brand-200 shadow-md flex items-center justify-center text-white shrink-0 overflow-hidden relative">
+              <div className="w-20 h-20 rounded-2xl bg-white border-2 border-brand-200 shadow-md flex items-center justify-center shrink-0 overflow-hidden relative p-1">
                 {appIconPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={appIconPreview}
                     alt="App Icon"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain rounded-xl"
                   />
                 ) : (
-                  <div className="w-full h-full p-2">
-                    <BRAND_CONFIG.icon.component className="w-full h-full" />
-                  </div>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={DEFAULT_CLINIC_LOGO}
+                    alt={BRAND_CONFIG.android.defaultIconLabel}
+                    className="w-full h-full object-contain rounded-xl"
+                  />
                 )}
               </div>
 

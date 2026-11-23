@@ -140,7 +140,7 @@ def prepare_project_workspace(
 
         config_file.write_text(content, encoding="utf-8")
 
-    # 5. Handle Custom App Icon if available
+    # 5. Handle Custom App Icon if available, or auto-apply default clinic logo
     icon_to_use = custom_icon_path or doctor.app_icon_url
     if icon_to_use:
         try:
@@ -148,6 +148,9 @@ def prepare_project_workspace(
             dest_icon.parent.mkdir(parents=True, exist_ok=True)
             if Path(icon_to_use).exists():
                 shutil.copy2(icon_to_use, dest_icon)
+            elif (WORKSPACE_ROOT / "public" / icon_to_use.lstrip("/")).exists():
+                # Built-in public default logo (e.g. /emblem-only.png)
+                shutil.copy2(WORKSPACE_ROOT / "public" / icon_to_use.lstrip("/"), dest_icon)
             else:
                 # Resolve via storage abstraction (stripping /uploads/ prefix if present)
                 clean_key = icon_to_use.split("?")[0].replace("/uploads/", "").lstrip("/")
@@ -157,6 +160,16 @@ def prepare_project_workspace(
                     f.write(data)
         except Exception as e:
             print(f"Warning: Could not copy custom icon: {e}")
+    else:
+        # Auto-apply default logo if no icon or image was uploaded
+        default_emblem = WORKSPACE_ROOT / "public" / "emblem-only.png"
+        if default_emblem.exists():
+            try:
+                dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
+                dest_icon.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(default_emblem, dest_icon)
+            except Exception as e:
+                print(f"Warning: Could not copy default clinic emblem: {e}")
 
     return target_workspace
 

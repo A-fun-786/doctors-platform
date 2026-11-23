@@ -7,6 +7,9 @@ const TOKEN_STORAGE_KEY = BRAND_CONFIG.storage.authTokenKey;
 export const DEFAULT_DOCTOR_AVATAR =
   "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80";
 
+export const DEFAULT_CLINIC_LOGO = BRAND_CONFIG.assets.emblem;
+export const DEFAULT_FULL_LOGO = BRAND_CONFIG.assets.logo;
+
 export interface ServicesConfig {
   appointment: boolean;
   video_consultation: boolean;

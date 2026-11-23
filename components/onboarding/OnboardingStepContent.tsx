@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { CountryDialCode } from "@/lib/dialCodes";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { DEFAULT_CLINIC_LOGO } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sub-components
@@ -192,10 +193,15 @@ export function Step2ClinicLogo({
                 className="w-full h-full object-contain rounded-xl"
               />
             ) : (
-              <div className="w-full h-full rounded-xl bg-brand-50 border border-brand-200 flex flex-col items-center justify-center text-brand-600 gap-1.5 p-2 text-center">
-                <ImageIcon className="w-7 h-7 stroke-[1.6]" aria-hidden="true" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700">
-                  Logo
+              <div className="relative w-full h-full flex flex-col items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={DEFAULT_CLINIC_LOGO}
+                  alt="Default clinic logo preview"
+                  className="w-full h-full object-contain rounded-xl p-1"
+                />
+                <span className="absolute bottom-0 inset-x-0 bg-brand-50/95 border border-brand-200/80 text-brand-700 text-[9px] font-bold py-0.5 text-center rounded-b-lg shadow-2xs">
+                  Default Logo
                 </span>
               </div>
             )}
@@ -215,9 +221,13 @@ export function Step2ClinicLogo({
         {/* Controls */}
         <div className="flex-1 space-y-3 text-center sm:text-left w-full sm:w-auto">
           <div>
-            <p className="text-sm font-bold text-hospital-textMain">Upload Practice Logo</p>
+            <p className="text-sm font-bold text-hospital-textMain">
+              {logoUrl ? "Custom Practice Logo" : "Practice Logo"}
+            </p>
             <p className="text-xs text-hospital-textMuted mt-0.5">
-              Drag &amp; drop an image here or click browse. PNG, JPG, or WebP up to 2 MB.
+              {logoUrl
+                ? "Custom logo uploaded. You can change it anytime or restore the default logo."
+                : "Default logo is auto-applied. You can upload a custom logo (PNG, JPG, WebP up to 2 MB) or continue with the default."}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
@@ -246,10 +256,10 @@ export function Step2ClinicLogo({
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
                 uploading ? "opacity-60 pointer-events-none" : "",
               ].join(" ")}
-              aria-label={logoUrl ? "Change clinic logo" : "Upload clinic logo file"}
+              aria-label={logoUrl ? "Change clinic logo" : "Upload custom clinic logo file"}
             >
               <Upload className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{logoUrl ? "Change Logo" : "Upload File"}</span>
+              <span>{logoUrl ? "Change Logo" : "Upload Custom Logo"}</span>
             </button>
 
             {logoUrl && (
@@ -266,10 +276,10 @@ export function Step2ClinicLogo({
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
                   "disabled:opacity-50 disabled:pointer-events-none",
                 ].join(" ")}
-                aria-label="Remove uploaded logo"
+                aria-label="Remove uploaded logo and restore default"
               >
                 <RotateCcw className="w-3 h-3" aria-hidden="true" />
-                <span>Remove</span>
+                <span>Restore Default</span>
               </button>
             )}
           </div>
@@ -282,7 +292,7 @@ export function Step2ClinicLogo({
         </p>
       )}
       <p className="text-xs text-hospital-textSubtle">
-        * Logo upload is optional. If left blank, your practice initials or default medical icon will appear.
+        * Logo upload is optional. If left blank or not uploaded, the default clinic logo is automatically applied to your practice.
       </p>
     </div>
   );

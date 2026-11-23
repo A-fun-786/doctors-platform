@@ -16,7 +16,12 @@ console.log("============================================================");
 const miniCalPath = path.join(projectRoot, "components", "dashboard", "calendar", "sidebar", "MiniCalendar.tsx");
 const workingHoursPath = path.join(projectRoot, "components", "dashboard", "calendar", "sidebar", "WorkingHoursCard.tsx");
 const calendarSidebarPath = path.join(projectRoot, "components", "dashboard", "calendar", "sidebar", "CalendarSidebar.tsx");
-const docPlanPath = path.join(projectRoot, "docs", "calendar_sidebar_theme_plan.md");
+const docPlanCandidates = [
+  path.join(projectRoot, "docs", "feature", "appointment", "calendar-ui", "calendar_sidebar_theme_plan.md"),
+  path.join(projectRoot, "docs", "calendar_sidebar_theme_plan.md"),
+  path.join(projectRoot, "docs", "ui-progress", "calendar-ui", "calendar_sidebar_theme_plan.md"),
+];
+const docPlanPath = docPlanCandidates.find((p) => fs.existsSync(p)) || docPlanCandidates[0];
 
 // 1. File existence checks
 assert.ok(fs.existsSync(miniCalPath), "MiniCalendar.tsx must exist");
