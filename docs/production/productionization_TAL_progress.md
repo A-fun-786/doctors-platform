@@ -19,7 +19,7 @@ Each phase documents:
 | **Phase 1** | Core Product Completeness & Safe Feature Boundaries | ✅ Completed | Real public patient appointment booking (`POST /api/v1/public/tenants/{slug}/appointments`), feature-flag gating for non-persistent clinical stubs (`ENABLE_EXPERIMENTAL_CLINICAL_SERVICES`), Android APK builder server lockdown (`ENABLE_ANDROID_APK_BUILDS`) & cross-tenant IDOR fix |
 | **Phase 2** | Upload Security, Cloud Storage, Config & Frontend CVEs | ✅ Completed | Pillow image magic-byte validation & re-encoding (blocking SVG/HTML stored XSS & OOM DoS), path traversal `is_relative_to` fix, `FRONTEND_URL` & Postgres `alembic_version VARCHAR(128)` hardening, dynamic `$PORT`, Next.js `15.5.29` & PostCSS `8.5.23` CVE upgrade (`0` vulnerabilities) |
 | **Phase 3** | Auth Lockout, JWT Revocation, DB Performance & Postgres CI | ✅ Completed | Password login brute-force lockout, `token_version` JWT revocation on password reset (Migration `013`), Google `email_verified` enforcement, `X-Forwarded-For` proxy-depth IP extraction (`TRUSTED_PROXY_COUNT`), removal of redundant per-request `SELECT 1`, health error scrubbing, Ruff cleanup (`0` errors) & real PostgreSQL CI testing |
-| **Phase 4** | Observability, PHI Privacy, CSP Tightening & Cutover Runbook | ⏳ Pending | Frontend Sentry `instrumentation.ts` & PII scrubbing, production CSP lockdown, clinic-timezone dashboard KPIs, redacted & updated deployment documentation |
+| **Phase 4** | Observability, PHI Privacy, CSP Tightening & Cutover Runbook | ✅ Completed | Next.js `instrumentation.ts` Sentry registration & PII scrubbing (`beforeSend` + `logger.ts`), production CSP lockdown (`next.config.mjs`), clinic-timezone (`Asia/Kolkata`) & server-side `total` KPI counts in `OverviewTab.tsx`, secret redaction & updated production variables runbook in `docs/production/deployment.md` |
 
 ---
 
@@ -259,5 +259,62 @@ Each phase documents:
 - **Verification Executed:**
   - `cd backend && .venv/bin/ruff check .`: **`All checks passed!`** (`0 errors`).
   - Full backend pytest suite (including new lockout, Google `email_verified`, `token_version` revocation, migration `013`, `TRUSTED_PROXY_COUNT` anti-spoofing, and health error scrubbing tests): **`230 passed, 0 failed`**.
+
+---
+
+### Phase 4: Observability, PHI Privacy, Production CSP Lockdown, Dashboard KPI Accuracy & Cutover Runbook
+
+#### 1. Next.js App Router Sentry `instrumentation.ts` & PHI/PII Scrubbing (`P1-6`, `P2-1`)
+- **Files:**
+  - [`instrumentation.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/instrumentation.ts) *(New)*
+  - [`sentry.client.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.client.config.ts)
+  - [`sentry.server.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.server.config.ts)
+  - [`sentry.edge.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.edge.config.ts)
+  - [`lib/logger.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/logger.ts)
+- **Symptom / Problem:**
+  1. Next.js 15 App Router requires a root `instrumentation.ts` hook (`register()` and `onRequestError`) for `@sentry/nextjs` v11 to initialize server/edge telemetry and capture unhandled server request errors.
+  2. While the backend Sentry setup (`backend/app/core/sentry.py`) enforced `send_default_pii=False` for HIPAA/PHI privacy, `lib/logger.ts` attached `email: context.email` to `sentryClient.setUser(...)` and the frontend Sentry config files omitted `sendDefaultPii: false`.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - Healthcare platforms should never leak personally identifiable information (email addresses, IP headers, or cookies) to third-party crash reporting pipelines. Opaque identifiers (`id: userId` and `username: tenantSlug`) provide full debugging traceability without transmitting PII.
+- **What Was Changed:**
+  - Created [`instrumentation.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/instrumentation.ts) registering `sentry.server.config` and `sentry.edge.config` and exporting `onRequestError = Sentry.captureRequestError`.
+  - Added a `beforeSend` PII scrubber (`delete event.user.email; delete event.user.ip_address;`) to [`sentry.client.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.client.config.ts), [`sentry.server.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.server.config.ts), and [`sentry.edge.config.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/sentry.edge.config.ts).
+  - Removed `email: context.email` from `sentryClient.setUser(...)` in [`lib/logger.ts`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/lib/logger.ts#L163-L173).
+
+---
+
+#### 2. Production Content Security Policy (CSP) Lockdown (`P2-2`)
+- **File:** [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs)
+- **Symptom / Problem:**
+  - `next.config.mjs` included `'unsafe-eval'` in `script-src` and `https://*.railway.app http://127.0.0.1:8000 http://localhost:8000` in `connect-src` unconditionally, even in production builds.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - Allowing `unsafe-eval`, wildcard `*.railway.app` tenants, and `localhost` origins in a production CSP weakens browser protections against script injection and data exfiltration to arbitrary Railway subdomains.
+- **What Was Changed:**
+  - Updated [`next.config.mjs`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/next.config.mjs#L1-L91) so that when `NODE_ENV === "production"`:
+    - `'unsafe-eval'` is excluded from `script-src`.
+    - `https://*.railway.app`, `http://127.0.0.1:8000`, and `http://localhost:8000` are excluded from `connect-src` (whitelisting only the exact `NEXT_PUBLIC_API_URL`, custom `gosmartclinic.com` domains, Google OAuth, and Sentry).
+    - Added optional `NEXT_PUBLIC_STORAGE_DOMAIN` support to `img-src` for Cloudflare R2 custom CDN domains.
+
+---
+
+#### 3. Clinic-Timezone Date & Server-Side KPI Counts on Dashboard Overview (`P2-3`)
+- **File:** [`components/dashboard/OverviewTab.tsx`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/components/dashboard/OverviewTab.tsx#L44-L82)
+- **Symptom / Problem:**
+  1. `OverviewTab.tsx` computed `todayStr` using `new Date().toISOString().split("T")[0]` (UTC). Because the platform operates in `Asia/Kolkata` (`UTC+05:30`), between 00:00 and 05:30 IST `todayStr` resolved to yesterday's date, showing the wrong day's appointments on the doctor's dashboard.
+  2. Total Booked and Completed KPI cards were calculated by fetching `getDoctorAppointments({ page_size: 100 })` (page 1 only) and filtering `items` in browser memory, capping KPI counts at 100 appointments for busy clinics.
+- **What Was Changed:**
+  - Formatted `todayStr` using `new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())` to match the backend's `CLINIC_TIMEZONE`.
+  - Replaced the single un-filtered page-1 fetch with lightweight status-filtered queries (`getDoctorAppointments({ status: "BOOKED", page_size: 1 })` and `getDoctorAppointments({ status: "COMPLETED", page_size: 1 })`) and read the exact PostgreSQL `total` count from the response.
+
+---
+
+#### 4. Production Deployment Guide Redaction & Cutover Reference (`P2-4`)
+- **File:** [`docs/production/deployment.md`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/docs/production/deployment.md)
+- **Symptom / Problem:**
+  - `docs/production/deployment.md` only documented Alembic migrations `001`–`005`, omitted required production environment variables (`EMAIL_BACKEND`, `RESEND_API_KEY`, `FRONTEND_URL`, `STORAGE_BACKEND=s3` + R2 variables, `TRUSTED_PROXY_COUNT`), exposed partial secret prefixes/DSNs, and referenced legacy `docspace.com` custom domains.
+- **What Was Changed:**
+  - Documented all 13 Alembic migrations (`001`–`013`) and automatic PostgreSQL `alembic_version VARCHAR(128)` handling.
+  - Updated the Railway and Vercel Environment Variables Reference tables with the complete production configuration (Resend, Cloudflare R2, Neon `-pooler`, feature flags, `TRUSTED_PROXY_COUNT=1`, and `NEXT_PUBLIC_SENTRY_DSN`), redacted partial secrets, and standardized custom domain examples to `gosmartclinic.com`.
+
 
 

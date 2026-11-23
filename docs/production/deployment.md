@@ -80,13 +80,21 @@ flowchart LR
    - **Host:** `ep-cool-dream-b433f1sa.c-6.us-east-2.aws.neon.tech`
    - **Default DB:** `neondb`
 2. **Schema Migration Execution:**
-   - Pre-created version tracking schema to prevent length truncation.
+   - `alembic/env.py` automatically creates/widens `alembic_version.version_num` to `VARCHAR(128)` on PostgreSQL to prevent revision ID length truncation.
    - Executed Alembic migrations via Python 3.12:
      - `001_initial_foundation` (Users, core profiles, auth models)
      - `002_add_auth_providers` (OAuth tracking)
      - `003_add_doctor_onboarding_and_services` (Doctor metadata & clinic workflows)
      - `004_add_app_icon_url` (Custom branding asset links)
      - `005_alter_avatar_url_to_text` (High-resolution avatar support)
+     - `006_appointment_system_foundation` (Schedules & appointments schema)
+     - `007_appointment_active_slot_unique_index` (Partial unique index preventing double-booking)
+     - `008_add_patient_details_to_appointments` (Demographics & clinical vitals columns)
+     - `009_add_working_hours_to_doctor` (JSON recurring shift schedule)
+     - `010_add_email_verification_and_security` (Verification tokens, lockout counters)
+     - `011_add_sent_at_to_verification_tokens` (Delivery cooldown tracking)
+     - `012_add_password_reset_purpose_support` (Password reset token scoping)
+     - `013_add_token_version_to_doctors` (`token_version` for instant JWT revocation on password reset)
 
 ---
 
@@ -176,40 +184,56 @@ flowchart LR
 | Variable | Value / Format | Purpose |
 |---|---|---|
 | `ENVIRONMENT` | `production` | Enables production security policies & strict validation |
-| `DATABASE_URL` | `postgresql+psycopg://...neon.tech/neondb?sslmode=require` | Connection to Neon PostgreSQL |
-| `JWT_SECRET_KEY` | `ed88486d36e9...` (64 hex characters) | HS256 JWT signature generation |
+| `DATABASE_URL` | `postgresql+psycopg://<user>:<redacted>@<endpoint>-pooler.<region>.aws.neon.tech/neondb?sslmode=require` | Connection to Neon PostgreSQL (PgBouncer `-pooler` endpoint recommended) |
+| `JWT_SECRET_KEY` | `<64-hex-char-secret>` (`openssl rand -hex 32`) | HS256 JWT signature generation |
 | `ALLOW_MOCK_AUTH` | `false` | Disables developer backdoors |
-| `STORAGE_BACKEND` | `local` | Upload storage provider (`local` / `s3`) |
-| `PORT` | `8000` | Internal container listener port |
 | `CORS_ORIGINS` | `["https://doctors-platform-eight.vercel.app"]` | Strict CORS whitelist |
-| `GOOGLE_CLIENT_ID` | `644948532553-g01hlshcmkoaft84l6b06oc9nklm9j1u.apps.googleusercontent.com` | Google OAuth client ID |
-| `SENTRY_DSN` | `https://eecc704912c2...@o4512165357486080.ingest.us.sentry.io/...` | Sentry crash reporting & performance monitoring |
+| `FRONTEND_URL` | `https://doctors-platform-eight.vercel.app` | Base URL for verification & password-reset links |
+| `GOOGLE_CLIENT_ID` | `<google-oauth-client-id>.apps.googleusercontent.com` | Google OAuth client ID |
+| `EMAIL_BACKEND` | `resend` | Transactional email provider (`resend` / `smtp` / `ses`) |
+| `RESEND_API_KEY` | `re_<redacted>` | Resend API key for verification & password-reset delivery |
+| `EMAIL_FROM` | `noreply@gosmartclinic.com` | Verified sender address |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforces email verification before login |
+| `STORAGE_BACKEND` | `s3` | Persistent cloud storage (`s3` for Cloudflare R2 / AWS S3) |
+| `S3_BUCKET_NAME` | `gosmartclinic-uploads` | Cloudflare R2 / S3 bucket name |
+| `S3_ENDPOINT_URL` | `https://<account-id>.r2.cloudflarestorage.com` | Cloudflare R2 S3-compatible endpoint |
+| `S3_ACCESS_KEY_ID` | `<redacted>` | R2 / S3 access key ID |
+| `S3_SECRET_ACCESS_KEY` | `<redacted>` | R2 / S3 secret access key |
+| `S3_PUBLIC_CUSTOM_DOMAIN` | `https://uploads.gosmartclinic.com` | Public CDN domain for avatars & clinic icons |
+| `TRUSTED_PROXY_COUNT` | `1` | Rightmost untrusted `X-Forwarded-For` proxy depth on Railway |
+| `ENABLE_EXPERIMENTAL_CLINICAL_SERVICES` | `false` | Gates unimplemented lab-report & medicine-order stubs (`501`) |
+| `ENABLE_ANDROID_APK_BUILDS` | `false` | Disables in-container Gradle compilation (`503`) |
+| `PORT` | `8000` | Container listener port (dynamically honored via `${PORT:-8000}`) |
+| `SENTRY_DSN` | `https://<redacted>@<org>.ingest.us.sentry.io/<project>` | Sentry crash reporting & performance monitoring |
 
 ### Frontend (Vercel)
 | Variable | Value | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `https://backend-production-b26c.up.railway.app` | Base API URL called by client fetchers |
+| `API_URL` | `https://backend-production-b26c.up.railway.app` | Server/Edge rewrite proxy target for `/api/*` and `/uploads/*` |
+| `NEXT_PUBLIC_SENTRY_DSN` | `https://<redacted>@<org>.ingest.us.sentry.io/<project>` | Frontend Sentry error & performance tracking (`sendDefaultPii: false`) |
+| `NEXT_PUBLIC_STORAGE_DOMAIN` | `https://uploads.gosmartclinic.com` | Optional R2 CDN origin whitelisted in CSP `img-src` |
 
 ---
 
 ## 🌐 Custom Domain Setup Guide
 
-When you are ready to point your custom domain (e.g., `docspace.com`) to the live platform:
+When you are ready to point your custom domain (e.g., `gosmartclinic.com`) to the live platform:
 
-### 1. Root / Frontend Domain (`docspace.com`)
+### 1. Root / Frontend Domain (`gosmartclinic.com`)
 1. In terminal:
    ```bash
-   vercel domains add docspace.com
-   vercel domains add www.docspace.com
+   vercel domains add gosmartclinic.com
+   vercel domains add www.gosmartclinic.com
    ```
 2. In your DNS provider (Cloudflare, Namecheap, GoDaddy):
    - **Type `A`**: `@` &rarr; `76.76.21.21`
    - **Type `CNAME`**: `www` &rarr; `cname.vercel-dns.com`
 
-### 2. API Subdomain (`api.docspace.com`)
+### 2. API Subdomain (`api.gosmartclinic.com`)
 1. In terminal:
    ```bash
-   railway domain api.docspace.com --service backend
+   railway domain api.gosmartclinic.com --service backend
    ```
 2. Railway will display a DNS record:
    - **Type `CNAME`**: `api` &rarr; `<service-id>.up.railway.app`
@@ -219,11 +243,13 @@ When you are ready to point your custom domain (e.g., `docspace.com`) to the liv
 Once DNS propagates:
 ```bash
 # 1. Update frontend to call custom backend domain
-vercel env add NEXT_PUBLIC_API_URL production --value "https://api.docspace.com" --force --yes
+vercel env add NEXT_PUBLIC_API_URL production --value "https://api.gosmartclinic.com" --force --yes
+vercel env add API_URL production --value "https://api.gosmartclinic.com" --force --yes
 vercel --prod --archive=tgz --yes
 
-# 2. Update backend CORS to allow custom frontend domain
-railway variable set CORS_ORIGINS='["https://docspace.com","https://www.docspace.com"]'
+# 2. Update backend CORS and FRONTEND_URL to allow custom frontend domain
+railway variable set CORS_ORIGINS='["https://gosmartclinic.com","https://www.gosmartclinic.com"]'
+railway variable set FRONTEND_URL='https://gosmartclinic.com'
 ```
 
 ---

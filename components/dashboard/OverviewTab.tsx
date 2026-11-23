@@ -41,7 +41,9 @@ export default function OverviewTab({
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+  }).format(new Date());
 
   useEffect(() => {
     let isMounted = true;
@@ -50,9 +52,10 @@ export default function OverviewTab({
         setLoading(true);
         setError(null);
 
-        const [todayApptRes, allApptRes] = await Promise.allSettled([
-          getDoctorAppointments({ from: todayStr, to: todayStr }),
-          getDoctorAppointments({ page_size: 100 }),
+        const [todayApptRes, bookedRes, completedRes] = await Promise.allSettled([
+          getDoctorAppointments({ from: todayStr, to: todayStr, page_size: 100 }),
+          getDoctorAppointments({ status: "BOOKED", page_size: 1 }),
+          getDoctorAppointments({ status: "COMPLETED", page_size: 1 }),
         ]);
 
         if (!isMounted) return;
@@ -61,12 +64,20 @@ export default function OverviewTab({
           setTodayAppointments(todayApptRes.value.items || []);
         }
 
-        if (allApptRes.status === "fulfilled") {
-          const items = allApptRes.value.items || [];
-          const booked = items.filter((a) => a.status === "BOOKED").length;
-          const completed = items.filter((a) => a.status === "COMPLETED").length;
-          setTotalBookedCount(booked);
-          setCompletedCount(completed);
+        if (bookedRes.status === "fulfilled") {
+          const total =
+            typeof bookedRes.value.total === "number"
+              ? bookedRes.value.total
+              : (bookedRes.value.items || []).length;
+          setTotalBookedCount(total);
+        }
+
+        if (completedRes.status === "fulfilled") {
+          const total =
+            typeof completedRes.value.total === "number"
+              ? completedRes.value.total
+              : (completedRes.value.items || []).length;
+          setCompletedCount(total);
         }
       } catch (err: unknown) {
         if (isMounted) {

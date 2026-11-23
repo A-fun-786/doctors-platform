@@ -7,5 +7,12 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
     debug: false,
+    beforeSend(event) {
+      if (event.user) {
+        delete event.user.email;
+        delete event.user.ip_address;
+      }
+      return event;
+    },
   });
 }
