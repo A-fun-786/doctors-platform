@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.time import get_clinic_timezone
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
@@ -214,7 +215,13 @@ def generate_available_slots(
 
     # Step C: Past-Slot Guard
     # If query_date is today, filter out candidate intervals where end_time <= now.time()
-    current_dt = now or datetime.now()
+    clinic_tz = get_clinic_timezone()
+    if now is None:
+        current_dt = datetime.now(clinic_tz)
+    elif now.tzinfo is not None:
+        current_dt = now.astimezone(clinic_tz)
+    else:
+        current_dt = now
     if query_date == current_dt.date():
         curr_time = current_dt.time()
         filtered_candidates: List[Tuple[int, int]] = []

@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 import pytest
 
 from app.core.security import create_access_token
@@ -7,6 +7,17 @@ from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.tenant import Tenant
+from app.services import appointment_service
+
+
+@pytest.fixture(autouse=True)
+def _pin_clinic_clock(monkeypatch):
+    """Pin clinic clock before 2026-10-12 fixture dates so lifecycle tests stay time-independent."""
+    monkeypatch.setattr(
+        appointment_service,
+        "get_clinic_now",
+        lambda now=None: now or datetime(2026, 10, 1, 8, 0),
+    )
 
 
 @pytest.fixture

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "GoSmartClinic API"
     ENVIRONMENT: str = "development"
+    CLINIC_TIMEZONE: str = "Asia/Kolkata"
     DATABASE_URL: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/doctor_platform"
     )
@@ -84,6 +85,18 @@ class Settings(BaseSettings):
     RATE_LIMIT_RESEND_VERIFICATION: str = "3/minute"
     RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
     FRONTEND_URL: str = "http://localhost:3000"
+
+    @field_validator("CLINIC_TIMEZONE", mode="after")
+    @classmethod
+    def validate_clinic_timezone(cls, v: str) -> str:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        tz_name = (v or "").strip()
+        try:
+            ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"Invalid CLINIC_TIMEZONE '{v}'. Must be a valid IANA timezone.") from exc
+        return tz_name
 
     @field_validator("CORS_ORIGINS", mode="after")
 

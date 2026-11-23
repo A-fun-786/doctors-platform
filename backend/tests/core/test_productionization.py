@@ -6,7 +6,7 @@ Tests for Phase 8 Productionization additions:
 - Appointment creation idempotency key support
 - Database session retry mechanism
 """
-from datetime import date, time
+from datetime import date, time, timedelta
 from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import OperationalError
@@ -85,10 +85,12 @@ def test_idempotency_key_appointment_creation(client, auth_doctor, test_db):
     """Verify that posting with identical Idempotency-Key returns cached response without duplicate conflicts."""
     doctor, tenant, headers = auth_doctor
 
+    target_date = date.today() + timedelta(days=7)
+
     # Set up schedule
     sched = Schedule(
         doctor_id=doctor.id,
-        date=date(2026, 11, 10),
+        date=target_date,
         start_time=time(9, 0),
         end_time=time(11, 0),
         type="AVAILABLE",
@@ -97,7 +99,7 @@ def test_idempotency_key_appointment_creation(client, auth_doctor, test_db):
     test_db.commit()
 
     payload = {
-        "date": "2026-11-10",
+        "date": target_date.isoformat(),
         "start_time": "09:00:00",
         "end_time": "09:30:00",
         "patient_name": "Idempotent Patient",

@@ -9,8 +9,18 @@ from app.core.cache import set_cached_slots, get_cached_slots
 from app.models.doctor import Doctor
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
-from app.services import schedule_service
+from app.services import appointment_service, schedule_service
 from datetime import date, time, datetime
+
+
+@pytest.fixture(autouse=True)
+def _pin_clinic_clock(monkeypatch):
+    """Pin clinic clock before Nov/Dec 2026 fixture dates so weekday tests stay time-independent."""
+    monkeypatch.setattr(
+        appointment_service,
+        "get_clinic_now",
+        lambda now=None: now or datetime(2026, 11, 1, 8, 0),
+    )
 
 
 @pytest.fixture

@@ -12,7 +12,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { CalendarEvent, rescheduleAppointment, getDoctorCalendar } from "@/lib/api";
-import { WorkingHoursConfig, format12Hour } from "../calendarUtils";
+import { WorkingHoursConfig, format12Hour, formatDateToYYYYMMDD } from "../calendarUtils";
 import SlotSelectorGrid from "./SlotSelectorGrid";
 import RescheduleConfirmModal from "./RescheduleConfirmModal";
 
@@ -92,6 +92,8 @@ export default function AppointmentRescheduleForm({
   }, [targetDate, date, existingEvents]);
 
   // Validate inputs before opening confirmation modal
+  const todayStr = formatDateToYYYYMMDD(new Date());
+
   const handleInitiateSave = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -101,8 +103,24 @@ export default function AppointmentRescheduleForm({
       return;
     }
 
+    const now = new Date();
+    const currentTodayStr = formatDateToYYYYMMDD(now);
+    const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes()
+    ).padStart(2, "0")}`;
+
+    if (targetDate < currentTodayStr) {
+      setFormError("Cannot reschedule an appointment to a past date.");
+      return;
+    }
+
     if (!selectedSlot || !selectedSlot.start || !selectedSlot.end) {
       setFormError("Please select an available 30-minute time slot.");
+      return;
+    }
+
+    if (targetDate === currentTodayStr && selectedSlot.end <= currentTimeStr) {
+      setFormError("Cannot reschedule an appointment to an elapsed time slot.");
       return;
     }
 
@@ -197,6 +215,7 @@ export default function AppointmentRescheduleForm({
         <input
           id="reschedule-date"
           type="date"
+          min={todayStr}
           value={targetDate}
           onChange={(e) => {
             setTargetDate(e.target.value);

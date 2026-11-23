@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Clock, Check, Loader2, AlertCircle } from "lucide-react";
 import { getDoctorAvailableSlots, AvailableSlot, CalendarEvent } from "@/lib/api";
-import { format12Hour, doesEventOverlapSlot, isSlotWithinWorkingHours, WorkingHoursConfig } from "../calendarUtils";
+import { format12Hour, formatDateToYYYYMMDD, doesEventOverlapSlot, isSlotWithinWorkingHours, WorkingHoursConfig } from "../calendarUtils";
 
 interface SlotSelectorGridProps {
   date: string;
@@ -66,6 +66,11 @@ export default function SlotSelectorGrid({
     const list: CandidateSlot[] = [];
     const startHour = 9;
     const endHour = 20;
+    const now = new Date();
+    const todayStr = formatDateToYYYYMMDD(now);
+    const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes()
+    ).padStart(2, "0")}`;
 
     for (let h = startHour; h < endHour; h++) {
       for (const m of [0, 30]) {
@@ -88,7 +93,13 @@ export default function SlotSelectorGrid({
         let isBlocked = false;
         let reason = "";
 
-        if (!withinShift) {
+        if (date && date < todayStr) {
+          isBlocked = true;
+          reason = "Past Date";
+        } else if (date === todayStr && end <= nowTimeStr) {
+          isBlocked = true;
+          reason = "Elapsed";
+        } else if (!withinShift) {
           isBlocked = true;
           reason = "Outside Shift";
         }
