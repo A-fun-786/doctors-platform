@@ -102,6 +102,8 @@ class Settings(BaseSettings):
                 f"Unknown EMAIL_BACKEND '{self.EMAIL_BACKEND}'. "
                 f"Supported backends are: {', '.join(sorted(all_backends))}."
             )
+        if email_backend == "resend" and (not self.RESEND_API_KEY or not self.RESEND_API_KEY.strip()):
+            raise ValueError("RESEND_API_KEY must be set when EMAIL_BACKEND is 'resend'.")
 
         if self.ENVIRONMENT.lower() == "production":
             if self.ALLOW_MOCK_AUTH:
