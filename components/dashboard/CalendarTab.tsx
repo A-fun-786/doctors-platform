@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Toast from "@/components/ui/Toast";
 import { CalendarTabProps } from "./calendar/types";
 import { useCalendarData } from "./calendar/hooks/useCalendarData";
@@ -10,6 +10,11 @@ import WeekView from "./calendar/views/WeekView";
 import DayView from "./calendar/views/DayView";
 import MonthView from "./calendar/views/MonthView";
 import CalendarSidebar from "./calendar/sidebar/CalendarSidebar";
+import MiniCalendar from "./calendar/sidebar/MiniCalendar";
+import WorkingHoursCard from "./calendar/sidebar/WorkingHoursCard";
+import MobileBottomSheet from "./calendar/mobile/MobileBottomSheet";
+import MobileClinicStatusCapsule from "./calendar/mobile/MobileClinicStatusCapsule";
+import MobileHorizonDayStrip from "./calendar/mobile/MobileHorizonDayStrip";
 import AddAppointmentModal from "./calendar/modals/AddAppointmentModal";
 import BlockTimeModal from "./calendar/modals/BlockTimeModal";
 import SlotActionModal from "./calendar/modals/SlotActionModal";
@@ -107,6 +112,10 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
   // Right-side Drawer Hook
   const { drawerState, openEventDrawer, closeDrawer } = useCalendarDrawer();
 
+  // Mobile bottom sheet toggles for MiniCalendar & WorkingHours
+  const [showMobileMiniCal, setShowMobileMiniCal] = useState(false);
+  const [showMobileWorkingHours, setShowMobileWorkingHours] = useState(false);
+
   // Quick slot create on hover in WeekView
   const handleQuickAddSlot = useCallback(
     (dateStr: string, start: string, end: string) => {
@@ -137,6 +146,21 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         onPrevWeek={handlePrevWeek}
         onNextWeek={handleNextWeek}
       />
+
+      {/* Mobile-Only Smart Controls Island (Visible on < xl) */}
+      <div className="xl:hidden space-y-3">
+        <MobileClinicStatusCapsule
+          config={workingHoursConfig}
+          onOpenHoursSheet={() => setShowMobileWorkingHours(true)}
+        />
+        <MobileHorizonDayStrip
+          currentWeekDays={currentWeekDays}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          getEventsForDate={getEventsForDate}
+          onOpenFullMonth={() => setShowMobileMiniCal(true)}
+        />
+      </div>
 
       {/* Main 2-Column Dashboard Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -285,7 +309,7 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
         onClose={closeDrawer}
         categoryBadge={
           drawerState.type === "appointment" ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-800 bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded-full">
               Patient Appointment
             </span>
           ) : (
@@ -336,6 +360,44 @@ export default function CalendarTab({ doctor, onNavigateTab: _onNavigateTab }: C
             />
           )}
       </CalendarDrawer>
+
+      {/* MOBILE BOTTOM SHEET: Full Month MiniCalendar */}
+      <MobileBottomSheet
+        isOpen={showMobileMiniCal}
+        onClose={() => setShowMobileMiniCal(false)}
+        title="Select Date"
+        subtitle="Jump directly to any date or month"
+      >
+        <div className="max-w-md mx-auto">
+          <MiniCalendar
+            miniCalMonth={miniCalMonth}
+            setMiniCalMonth={setMiniCalMonth}
+            miniCalDays={miniCalDays}
+            onSelectDate={(dateStr) => {
+              setSelectedDate(dateStr);
+              setShowMobileMiniCal(false);
+            }}
+          />
+        </div>
+      </MobileBottomSheet>
+
+      {/* MOBILE BOTTOM SHEET: Clinic Working Hours */}
+      <MobileBottomSheet
+        isOpen={showMobileWorkingHours}
+        onClose={() => setShowMobileWorkingHours(false)}
+        title="Clinic Working Hours"
+        subtitle="Operational shift timings and daily slots"
+      >
+        <div className="max-w-md mx-auto">
+          <WorkingHoursCard
+            config={workingHoursConfig}
+            onEditHours={() => {
+              setShowMobileWorkingHours(false);
+              openEditWorkingHours();
+            }}
+          />
+        </div>
+      </MobileBottomSheet>
     </div>
   );
 }

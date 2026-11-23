@@ -2,11 +2,12 @@ import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models.doctor import Doctor
+from app.models.tenant import Tenant
 
 # HTTP Bearer token extractor
 security_scheme = HTTPBearer(auto_error=True)
@@ -33,7 +34,8 @@ def get_current_doctor(
         if doctor_id_str is None:
             raise credentials_exception
         doctor_id = uuid.UUID(doctor_id_str)
-    except (jwt.PyJWTError, ValueError):
+        token_version = int(payload.get("tv", 1))
+    except (jwt.PyJWTError, ValueError, TypeError):
         raise credentials_exception
 
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
@@ -44,5 +46,27 @@ def get_current_doctor(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user account",
         )
+    if token_version != int(doctor.token_version or 1):
+        raise credentials_exception
 
     return doctor
+
+
+def get_active_tenant_by_slug(slug: str, db: Session = Depends(get_db)) -> Tenant:
+    """
+    Dependency & helper that fetches an active Tenant by its slug and validates
+    that an associated doctor practice exists, raising a 404 if not found.
+    Eagerly loads the associated doctor to eliminate lazy-load N+1 queries.
+    """
+    tenant = (
+        db.query(Tenant)
+        .options(joinedload(Tenant.doctor))
+        .filter(Tenant.slug == slug.lower(), Tenant.status == "active")
+        .first()
+    )
+    if not tenant or not tenant.doctor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Doctor practice with link '{slug}' was not found.",
+        )
+    return tenant

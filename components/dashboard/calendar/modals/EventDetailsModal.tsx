@@ -33,7 +33,7 @@ export default function EventDetailsModal({
               ? "text-amber-600"
               : isBlocked
               ? "text-purple-600"
-              : "text-blue-600"
+              : "text-brand-600"
           }`}
         >
           {event.type === "LEAVE" ? "Doctor Leave" : event.type === "HOLIDAY" ? "Clinic Holiday" : event.type}
@@ -66,11 +66,11 @@ export default function EventDetailsModal({
         )}
       </div>
 
-      <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+      <div className="mt-5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors"
+          className="w-full sm:w-auto px-4 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors cursor-pointer text-center"
         >
           Close
         </button>

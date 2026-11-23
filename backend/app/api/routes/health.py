@@ -40,7 +40,6 @@ def database_health_check(db: Session = Depends(get_db)):
             detail={
                 "status": "unhealthy",
                 "database": "disconnected",
-                "error": str(exc),
             },
         )
 

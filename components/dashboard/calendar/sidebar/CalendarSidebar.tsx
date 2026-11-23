@@ -26,7 +26,7 @@ export default function CalendarSidebar({
   onEditWorkingHours,
 }: CalendarSidebarProps) {
   return (
-    <div className="xl:col-span-3 space-y-5 select-none">
+    <div className="hidden xl:grid xl:col-span-3 grid-cols-1 gap-5 select-none">
       {/* Real Google Calendar Mini-Calendar */}
       <MiniCalendar
         miniCalMonth={miniCalMonth}

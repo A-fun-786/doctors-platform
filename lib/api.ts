@@ -7,6 +7,9 @@ const TOKEN_STORAGE_KEY = BRAND_CONFIG.storage.authTokenKey;
 export const DEFAULT_DOCTOR_AVATAR =
   "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80";
 
+export const DEFAULT_CLINIC_LOGO = BRAND_CONFIG.assets.emblem;
+export const DEFAULT_FULL_LOGO = BRAND_CONFIG.assets.logo;
+
 export interface ServicesConfig {
   appointment: boolean;
   video_consultation: boolean;
@@ -34,6 +37,8 @@ export interface Doctor {
   speciality?: string | null;
   bio?: string | null;
   onboarding_completed: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   auth_provider: string;
 }
 
@@ -42,6 +47,7 @@ export interface AuthResponse {
   token_type: string;
   doctor: Doctor;
   tenant: Tenant;
+  verification_email_sent?: boolean;
 }
 
 export interface DoctorMeResponse {
@@ -53,6 +59,8 @@ export interface DoctorMeResponse {
   speciality?: string | null;
   bio?: string | null;
   onboarding_completed: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   auth_provider: string;
   tenant?: Tenant | null;
 }
@@ -100,12 +108,15 @@ export interface PublicDoctorProfileResponse {
 
 export interface AppointmentBookingPayload {
   patient_name: string;
-  patient_email: string;
+  patient_email?: string;
   patient_phone: string;
   appointment_date: string;
   appointment_time: string;
+  start_time?: string;
+  end_time?: string;
   appointment_type: "in_clinic" | "video_consultation";
   notes?: string;
+  staff_id?: string;
 }
 
 export interface ReportUploadPayload {
@@ -127,6 +138,8 @@ export interface MedicineOrderPayload {
 export interface PublicAppointmentResponse {
   message: string;
   booking_id: string;
+  appointment_id?: string;
+  status?: string;
 }
 
 export interface PublicReportResponse {
@@ -286,9 +299,11 @@ export interface CalendarEvent {
   patient_address?: string;
   notes?: string;
   status?: AppointmentStatus;
+  id?: string;
   appointment_id?: string;
   schedule_id?: string;
   doctor_id?: string;
+  staff_id?: string;
   patient_id?: string;
   patient_email?: string;
   created_at?: string;
@@ -424,9 +439,27 @@ export async function apiFetch<T = unknown>(
           } else {
             errorDetail = JSON.stringify(errorData.detail);
           }
+        } else if (errorData?.error && typeof errorData.error === "string") {
+          errorDetail = errorData.error;
         }
       } catch {
         // Fallback to generic message
+      }
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After") || response.headers.get("retry-after");
+        let cooldownMsg = "";
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter, 10);
+          if (!isNaN(seconds) && seconds > 0) {
+            cooldownMsg = `Please wait ${seconds} second${seconds === 1 ? "" : "s"} before trying again.`;
+          }
+        }
+        if (errorDetail.startsWith("Request failed with status 429")) {
+          errorDetail = cooldownMsg || "Too many requests. Please wait a moment before trying again.";
+        } else if (cooldownMsg && !errorDetail.toLowerCase().includes("wait") && !errorDetail.toLowerCase().includes("second")) {
+          errorDetail = `${errorDetail}. ${cooldownMsg}`;
+        }
       }
 
       logger.api(
@@ -478,23 +511,148 @@ export async function authenticateWithGoogle(credential: string): Promise<AuthRe
   return data;
 }
 
+export interface RegisterWithEmailPayload {
+  email: string;
+  password: string;
+  fullName?: string;
+  full_name?: string;
+}
+
 /**
  * Register a new doctor using email and password.
+ * Supports either positional parameters (email, password, fullName) or an options object.
  */
 export async function registerWithEmail(
-  email: string,
-  password: string,
+  emailOrPayload: string | RegisterWithEmailPayload,
+  password?: string,
   fullName?: string
 ): Promise<AuthResponse> {
+  let emailValue = "";
+  let passwordValue = "";
+  let fullNameValue: string | undefined;
+
+  if (typeof emailOrPayload === "object") {
+    emailValue = emailOrPayload.email;
+    passwordValue = emailOrPayload.password;
+    fullNameValue = emailOrPayload.fullName || emailOrPayload.full_name;
+  } else {
+    emailValue = emailOrPayload;
+    passwordValue = password || "";
+    fullNameValue = fullName;
+  }
+
   const data = await apiFetch<AuthResponse>("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify({
-      email,
-      password,
-      full_name: fullName,
+      email: emailValue.trim().toLowerCase(),
+      password: passwordValue,
+      full_name: fullNameValue?.trim() || undefined,
     }),
   });
-  setAuthToken(data.access_token);
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
+  return data;
+}
+
+export interface VerifyEmailPayload {
+  email?: string;
+  code?: string;
+  token?: string;
+}
+
+/**
+ * Verify doctor email address via 6-digit OTP code or URL token.
+ * Supports verifyEmail(email, code) or verifyEmail({ email, code, token }).
+ */
+export async function verifyEmail(
+  emailOrPayload: string | VerifyEmailPayload,
+  code?: string
+): Promise<AuthResponse> {
+  let bodyPayload: VerifyEmailPayload;
+  if (typeof emailOrPayload === "object") {
+    bodyPayload = emailOrPayload;
+  } else if (code !== undefined) {
+    bodyPayload = {
+      email: emailOrPayload.trim().toLowerCase(),
+      code: code.trim(),
+    };
+  } else {
+    bodyPayload = {
+      code: emailOrPayload.trim(),
+    };
+  }
+
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify(bodyPayload),
+  });
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
+  return data;
+}
+
+/**
+ * Request a fresh verification code / email with 60s cooldown.
+ */
+export async function resendVerificationEmail(
+  email: string
+): Promise<{ message: string; email?: string }> {
+  return apiFetch<{ message: string; email?: string }>("/api/v1/auth/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordPayload {
+  new_password: string;
+  email?: string;
+  code?: string;
+  token?: string;
+}
+
+/**
+ * Request password reset OTP and magic link.
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  return apiFetch<ForgotPasswordResponse>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+}
+
+/**
+ * Reset password using 6-digit OTP code or URL token.
+ * Sets auth token in local storage / cookie on success.
+ */
+export async function resetPassword(
+  params: ResetPasswordPayload
+): Promise<AuthResponse> {
+  const bodyPayload: Record<string, string> = {
+    new_password: params.new_password,
+  };
+  if (params.email?.trim()) {
+    bodyPayload.email = params.email.trim().toLowerCase();
+  }
+  if (params.code?.trim()) {
+    bodyPayload.code = params.code.trim();
+  }
+  if (params.token?.trim()) {
+    bodyPayload.token = params.token.trim();
+  }
+
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(bodyPayload),
+  });
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
   return data;
 }
 
@@ -560,15 +718,20 @@ export async function getPublicDoctorProfile(
 }
 
 /**
- * @deprecated Legacy appointment stub endpoint. Replaced by real appointment scheduling in Phase 5.
- * Submit an appointment request on the patient page.
+ * Submit a real persisted appointment booking request on the public patient page.
  */
 export async function bookPublicAppointment(
   slug: string,
-  payload: AppointmentBookingPayload
+  payload: AppointmentBookingPayload,
+  idempotencyKey?: string
 ): Promise<PublicAppointmentResponse> {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
   return apiFetch<PublicAppointmentResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}/appointments`, {
     method: "POST",
+    headers,
     body: JSON.stringify(payload),
   });
 }
@@ -674,13 +837,19 @@ export async function getDoctorAvailableSlots(date: string): Promise<AvailableSl
 
 /**
  * Retrieve public available booking slots for a tenant practice by slug on a specific date.
+ * Optionally filter by staff/practitioner identifier.
  */
 export async function getPublicAvailableSlots(
   slug: string,
-  date: string
+  date: string,
+  staffId?: string
 ): Promise<AvailableSlot[]> {
+  const queryParams = new URLSearchParams({ date });
+  if (staffId) {
+    queryParams.set("staff_id", staffId);
+  }
   return apiFetch<AvailableSlot[]>(
-    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?date=${encodeURIComponent(date)}`,
+    `/api/v1/public/tenants/${encodeURIComponent(slug)}/available-slots?${queryParams.toString()}`,
     {
       method: "GET",
     }
@@ -820,6 +989,7 @@ export interface AppPreviewResponse {
   has_custom_icon: boolean;
   app_icon_url?: string | null;
   latest_apk?: AppBuildStatusResponse | null;
+  builds_enabled?: boolean;
 }
 
 export interface AppBuildStartResponse {

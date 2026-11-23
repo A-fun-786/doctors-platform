@@ -71,17 +71,18 @@ export default function AddAppointmentModal({
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
         {/* Patient Name */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label htmlFor="add-patient-name" className="block text-xs font-semibold text-slate-700 mb-1">
             Patient Full Name *
           </label>
           <div className="relative">
-            <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" aria-hidden="true" />
             <input
+              id="add-patient-name"
               type="text"
               placeholder="e.g. Neha Verma"
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
               required
             />
           </div>
@@ -89,26 +90,28 @@ export default function AddAppointmentModal({
 
         {/* Contact Phone */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label htmlFor="add-patient-contact" className="block text-xs font-semibold text-slate-700 mb-1">
             Contact Phone (optional)
           </label>
           <input
+            id="add-patient-contact"
             type="tel"
             placeholder="+91 98765 43210"
             value={patientContact}
             onChange={(e) => setPatientContact(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 
         {/* Date Selection */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Date *</label>
+          <label htmlFor="add-appointment-date" className="block text-xs font-semibold text-slate-700 mb-1">Date *</label>
           <input
+            id="add-appointment-date"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
             required
           />
         </div>
@@ -117,23 +120,24 @@ export default function AddAppointmentModal({
         <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-              <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <Clock className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
               <span>30-Minute Consultation Window</span>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-800 border border-brand-200">
               Fixed 30m Slot
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+              <label htmlFor="add-start-time" className="block text-[11px] font-semibold text-slate-600 mb-1">
                 Start Time
               </label>
               <select
+                id="add-start-time"
                 value={startTime}
                 onChange={(e) => handleStartTimeChange(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
                 required
               >
                 {TIME_OPTIONS_30M.map((opt) => (
@@ -160,7 +164,7 @@ export default function AddAppointmentModal({
         {hasConflict && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-1.5 animate-fadeIn">
             <div className="flex items-start gap-2 text-red-800">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <div className="text-xs font-bold">Booking Conflict Detected</div>
                 <div className="text-[11px] text-red-700 mt-0.5">
@@ -200,7 +204,7 @@ export default function AddAppointmentModal({
         {/* Success Confirmation when no conflict */}
         {!hasConflict && startTime && (
           <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 bg-emerald-50/60 border border-emerald-200/80 p-2 rounded-lg">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
             <span>
               Slot available for booking: <strong>{format12Hour(startTime)} – {format12Hour(endTime)}</strong>
             </span>
@@ -209,34 +213,35 @@ export default function AddAppointmentModal({
 
         {/* Reason for Visit */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label htmlFor="add-appointment-reason" className="block text-xs font-semibold text-slate-700 mb-1">
             Reason for Visit
           </label>
           <input
+            id="add-appointment-reason"
             type="text"
             placeholder="e.g. Regular Health Checkup / Diabetes Consultation"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 
         {/* Actions */}
-        <div className="pt-2 flex justify-end gap-2">
+        <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-center"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting || hasConflict}
-            className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
+            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs cursor-pointer text-center"
           >
-            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Confirm Booking
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />}
+            <span>Confirm Booking</span>
           </button>
         </div>
       </form>

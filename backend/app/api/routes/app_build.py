@@ -1,12 +1,15 @@
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor
+from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.core.storage import get_storage
+from app.core.uploads import validate_and_sanitize_image
 from app.models.doctor import Doctor
 from app.services.app_build_service import (
     trigger_app_build,
@@ -20,6 +23,33 @@ from app.services.app_build_service import (
 router = APIRouter(prefix="/doctor/app", tags=["doctor-app"])
 
 UPLOAD_ICONS_DIR = WORKSPACE_ROOT / "backend" / "uploads" / "icons"
+
+
+def _verify_task_ownership(task_id: str, current_doctor: Doctor) -> dict:
+    """Fetch build task info and verify it belongs to current_doctor (preventing cross-tenant IDOR)."""
+    task_info = get_build_status(task_id)
+    if not task_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Build task '{task_id}' not found.",
+        )
+
+    owner_id = task_info.get("doctor_id")
+    if owner_id is not None:
+        if owner_id != str(current_doctor.id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Build task '{task_id}' not found.",
+            )
+    else:
+        identity = compute_app_identity(current_doctor, current_doctor.tenant)
+        apk_filename = task_info.get("apk_filename") or ""
+        if not apk_filename.startswith(f"{identity['clinic_segment']}_"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Build task '{task_id}' not found.",
+            )
+    return task_info
 
 
 @router.get("/preview")
@@ -36,6 +66,7 @@ def get_app_preview(
         "has_custom_icon": bool(current_doctor.app_icon_url),
         "app_icon_url": current_doctor.app_icon_url,
         "latest_apk": latest_apk,
+        "builds_enabled": get_settings().ENABLE_ANDROID_APK_BUILDS,
     }
 
 
@@ -46,21 +77,16 @@ def upload_app_icon(
     db: Session = Depends(get_db),
 ):
     """Upload a custom 512x512 app launcher icon for the doctor's Android app."""
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded file must be a valid image (PNG or JPG).",
-        )
+    sanitized_bytes, ext, canonical_mime = validate_and_sanitize_image(file)
 
     storage = get_storage()
-    ext = Path(file.filename or "icon.png").suffix or ".png"
-    filename = f"icon_{current_doctor.id}_{uuid.uuid4().hex[:6]}{ext}"
+    filename = f"icon_{current_doctor.id}_{uuid.uuid4().hex[:8]}{ext}"
     storage_path = f"icons/{filename}"
 
     storage.save_file(
-        file.file,
+        sanitized_bytes,
         destination_path=storage_path,
-        content_type=file.content_type,
+        content_type=canonical_mime,
     )
     file_url = storage.get_url(storage_path)
 
@@ -78,10 +104,18 @@ def upload_app_icon(
 
 
 @router.post("/build", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("3/hour")
 def start_app_build(
+    request: Request,
     current_doctor: Doctor = Depends(get_current_doctor),
 ):
     """Trigger background build of the doctor's personalized Jetpack Compose Android app."""
+    if not get_settings().ENABLE_ANDROID_APK_BUILDS:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Android APK builds are currently disabled on this server.",
+        )
+
     tenant = current_doctor.tenant
     task_info = trigger_app_build(
         doctor=current_doctor,
@@ -103,13 +137,7 @@ def check_build_status(
     current_doctor: Doctor = Depends(get_current_doctor),
 ):
     """Poll the status and progress of an active APK build."""
-    task_info = get_build_status(task_id)
-    if not task_info:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Build task '{task_id}' not found.",
-        )
-    return task_info
+    return _verify_task_ownership(task_id, current_doctor)
 
 
 @router.get("/build/{task_id}/logs")
@@ -118,6 +146,7 @@ def check_build_logs(
     current_doctor: Doctor = Depends(get_current_doctor),
 ):
     """Retrieve full compilation log output for an APK build."""
+    _verify_task_ownership(task_id, current_doctor)
     return {"task_id": task_id, "logs": get_build_logs(task_id)}
 
 

@@ -1,10 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BRAND_CONFIG } from "@/config/brand.config";
 
 export const metadata: Metadata = {
   title: BRAND_CONFIG.formatMetaTitle(),
   description: BRAND_CONFIG.description,
+  icons: BRAND_CONFIG.getMetadataIcons(),
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

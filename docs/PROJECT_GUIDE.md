@@ -706,22 +706,23 @@ All components in this directory are **server components by default** (no `"use 
 
 **Key content:**
 - `"use client"` directive → enables `useState` for `mobileMenuOpen` boolean
-- Desktop layout: logo left, nav links center-left, action buttons right
-- Mobile layout: hamburger button toggles a dropdown below the header
+- Desktop layout: logo left, nav links center-left, action buttons (`Login` + `Register as Doctor`) right
+- Mobile layout: BrandLogo with shrink-prevention, direct mobile action buttons (`Login` link + `Sign Up` button) next to the hamburger button (`Menu`/`X`), and an expandable dropdown menu below
 - Nav links use anchor hrefs (`#features`, `#how-it-works`) that scroll to sections
-- Action buttons use Next.js `<Link>` for route navigation
+- Action buttons use Next.js `<Link>` for route navigation (`/login`, `/register`)
 
 **Linkage:**
 - Imported in `app/page.tsx`
 - Nav anchor targets `#features` → must match `id="features"` in `Features.tsx`
 - Nav anchor target `#how-it-works` → must match `id="how-it-works"` in `HowItWorks.tsx`
 - Login button → routes to `app/login/page.tsx`
-- Register button → routes to `app/register/page.tsx`
+- Register / Sign Up button → routes to `app/register/page.tsx`
 
 **When to touch:**
 - Adding a new navigation link → add `<Link>` to both desktop nav and mobile dropdown
 - Changing the platform logo icon or name → edit logo JSX block
 - Making the mobile menu animated → add transition classes to the dropdown div
+- Adjusting mobile action CTA styling → edit mobile action group in `Navbar.tsx`
 
 ---
 
@@ -1339,6 +1340,8 @@ These are implicit contracts between files. Breaking them causes silent visual, 
 | `android:name` in `AndroidManifest.xml` must be `com.docspace.template.MainActivity` | `AndroidManifest.xml` | App crashes with `ClassNotFoundException` on launch |
 | APK download endpoint (`/download/{task_id}`) must remain unauthenticated | `backend/app/api/routes/app_build.py` | Patients receive 401 Unauthorized when clicking shared download links |
 | `builds/apks/` naming pattern must be `{clinic}_{build_id[:8]}.apk` | `app_build_service.py` `run_gradle_build` ↔ `get_latest_doctor_apk` | APK caching breaks — dashboard can't find previously built APKs |
+| `overflow-x: clip` in root styles (`html, body`) | `app/globals.css` | Switching back to `overflow-x: hidden` causes WebKit/Blink to break `position: sticky` on floating headers and sidebar rails |
+| Floating header wrapper must use `pointer-events-none` | `DashboardShell.tsx`, `Navbar.tsx` | Removing `pointer-events-none` causes the transparent margins of the floating container to block user clicks on scrolling content underneath |
 
 ---
 
@@ -1383,3 +1386,14 @@ When future phases are implemented, here are the exact extension points:
 14. **Keep the template offline-first** — do not add network API calls; all doctor data comes from compiled `DoctorConfig.kt` constants
 15. **Use Material3 and DocSpace theme colors** from `Color.kt` — never hardcode hex values in Compose composables
 16. **Test template compilation** via `./gradlew assembleRelease` in `android-template/` after any template changes
+
+---
+
+## 10. Specialized Architecture & Feature Documentation
+
+For deep-dive technical specifications and design systems, refer to the following companion architecture guides:
+
+- **[Header Navigation, Scroll Isolation & Profile Menu Architecture](file:///Users/emanur/doctors-platform/docs/FLOATING_HEADER_ARCHITECTURE.md)**: Comprehensive technical specifications for the transparent edge-to-edge sticky headers (`DashboardShell.tsx`, `Navbar.tsx`), isolated viewport scrolling (`overscroll-behavior-y: none`), zero-re-render auto-hiding scrollbars, compact sidebar hugging, and the modular `ProfileDropdownMenu` popover.
+- **[DashboardShell Refactoring Guide](file:///Users/emanur/doctors-platform/docs/DASHBOARDSHELL_REFACTOR.md)**: Historical transition and verification suite for the desktop sidebar and mobile shell.
+- **[Appointment System Specification](file:///Users/emanur/doctors-platform/docs/APPOINTMENT_SYSTEM.md)**: Complete guide to calendar slot calculations, status transitions, demographics generation, and clinic scheduling.
+

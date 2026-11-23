@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Calendar,
   User,
@@ -13,7 +13,6 @@ import {
   HeartPulse,
   MapPin,
   Clock,
-  Sparkles,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { CalendarEvent } from "@/lib/api";
@@ -83,6 +82,13 @@ export default function SlotActionModal({
 }: SlotActionModalProps) {
   const [activeTab, setActiveTab] = useState<"booking" | "leave">(initialTab);
 
+  // Sync activeTab when modal opens with initialTab
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
   // Booking Form State
   const [patientName, setPatientName] = useState("");
   const [patientContact, setPatientContact] = useState("");
@@ -99,6 +105,7 @@ export default function SlotActionModal({
   // Leave Form State
   const [leaveReason, setLeaveReason] = useState("Personal Leave");
   const [customLeaveReason, setCustomLeaveReason] = useState("");
+
 
   // Formatted date and time strings
   const formattedDateStr = useMemo(() => {
@@ -201,32 +208,36 @@ export default function SlotActionModal({
         {/* Slot Info Header Card */}
         <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
           <div className="flex items-center gap-2.5 text-xs text-slate-700 font-semibold">
-            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+            <Clock className="w-4 h-4 text-brand-600 shrink-0" aria-hidden="true" />
             <span>
               {formattedDateStr} • {formattedTimeWindow}
             </span>
           </div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-800">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-brand-50 text-brand-800 border border-brand-200">
             Open Slot
           </span>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-xl">
+        <div className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-xl" role="tablist" aria-label="Slot action selection">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "booking"}
             onClick={() => setActiveTab("booking")}
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "booking"
-                ? "bg-white text-blue-600 shadow-xs"
+                ? "bg-white text-brand-600 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <User className="w-3.5 h-3.5" />
+            <User className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Book Patient</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "leave"}
             onClick={() => setActiveTab("leave")}
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "leave"
@@ -234,7 +245,7 @@ export default function SlotActionModal({
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Coffee className="w-3.5 h-3.5" />
+            <Coffee className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Doctor Leave</span>
           </button>
         </div>
@@ -242,7 +253,7 @@ export default function SlotActionModal({
         {/* Conflict Warning Banner */}
         {hasConflict && (
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-bold">Slot Collision Detected</p>
               <p className="text-[11px] text-rose-700 mt-0.5">
@@ -267,36 +278,38 @@ export default function SlotActionModal({
             {/* Row 1: Name & Mobile */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="slot-patient-name" className="block text-xs font-semibold text-slate-700 mb-1">
                   Patient Full Name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
+                    id="slot-patient-name"
                     type="text"
                     required
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     placeholder="e.g. Neha Verma"
-                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
-                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="slot-patient-contact" className="block text-xs font-semibold text-slate-700 mb-1">
                   Mobile Number <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
+                    id="slot-patient-contact"
                     type="tel"
                     required
                     value={patientContact}
                     onChange={(e) => setPatientContact(e.target.value)}
                     placeholder="e.g. +91 98765 43210"
-                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
-                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                 </div>
               </div>
             </div>
@@ -304,14 +317,15 @@ export default function SlotActionModal({
             {/* Row 2: Gender & Age */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="slot-patient-gender" className="block text-xs font-semibold text-slate-700 mb-1">
                   Gender <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  id="slot-patient-gender"
                   required
                   value={patientGender}
                   onChange={(e) => setPatientGender(e.target.value)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                 >
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
@@ -321,10 +335,11 @@ export default function SlotActionModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="slot-patient-age" className="block text-xs font-semibold text-slate-700 mb-1">
                   Age (years) <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="slot-patient-age"
                   type="number"
                   required
                   min="0"
@@ -332,20 +347,21 @@ export default function SlotActionModal({
                   value={patientAge}
                   onChange={(e) => setPatientAge(e.target.value)}
                   placeholder="e.g. 28"
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 />
               </div>
             </div>
 
             {/* Row 3: Reason */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="slot-visit-reason" className="block text-xs font-semibold text-slate-700 mb-1">
                 Visit Reason <span className="text-rose-500">*</span>
               </label>
               <select
+                id="slot-visit-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer mb-2"
+                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer mb-2"
               >
                 {COMMON_VISIT_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -356,12 +372,13 @@ export default function SlotActionModal({
               </select>
               {reason === "Other" && (
                 <input
+                  id="slot-custom-reason"
                   type="text"
                   required
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
                   placeholder="Enter specific visit reason"
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 />
               )}
             </div>
@@ -369,19 +386,20 @@ export default function SlotActionModal({
             {/* Optional Section: Clinical Vitals & Address */}
             <div className="pt-2 border-t border-slate-100">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold text-slate-700">
-                <HeartPulse className="w-3.5 h-3.5 text-blue-600" />
+                <HeartPulse className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
                 <span>Clinical Vitals & Address (Optional)</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label htmlFor="slot-blood-group" className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Blood Group
                   </label>
                   <select
+                    id="slot-blood-group"
                     value={patientBloodGroup}
                     onChange={(e) => setPatientBloodGroup(e.target.value)}
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                   >
                     <option value="">Select Group</option>
                     {BLOOD_GROUPS.map((bg) => (
@@ -393,86 +411,90 @@ export default function SlotActionModal({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label htmlFor="slot-height" className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Height
                   </label>
                   <input
+                    id="slot-height"
                     type="text"
                     value={patientHeight}
                     onChange={(e) => setPatientHeight(e.target.value)}
                     placeholder="e.g. 175 cm"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label htmlFor="slot-weight" className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Weight
                   </label>
                   <input
+                    id="slot-weight"
                     type="text"
                     value={patientWeight}
                     onChange={(e) => setPatientWeight(e.target.value)}
                     placeholder="e.g. 70 kg"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label htmlFor="slot-address" className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Address
                   </label>
                   <div className="relative">
                     <input
+                      id="slot-address"
                       type="text"
                       value={patientAddress}
                       onChange={(e) => setPatientAddress(e.target.value)}
                       placeholder="e.g. Flat 402, Green Valley"
-                      className="w-full text-xs font-medium pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full text-xs font-medium pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                     />
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  <label htmlFor="slot-notes" className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Clinical Notes
                   </label>
                   <textarea
+                    id="slot-notes"
                     rows={1}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Observations, allergies, or past history"
-                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                    className="w-full text-xs font-medium px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!isBookingValid || submitting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
                     <span>Booking...</span>
                   </>
                 ) : (
                   <>
-                    <Calendar className="w-4 h-4" />
+                    <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>Book Appointment</span>
                   </>
                 )}
@@ -493,13 +515,14 @@ export default function SlotActionModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="slot-leave-reason" className="block text-xs font-semibold text-slate-700 mb-1">
                 Leave Reason <span className="text-rose-500">*</span>
               </label>
               <select
+                id="slot-leave-reason"
                 value={leaveReason}
                 onChange={(e) => setLeaveReason(e.target.value)}
-                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer mb-2"
+                className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer mb-2"
               >
                 {COMMON_LEAVE_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -511,38 +534,39 @@ export default function SlotActionModal({
 
               {leaveReason === "Other" && (
                 <input
+                  id="slot-custom-leave-reason"
                   type="text"
                   required
                   value={customLeaveReason}
                   onChange={(e) => setCustomLeaveReason(e.target.value)}
                   placeholder="Enter specific leave reason"
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                 />
               )}
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!isLeaveValid || submitting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
                     <span>Marking Leave...</span>
                   </>
                 ) : (
                   <>
-                    <Coffee className="w-4 h-4" />
+                    <Coffee className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>Mark Leave for this Slot</span>
                   </>
                 )}

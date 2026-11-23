@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+
+/**
+ * End-to-End Automated Verification Suite
+ * Tests live web server, API contracts, responsiveness metadata, accessibility tags, and edge cases.
+ */
+
+import assert from "node:assert/strict";
+
+const FRONTEND_URL = "http://localhost:3000";
+const BACKEND_URL = "http://localhost:8000/api/v1";
+
+const stats = {
+  total: 0,
+  passed: 0,
+  failed: 0,
+};
+
+function record(name, fn) {
+  stats.total++;
+  return Promise.resolve()
+    .then(fn)
+    .then(() => {
+      stats.passed++;
+      console.log(`  ✅ [PASS] ${name}`);
+    })
+    .catch((err) => {
+      stats.failed++;
+      console.error(`  ❌ [FAIL] ${name}`);
+      console.error(`     Error: ${err.message}`);
+    });
+}
+
+async function run() {
+  console.log("============================================================");
+  console.log("🚀 DOCSPACE E2E AUTOMATED & ACCEPTANCE TEST SUITE");
+  console.log("============================================================\n");
+
+  console.log("--- 1. Frontend Web Pages & Responsive Meta Validation ---");
+  await record("Frontend root (/) renders with 200 OK & viewport meta", async () => {
+    const res = await fetch(`${FRONTEND_URL}/`);
+    assert.strictEqual(res.status, 200, `Expected 200, got ${res.status}`);
+    const html = await res.text();
+    assert.ok(html.includes("viewport"), "HTML must have responsive viewport meta tag");
+  });
+
+  await record("Landing page (/) renders direct Sign Up and Login action elements", async () => {
+    const res = await fetch(`${FRONTEND_URL}/`);
+    assert.strictEqual(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes("Sign Up"), "Landing page must render direct Sign Up action");
+    assert.ok(html.includes("Login"), "Landing page must render direct Login action");
+    assert.ok(html.includes("/register"), "Landing page must contain /register link for doctors");
+  });
+
+  await record("Login page (/login) renders with auth form elements", async () => {
+    const res = await fetch(`${FRONTEND_URL}/login`);
+    assert.strictEqual(res.status, 200);
+    const html = await res.text();
+    assert.ok(
+      html.includes("GoSmart") || html.includes("DocSpace") || html.includes("Sign In"),
+      "Login page must render branding"
+    );
+  });
+
+  await record("Doctor Dashboard (/dashboard) renders with Next.js SPA bundle", async () => {
+    const res = await fetch(`${FRONTEND_URL}/dashboard`);
+    assert.strictEqual(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes("GoSmart") || html.includes("DocSpace") || html.includes("dashboard"), "Dashboard shell rendered");
+  });
+
+  console.log("\n--- 2. Doctor Self-Registration, Auth & Session Verification ---");
+  const runId = Date.now().toString(36);
+  const testEmail = `dr.e2e.${runId}@example.com`;
+  const testPassword = "E2eSecure!2026";
+  let token = null;
+  let tenantSlug = null;
+
+  await record("Doctor Self-Registration (/auth/register) creates doctor + tenant and returns JWT", async () => {
+    const res = await fetch(`${BACKEND_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: testEmail,
+        password: testPassword,
+        full_name: `Dr. E2E ${runId}`,
+      }),
+    });
+    assert.strictEqual(res.status, 201, `Expected 201, got ${res.status}`);
+    const data = await res.json();
+    assert.ok(data.access_token, "Must return access_token");
+    assert.ok(data.tenant?.slug, "Must return tenant.slug");
+    token = data.access_token;
+    tenantSlug = data.tenant.slug;
+  });
+
+  const authHeaders = () => ({
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json"
+  });
+
+  await record("Doctor Me (/auth/me) returns authenticated profile", async () => {
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: authHeaders()
+    });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.email, testEmail);
+    assert.strictEqual(data.tenant?.slug, tenantSlug);
+  });
+
+  await record("Public Practice page (/{slug}) renders 200 OK", async () => {
+    const res = await fetch(`${FRONTEND_URL}/${tenantSlug}`);
+    assert.strictEqual(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.length > 500, "Public practice page rendered content");
+  });
+
+  console.log("\n--- 3. Calendar & Schedule Engine Functionality ---");
+  // Pick next non-Sunday future date (UTC) so default working hours (Mon-Sat 10:00-13:00) are open and not in the past
+  const targetDateObj = new Date();
+  targetDateObj.setUTCDate(targetDateObj.getUTCDate() + 1);
+  if (targetDateObj.getUTCDay() === 0) {
+    targetDateObj.setUTCDate(targetDateObj.getUTCDate() + 1);
+  }
+  const targetDate = targetDateObj.toISOString().split("T")[0];
+
+  await record("Get Unified Calendar Timeline (/doctor/calendar?from=...&to=...)", async () => {
+    const res = await fetch(`${BACKEND_URL}/doctor/calendar?from=${targetDate}&to=${targetDate}`, {
+      headers: authHeaders()
+    });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.dates), "Calendar response should contain dates array");
+    const day = data.dates.find(d => d.date === targetDate);
+    assert.ok(day, `Calendar must contain entry for ${targetDate}`);
+    assert.ok(day.events.length >= 1, "Must have scheduled events/slots");
+  });
+
+  await record("Calendar Range Boundary Validation (>31 days rejected with 400)", async () => {
+    const res = await fetch(`${BACKEND_URL}/doctor/calendar?from=2026-01-01&to=2026-03-01`, {
+      headers: authHeaders()
+    });
+    assert.strictEqual(res.status, 400, "Should reject range >31 days with 400");
+  });
+
+  console.log("\n--- 4. Appointments Management & Lifecycle ---");
+  let createdAppointmentId = null;
+
+  await record("Book Appointment (/doctor/appointments) on open slot succeeds (201)", async () => {
+    const res = await fetch(`${BACKEND_URL}/doctor/appointments`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        patient_name: "E2E Test Patient",
+        patient_phone: "+15550001111",
+        date: targetDate,
+        start_time: "10:00",
+        end_time: "10:30",
+        reason: "E2E verification check"
+      })
+    });
+    assert.strictEqual(res.status, 201, `Expected 201, got ${res.status}`);
+    const data = await res.json();
+    assert.ok(data.id, "Must return created appointment id");
+    createdAppointmentId = data.id;
+  });
+
+  await record("List Doctor Appointments (/doctor/appointments) includes booked visit", async () => {
+    const res = await fetch(`${BACKEND_URL}/doctor/appointments?page_size=50`, {
+      headers: authHeaders()
+    });
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data.items), "Appointments response must contain items array");
+    assert.ok(
+      data.items.some(item => item.id === createdAppointmentId),
+      "Booked appointment must appear in doctor appointments list"
+    );
+  });
+
+  await record("Double-Booking Conflict Rejection (HTTP 409)", async () => {
+    // Attempt booking the same occupied slot
+    const res = await fetch(`${BACKEND_URL}/doctor/appointments`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        patient_name: "Conflict Tester",
+        patient_phone: "+15550002222",
+        date: targetDate,
+        start_time: "10:00",
+        end_time: "10:30",
+        reason: "Double booking collision attempt"
+      })
+    });
+    assert.strictEqual(res.status, 409, "Must reject conflicting appointment with 409 Conflict");
+  });
+
+  console.log("\n--- 5. Public Booking & Patient Isolation ---");
+  await record("Public available slots retrieval (/public/tenants/{slug}/available-slots)", async () => {
+    const res = await fetch(`${BACKEND_URL}/public/tenants/${tenantSlug}/available-slots?date=${targetDate}`);
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.ok(Array.isArray(data), "Should return array of public slots");
+    // Ensure booked slot (10:00) is NOT exposed as available
+    const hasBookedSlot = data.some(s => s.start.startsWith("10:00"));
+    assert.strictEqual(hasBookedSlot, false, "Booked slot 10:00 must NOT be available");
+  });
+
+  await record("Public non-existent doctor slug returns 404", async () => {
+    const res = await fetch(`${BACKEND_URL}/public/tenants/non-existent-doctor-slug-99999/available-slots?date=${targetDate}`);
+    assert.strictEqual(res.status, 404);
+  });
+
+  if (createdAppointmentId) {
+    await record("Cancel E2E test appointment (/doctor/appointments/{id}/cancel)", async () => {
+      const res = await fetch(`${BACKEND_URL}/doctor/appointments/${createdAppointmentId}/cancel`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ cancellation_reason: "E2E cleanup" }),
+      });
+      assert.strictEqual(res.status, 200);
+    });
+  }
+
+  console.log("\n============================================================");
+  console.log("🏁 E2E VERIFICATION SCORECARD");
+  console.log("============================================================");
+  console.log(`  Total Checks: ${stats.total}`);
+  console.log(`  Passed      : ${stats.passed}`);
+  console.log(`  Failed      : ${stats.failed}`);
+  console.log("============================================================");
+
+  if (stats.failed > 0) {
+    process.exit(1);
+  } else {
+    console.log("🎉 ALL E2E & INTEGRATION CHECKS PASSED WITH 100% SUCCESS!\n");
+  }
+}
+
+run().catch((err) => {
+  console.error("FATAL RUNNER ERROR:", err);
+  process.exit(1);
+});

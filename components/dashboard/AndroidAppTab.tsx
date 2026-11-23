@@ -24,8 +24,11 @@ import {
   getAppBuildStatus,
   getAppBuildLogs,
   getAppDownloadUrl,
+  DEFAULT_CLINIC_LOGO,
 } from "@/lib/api";
 import { BRAND_CONFIG } from "@/config/brand.config";
+import { Card } from "@/components/ui/Card";
+import { logger } from "@/lib/logger";
 
 interface AndroidAppTabProps {
   doctor: DoctorMeResponse;
@@ -45,6 +48,17 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
   const [showLogs, setShowLogs] = useState(false);
   const [buildLogs, setBuildLogs] = useState<string>("");
 
+  const fetchLogs = async (taskId: string) => {
+    try {
+      const l = await getAppBuildLogs(taskId);
+      setBuildLogs(l.logs);
+    } catch (err: unknown) {
+      logger.warn("AndroidAppTab", `Failed to fetch build logs for task ${taskId}`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
   useEffect(() => {
     getAppPreview()
       .then((previewData) => {
@@ -54,7 +68,9 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           setBuildTaskId(previewData.latest_apk.task_id);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        logger.error("AndroidAppTab", "Failed to load initial Android app preview", err);
+      });
   }, []);
 
   // Poll for Android App build status
@@ -67,19 +83,21 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         const res = await getAppBuildStatus(buildTaskId);
         setBuildStatus(res);
         if (showLogs) {
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         }
         if (res.status === "completed") {
           setBuildingApp(false);
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         } else if (res.status === "failed") {
           setBuildingApp(false);
           setBuildError(res.error || "Compilation failed. Check build logs.");
-          getAppBuildLogs(buildTaskId).then((l) => setBuildLogs(l.logs)).catch(() => {});
+          fetchLogs(buildTaskId);
         }
       } catch (err: unknown) {
         setBuildingApp(false);
-        setBuildError(err instanceof Error ? err.message : "Error checking build status");
+        const msg = err instanceof Error ? err.message : "Error checking build status";
+        logger.error("AndroidAppTab", msg, err, { buildTaskId });
+        setBuildError(msg);
       }
     }, 2500);
 
@@ -99,10 +117,18 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
       await uploadAppIcon(file);
       setAppIconPreview(URL.createObjectURL(file));
       setIconUploadSuccess("Custom app icon updated successfully!");
-      const updatedPreview = await getAppPreview().catch(() => null);
+      logger.action("AndroidAppTab", "Uploaded custom app icon", { fileName: file.name, fileSize: file.size });
+      const updatedPreview = await getAppPreview().catch((err: unknown) => {
+        logger.warn("AndroidAppTab", "Failed to refresh app preview after icon upload", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      });
       if (updatedPreview) setAppPreview(updatedPreview);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to upload icon");
+      const msg = err instanceof Error ? err.message : "Failed to upload icon";
+      logger.error("AndroidAppTab", msg, err);
+      alert(msg);
     } finally {
       setUploadingIcon(false);
     }
@@ -124,9 +150,48 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         app_name: res.app_name,
         package_name: res.package_name,
       });
+      logger.action("AndroidAppTab", "Initiated Android app compilation", {
+        taskId: res.task_id,
+        appName: res.app_name,
+        packageName: res.package_name,
+      });
     } catch (err: unknown) {
       setBuildingApp(false);
-      setBuildError(err instanceof Error ? err.message : "Failed to initiate app compilation");
+      const msg = err instanceof Error ? err.message : "Failed to initiate app compilation";
+      logger.error("AndroidAppTab", msg, err);
+      setBuildError(msg);
+    }
+  };
+
+  const handleCopyApkUrl = async (taskId: string) => {
+    const url = getAppDownloadUrl(taskId);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopiedApkUrl(true);
+        setTimeout(() => setCopiedApkUrl(false), 2000);
+        logger.action("AndroidAppTab", "Copied APK download link to clipboard", { taskId });
+      } else {
+        throw new Error("Clipboard API unavailable in this environment");
+      }
+    } catch (err: unknown) {
+      logger.warn("AndroidAppTab", "Failed to copy APK download link to clipboard", {
+        error: err instanceof Error ? err.message : String(err),
+        taskId,
+        url,
+      });
+      if (typeof window !== "undefined") {
+        window.prompt("Copy APK download link:", url);
+      }
+    }
+  };
+
+  const handleToggleLogs = () => {
+    const nextState = !showLogs;
+    setShowLogs(nextState);
+    if (nextState && buildTaskId) {
+      logger.action("AndroidAppTab", "Toggled live build console view", { buildTaskId, show: nextState });
+      fetchLogs(buildTaskId);
     }
   };
 
@@ -134,18 +199,18 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
   const fullName = profile?.full_name || doctor.full_name || "";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+    <Card className="overflow-hidden">
+      <div className="p-4 sm:p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md">
-            <Smartphone className="w-6 h-6" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shrink-0">
+            <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold tracking-tight text-white">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
                 Your Branded Android App
               </h2>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30">
+              <span className="text-[11px] sm:text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-400/30">
                 Native Jetpack Compose
               </span>
             </div>
@@ -160,7 +225,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
         </div>
       </div>
 
-      <div className="p-6 sm:p-8 space-y-8">
+      <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
         {/* Identity & Custom Icon Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* App Identity Details */}
@@ -190,7 +255,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
             </div>
 
             {/* Patient Installation Guide Tip */}
-            <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-4 text-xs text-slate-700 space-y-1">
+            <div className="bg-brand-50/70 border border-brand-200 rounded-xl p-4 text-xs text-brand-950 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-brand-700">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>How Patients Install This App</span>
@@ -208,18 +273,21 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
             </h3>
 
             <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col sm:flex-row items-center gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-brand-600 border-2 border-brand-200 shadow-md flex items-center justify-center text-white shrink-0 overflow-hidden relative">
+              <div className="w-20 h-20 rounded-2xl bg-white border-2 border-brand-200 shadow-md flex items-center justify-center shrink-0 overflow-hidden relative p-1">
                 {appIconPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={appIconPreview}
                     alt="App Icon"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain rounded-xl"
                   />
                 ) : (
-                  <div className="w-full h-full p-2">
-                    <BRAND_CONFIG.icon.component className="w-full h-full" />
-                  </div>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={DEFAULT_CLINIC_LOGO}
+                    alt={BRAND_CONFIG.android.defaultIconLabel}
+                    className="w-full h-full object-contain rounded-xl"
+                  />
                 )}
               </div>
 
@@ -269,17 +337,27 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               </p>
             </div>
 
-            <div className="shrink-0">
+            <div className="shrink-0 w-full md:w-auto">
               <button
                 type="button"
                 onClick={handleStartBuild}
-                disabled={buildingApp}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                disabled={buildingApp || appPreview?.builds_enabled === false}
+                title={
+                  appPreview?.builds_enabled === false
+                    ? "Android APK builds are disabled on this server"
+                    : undefined
+                }
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
               >
                 {buildingApp ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Building APK...</span>
+                  </>
+                ) : appPreview?.builds_enabled === false ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Builds Disabled on Server</span>
                   </>
                 ) : buildStatus?.status === "completed" ? (
                   <>
@@ -296,9 +374,21 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
             </div>
           </div>
 
+          {appPreview?.builds_enabled === false && (
+            <div className="mt-4 p-4 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold block">Cloud APK Compilation Disabled</span>
+                <span className="text-[11px] leading-relaxed block mt-0.5">
+                  On-demand Android APK compilation is currently disabled in the web container. Your custom branding and app icon settings are saved and ready for external CI builds.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Active Build Status Progress */}
           {buildingApp && buildStatus && (
-            <div className="mt-4 p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2">
+            <div className="mt-4 p-4 rounded-xl bg-brand-50/80 border border-brand-200 space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-brand-900">
                 <span className="flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
@@ -306,7 +396,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                 </span>
                 <span>{buildStatus.progress}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-brand-100 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-brand-600 h-2 rounded-full transition-all duration-500"
                   style={{ width: `${Math.max(buildStatus.progress, 20)}%` }}
@@ -333,7 +423,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
 
           {/* Completed APK Ready State */}
           {buildStatus?.status === "completed" && (
-            <div className="mt-6 p-6 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-4">
+            <div className="mt-6 p-4 sm:p-6 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -352,11 +442,11 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <a
                     href={getAppDownloadUrl(buildStatus.task_id)}
                     download
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors cursor-pointer text-center"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download APK</span>
@@ -364,19 +454,8 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      const url = getAppDownloadUrl(buildStatus.task_id);
-                      try {
-                        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-                          navigator.clipboard.writeText(url).catch(() => {});
-                        }
-                      } catch {
-                        // ignore
-                      }
-                      setCopiedApkUrl(true);
-                      setTimeout(() => setCopiedApkUrl(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 shadow-xs transition-colors"
+                    onClick={() => handleCopyApkUrl(buildStatus.task_id)}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300 shadow-xs transition-colors cursor-pointer"
                   >
                     {copiedApkUrl ? (
                       <>
@@ -401,15 +480,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextState = !showLogs;
-                    setShowLogs(nextState);
-                    if (nextState && buildTaskId) {
-                      getAppBuildLogs(buildTaskId)
-                        .then((l) => setBuildLogs(l.logs))
-                        .catch(() => {});
-                    }
-                  }}
+                  onClick={handleToggleLogs}
                   className="text-xs font-semibold text-slate-700 hover:text-brand-600 flex items-center gap-1.5 transition-colors"
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -425,7 +496,7 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               </div>
 
               {showLogs && (
-                <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed max-h-64 overflow-y-auto border border-slate-800 shadow-inner">
+                <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed max-h-64 overflow-y-auto custom-scrollbar border border-slate-800 shadow-inner">
                   <pre className="whitespace-pre-wrap">
                     {buildLogs || "Waiting for compiler output..."}
                   </pre>
@@ -435,6 +506,6 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

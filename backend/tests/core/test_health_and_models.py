@@ -1,0 +1,289 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+from app.core.database import get_db
+from app.models.doctor import Doctor
+from app.models.tenant import Tenant
+
+
+def test_root_health(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy"}
+
+
+def test_api_v1_health(client):
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "doctor-platform-api"
+    assert "environment" in data
+    assert "sentry_enabled" in data
+    assert data["rate_limiting_enabled"] is True
+    assert "version" in data
+
+
+def test_api_v1_health_database_connected(client):
+    response = client.get("/api/v1/health/database")
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "healthy",
+        "database": "connected",
+    }
+
+
+def test_api_v1_health_database_disconnected():
+    # Test when database query fails
+    class FailingSession:
+        def execute(self, *args, **kwargs):
+            raise Exception("Database unreachable")
+
+    def failing_get_db():
+        yield FailingSession()
+
+    app.dependency_overrides[get_db] = failing_get_db
+    with TestClient(app) as broken_client:
+        response = broken_client.get("/api/v1/health/database")
+        assert response.status_code == 503
+        data = response.json()
+        assert data["detail"]["status"] == "unhealthy"
+        assert data["detail"]["database"] == "disconnected"
+        assert "error" not in data["detail"]
+    app.dependency_overrides.clear()
+
+
+def test_cors_headers(client):
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
+def test_openapi_schema_contains_expected_routes(client):
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    # Health endpoints
+    assert "/health" in paths
+    assert "/api/v1/health" in paths
+    assert "/api/v1/health/database" in paths
+    # Phase 3 Auth endpoints
+    assert "/api/v1/auth/google" in paths
+    assert "/api/v1/auth/me" in paths
+    # Verify no premature CRUD endpoints
+    assert "/api/v1/doctors" not in paths
+    assert "/api/v1/tenants" not in paths
+
+
+def test_doctor_tenant_relationship(db_session):
+    # Test model definition and 1:1 relationship
+    doctor = Doctor(
+        email="doctor.test@example.com",
+        full_name="Dr. Jane Doe",
+        phone="+1234567890",
+        is_active=True,
+    )
+    db_session.add(doctor)
+    db_session.commit()
+    db_session.refresh(doctor)
+
+    assert doctor.id is not None
+    assert doctor.email == "doctor.test@example.com"
+    assert doctor.is_active is True
+
+    tenant = Tenant(
+        doctor_id=doctor.id,
+        slug="dr-jane-doe",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    assert tenant.id is not None
+    assert tenant.doctor.full_name == "Dr. Jane Doe"
+    assert doctor.tenant.slug == "dr-jane-doe"
+
+
+def test_production_settings_validation(monkeypatch):
+    from app.core.config import Settings
+    from pydantic import ValidationError
+
+    # Clear environment variables to test pure defaults without CI env pollution
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("ALLOW_MOCK_AUTH", raising=False)
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+
+    # Default secret must fail in production
+    with pytest.raises(ValidationError, match="JWT_SECRET_KEY"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Mock auth must fail in production
+    with pytest.raises(ValidationError, match="ALLOW_MOCK_AUTH"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=True,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # Empty Google Client ID must fail in production
+    with pytest.raises(ValidationError, match="GOOGLE_CLIENT_ID"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        )
+
+    # SQLite must fail in production
+    with pytest.raises(ValidationError, match="SQLite is not supported"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="sqlite:///./prod.db",
+        )
+
+    # Production must reject console email backend
+    with pytest.raises(ValidationError, match="not permitted in production"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="console",
+        )
+
+    # Production must reject memory email backend
+    with pytest.raises(ValidationError, match="not permitted in production"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="memory",
+        )
+
+    # Any environment must reject unknown email backend
+    with pytest.raises(ValidationError, match="Unknown EMAIL_BACKEND"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="development",
+            EMAIL_BACKEND="invalid_provider",
+        )
+
+    # Production resend backend requires RESEND_API_KEY
+    with pytest.raises(ValidationError, match="RESEND_API_KEY must be set"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="",
+        )
+
+    # Production requires valid sender address
+    with pytest.raises(ValidationError, match="Invalid or missing sender address"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="re_test_key",
+            EMAIL_FROM="invalid-email-address",
+        )
+
+    # Valid production settings pass and auto-derive FRONTEND_URL from non-local CORS_ORIGINS
+    prod = Settings(
+        _env_file=None,
+        ENVIRONMENT="production",
+        ALLOW_MOCK_AUTH=False,
+        JWT_SECRET_KEY="a" * 32,
+        GOOGLE_CLIENT_ID="valid-id",
+        DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
+        EMAIL_BACKEND="resend",
+        RESEND_API_KEY="re_valid_test_key",
+        EMAIL_FROM="noreply@gosmartclinic.com",
+    )
+    assert prod.ENVIRONMENT == "production"
+    assert prod.EMAIL_BACKEND == "resend"
+    assert prod.FRONTEND_URL == "https://doctors-platform-eight.vercel.app"
+
+    # Explicit localhost FRONTEND_URL in production must fail
+    with pytest.raises(ValidationError, match="FRONTEND_URL cannot point to localhost"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="re_valid_test_key",
+            EMAIL_FROM="noreply@gosmartclinic.com",
+            FRONTEND_URL="http://localhost:3000",
+        )
+
+    # Production SMTP backend rejects localhost SMTP_HOST
+    with pytest.raises(ValidationError, match="non-local SMTP_HOST"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
+            EMAIL_BACKEND="smtp",
+            SMTP_HOST="localhost",
+            EMAIL_FROM="noreply@gosmartclinic.com",
+        )
+
+    # Development environment permits console and memory backends
+    dev_console = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMAIL_BACKEND="console",
+    )
+    assert dev_console.EMAIL_BACKEND == "console"
+
+    dev_memory = Settings(
+        _env_file=None,
+        ENVIRONMENT="development",
+        EMAIL_BACKEND="memory",
+    )
+    assert dev_memory.EMAIL_BACKEND == "memory"
+
+

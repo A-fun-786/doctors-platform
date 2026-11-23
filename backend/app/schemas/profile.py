@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ServicesConfig(BaseModel):
@@ -46,6 +46,21 @@ class DoctorProfileUpdateRequest(BaseModel):
     services: Optional[ServicesConfig] = None
     onboarding_completed: Optional[bool] = None
 
+    @field_validator("avatar_url", "app_icon_url", mode="after")
+    @classmethod
+    def validate_safe_asset_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return ""
+        lowered = cleaned.lower()
+        if lowered.startswith(("https://", "http://")):
+            return cleaned
+        if cleaned.startswith("/") and not cleaned.startswith("//"):
+            return cleaned
+        raise ValueError("Asset URL must be a valid http(s):// URL or a root-relative /path.")
+
 
 class PublicDoctorProfileResponse(BaseModel):
     """Sanitized public practice information for the patient-facing webpage."""
@@ -62,16 +77,20 @@ class PublicDoctorProfileResponse(BaseModel):
 class AppointmentBookingRequest(BaseModel):
     """Patient appointment booking payload."""
     patient_name: str = Field(..., min_length=2)
-    patient_email: str
+    patient_email: Optional[str] = None
     patient_phone: str = Field(..., min_length=7)
     appointment_date: str
     appointment_time: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     appointment_type: str = "in_clinic"  # "in_clinic" | "video_consultation"
     notes: Optional[str] = None
+    staff_id: Optional[str] = None
 
 
 class AppointmentBookingResponse(BaseModel):
     booking_id: str
+    appointment_id: Optional[str] = None
     status: str
     message: str
     details: Dict[str, Any]

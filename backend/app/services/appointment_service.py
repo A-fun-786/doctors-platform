@@ -1,10 +1,11 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.time import get_clinic_now
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.schedule import Schedule
@@ -12,10 +13,31 @@ from app.schemas.appointment import (
     AppointmentCreateRequest,
     AppointmentRescheduleRequest,
 )
+from app.schemas.schedule import resolve_doctor_working_hours
 
 
 def _time_to_minutes(t: time) -> int:
     return t.hour * 60 + t.minute
+
+
+def _validate_slot_not_in_past(
+    slot_date: date,
+    end_time: time,
+    now: Optional[datetime] = None,
+) -> None:
+    """Reject slots on past dates or elapsed same-day intervals in clinic timezone."""
+    current_dt = get_clinic_now(now)
+    today = current_dt.date()
+    if slot_date < today:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot book or reschedule an appointment in the past",
+        )
+    if slot_date == today and end_time <= current_dt.time():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot book or reschedule an appointment for an elapsed time slot",
+        )
 
 
 def _validate_slot_against_schedule(
@@ -25,11 +47,14 @@ def _validate_slot_against_schedule(
     end_time: time,
     db: Session,
     is_reschedule: bool = False,
+    now: Optional[datetime] = None,
 ) -> None:
     """
-    Validate that [start_time, end_time) falls cleanly within an AVAILABLE window
-    and does not overlap any LEAVE, HOLIDAY, or BLOCKED period.
+    Validate that [start_time, end_time) is not in the past, falls cleanly within
+    an AVAILABLE window, and does not overlap any LEAVE, HOLIDAY, or BLOCKED period.
     """
+    _validate_slot_not_in_past(slot_date=slot_date, end_time=end_time, now=now)
+
     s_start = _time_to_minutes(start_time)
     s_end = _time_to_minutes(end_time)
 
@@ -59,21 +84,21 @@ def _validate_slot_against_schedule(
                 detail="Slot does not fall within any AVAILABLE schedule window",
             )
     else:
-        # Step B: Fall back to doctor working_hours
+        # Step B: Fall back to doctor working_hours (or default shifts if unconfigured)
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if not doctor or not doctor.working_hours:
+        if not doctor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No AVAILABLE schedule window for this date",
             )
 
-        working_hours = doctor.working_hours
-        if isinstance(working_hours, str):
-            import json
-            try:
-                working_hours = json.loads(working_hours)
-            except Exception:
-                working_hours = {}
+        working_hours = resolve_doctor_working_hours(doctor.working_hours)
+        shifts = working_hours.get("shifts", [])
+        if not shifts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No AVAILABLE schedule window for this date",
+            )
 
         closed_days = working_hours.get("closed_days", [])
         # Support schema/JS convention (0=Sun, 1=Mon...6=Sat) and ISO Sunday (6)
@@ -85,7 +110,6 @@ def _validate_slot_against_schedule(
                 detail="Clinic is closed on this date",
             )
 
-        shifts = working_hours.get("shifts", [])
         in_shift_window = False
         for shift in shifts:
             if shift.get("enabled", True):
@@ -143,10 +167,11 @@ def create_appointment(
     doctor_id: uuid.UUID,
     payload: AppointmentCreateRequest,
     db: Session,
+    now: Optional[datetime] = None,
 ) -> Appointment:
     """
     Create a new appointment:
-    - Validate schedule availability and absence of exclusions
+    - Validate slot is not in the past, schedule availability, and absence of exclusions
     - Validate slot is not already BOOKED
     - Insert with status = BOOKED
     - Catch race-condition IntegrityError from unique index and return 409
@@ -158,6 +183,7 @@ def create_appointment(
         end_time=payload.end_time,
         db=db,
         is_reschedule=False,
+        now=now,
     )
 
     # Check existing BOOKED appointment at same slot
@@ -299,11 +325,12 @@ def reschedule_appointment(
     appointment_id: uuid.UUID,
     payload: AppointmentRescheduleRequest,
     db: Session,
+    now: Optional[datetime] = None,
 ) -> Appointment:
     """
     Reschedule an existing appointment:
     - Verify doctor ownership and status == BOOKED
-    - Validate new slot availability and exclusion absence
+    - Validate new slot is not in the past, availability, and exclusion absence
     - Verify new slot is not occupied by another BOOKED appointment
     - Update date, start_time, end_time while status remains BOOKED
     """
@@ -331,6 +358,7 @@ def reschedule_appointment(
         end_time=payload.end_time,
         db=db,
         is_reschedule=True,
+        now=now,
     )
 
     conflict = (

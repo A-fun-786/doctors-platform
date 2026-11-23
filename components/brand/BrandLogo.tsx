@@ -10,6 +10,7 @@ interface BrandLogoProps {
   href?: string | null;
   className?: string;
   textClassName?: string;
+  priority?: boolean;
 }
 
 export function BrandLogo({
@@ -19,7 +20,14 @@ export function BrandLogo({
   href = "/",
   className = "",
   textClassName = "",
+  priority = false,
 }: BrandLogoProps) {
+  const iconPixelSizes = {
+    sm: 28,
+    md: 32,
+    lg: 40,
+  }[size];
+
   const iconSizeClasses = {
     sm: "w-7 h-7",
     md: "w-8 h-8",
@@ -38,16 +46,23 @@ export function BrandLogo({
   const content = (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       {/* Dynamic Brand Icon (SVG or Image) */}
-      <div className={`shrink-0 ${iconSizeClasses} flex items-center justify-center`}>
+      <div
+        className={`shrink-0 ${iconSizeClasses} flex items-center justify-center overflow-hidden`}
+        style={{ width: iconPixelSizes, height: iconPixelSizes }}
+      >
         {icon.type === "svg" ? (
-          <icon.component className="w-full h-full" />
+          <icon.component
+            className="w-full h-full block"
+            size={iconPixelSizes}
+          />
         ) : (
           <Image
             src={icon.imageSrc!}
             alt={icon.alt}
             width={64}
             height={64}
-            className="w-full h-full object-contain rounded-lg"
+            priority={priority}
+            className="w-full h-full object-contain"
           />
         )}
       </div>
@@ -55,7 +70,7 @@ export function BrandLogo({
       {/* Dynamic Brand Name Text */}
       {showText && (
         <span
-          className={`font-bold tracking-tight ${textColorClass} ${textSizeClasses} ${textClassName}`}
+          className={`font-bold tracking-tight ${textColorClass} ${textSizeClasses} ${textClassName} whitespace-nowrap`}
         >
           {name}
         </span>

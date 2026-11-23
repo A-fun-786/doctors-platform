@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "GoSmartClinic API"
     ENVIRONMENT: str = "development"
+    CLINIC_TIMEZONE: str = "Asia/Kolkata"
     DATABASE_URL: str = (
         "postgresql+psycopg://postgres:postgres@localhost:5432/doctor_platform"
     )
@@ -40,13 +41,16 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "docspace-super-secret-jwt-key-minimum-32-chars-for-hs256"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    BCRYPT_ROUNDS: int = 12
 
-    # Rate Limiting (SlowAPI)
+    # Rate Limiting & Proxy Trust (SlowAPI)
     RATE_LIMIT_GLOBAL: str = "100/minute"
     RATE_LIMIT_AUTH: str = "5/minute"
     RATE_LIMIT_AUTH_GOOGLE: str = "10/minute"
     RATE_LIMIT_SCHEDULE: str = "30/minute"
     RATE_LIMIT_APPOINTMENT: str = "20/minute"
+    TRUSTED_PROXY_COUNT: int = 0
+    REDIS_URL: str = ""
 
     # Observability & Monitoring (Sentry & Structlog)
     SENTRY_DSN: str = ""
@@ -65,6 +69,41 @@ class Settings(BaseSettings):
     S3_REGION_NAME: str = "auto"
     S3_PUBLIC_CUSTOM_DOMAIN: str = ""  # e.g. https://uploads.yourdomain.com
 
+    # Email Delivery Service
+    EMAIL_BACKEND: str = "console"  # "console", "memory", "smtp", "resend", "ses"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    RESEND_API_KEY: str = ""
+    AWS_SES_REGION: str = "us-east-1"
+    EMAIL_FROM: str = "noreply@gosmartclinic.com"
+    EMAIL_FROM_NAME: str = "GoSmartClinic"
+    EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    REQUIRE_EMAIL_VERIFICATION: bool = False
+    RATE_LIMIT_RESEND_VERIFICATION: str = "3/minute"
+    RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Feature Flags (Safe Production Boundaries)
+    ENABLE_EXPERIMENTAL_CLINICAL_SERVICES: bool = False
+    ENABLE_ANDROID_APK_BUILDS: bool = False
+
+    @field_validator("CLINIC_TIMEZONE", mode="after")
+    @classmethod
+    def validate_clinic_timezone(cls, v: str) -> str:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        tz_name = (v or "").strip()
+        try:
+            ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"Invalid CLINIC_TIMEZONE '{v}'. Must be a valid IANA timezone.") from exc
+        return tz_name
+
     @field_validator("CORS_ORIGINS", mode="after")
 
     @classmethod
@@ -75,6 +114,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
+        email_backend = self.EMAIL_BACKEND.lower().strip()
+        all_backends = {"console", "memory", "smtp", "resend", "ses"}
+        if email_backend not in all_backends:
+            raise ValueError(
+                f"Unknown EMAIL_BACKEND '{self.EMAIL_BACKEND}'. "
+                f"Supported backends are: {', '.join(sorted(all_backends))}."
+            )
+        if email_backend == "resend" and (not self.RESEND_API_KEY or not self.RESEND_API_KEY.strip()):
+            raise ValueError("RESEND_API_KEY must be set when EMAIL_BACKEND is 'resend'.")
+
         if self.ENVIRONMENT.lower() == "production":
             if self.ALLOW_MOCK_AUTH:
                 raise ValueError("ALLOW_MOCK_AUTH must be False in production.")
@@ -97,6 +146,53 @@ class Settings(BaseSettings):
             for origin in self.CORS_ORIGINS:
                 if not (origin.startswith("http://") or origin.startswith("https://")):
                     raise ValueError(f"Invalid CORS origin '{origin}'. Origins must start with http:// or https://")
+
+            if email_backend in {"console", "memory"}:
+                raise ValueError(
+                    f"EMAIL_BACKEND '{self.EMAIL_BACKEND}' is not permitted in production. "
+                    "A live delivery provider ('resend', 'smtp', or 'ses') must be configured."
+                )
+            if email_backend == "resend" and (not self.RESEND_API_KEY or not self.RESEND_API_KEY.strip()):
+                raise ValueError("RESEND_API_KEY must be set when EMAIL_BACKEND is 'resend' in production.")
+            if email_backend == "smtp" and (
+                not self.SMTP_HOST or self.SMTP_HOST.strip().lower() in {"", "localhost", "127.0.0.1"}
+            ):
+                raise ValueError("A non-local SMTP_HOST must be configured when EMAIL_BACKEND is 'smtp' in production.")
+
+            frontend_url = (self.FRONTEND_URL or "").strip()
+            if not frontend_url.startswith(("https://", "http://")):
+                raise ValueError("FRONTEND_URL must start with https:// or http:// in production.")
+            if "FRONTEND_URL" in self.model_fields_set and (
+                "localhost" in frontend_url.lower() or "127.0.0.1" in frontend_url.lower()
+            ):
+                raise ValueError("FRONTEND_URL cannot point to localhost or 127.0.0.1 in production.")
+            if "FRONTEND_URL" not in self.model_fields_set and (
+                "localhost" in frontend_url.lower() or "127.0.0.1" in frontend_url.lower()
+            ):
+                non_local_origins = [
+                    o for o in self.CORS_ORIGINS
+                    if "localhost" not in o.lower() and "127.0.0.1" not in o.lower()
+                ]
+                if non_local_origins:
+                    self.FRONTEND_URL = non_local_origins[0]
+
+            if "TRUSTED_PROXY_COUNT" not in self.model_fields_set and self.TRUSTED_PROXY_COUNT == 0:
+                self.TRUSTED_PROXY_COUNT = 1
+
+            sender = self.EMAIL_FROM.strip() if self.EMAIL_FROM else ""
+            from email.utils import parseaddr
+            _, parsed_addr = parseaddr(sender)
+            addr_to_check = parsed_addr or sender
+            if (
+                not addr_to_check
+                or "@" not in addr_to_check
+                or addr_to_check.startswith("@")
+                or addr_to_check.endswith("@")
+                or "." not in addr_to_check.split("@")[-1]
+            ):
+                raise ValueError(
+                    f"Invalid or missing sender address EMAIL_FROM '{self.EMAIL_FROM}' for provider '{email_backend}' in production."
+                )
 
         if self.STORAGE_BACKEND.lower() == "s3":
             if not self.S3_BUCKET_NAME or not self.S3_BUCKET_NAME.strip():

@@ -161,10 +161,10 @@ class ProductionLogger {
     this.userContext = { ...this.userContext, ...context };
 
     try {
-      if (sentryClient && (context.userId || context.email)) {
+      if (sentryClient && (context.userId || context.tenantSlug)) {
+        // HIPAA/PHI-conscious posture: never transmit doctor/patient email PII to Sentry
         sentryClient.setUser({
           id: context.userId,
-          email: context.email,
           username: context.tenantSlug,
         });
       }

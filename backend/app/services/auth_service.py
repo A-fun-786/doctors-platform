@@ -1,23 +1,42 @@
+import copy
 import re
+import secrets
+from datetime import datetime, timezone, timedelta
 from typing import Optional
+from urllib.parse import quote
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.core.security import (
     verify_google_token,
     create_access_token,
     hash_password,
     verify_password,
     needs_rehash,
+    DUMMY_BCRYPT_HASH,
+    generate_verification_token,
+    hash_token,
 )
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
+from app.models.verification_token import EmailVerificationToken
 from app.schemas.auth import (
     AuthResponse,
     DoctorResponse,
     TenantResponse,
     validate_email_id,
+    validate_password_strength,
+    sanitize_full_name,
+    sanitize_phone,
 )
+from app.schemas.schedule import DEFAULT_DOCTOR_WORKING_HOURS
+from app.services.email_service import email_service
+
+settings = get_settings()
+logger = get_logger("auth_service")
 
 
 def slugify(text: str) -> str:
@@ -76,6 +95,11 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Google account does not have an associated email address",
             )
+        if not id_info.get("email_verified"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google account email address is not verified",
+            )
             
         email = email.lower().strip()
         full_name = id_info.get("name") or email.split("@")[0].capitalize()
@@ -93,13 +117,17 @@ class AuthService:
                     detail="Inactive user account",
                 )
             
-            # Update provider info if missing
+            # Update provider info if missing and mark verified via Google
             updated = False
             if not doctor.provider_id and provider_id:
                 doctor.provider_id = provider_id
                 updated = True
             if avatar_url and doctor.avatar_url != avatar_url:
                 doctor.avatar_url = avatar_url
+                updated = True
+            if not doctor.email_verified:
+                doctor.email_verified = True
+                doctor.email_verified_at = datetime.now(timezone.utc)
                 updated = True
             if updated:
                 db.commit()
@@ -123,6 +151,9 @@ class AuthService:
                     auth_provider="google",
                     provider_id=provider_id,
                     is_active=True,
+                    working_hours=copy.deepcopy(DEFAULT_DOCTOR_WORKING_HOURS),
+                    email_verified=True,
+                    email_verified_at=datetime.now(timezone.utc),
                 )
                 db.add(doctor)
                 db.flush()  # Populates doctor.id for the foreign key
@@ -137,15 +168,19 @@ class AuthService:
                 db.commit()
                 db.refresh(doctor)
                 db.refresh(tenant)
-            except Exception as exc:
+            except Exception:
                 db.rollback()
+                logger.error("Failed to provision doctor account via Google", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to provision doctor account: {str(exc)}",
+                    detail="Failed to register doctor account. Please try again later.",
                 )
 
         # Generate Platform JWT Access Token
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
@@ -178,65 +213,214 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             )
-        if not password or len(password) < 6:
+        if not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 6 characters long",
+                detail="Password is required",
             )
+        try:
+            password = validate_password_strength(password, email=email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        if full_name:
+            try:
+                full_name = sanitize_full_name(full_name)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
+
+        if phone:
+            try:
+                phone = sanitize_phone(phone)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
 
         # Check for existing doctor
         existing_doctor = db.query(Doctor).filter(Doctor.email == email).first()
         if existing_doctor:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="An account with this email already exists",
-            )
+            if existing_doctor.auth_provider == "google" and not existing_doctor.hashed_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This account is registered with Google. Please sign in with Google or reset password.",
+                )
+            if existing_doctor.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email already exists",
+                )
 
         # Derive clean doctor name if not provided
         if not full_name or not full_name.strip():
-            user_part = email.split("@")[0].replace(".", " ").replace("-", " ").replace("_", " ")
-            full_name = f"Dr. {user_part.title()}"
+            if existing_doctor and existing_doctor.full_name:
+                full_name = existing_doctor.full_name
+            else:
+                user_part = email.split("@")[0].replace(".", " ").replace("-", " ").replace("_", " ")
+                full_name = f"Dr. {user_part.title()}"
         else:
             full_name = full_name.strip()
 
         hashed_pw = hash_password(password)
 
         try:
-            doctor = Doctor(
-                email=email,
-                full_name=full_name,
-                phone=phone,
-                auth_provider="email",
-                hashed_password=hashed_pw,
-                is_active=True,
-            )
-            db.add(doctor)
-            db.flush()
+            if existing_doctor:
+                doctor = existing_doctor
+                doctor.hashed_password = hashed_pw
+                doctor.full_name = full_name
+                if phone:
+                    doctor.phone = phone
+                doctor.is_active = True
+                doctor.failed_login_attempts = 0
+                doctor.locked_until = None
+                db.flush()
+            else:
+                doctor = Doctor(
+                    email=email,
+                    full_name=full_name,
+                    phone=phone,
+                    auth_provider="email",
+                    hashed_password=hashed_pw,
+                    is_active=True,
+                    working_hours=copy.deepcopy(DEFAULT_DOCTOR_WORKING_HOURS),
+                    email_verified=False,
+                )
+                db.add(doctor)
+                db.flush()
 
-            slug = generate_unique_tenant_slug(db, doctor.full_name)
-            tenant = Tenant(
+            # Ensure tenant workspace exists
+            tenant = doctor.tenant
+            if not tenant and doctor.id:
+                tenant = db.query(Tenant).filter(Tenant.doctor_id == doctor.id).first()
+
+            if not tenant:
+                # Retry slug generation with savepoints up to 5 attempts
+                base_slug = slugify(doctor.full_name)
+                for attempt in range(5):
+                    slug = generate_unique_tenant_slug(db, doctor.full_name)
+                    if attempt > 0:
+                        slug = f"{base_slug}-{attempt + 1}-{secrets.token_hex(2)}"
+                    try:
+                        with db.begin_nested():
+                            tenant = Tenant(
+                                doctor_id=doctor.id,
+                                slug=slug,
+                                status="active",
+                            )
+                            db.add(tenant)
+                            db.flush()
+                        break
+                    except IntegrityError as e:
+                        err_text = str(e).lower()
+                        if "slug" in err_text or "tenants" in err_text:
+                            tenant = None
+                            continue
+                        raise
+
+                if not tenant:
+                    raise RuntimeError("Could not allocate a unique clinic slug.")
+
+            # Invalidate any pending verification tokens for this doctor
+            now = datetime.now(timezone.utc)
+            db.query(EmailVerificationToken).filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "email_verification",
+                EmailVerificationToken.used_at.is_(None),
+            ).update({"used_at": now})
+
+            # Create EmailVerificationTokens atomically
+            otp, token = generate_verification_token()
+            expires = now + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+
+            token_otp = EmailVerificationToken(
                 doctor_id=doctor.id,
-                slug=slug,
-                status="active",
+                token_hash=hash_token(otp),
+                purpose="email_verification",
+                expires_at=expires,
             )
-            db.add(tenant)
+            token_link = EmailVerificationToken(
+                doctor_id=doctor.id,
+                token_hash=hash_token(token),
+                purpose="email_verification",
+                expires_at=expires,
+            )
+            db.add(token_otp)
+            db.add(token_link)
+
             db.commit()
             db.refresh(doctor)
             db.refresh(tenant)
-        except Exception as exc:
+        except IntegrityError as exc:
             db.rollback()
+            err_msg = str(exc).lower()
+            if "doctors" in err_msg or "email" in err_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email already exists",
+                )
+            logger.error("Database integrity error during registration", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to register doctor account: {str(exc)}",
+                detail="Failed to register doctor account. Please try again later.",
+            )
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            logger.error("Unexpected error during doctor registration", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to register doctor account. Please try again later.",
             )
 
-        access_token = create_access_token(subject=str(doctor.id))
+        # Dispatch verification email outside transaction
+        verification_email_sent = False
+        try:
+            sent = email_service.send_verification_email(
+                to_email=doctor.email,
+                doctor_name=doctor.full_name,
+                otp=otp,
+                token=token,
+                tenant_slug=tenant.slug,
+            )
+            verification_email_sent = bool(sent)
+            if verification_email_sent:
+                sent_now = datetime.now(timezone.utc)
+                token_otp.sent_at = sent_now
+                token_link.sent_at = sent_now
+                db.commit()
+            else:
+                logger.error(
+                    "Verification email delivery returned False on registration",
+                    email=doctor.email,
+                )
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch verification email on registration",
+                email=doctor.email,
+                error=str(exc),
+            )
+            verification_email_sent = False
+
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
             token_type="bearer",
             doctor=DoctorResponse.model_validate(doctor),
             tenant=TenantResponse.model_validate(tenant),
+            verification_email_sent=verification_email_sent,
         )
 
     @staticmethod
@@ -259,6 +443,7 @@ class AuthService:
 
         doctor = db.query(Doctor).filter(Doctor.email == email).first()
         if not doctor:
+            verify_password(password, DUMMY_BCRYPT_HASH)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -270,21 +455,50 @@ class AuthService:
                 detail="Inactive user account",
             )
 
+        now = datetime.now(timezone.utc)
+        if doctor.locked_until:
+            locked_until = doctor.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
+            if locked_until > now:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account is temporarily locked due to repeated failed login attempts. Please try again later.",
+                )
+
         if not doctor.hashed_password:
+            verify_password(password, DUMMY_BCRYPT_HASH)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This account was registered using Google. Please sign in with Google or reset password.",
             )
 
         if not verify_password(password, doctor.hashed_password):
+            doctor.failed_login_attempts = (doctor.failed_login_attempts or 0) + 1
+            if doctor.failed_login_attempts >= 5:
+                doctor.locked_until = now + timedelta(minutes=15)
+            db.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
 
-        # Transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        if settings.REQUIRE_EMAIL_VERIFICATION and not doctor.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email verification required. Please verify your email before logging in.",
+            )
+
+        # Reset failed login counter and transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        updated_login_state = False
+        if doctor.failed_login_attempts or doctor.locked_until:
+            doctor.failed_login_attempts = 0
+            doctor.locked_until = None
+            updated_login_state = True
         if needs_rehash(doctor.hashed_password):
             doctor.hashed_password = hash_password(password)
+            updated_login_state = True
+        if updated_login_state:
             db.commit()
 
         tenant = doctor.tenant
@@ -295,7 +509,605 @@ class AuthService:
             db.commit()
             db.refresh(tenant)
 
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse.model_validate(doctor),
+            tenant=TenantResponse.model_validate(tenant),
+        )
+
+    @staticmethod
+    def verify_email(
+        db: Session,
+        raw_code_or_token: str,
+        email: Optional[str] = None,
+    ) -> AuthResponse:
+        """
+        Validate an email verification OTP or URL-safe token.
+        Transitions doctor.email_verified from False to True and returns AuthResponse with JWT.
+        """
+        if not raw_code_or_token or not raw_code_or_token.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code or token is required.",
+            )
+        raw_code = raw_code_or_token.strip()
+
+        if email:
+            try:
+                email = validate_email_id(email)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
+
+        target_hash = hash_token(raw_code)
+        now = datetime.now(timezone.utc)
+
+        doctor: Optional[Doctor] = None
+        token_record: Optional[EmailVerificationToken] = None
+
+        if email:
+            doctor = db.query(Doctor).filter(Doctor.email == email).first()
+            if not doctor:
+                verify_password("dummy", DUMMY_BCRYPT_HASH)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid verification code or email.",
+                )
+
+            if doctor.locked_until:
+                locked_until = doctor.locked_until
+                if locked_until.tzinfo is None:
+                    locked_until = locked_until.replace(tzinfo=timezone.utc)
+                if locked_until > now:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="Account is temporarily locked due to repeated failed attempts. Please try again later.",
+                    )
+
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.doctor_id == doctor.id,
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "email_verification",
+                )
+                .first()
+            )
+        else:
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "email_verification",
+                )
+                .first()
+            )
+            if token_record:
+                doctor = db.query(Doctor).filter(Doctor.id == token_record.doctor_id).first()
+
+        # Handle invalid token or mismatched doctor
+        if not token_record or not doctor:
+            if doctor:
+                doctor.failed_login_attempts = (doctor.failed_login_attempts or 0) + 1
+                if doctor.failed_login_attempts >= 5:
+                    db.query(EmailVerificationToken).filter(
+                        EmailVerificationToken.doctor_id == doctor.id,
+                        EmailVerificationToken.purpose == "email_verification",
+                        EmailVerificationToken.used_at.is_(None),
+                    ).update({"used_at": now})
+                    db.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Too many failed verification attempts. Verification token has been invalidated. Please request a new code.",
+                    )
+                db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification code or token.",
+            )
+
+        # Handle already used token
+        if token_record.used_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token has already been used.",
+            )
+
+        # Ensure expires_at is timezone-aware
+        expires_at = token_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        # Handle expired token
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token has expired. Please request a new code.",
+            )
+
+        # Mark all pending verification tokens for this doctor as used (prevent replay)
+        db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.doctor_id == doctor.id,
+            EmailVerificationToken.purpose == "email_verification",
+            EmailVerificationToken.used_at.is_(None),
+        ).update({"used_at": now})
+
+        doctor.email_verified = True
+        doctor.email_verified_at = now
+        doctor.failed_login_attempts = 0
+        doctor.locked_until = None
+        db.commit()
+        db.refresh(doctor)
+
+        tenant = doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, doctor.full_name)
+            tenant = Tenant(doctor_id=doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            doctor=DoctorResponse.model_validate(doctor),
+            tenant=TenantResponse.model_validate(tenant),
+        )
+
+    @staticmethod
+    def resend_verification(db: Session, email: str) -> dict:
+        """
+        Resend a fresh email verification code and URL token to the doctor.
+        Rate-limited with a 60-second cooldown per doctor. Invalidates previous unused tokens.
+        """
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required.",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        if not doctor:
+            # Timing side-channel mitigation
+            verify_password("dummy", DUMMY_BCRYPT_HASH)
+            return {"message": "If an account exists with this email, a verification code has been sent."}
+
+        if doctor.email_verified:
+            return {"message": "Email is already verified."}
+
+        now = datetime.now(timezone.utc)
+
+        # 60s cooldown per doctor based on the last successfully sent email
+        latest_sent_token = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "email_verification",
+                EmailVerificationToken.sent_at.isnot(None),
+            )
+            .order_by(EmailVerificationToken.sent_at.desc())
+            .first()
+        )
+        if latest_sent_token and latest_sent_token.sent_at:
+            sent_at = latest_sent_token.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            seconds_elapsed = (now - sent_at).total_seconds()
+            if seconds_elapsed < 60:
+                remaining = max(1, int(60 - seconds_elapsed))
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Please wait at least 60 seconds before requesting another verification code.",
+                    headers={"Retry-After": str(remaining)},
+                )
+
+        # Generate fresh token pair
+        otp, token = generate_verification_token()
+        expires = now + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+
+        # Dispatch email before invalidating existing tokens or committing new ones
+        delivered = False
+        try:
+            delivered = bool(
+                email_service.send_verification_email(
+                    to_email=doctor.email,
+                    doctor_name=doctor.full_name,
+                    otp=otp,
+                    token=token,
+                    tenant_slug=doctor.tenant.slug if doctor.tenant else None,
+                )
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch resent verification email",
+                email=doctor.email,
+                error=str(exc),
+            )
+            delivered = False
+
+        if not delivered:
+            logger.error(
+                "Verification email resend failed or was rejected by provider",
+                email=doctor.email,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Verification email could not be sent. Please try again later.",
+            )
+
+        # Invalidate prior unused tokens ONLY after email is successfully accepted by provider
+        send_time = datetime.now(timezone.utc)
+        db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.doctor_id == doctor.id,
+            EmailVerificationToken.purpose == "email_verification",
+            EmailVerificationToken.used_at.is_(None),
+        ).update({"used_at": send_time})
+
+        # Add replacement tokens with sent_at timestamp
+        db.add(EmailVerificationToken(
+            doctor_id=doctor.id,
+            token_hash=hash_token(otp),
+            purpose="email_verification",
+            expires_at=expires,
+            sent_at=send_time,
+        ))
+        db.add(EmailVerificationToken(
+            doctor_id=doctor.id,
+            token_hash=hash_token(token),
+            purpose="email_verification",
+            expires_at=expires,
+            sent_at=send_time,
+        ))
+        doctor.failed_login_attempts = 0
+        db.commit()
+
+        return {"message": "Verification email sent successfully."}
+
+    @staticmethod
+    def forgot_password(db: Session, email: str) -> dict:
+        """
+        Initiate password reset flow for a doctor by email.
+        Generates an OTP and secure URL-safe token, dispatches reset email, and enforces
+        a 60-second domain-level cooldown without leaking email existence or account state.
+        """
+        if not email or not email.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required.",
+            )
+        try:
+            email = validate_email_id(email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        generic_response = {
+            "message": "If an account exists with this email, a password reset link has been sent."
+        }
+
+        doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        if not doctor:
+            # Timing side-channel mitigation
+            verify_password("dummy", DUMMY_BCRYPT_HASH)
+            return generic_response
+
+        if not doctor.is_active:
+            # Don't reveal inactive account status
+            verify_password("dummy", DUMMY_BCRYPT_HASH)
+            return generic_response
+
+        now = datetime.now(timezone.utc)
+
+        # Domain-level 60s cooldown per doctor based on the last sent reset email
+        latest_sent_token = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "password_reset",
+                EmailVerificationToken.sent_at.isnot(None),
+            )
+            .order_by(EmailVerificationToken.sent_at.desc())
+            .first()
+        )
+        if latest_sent_token and latest_sent_token.sent_at:
+            sent_at = latest_sent_token.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            seconds_elapsed = (now - sent_at).total_seconds()
+            if seconds_elapsed < 60:
+                remaining = max(1, int(60 - seconds_elapsed))
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Please wait at least 60 seconds before requesting another password reset.",
+                    headers={"Retry-After": str(remaining)},
+                )
+
+        # Generate token pair
+        otp, token = generate_verification_token()
+        expire_minutes = settings.PASSWORD_RESET_EXPIRE_MINUTES
+        expires = now + timedelta(minutes=expire_minutes)
+
+        tenant_slug = doctor.tenant.slug if doctor.tenant else None
+        delivered = False
+        try:
+            if hasattr(email_service, "send_password_reset_email"):
+                delivered = bool(
+                    email_service.send_password_reset_email(
+                        to_email=doctor.email,
+                        doctor_name=doctor.full_name,
+                        otp=otp,
+                        token=token,
+                        tenant_slug=tenant_slug,
+                    )
+                )
+            else:
+                # Decoupled delivery fallback for Phase 1 prior to Phase 3 template implementation
+                clean_name = doctor.full_name or "Doctor"
+                frontend_url = settings.FRONTEND_URL.rstrip("/")
+                encoded_email = quote(doctor.email)
+                reset_url = f"{frontend_url}/auth/reset-password?token={token}&email={encoded_email}"
+                subject = f"Reset your {settings.BRAND_NAME} password"
+                text_content = (
+                    f"Hello {clean_name},\n\n"
+                    f"We received a request to reset your password for {settings.BRAND_NAME}.\n\n"
+                    f"Your 6-digit password reset code is: {otp}\n\n"
+                    f"Or reset directly using the following link:\n{reset_url}\n\n"
+                    f"This code and reset link will expire in {expire_minutes} minutes.\n"
+                    f"If you did not request a password reset, you can safely ignore this email.\n"
+                )
+                delivered = email_service.backend.send(
+                    to_email=doctor.email,
+                    subject=subject,
+                    text_content=text_content,
+                )
+        except Exception as exc:
+            logger.error(
+                "Failed to dispatch password reset email",
+                email=doctor.email,
+                error=str(exc),
+            )
+            delivered = False
+
+        if not delivered:
+            logger.error(
+                "Password reset email delivery failed or was rejected by provider",
+                email=doctor.email,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Password reset email could not be sent. Please try again later.",
+            )
+
+        send_time = datetime.now(timezone.utc)
+        # Invalidate prior unused password reset tokens
+        db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.doctor_id == doctor.id,
+            EmailVerificationToken.purpose == "password_reset",
+            EmailVerificationToken.used_at.is_(None),
+        ).update({"used_at": send_time})
+
+        # Add new token pair
+        db.add(
+            EmailVerificationToken(
+                doctor_id=doctor.id,
+                token_hash=hash_token(otp),
+                purpose="password_reset",
+                expires_at=expires,
+                sent_at=send_time,
+            )
+        )
+        db.add(
+            EmailVerificationToken(
+                doctor_id=doctor.id,
+                token_hash=hash_token(token),
+                purpose="password_reset",
+                expires_at=expires,
+                sent_at=send_time,
+            )
+        )
+        db.commit()
+
+        return generic_response
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        raw_code_or_token: str,
+        email: Optional[str] = None,
+        new_password: Optional[str] = None,
+    ) -> AuthResponse:
+        """
+        Reset doctor's password using an OTP or URL-safe token.
+        Enforces password strength, brute-force mitigation, single-use token replay defense,
+        expiration, and distinctness from existing password. Auto-logs in on success.
+        """
+        # Positional parameter convenience: if called as (db, token, new_password)
+        if new_password is None and email is not None and "@" not in email:
+            new_password = email
+            email = None
+
+        if not raw_code_or_token or not raw_code_or_token.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset code or token is required.",
+            )
+        raw_code = raw_code_or_token.strip()
+
+        if not new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password is required.",
+            )
+
+        if email:
+            try:
+                email = validate_email_id(email)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                )
+
+        try:
+            new_password = validate_password_strength(new_password, email=email)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
+
+        target_hash = hash_token(raw_code)
+        now = datetime.now(timezone.utc)
+
+        doctor: Optional[Doctor] = None
+        token_record: Optional[EmailVerificationToken] = None
+
+        if email:
+            doctor = db.query(Doctor).filter(Doctor.email == email).first()
+            if not doctor:
+                verify_password("dummy", DUMMY_BCRYPT_HASH)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid reset code or email.",
+                )
+
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.doctor_id == doctor.id,
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "password_reset",
+                )
+                .first()
+            )
+        else:
+            token_record = (
+                db.query(EmailVerificationToken)
+                .filter(
+                    EmailVerificationToken.token_hash == target_hash,
+                    EmailVerificationToken.purpose == "password_reset",
+                )
+                .first()
+            )
+            if token_record:
+                doctor = db.query(Doctor).filter(Doctor.id == token_record.doctor_id).first()
+
+        # Handle invalid token or mismatched doctor (brute-force protection)
+        if not token_record or not doctor:
+            if doctor:
+                doctor.failed_login_attempts = (doctor.failed_login_attempts or 0) + 1
+                if doctor.failed_login_attempts >= 5:
+                    db.query(EmailVerificationToken).filter(
+                        EmailVerificationToken.doctor_id == doctor.id,
+                        EmailVerificationToken.purpose == "password_reset",
+                        EmailVerificationToken.used_at.is_(None),
+                    ).update({"used_at": now})
+                    db.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Too many failed reset attempts. Reset token has been invalidated. Please request a new code.",
+                    )
+                db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset code or token.",
+            )
+
+        if not doctor.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is inactive.",
+            )
+
+        # Handle already used token (replay protection)
+        if token_record.used_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has already been used.",
+            )
+
+        # Ensure expires_at is timezone-aware
+        expires_at = token_record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        # Handle expired token
+        if expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired. Please request a new one.",
+            )
+
+        # Verify new password is not the same as current password
+        if doctor.hashed_password and verify_password(new_password, doctor.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from the current password.",
+            )
+
+        # Apply reset and increment token_version to revoke all pre-existing JWT sessions
+        doctor.hashed_password = hash_password(new_password)
+        doctor.token_version = int(doctor.token_version or 1) + 1
+        doctor.failed_login_attempts = 0
+        doctor.locked_until = None
+        if not doctor.email_verified:
+            doctor.email_verified = True
+            doctor.email_verified_at = now
+
+        # Invalidate all pending reset tokens for this doctor (prevent reuse / race condition)
+        rows_updated = (
+            db.query(EmailVerificationToken)
+            .filter(
+                EmailVerificationToken.doctor_id == doctor.id,
+                EmailVerificationToken.purpose == "password_reset",
+                EmailVerificationToken.used_at.is_(None),
+            )
+            .update({"used_at": now})
+        )
+        if rows_updated == 0:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has already been used.",
+            )
+
+        db.commit()
+        db.refresh(doctor)
+
+        tenant = doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, doctor.full_name)
+            tenant = Tenant(doctor_id=doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,

@@ -89,14 +89,15 @@ export default function BlockTimeModal({
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
         {/* Exclusion Type */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label htmlFor="block-type" className="block text-xs font-semibold text-slate-700 mb-1">
             Exclusion Type
           </label>
           <div className="relative">
             <select
+              id="block-type"
               value={blockType}
               onChange={(e) => setBlockType(e.target.value as BlockType)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
             >
               <option value="LEAVE">Leave (Doctor Off Duty / Out of Clinic)</option>
               <option value="BLOCKED">Blocked (Personal interval / Internal meeting)</option>
@@ -107,12 +108,13 @@ export default function BlockTimeModal({
 
         {/* Date */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Date *</label>
+          <label htmlFor="block-date" className="block text-xs font-semibold text-slate-700 mb-1">Date *</label>
           <input
+            id="block-date"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
             required
           />
         </div>
@@ -120,7 +122,7 @@ export default function BlockTimeModal({
         {/* All-Day Toggle */}
         <div className="flex items-center justify-between p-3 bg-slate-50/80 rounded-xl border border-slate-200">
           <div className="flex items-center gap-2">
-            <Coffee className="w-4 h-4 text-amber-600" />
+            <Coffee className="w-4 h-4 text-amber-600" aria-hidden="true" />
             <div>
               <div className="text-xs font-semibold text-slate-800">Full Day Exclusion</div>
               <div className="text-[11px] text-slate-500">
@@ -133,6 +135,7 @@ export default function BlockTimeModal({
               type="checkbox"
               checked={isAllDay}
               onChange={(e) => handleAllDayToggle(e.target.checked)}
+              aria-label="Full Day Exclusion"
               className="sr-only peer"
             />
             <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
@@ -143,19 +146,20 @@ export default function BlockTimeModal({
         {!isAllDay && (
           <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-3">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <Clock className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
               <span>Leave / Block Duration (30m Increments)</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label htmlFor="block-start-time" className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Start Time
                 </label>
                 <select
+                  id="block-start-time"
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
                   required
                 >
                   {TIME_OPTIONS_30M.map((opt) => (
@@ -167,13 +171,14 @@ export default function BlockTimeModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                <label htmlFor="block-end-time" className="block text-[11px] font-semibold text-slate-600 mb-1">
                   End Time
                 </label>
                 <select
+                  id="block-end-time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
                   required
                 >
                   {TIME_OPTIONS_30M.map((opt) => (
@@ -190,7 +195,7 @@ export default function BlockTimeModal({
         {/* Invalid Range Alert */}
         {isInvalidRange && (
           <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs text-red-700">
-            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" />
             <span>End Time must be after Start Time.</span>
           </div>
         )}
@@ -199,7 +204,7 @@ export default function BlockTimeModal({
         {conflictingAppointments.length > 0 && (
           <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1.5">
             <div className="flex items-start gap-2 text-amber-900">
-              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <div className="text-xs font-bold">
                   {conflictingAppointments.length} Booked Appointment(s) in this Window
@@ -222,34 +227,35 @@ export default function BlockTimeModal({
 
         {/* Reason / Description */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label htmlFor="block-reason" className="block text-xs font-semibold text-slate-700 mb-1">
             Reason / Description
           </label>
           <input
+            id="block-reason"
             type="text"
             placeholder="e.g. Medical Conference / Off Duty / Annual Vacation"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-2 flex justify-end gap-2">
+        <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-center"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting || isInvalidRange || conflictingAppointments.length > 0}
-            className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
+            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs cursor-pointer text-center"
           >
-            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Confirm {blockType === "LEAVE" ? "Leave" : blockType === "HOLIDAY" ? "Holiday" : "Block"}
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />}
+            <span>Confirm {blockType === "LEAVE" ? "Leave" : blockType === "HOLIDAY" ? "Holiday" : "Block"}</span>
           </button>
         </div>
       </form>

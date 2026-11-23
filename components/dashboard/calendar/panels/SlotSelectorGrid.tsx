@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Clock, Check, Loader2, AlertCircle } from "lucide-react";
 import { getDoctorAvailableSlots, AvailableSlot, CalendarEvent } from "@/lib/api";
-import { format12Hour, doesEventOverlapSlot, isSlotWithinWorkingHours, WorkingHoursConfig } from "../calendarUtils";
+import { format12Hour, formatDateToYYYYMMDD, doesEventOverlapSlot, isSlotWithinWorkingHours, WorkingHoursConfig } from "../calendarUtils";
 
 interface SlotSelectorGridProps {
   date: string;
@@ -66,6 +66,11 @@ export default function SlotSelectorGrid({
     const list: CandidateSlot[] = [];
     const startHour = 9;
     const endHour = 20;
+    const now = new Date();
+    const todayStr = formatDateToYYYYMMDD(now);
+    const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes()
+    ).padStart(2, "0")}`;
 
     for (let h = startHour; h < endHour; h++) {
       for (const m of [0, 30]) {
@@ -88,7 +93,13 @@ export default function SlotSelectorGrid({
         let isBlocked = false;
         let reason = "";
 
-        if (!withinShift) {
+        if (date && date < todayStr) {
+          isBlocked = true;
+          reason = "Past Date";
+        } else if (date === todayStr && end <= nowTimeStr) {
+          isBlocked = true;
+          reason = "Elapsed";
+        } else if (!withinShift) {
           isBlocked = true;
           reason = "Outside Shift";
         }
@@ -146,16 +157,16 @@ export default function SlotSelectorGrid({
   const availableCount = candidateSlots.filter((s) => s.isAvailable).length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="region" aria-label="Available appointment time slots">
       <div className="flex items-center justify-between">
         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5 text-blue-600" />
+          <Clock className="w-3.5 h-3.5 text-brand-600" aria-hidden="true" />
           <span>Select 30-Minute Time Slot</span>
         </label>
         <span className="text-[11px] font-semibold text-slate-500">
           {loading ? (
             <span className="inline-flex items-center gap-1 text-slate-400">
-              <Loader2 className="w-3 h-3 animate-spin" /> Checking slots...
+              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> Checking slots...
             </span>
           ) : (
             `${availableCount} available`
@@ -165,13 +176,13 @@ export default function SlotSelectorGrid({
 
       {error && (
         <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Grid of 30-minute slot pills */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 max-h-56 overflow-y-auto custom-scrollbar p-1.5 border border-slate-200 rounded-xl bg-slate-50/50">
         {candidateSlots.map((slot) => {
           const isSelected = selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
 
@@ -182,7 +193,8 @@ export default function SlotSelectorGrid({
                 type="button"
                 disabled
                 title={slot.conflictReason || "Unavailable"}
-                className="p-2 rounded-lg text-center bg-slate-100 border border-slate-200/80 text-slate-400 cursor-not-allowed select-none transition-all flex flex-col items-center justify-center min-h-[46px]"
+                aria-label={`${format12Hour(slot.start)}, ${slot.conflictReason || "Unavailable"}`}
+                className="p-2 rounded-lg text-center bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed select-none transition-all flex flex-col items-center justify-center min-h-[46px]"
               >
                 <span className="text-xs font-semibold line-through">
                   {format12Hour(slot.start)}
@@ -198,22 +210,24 @@ export default function SlotSelectorGrid({
             <button
               key={slot.start}
               type="button"
+              aria-pressed={isSelected}
+              aria-label={`${format12Hour(slot.start)} to ${format12Hour(slot.end)}, 30 minutes${isSelected ? ", selected" : ""}`}
               onClick={() => onSelectSlot({ start: slot.start, end: slot.end })}
               className={`p-2 rounded-lg text-center transition-all flex flex-col items-center justify-center min-h-[46px] select-none ${
                 isSelected
-                  ? "bg-blue-600 text-white font-bold shadow-xs border-2 border-blue-600 ring-2 ring-blue-500/30"
-                  : "bg-white border border-blue-200/80 text-blue-900 hover:border-blue-400 hover:bg-blue-50/80 active:scale-95"
+                  ? "bg-brand-600 text-white font-bold shadow-xs border-2 border-brand-600 ring-2 ring-brand-500/20"
+                  : "bg-white border border-brand-200 text-brand-950 hover:border-brand-300 hover:bg-brand-50 active:scale-95"
               }`}
             >
               <div className="flex items-center gap-1">
                 <span className="text-xs font-bold">
                   {format12Hour(slot.start)}
                 </span>
-                {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" aria-hidden="true" />}
               </div>
               <span
                 className={`text-[9px] font-medium mt-0.5 ${
-                  isSelected ? "text-blue-100" : "text-blue-600"
+                  isSelected ? "text-brand-100" : "text-brand-600"
                 }`}
               >
                 30 mins

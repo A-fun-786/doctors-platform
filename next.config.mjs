@@ -1,8 +1,22 @@
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://127.0.0.1:8000";
+const isProd = process.env.NODE_ENV === "production";
+const storageDomain = (process.env.NEXT_PUBLIC_STORAGE_DOMAIN || "").trim();
+
+const connectSrcList = [
+  "'self'",
+  "https://gosmartclinic.com",
+  "https://www.gosmartclinic.com",
+  "https://api.gosmartclinic.com",
+  "https://accounts.google.com",
+  "https://*.sentry.io",
+  "https://backend-production-b26c.up.railway.app",
+  ...(apiUrl && !apiUrl.includes("localhost") && !apiUrl.includes("127.0.0.1") ? [apiUrl] : []),
+  ...(isProd ? [] : ["https://*.railway.app", "http://127.0.0.1:8000", "http://localhost:8000"]),
+];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  ...(isProd ? { output: "standalone" } : {}),
   images: {
     remotePatterns: [
       {
@@ -60,11 +74,11 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com",
+              `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"} https://accounts.google.com https://apis.google.com`,
               "style-src 'self' 'unsafe-inline' https://accounts.google.com",
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com",
+              `img-src 'self' data: blob: https://lh3.googleusercontent.com https://images.unsplash.com https://*.googleusercontent.com https://flagcdn.com${storageDomain ? ` ${storageDomain}` : ""}`,
               "font-src 'self' data:",
-              "connect-src 'self' https://gosmartclinic.com https://www.gosmartclinic.com https://api.gosmartclinic.com https://accounts.google.com https://*.sentry.io https://backend-production-b26c.up.railway.app https://*.railway.app http://127.0.0.1:8000 http://localhost:8000",
+              `connect-src ${Array.from(new Set(connectSrcList)).join(" ")}`,
               "frame-src 'self' https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",

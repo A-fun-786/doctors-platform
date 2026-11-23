@@ -1,0 +1,467 @@
+# 📱💻 Universal Responsive UI & Auto-Adaptive Layout System
+
+> **Documentation Date:** November 01, 2026 (Updated)  
+> **Status:** ✅ Implemented, Verified, & Production Ready  
+> **Target Devices:** Mobile (320px–640px), Tablet (641px–1023px), Laptop/Desktop (1024px–1440px), Ultrawide (1440px+)
+
+---
+
+## 🎯 1. Overview & Objective
+
+Is update ka main maqsad pure doctor platform application ko **Laptop, Tablet, aur Mobile** par pixel-perfect aur responsive banana tha. Saath hi ek aisi **Auto-Responsive Layout Architecture** set karna tha taaki aage chal kar agar koi bhi nayi screen ya feature banaya jaye, toh woh **bina kisi manual breakpoint CSS ke automatically responsive ban jaye**.
+
+---
+
+## 🏗️ 2. Architectural Paradigm: "Primitive-First"
+
+Pehle screens par hardcoded `w-[600px]`, rigid flex rows, aur inconsistent media queries likhi ja rahi thi, jisse mobile par table overflow ho jata tha aur layout toot jata tha.
+
+Ab pura system **5 Core Layout Primitives** par depend karta hai:
+
+```mermaid
+graph TD
+    RootLayout["app/layout.tsx (Globals & Safe-Area)"] --> AppShell["Adaptive AppShell (components/dashboard/DashboardShell.tsx)"]
+    AppShell --> DesktopSidebar["Desktop: Fixed Sidebar"]
+    AppShell --> MobileBottomNav["Mobile: Bottom App Bar + Top Bar"]
+    AppShell --> PrimitivesWrapper["components/layout/ Primitives"]
+    PrimitivesWrapper --> P1["PageContainer (Max-Width Bounds)"]
+    PrimitivesWrapper --> P2["ResponsiveGrid (Auto-fit Grid)"]
+    PrimitivesWrapper --> P3["AdaptiveStack (Mobile Stack <-> Desktop Row)"]
+    PrimitivesWrapper --> P4["AdaptiveDataView (Mobile Cards <-> Desktop Table)"]
+    PrimitivesWrapper --> P5["AdaptiveModal (Mobile Bottom Sheet <-> Desktop Dialog)"]
+    PrimitivesWrapper --> Screens["Existing & Future Feature Screens"]
+```
+
+---
+
+## 📝 3. Detailed File-by-File Changes
+
+### 1. `app/globals.css` (Viewport & Safe-Area Foundation)
+- **Safe-Area CSS Variables**:
+  ```css
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  ```
+- **Overflow & Viewport Fix**:
+  - `html, body`: `overflow-x: hidden`, `max-width: 100vw`, aur `-webkit-tap-highlight-color: transparent`.
+  - Added `.pb-safe` aur `.pt-safe` utility classes for notched devices (iPhone / modern Android).
+  - Added `.custom-scrollbar` class for smooth scrolling without ugly grey scrollbars.
+  - Added universal `min-w-0` enforcement to prevent flex items from expanding beyond parent containers.
+
+---
+
+### 2. `components/layout/` (New Auto-Responsive Primitives)
+
+#### A. `components/layout/PageContainer.tsx`
+- **Purpose**: Page ka outer wrapper jo har screen par consistent horizontal margins (`px-4 sm:px-6 lg:px-8`) aur max-width boundary deta hai.
+- **Sizes**: `sm` (max-w-3xl), `md` (max-w-5xl), `lg` (max-w-7xl - default), `xl` (max-w-[1400px]), `full`.
+
+#### B. `components/layout/ResponsiveGrid.tsx`
+- **Purpose**: Cards, stats, aur widgets ke liye auto-wrapping CSS Grid.
+- **Auto-fit Logic**:
+  ```css
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  ```
+  Is logic ki wajah se mobile screen (360px) par automatically 1 card per row, tablet (768px) par 2 cards, aur laptop (1280px) par 4 cards bina kisi media query ke fit ho jate hain.
+
+#### C. `components/layout/AdaptiveStack.tsx`
+- **Purpose**: Mobile par vertical column (`flex-col`) aur laptop/desktop par horizontal row (`md:flex-row`).
+- **Use Cases**: Page headers, search/filter bars, action buttons, summary banners.
+
+#### D. `components/layout/AdaptiveDataView.tsx`
+- **Purpose**: Tables ko mobile par break hone se bachana.
+- **Dual Mode**:
+  - **Laptop/Desktop (>= 768px)**: Standard full interactive table with columns.
+  - **Mobile (< 768px)**: Converts each row into a clean, swipeable touch Card.
+  - **Fallback**: Table ko isolated horizontal scroll container me wrap karta hai with subtle scrollbar indicators.
+
+#### E. `components/layout/AdaptiveModal.tsx`
+- **Purpose**: Responsive popup dialogs.
+- **Dual Mode**:
+  - **Laptop/Desktop**: Centered backdrop modal dialog with max-width.
+  - **Mobile**: Native app-like Bottom Sheet with top pull-down pill indicator and `.pb-safe` bottom padding.
+
+#### F. `components/layout/index.ts`
+- Barrel export file jisse kisi bhi screen par clean import kiya ja sake:
+  ```tsx
+  import { PageContainer, ResponsiveGrid, AdaptiveStack, AdaptiveDataView, AdaptiveModal } from "@/components/layout";
+  ```
+
+---
+
+### 3. `components/dashboard/DashboardShell.tsx` (Adaptive App Shell & Desktop Top Bar Refactor)
+- **Laptop / Desktop (`>= md`)**:
+  - **Streamlined Left Sidebar**: Fixed 240px Left Sidebar with Brand Logo and core operational navigation tabs (`desktopNavItems`: Overview, Appointments, Profile). The Android App tab is intentionally excluded from the desktop sidebar to preserve clean enterprise aesthetics.
+  - **Elevated Desktop Top Bar (`hidden md:flex`)**:
+    - Relocated user profile badge and logout action from the bottom of the sidebar into a dedicated top navigation bar spanning the main content viewport.
+    - **Dynamic Section Title**: Displays the current active tab (`Overview`, `Appointments`, `Profile`) dynamically with bold, capitalized typography.
+    - **Doctor Profile Pill**: Renders doctor avatar, auto-prefixed clinical title (`Dr. [Name]`), and medical speciality badge (`rounded-full bg-slate-50 border border-slate-200 shadow-2xs`).
+    - **Prominent Logout CTA**: Styled in red accents (`bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200`) with smooth transitions and keyboard accessibility.
+- **Mobile Devices (`< md`)**:
+  - **Sticky Top Bar**: Compact header with brand logo, doctor avatar badge, and quick logout button.
+  - **Fixed Bottom Navigation Bar**: Modern native mobile bottom navigation bar (Overview, Appointments, Profile, and Android App if enabled) with active pills, touch feedback, and `pb-safe` bottom padding.
+  - **Viewport Content Buffer**: Added `pb-24` to content area so bottom navigation bar content ko cover na kare.
+
+---
+
+### 4. `components/dashboard/OverviewTab.tsx` (Screen Migration)
+- **KPI Stats Cards**: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` se upgrade karke `<ResponsiveGrid minItemWidth={220}>` me convert kiya gaya.
+- **Today's Appointments Section**:
+  - Header ko `<AdaptiveStack>` me wrap kiya.
+  - Table ko `<AdaptiveDataView<AppointmentEntry>>` me convert kiya gaya. Laptop par table dikhti hai aur mobile par patient details touch cards me convert ho jati hain.
+- **Quick Action Buttons**: `<ResponsiveGrid minItemWidth={260}>` me convert kiya gaya.
+
+---
+
+## 🚀 4. Developer Guide: How Future Screens Auto-Adapt
+
+Kisi bhi nayi screen ko banane ke liye developer ko sirf yeh template follow karna hai. Yeh screen 100% har device par automatically responsive banegi:
+
+```tsx
+import React from "react";
+import { PageContainer, AdaptiveStack, ResponsiveGrid } from "@/components/layout";
+
+export default function AnyNewFeatureScreen() {
+  return (
+    <PageContainer size="lg">
+      {/* 1. Header & Actions: Mobile par vertical, Desktop par horizontal */}
+      <AdaptiveStack align="between" className="mb-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Feature Screen</h1>
+          <p className="text-xs sm:text-slate-500">Auto-adaptive across every screen device</p>
+        </div>
+        <button className="w-full sm:w-auto px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold">
+          Primary Action
+        </button>
+      </AdaptiveStack>
+
+      {/* 2. Grid Cards: Screen size ke hisaab se auto-wrap honge */}
+      <ResponsiveGrid minItemWidth={260} gap="md" className="mb-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200">Metric 1</div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200">Metric 2</div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200">Metric 3</div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200">Metric 4</div>
+      </ResponsiveGrid>
+
+      {/* 3. Responsive 2-Column / 1-Column Content Split */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200">
+          Primary Content
+        </div>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200">
+          Side Widget
+        </div>
+      </div>
+    </PageContainer>
+  );
+}
+```
+
+---
+
+### 5. `components/dashboard/calendar/` (Calendar Views, Panels & Modals)
+- **`MonthView.tsx`**:
+  - Wrapped month grid in `overflow-x-auto custom-scrollbar w-full` with inner `min-w-[560px] md:min-w-0` to protect small screens from squishing.
+  - Responsive padding (`p-3 sm:p-5 md:p-6`) and compact pill badges on mobile (`L/B` vs `Leave/Block`, `Appt` vs `Booked`).
+- **`DayView.tsx` & `WeekView.tsx`**:
+  - Full-width time columns with touch-friendly 44px+ minimum height slots, responsive headers, and horizontal scroll isolation.
+- **`CalendarHeader.tsx`**:
+  - Wrapped date controls and view switcher in mobile-friendly wrap container with full-width toggle buttons on mobile.
+- **`CalendarDrawer.tsx`**:
+  - Replaced fixed left padding (`pl-6 sm:pl-10`) with `pl-0 sm:pl-10` (`w-full` on mobile phones), added `pb-safe` for iOS home indicator bars.
+- **`AppointmentDetailsPanel.tsx` & `LeaveDetailsPanel.tsx`**:
+  - Transformed footer action buttons (`Cancel`, `Mark Completed`, `Edit / Reschedule`) into full-width stacked layouts on mobile (`flex flex-col sm:flex-row`).
+- **`SlotSelectorGrid.tsx`**:
+  - Updated 30-min slot pill grid to adaptive `grid-cols-2 xs:grid-cols-3 sm:grid-cols-4` with smooth scrolling.
+- **Modals (`AddAppointmentModal`, `BlockTimeModal`, `EditWorkingHoursModal`, `SlotActionModal`, `EventDetailsModal`)**:
+  - Updated all action footers to responsive `flex-col-reverse sm:flex-row gap-2.5` with `w-full sm:w-auto` buttons.
+  - Added horizontal wrapping to break time preview banners.
+
+---
+
+### 6. `components/dashboard/ProfileTab.tsx` (Doctor Practice Profile: Dual-Mode Architecture & Touch UX)
+
+- **Problem & Previous Limitations**:
+  - Pehle profile page par form inputs direct render hote the, chahe data pehle se saved ho ya na ho. Isse screen ek generic registration form jaisi lagti thi aur saved information ko review karna inconvenient tha.
+  - Mobile screens par profile image, form fields aur action buttons overflow hote the ya horizontal alignment break karte the.
+  - Action buttons mobile screen par small touch targets the, jisse misclicks hote the.
+
+- **Dual-Mode UI Architecture (View Mode vs. Edit Mode)**:
+  1. **Clean View Mode (`!isEditing`) — Production Display**:
+     - **Doctor Practice Profile Summary Card**: High-contrast white card (`rounded-2xl border border-slate-200 shadow-xs`) with clean responsive padding (`p-5 sm:p-7 md:p-8`).
+     - **Card Header with Dedicated Edit CTA**: Dynamic header with subtitle and prominent "Edit Profile" button (`inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs min-h-[42px]`) positioned on top-right for desktop and full-width/stacked on mobile.
+     - **Doctor Identity Block**:
+       - Avatar thumbnail (`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl`) with verification badge (`ShieldCheck` icon, emerald badge) when onboarding is complete.
+       - Interactive hover/tap overlay with Camera icon (`group-hover:opacity-100`) triggering Edit Mode on click.
+       - Formatted Doctor Full Name with dynamic "Verified Doctor" pill.
+       - Speciality display with `Stethoscope` icon (`text-brand-600 font-semibold`).
+       - Clinic / Hospital name with `Building2` icon.
+     - **Contact & Practice Location Grid**:
+       - 3-column responsive grid (`grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4`) with distinct card styling (`bg-slate-50 border border-slate-100 rounded-xl p-3.5`).
+       - Displays Practice Location (`MapPin`), Contact Phone (`Phone`), and Registered Email (`Mail`) with uppercase tracking labels and fallback formatting for unset values.
+     - **Professional Bio & Philosophy Section**:
+       - Rich bio display container (`bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed whitespace-pre-line`).
+       - Inline `+ Add Bio` shortcut button if bio has not yet been filled.
+     - **Patient Practice Services Status Display**:
+       - 4-card responsive status grid (`grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3`).
+       - Shows active vs. disabled state pills for:
+         - *In-Clinic Visits* (Calendar icon, Blue badge)
+         - *Video Consultation* (Video icon, Indigo badge)
+         - *Medicine Orders* (Pill icon, Emerald badge)
+         - *Lab Reports Portal* (FileText icon, Purple badge)
+       - Top-right "Configure Services" link allowing quick jump into service toggle editing.
+
+  2. **Interactive Edit Mode (`isEditing`) — Practice Customization Form**:
+     - **Header Actions**: Form title with `Edit3` icon and dual top CTA buttons (`Cancel` and `Save Profile` with animated `Loader2` spinner during API submission).
+     - **Doctor Profile Photo Uploader**:
+       - Hidden file input ref connected to a custom styled upload trigger.
+       - Integrated with `uploadDoctorAvatar` API.
+       - Enforces strict file validation (PNG, JPG, WebP only) and a 2MB maximum file size limit with immediate error toast.
+       - Includes a "Reset" CTA to revert back to `DEFAULT_DOCTOR_AVATAR`.
+     - **Form Grid & Touch-Optimized Inputs**:
+       - 2-column responsive layout (`grid-cols-1 md:grid-cols-2 gap-5`) for Doctor Full Name (required with red asterisk), Speciality / Qualifications, Clinic / Hospital Name, Practice Location / City, and Contact Phone.
+       - Left icon adornments (`User`, `Stethoscope`, `Building2`, `MapPin`, `Phone`) with focused ring states (`focus:ring-2 focus:ring-brand-500`).
+       - Touch targets adhere strictly to mobile usability standards with `min-h-[44px]` height.
+     - **Professional Bio Textarea**:
+       - Multi-line textarea with dynamic character counter (`{bio.length} characters`).
+     - **Interactive Services Toggle Cards**:
+       - 2-column interactive grid (`grid-cols-1 sm:grid-cols-2 gap-3.5`).
+       - Clickable service card containers with active border transitions, distinctive icon containers, toggle checkboxes, and explanatory subtitles.
+     - **Form Action Footer**:
+       - Responsive layout: Full-width stacked buttons on mobile (`flex-col sm:flex-row w-full sm:w-auto min-h-[44px]`).
+       - Dual CTAs: `Cancel & Discard` (reverts changes to initial profile) and `Save Practice Profile` (submits payload to `updateDoctorProfile`).
+
+  3. **Toast Feedback & Dynamic Synchronization**:
+     - Instant feedback toasts with auto-dismiss (4000ms timer) for both successful profile updates and avatar changes.
+     - Error banners with dismiss (`X`) buttons for validation failures or network drops.
+     - Prop synchronization via `onProfileUpdated(updated)` ensures the top bar profile pill and user identity update in real-time across the entire application shell without page reloads.
+
+---
+
+### 7. Additional Completed Screens
+- **`components/dashboard/AndroidAppTab.tsx`**:
+  - Responsive download / compile buttons, safe-area console container, and fluid banner layouts.
+- **`components/auth/EmailAuthForm.tsx`**:
+  - Reduced outer card padding from rigid `p-8` to `p-5 sm:p-8` so input fields fit comfortably on 320px–360px phones.
+- **`app/onboarding/page.tsx`**:
+  - Fluid padding (`px-3 sm:px-6 py-6 sm:py-10`), stacked card action buttons, and responsive URL link copy boxes.
+- **`app/[slug]/page.tsx`**:
+  - Added custom scrollbar and overflow isolation to sticky navigation tabs.
+
+---
+
+### 8. Phase 4 Polish & Edge Case Optimizations
+- **`components/ui/Toast.tsx`**:
+  - Repositioned from rigid `bottom-6 right-6` to `bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md mx-auto sm:mx-0`. Floats above the fixed mobile bottom navigation bar (`h-16 pb-safe`) without overlapping.
+- **`components/auth/GoogleAuthForm.tsx`**:
+  - Updated container and card padding to `px-3 sm:px-4 py-8 sm:py-12` and `p-5 sm:p-8`, matching `EmailAuthForm` across small screens.
+- **`components/dashboard/calendar/sidebar/CalendarSidebar.tsx`**:
+  - Upgraded container to `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-5`. On tablet (`768px–1024px`), `MiniCalendar` and `WorkingHoursCard` sit side-by-side to eliminate wasted space, while stacking on desktop sidebar and mobile.
+- **`components/dashboard/calendar/views/DayView.tsx`**:
+  - Time intervals upgraded to `min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap` across all 5 slot types so full time displays in the same row without truncation (see Section 12).
+  - Break time slot card converted to responsive inline layout (`shrink-0 whitespace-nowrap`).
+  - Outer padding and summary badges converted to fluid layout (`p-3.5 sm:p-5 md:p-6`, `grid-cols-3` KPI cards matching OverviewTab) to prevent squishing on narrow devices.
+- **`app/[slug]/page.tsx`**:
+  - Time slot selection pills upgraded to `grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2` for both In-Clinic and Video consultations.
+  - Removed duplicate action button in Teleconsultation success state.
+- **`app/layout.tsx`**:
+  - Added official Next.js 14 `Viewport` export with `viewportFit: "cover"` to ensure CSS `env(safe-area-inset-top)` and `env(safe-area-inset-bottom)` work on all mobile devices with notches.
+
+---
+
+### 9. `components/landing/Navbar.tsx` (Mobile Action Navigation & Direct CTA Access)
+- **Problem**:
+  - Pehle mobile screens (< 768px) par `Login` aur `Register as Doctor` buttons desktop flex me hide ho jate the, aur mobile screen par sirf hamburger menu icon (`☰`) dikhta tha.
+  - Users ko signup ya login karne ke liye pehle drawer open karna padta tha, jisse conversion drop hoti thi.
+- **Implementation**:
+  - Header me logo aur hamburger menu ke beech ek compact, touch-friendly mobile action container (`flex md:hidden items-center gap-1.5 sm:gap-2`) add kiya gaya.
+  - **Direct `Login` Link**: `text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-2 sm:px-2.5 py-1.5 rounded-md hover:bg-slate-100 active:scale-95 transition-all` jo seedhe `/login` par route karta hai.
+  - **Direct `Sign Up` CTA**: `inline-flex items-center justify-center text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 px-2.5 sm:px-3 py-1.5 rounded-lg shadow-sm transition-all whitespace-nowrap` jo seedhe `/register` par route karta hai.
+  - **Small Screen Boundary (320px–360px)**: `BrandLogo` me `shrink-0` aur responsive text class (`text-base sm:text-lg`) add ki taaki ultra-small devices (iPhone SE) par bhi zero line-wrapping aur zero horizontal overflow (`overflow-x`) rahe.
+  - **Drawer Consistency**: Hamburger drawer ke andar bhi full-width `Login` aur `Register as Doctor` buttons intact rakhe gaye taaki users dono jagah se access kar sakein.
+
+---
+
+### 10. `components/dashboard/calendar/mobile/` & `CalendarTab.tsx` (Mobile Calendar Experience & Adaptive Islands)
+- **Problem & Motivation**:
+  - Desktop par `CalendarSidebar` (Mini-Calendar + Working Hours Card) right side par 4-columns width leti thi. Mobile aur tablet screens (`< 1280px`) par yeh entire sidebar ya toh screen par bohot zyada vertical height consume kar leti thi ya phir main calendar schedule view ko block kar deti thi.
+  - Doctors ko mobile phone se schedule monitor karte waqt live clinic status dekhne (e.g. Clinic Open, Lunch Break, ya Closed), 7 din ke schedule me instant switch karne, aur working hours access karne ke liye touch-native interface ki zaroorat thi.
+- **Implementation**:
+  1. **`MobileClinicStatusCapsule.tsx` (`components/dashboard/calendar/mobile/MobileClinicStatusCapsule.tsx`)**:
+     - Real-time clinic status badge jo dynamically calculate karta hai doctor ke working shifts aur lunch/tea break intervals (`getDoctorBreakInterval`).
+     - **Dynamic Status Indicators**:
+       - 🟢 **Clinic Open (Active Shift)**: Pulse animation indicator (`animate-ping`) ke sath current shift timings show karta hai.
+       - 🟡 **Lunch / Tea Break**: Break interval ke timing ke sath automatic status shift.
+       - 🔵 **Shift Starting Soon**: Upcoming shift ka proactive timing alert.
+       - ⚪ **Clinic Closed Today / Closed for the Day**: Off-hours and weekly off indication.
+     - **Quick-Access Action**: Direct "View Shift Hours" button jo click karne par clinic timings ka Bottom Sheet trigger karta hai.
+  2. **`MobileHorizonDayStrip.tsx` (`components/dashboard/calendar/mobile/MobileHorizonDayStrip.tsx`)**:
+     - Modern, ultra-responsive 7-day horizontal touch strip jo mobile viewports par rapid date switching deta hai.
+     - **Smart Activity Dots**: Har date ke neeche appointment activity (`emerald-500`) aur leaves/blocked time (`rose-500`) ke live dot indicators display karta hai.
+     - **Active Highlight State**: Selected date ko prominent gradient background (`bg-brand-600 text-white shadow-md`) ke sath visually distinct banata hai.
+     - **Integrated "Full Month" Button**: Right-aligned touch button jo doctor ko instant month view pick karne ke liye MiniCalendar Bottom Sheet open karta hai.
+  3. **`MobileBottomSheet.tsx` (`components/dashboard/calendar/mobile/MobileBottomSheet.tsx`)**:
+     - Reusable, WCAG-compliant mobile bottom sheet modal (`xl:hidden`) with native touch feel.
+     - Top pull-down affordance pill indicator (`w-12 h-1.5 bg-slate-300 rounded-full`).
+     - Smooth backdrop blur (`backdrop-blur-sm bg-slate-900/60`).
+     - Slide-up bottom animation with maximum height bounding (`max-h-[85vh] overflow-y-auto`).
+     - Body scroll lock (`document.body.style.overflow = "hidden"`) during open state.
+     - ESC key and backdrop tap dismissal with smooth unmount transition.
+  4. **`CalendarSidebar.tsx` Responsive Optimization**:
+     - Desktop sidebar ko `hidden xl:grid` class di gayi taaki mobile (`< 1280px`) par redundant sidebar DOM hide ho sake aur mobile screen clean aur focused rahe.
+  5. **`CalendarTab.tsx` Orchestration**:
+     - Mobile-only Smart Controls Island (`xl:hidden space-y-3`) add kiya gaya jo `MobileClinicStatusCapsule` aur `MobileHorizonDayStrip` ko render karta hai.
+     - State management hook integration:
+       - `showMobileMiniCal` &rarr; Renders `<MiniCalendar>` inside `<MobileBottomSheet title="Select Date">`.
+       - `showMobileWorkingHours` &rarr; Renders `<WorkingHoursCard>` inside `<MobileBottomSheet title="Clinic Working Hours">` with seamless flow to edit working hours modal.
+
+---
+
+### 11. `components/dashboard/OverviewTab.tsx` (Clinical Terminology Alignment & Card Polish)
+- **Clinical Alignment**: Clinical usability ke hisaab se dashboard navigation aur metric references me "Calendar" ko "Appointments" me rename kiya gaya taaki doctor workflows me clarity rahe.
+- **Card & Navigation Flow**: Today's appointments count, quick actions, aur tab routing ko seamless multi-device testing ke sath synchronize kiya gaya.
+
+---
+
+### 12. `scripts/start-servers.ps1` & `scripts/stop-servers.ps1` (Windows Server Automation & Process Reliability)
+- **Problem**:
+  - Windows environment par `powershell -File scripts/start-servers.ps1` run karne par agar `.env.development.local` missing ho toh frontend remote/stale endpoints par fall back ho sakta tha.
+  - Next.js dev server execution me Windows local paths ke sath module resolution aur shell-wrapping (`cmd.exe /c npm run dev`) issues the, causing unexpected subshell terminates.
+  - FastAPI uvicorn execution me relative module resolution (`app.main:app`) root directory switch hone par break ho sakti thi.
+- **Enhancement**:
+  - Added `--app-dir "$backendDir"` to `uvicorn` invocation for guaranteed reload reliability and module resolution regardless of execution shell working directory.
+  - Upgraded frontend launcher to execute `npm.cmd` directly via `(Get-Command npm.cmd -ErrorAction SilentlyContinue).Source` instead of wrapping inside `cmd.exe`.
+  - Added `.env.development.local` auto-generation (points automatically to `NEXT_PUBLIC_API_URL=http://localhost:8000`).
+  - Next.js dev process execution me explicit `NODE_PATH` support aur process lifecycle handling ensure ki gayi.
+  - `stop-servers.ps1` updated with robust port kill detection across 8000 and 3000 to cleanly eliminate orphaned node and python processes.
+
+---
+
+### 13. `components/dashboard/calendar/views/DayView.tsx` (Complete Time Row Display & Slot Alignment)
+- **Problem**:
+  - DayView ke 30-minute time slot cards par pehle `w-24 sm:w-36 shrink-0 truncate` classes lagi hui thi.
+  - Monospace font me `"10:00 AM – 10:30 AM"` jaise ~21-character time intervals `w-24` (96px) ya `w-36` (144px) container me fit nahi hote the, jiski wajah se mobile aur small screens par time cut ho kar `"10:00 AM – 1..."` dikhta tha.
+- **Solution & Implementation**:
+  - Narrow fixed widths aur `truncate` ko time container se hata kar `min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap` implement kiya gaya.
+  - **Full Time in Single Row**: Har slot card me time container ko `shrink-0 whitespace-nowrap` diya gaya taaki time kabhi bhi wrap ya truncate na ho aur same row me 100% visible rahe.
+  - **Neat Column Alignment**: `min-w-[130px] sm:min-w-[155px]` se time column sabhi rows me vertically align rehta hai, chahe single digit ho ya double digit time (`9:00 AM` ya `12:30 PM`).
+  - **Applied Across All 5 Slot Types**:
+    1. **Booked Appointments**: Full start-end time (`min-w-[130px] sm:min-w-[155px] shrink-0 whitespace-nowrap`), patient name with User icon (`min-w-0 flex-1 truncate`), aur status badge right side par.
+    2. **Doctor Leaves / Clinic Holidays**: Full start-end time, leave reason with Coffee icon, aur leave type badge in the same row.
+    3. **Blocked Periods**: Full start-end time, reason with Lock icon, aur BLOCKED badge in the same row.
+    4. **Empty Slots (Click to Book)**: Full slot interval, dot indicator with "Empty Slot" text, aur EMPTY badge in the same row.
+    5. **Break-free Layout**: Intrusive break banner rows removed; calendar seamlessly focuses purely on operational appointment and doctor availability intervals.
+
+---
+
+### 14. Working Hours Overhaul: Break Removal & Dynamic Schedule Windows (`EditWorkingHoursModal.tsx` & Calendar Views)
+- **Problem & User Requirement**:
+  - Previously, the system forced an artificial "Break Time" / Coffee banner between Morning and Evening shifts.
+  - Break indicators cluttered the calendar legend bar, injected unwanted break rows into DayView and WeekView, and locked the schedule into rigid predefined shifts.
+  - Requirement: Remove all "Break" elements, allow doctors to define clean Start Time & End Time, and provide a flow to configure additional schedule windows (Start to End Time) on demand.
+- **Architectural Solution & Best Practices Implemented**:
+  1. **Dynamic Schedule Sessions (Start ➔ End Time)**:
+     - Replaced rigid hardcoded shifts with dynamic schedule windows (`Schedule 1`, `Schedule 2`, etc.).
+     - Added **`+ Add Another Schedule Window (Start to End Time)`** CTA in `EditWorkingHoursModal.tsx`, allowing doctors to configure multiple distinct operating windows per day (up to the backend schema limit of 4).
+     - Individual sessions can be enabled/disabled via a custom toggle or removed using the delete button (while preserving at least 1 primary session).
+     - Added editable session labels so doctors can personalize their clinic timings.
+  2. **Real-time Capacity & Validation Engine**:
+     - Real-time 30-minute slot computation for each session (`calculateShiftSlotCount`) and a top banner displaying Total Daily Capacity (e.g., `16 slots (8h 0m)`).
+     - Strict frontend validation ensuring `End Time > Start Time` and preventing chronological overlaps between any two active sessions.
+  3. **Zero Break Clutter & Dark Border System on Time Discontinuity**:
+     - **No Extra Rows or Break Banners**: Completely avoided rendering synthetic off-duty rows or break banners between operating sessions.
+     - **Time Continuity Detection (`isDiscontinuous`)**: Calendar computes `currentSlotStartM > prevSlotEndM` dynamically across the operating slots stream.
+     - **`DayView.tsx` Schedule Divider**: When transitioning between distinct schedule sessions (e.g. Schedule 1 to Schedule 2), a clean full-width divider (`border-t border-slate-200 py-2.5`) is injected immediately prior to the new session block without any disruptive text banners.
+     - **`WeekView.tsx` Full-Width Dark Grid Border**: The row where time discontinuity occurs (`isDiscontinuous = prevSlotEndM !== null && currentSlotStartM > prevSlotEndM`) receives a prominent top border (`border-t-[3px] border-slate-700/90 shadow-2xs`), clearly delineating the new schedule window across all 7 weekday columns.
+     - **`MobileClinicStatusCapsule.tsx`**: Removed the "In Break" state; status now cleanly displays active operating session, next upcoming window, or clinic closed.
+     - **`WorkingHoursCard.tsx`**: Updated sidebar card to list active schedule sessions with slot count and clean clock icons without rigid morning/evening icons.
+     - **`calendarUtils.ts`**: Safely updated `DEFAULT_WORKING_HOURS` (removed `breakTime`), set `getDoctorBreakInterval` to return `null`, and streamlined `isSlotWithinWorkingHours`.
+  4. **Calendar Bold Time & Strict Working-Slot Borders (`WeekView.tsx` & `DayView.tsx`)**:
+     - **100% Bold Time Typography**: Both start and end times across WeekView's left time column and DayView's slot cards are styled with high-contrast `font-bold text-slate-900` across all 30-minute intervals for crisp legibility.
+     - **Borders Strictly on Active Working Slots**: Evaluates `isSlotWithinWorkingHours(day, start, end)` per cell. Active bookable working slots receive crisp card borders (`border border-slate-200/90 bg-white hover:border-blue-400 shadow-2xs`). Non-working hours or closed days (e.g. Sundays) render cleanly with muted background (`bg-slate-100/35`) and zero working borders or clickable buttons.
+  5. **Backend Non-Breaking Compatibility**:
+     - Backend schema (`DoctorWorkingHoursUpdate`) and database required **0 breaking changes or migrations**.
+     - All 153 backend test cases in `backend/tests` pass with 100% success rate.
+
+---
+
+### 15. Icon Normalization & Clinical Brand Refinements
+- **Problem**:
+  - Inconsistent visual presentation where generic AI sparkles and conflicting icon glyphs were used in medical appointment cards, onboarding, and sidebar widgets.
+- **Solution & Standardization**:
+  - Replaced ambiguous AI/sparkle icons across `app/[slug]/page.tsx`, `app/not-found.tsx`, `app/onboarding/page.tsx`, `components/auth/GoogleAuthForm.tsx`, `AppointmentDetailsPanel.tsx`, `WorkingHoursCard.tsx`, and `Hero.tsx`.
+  - Standardized on industry-recognized clinical Lucide icons (`Activity`, `Calendar`, `Clock`, `Stethoscope`, `ShieldCheck`, `FileText`), ensuring patient trust and high-clarity clinical UI semantics.
+
+---
+
+### 16. PR Review Feedback & Hygiene Refactorings
+- Cleaned up obsolete temporary migration and assertion scripts (`append_shift_themes.mjs`, `apply_dayview_cleanups.mjs`, `fix_dayview_imports.mjs`, `fix_import_now.mjs`, `update_dayview_schedule_borders.mjs`, `update_weekview_schedule_borders.mjs`).
+- Refined `calendarUtils.ts` exports, eliminating legacy unused helper artifacts and maintaining zero unused dead code.
+- Polished `EditWorkingHoursModal.tsx` schedule validations, capacity computations, and day/week view boundary definitions.
+- Aligned test assertions for shortened action button labels (`Edit / Reschedule`).
+
+---
+
+## 🧪 16. Automated Testing & Verification Suite
+
+1. **TypeScript Static Typecheck (`npx tsc --noEmit`)**:
+   - Status: ✅ **0 Errors / 100% Type-safe**.
+2. **Backend Automated Pytest Suite (`python -m pytest backend/tests -q`)**:
+   - 153 / 153 Tests across appointment lifecycle, slot generation, dynamic working hours engine, security, rate limiting, and calendar isolation.
+   - Status: ✅ **153 / 153 Tests Passed (100%)**.
+3. **Frontend Comprehensive Regression Suite (`npm test`)**:
+   - Combined test run executing 9 specialized suites:
+     - `test_appointments_comprehensive.mjs` (30/30 passed)
+     - `test_calendar_utils.mjs` (32/32 passed)
+     - `test_break_time_suite.mjs` (11/11 passed)
+     - `test_sidebar_quick_actions_clean.mjs` (passed)
+     - `verify_appointment_ui_integration.mjs` (passed)
+     - `test_dashboard_shell.mjs` (14/14 passed)
+     - `test_responsive_qa_suite.mjs` (50/50 passed)
+     - `test_dayview_mobile_layout.mjs` (10/10 passed)
+     - `test_calendar_no_demo_fallback.mjs` (11/11 passed)
+   - Status: ✅ **All 9 Frontend Suites Passed (100%)**.
+4. **Mobile Calendar & Working Hours Integration Tests (`node scripts/test_mobile_calendar_view.mjs`)**:
+   - Automated unit & integration verification suite for mobile calendar components and bottom sheets:
+     - T1: MobileBottomSheet component rendering & backdrop blur
+     - T2: MobileClinicStatusCapsule live shift status & schedule interval calculations
+     - T3: MobileHorizonDayStrip 7-day touch navigation & activity dots
+     - T4: CalendarSidebar responsive visibility (`hidden xl:grid`)
+     - T5: CalendarTab mobile island controls & modal state integration
+   - Status: ✅ **5 / 5 Tests Passed (100%)**.
+5. **Automated Responsive QA Suite (`npm run test:responsive-qa`)**:
+   - 50/50 Checks across Layout (8), Navigation (8), Components (8), Forms (8), Accessibility (8), and Performance (10).
+   - Status: ✅ **50 / 50 Checks Passed (100%)**.
+6. **Comprehensive Platform QA Suite (`npm run test:qa`)**:
+   - Automated live checks for Functionality (6/6), Responsiveness (5/5), WCAG Accessibility (5/5), and Boundary Edge cases (8/8).
+   - Status: ✅ **24 / 24 Checks Passed (100%)**.
+7. **Live E2E Verification Suite (`npm run test:e2e`)**:
+   - Live HTTP validation for root landing page, mobile direct action buttons, doctor auth & JWT issuance, unified calendar, double booking conflict rejection, and public booking.
+   - Status: ✅ **13 / 13 Checks Passed (100%)**.
+8. **Live Comprehensive Manual & Integration Suite (`npm run test:live:manual`)**:
+   - Full live verification covering health probe, CORS, doctor profile, working hours API validation, slot generator engine, schedule exceptions, appointment lifecycle, patient vitals, and security rate limiting.
+   - Status: ✅ **62 / 62 Tests Passed (100%)**.
+9. **Full Platform Master QA Suite (`npm run test:all`)**:
+   - Chained multi-suite execution (`test:shell` ➔ `test:responsive-qa` ➔ `test` ➔ `test:e2e` ➔ `test:live` ➔ `test:qa`).
+   - Status: ✅ **100% Passed across all suites**.
+
+---
+
+## 📱 17. Manual Testing Verification Matrix
+
+| Area / Feature | Viewport / Breakpoint | Test Method | Expected Behavior | Verification Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Desktop Top Bar & Profile Pill** | Laptop / Desktop (>= 768px) | Manual + Script | Top bar displays active section title, formatted doctor pill (`Dr. [Name]`), speciality, and red logout CTA; sidebar omits Android App tab. | ✅ Verified & Tested |
+| **Doctor Practice Profile (Dual-Mode)** | All Viewports (Mobile & Desktop) | Manual + Form Test | Clean View Mode displays only saved doctor details with contact grid, verified badge, bio, and 4-service pills; Edit Mode provides image uploader with format/size limits, bio textarea with char counter, services toggles, and min-h-44px touch targets; toast notifications confirm saves. | ✅ Verified & Tested |
+| **Icon Normalization** | All Viewports | Visual Audit | Standard clinical Lucide icons used across app; ambiguous AI sparkle glyphs replaced with enterprise clinical markers. | ✅ Verified & Tested |
+| **DayView Time Slot Cards** | Mobile (<640px) | Manual + Script | Time intervals (`10:00 AM – 10:30 AM`) remain strictly on single row without wrapping or truncation; patient names truncate cleanly. | ✅ Verified & Tested |
+| **Dynamic Schedule Windows** | Desktop & Mobile | Manual + Live API | Doctors can configure 1 to 4 customizable schedule windows (`Start Time` to `End Time`) via modal; slot capacity recalculates in real-time. | ✅ Verified & Tested |
+| **Zero Break Clutter** | DayView & WeekView | Manual + Automated | No synthetic coffee/break rows or banners; schedule discontinuities indicated via clean divider borders. | ✅ Verified & Tested |
+| **WeekView Grid Alignment** | Tablet / Desktop | Manual Inspection | All 7 days fit horizontally in equal columns with bold 12-hour timestamps and active slot card borders. | ✅ Verified & Tested |
+| **Mobile Bottom Sheet** | Mobile (<768px) | Touch Emulation | Mini calendar and working hours open as swipeable bottom sheets with backdrop blur and `.pb-safe` bottom padding. | ✅ Verified & Tested |
+| **Appointments & Vitals** | Desktop & Mobile | Live E2E API | Patient appointments record full vitals and adhere to double-booking prevention and slot freeing on reschedule/cancellation. | ✅ Verified & Tested |
+| **WCAG 2.1 AA Compliance** | All Viewports | Automated QA | Semantic dialog roles, color-plus-text legends, focus indicators, and touch target minimums (>= 36/44px). | ✅ Verified & Tested |

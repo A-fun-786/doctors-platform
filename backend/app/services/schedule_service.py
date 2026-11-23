@@ -4,10 +4,11 @@ from typing import List, Optional, Tuple, Dict
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.time import get_clinic_timezone
 from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
-from app.schemas.schedule import ScheduleCreateRequest
+from app.schemas.schedule import ScheduleCreateRequest, resolve_doctor_working_hours
 
 
 def _time_to_minutes(t: time) -> int:
@@ -150,6 +151,7 @@ def generate_available_slots(
     query_date: date,
     db: Session,
     now: Optional[datetime] = None,
+    staff_id: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """
     Deterministic 30-minute slot generation engine:
@@ -186,16 +188,10 @@ def generate_available_slots(
                 candidate_slots.append((curr, curr + 30))
                 curr += 30
     else:
-        # Step B: Shift Fallback from Doctor.working_hours
+        # Step B: Shift Fallback from Doctor.working_hours (or default shifts if unconfigured)
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if doctor and doctor.working_hours:
-            working_hours = doctor.working_hours
-            if isinstance(working_hours, str):
-                import json
-                try:
-                    working_hours = json.loads(working_hours)
-                except Exception:
-                    working_hours = {}
+        if doctor:
+            working_hours = resolve_doctor_working_hours(doctor.working_hours)
 
             closed_days = working_hours.get("closed_days", [])
             # Evaluate closed days (JS/Schema convention: 0=Sun, 1=Mon...6=Sat, plus ISO Sunday=6)
@@ -219,7 +215,13 @@ def generate_available_slots(
 
     # Step C: Past-Slot Guard
     # If query_date is today, filter out candidate intervals where end_time <= now.time()
-    current_dt = now or datetime.now()
+    clinic_tz = get_clinic_timezone()
+    if now is None:
+        current_dt = datetime.now(clinic_tz)
+    elif now.tzinfo is not None:
+        current_dt = now.astimezone(clinic_tz)
+    else:
+        current_dt = now
     if query_date == current_dt.date():
         curr_time = current_dt.time()
         filtered_candidates: List[Tuple[int, int]] = []

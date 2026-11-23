@@ -10,11 +10,18 @@ export function StethoscopeHeartPulseIcon({
   size,
 }: StethoscopeHeartPulseIconProps) {
   const gradientId = useId();
-  const style = size ? { width: size, height: size } : undefined;
+  const pixelSize = size || undefined;
+  const style: React.CSSProperties = {
+    ...(pixelSize ? { width: pixelSize, height: pixelSize } : {}),
+    maxWidth: "100%",
+    maxHeight: "100%",
+  };
 
   return (
     <svg
       viewBox="0 0 100 100"
+      width={pixelSize || "100%"}
+      height={pixelSize || "100%"}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
@@ -22,10 +29,10 @@ export function StethoscopeHeartPulseIcon({
       aria-hidden="true"
     >
       <defs>
-        {/* Soft Modern Medical Gradient — unique ID per instance via useId() */}
+        {/* Clinical Emerald & Vitality Mint Gradient — unique ID per instance via useId() */}
         <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2563EB" />
-          <stop offset="100%" stopColor="#0D9488" />
+          <stop offset="0%" stopColor="#10B981" />
+          <stop offset="100%" stopColor="#047857" />
         </linearGradient>
       </defs>
 
@@ -71,7 +78,7 @@ export function StethoscopeHeartPulseIcon({
       {/* Center 2D ECG HeartPulse Wave */}
       <path
         d="M15 50H32L36 43L42 61L48 37L54 55L57 48L61 50H70"
-        stroke="#6EE7B7"
+        stroke="#A7F3D0"
         strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
