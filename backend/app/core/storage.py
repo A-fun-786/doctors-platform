@@ -55,7 +55,7 @@ class LocalStorage(BaseStorage):
     def _resolve_safe_path(self, file_path: str) -> Path:
         clean_path = file_path.lstrip("/\\")
         target = (self.base_dir / clean_path).resolve()
-        if not str(target).startswith(str(self.base_dir)):
+        if not target.is_relative_to(self.base_dir):
             raise ValueError(f"Path traversal detected: {file_path}")
         return target
 

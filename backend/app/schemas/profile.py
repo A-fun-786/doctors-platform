@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ServicesConfig(BaseModel):
@@ -45,6 +45,21 @@ class DoctorProfileUpdateRequest(BaseModel):
     location: Optional[str] = None
     services: Optional[ServicesConfig] = None
     onboarding_completed: Optional[bool] = None
+
+    @field_validator("avatar_url", "app_icon_url", mode="after")
+    @classmethod
+    def validate_safe_asset_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            return ""
+        lowered = cleaned.lower()
+        if lowered.startswith(("https://", "http://")):
+            return cleaned
+        if cleaned.startswith("/") and not cleaned.startswith("//"):
+            return cleaned
+        raise ValueError("Asset URL must be a valid http(s):// URL or a root-relative /path.")
 
 
 class PublicDoctorProfileResponse(BaseModel):

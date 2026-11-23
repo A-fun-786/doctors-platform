@@ -152,6 +152,27 @@ class Settings(BaseSettings):
                 )
             if email_backend == "resend" and (not self.RESEND_API_KEY or not self.RESEND_API_KEY.strip()):
                 raise ValueError("RESEND_API_KEY must be set when EMAIL_BACKEND is 'resend' in production.")
+            if email_backend == "smtp" and (
+                not self.SMTP_HOST or self.SMTP_HOST.strip().lower() in {"", "localhost", "127.0.0.1"}
+            ):
+                raise ValueError("A non-local SMTP_HOST must be configured when EMAIL_BACKEND is 'smtp' in production.")
+
+            frontend_url = (self.FRONTEND_URL or "").strip()
+            if not frontend_url.startswith(("https://", "http://")):
+                raise ValueError("FRONTEND_URL must start with https:// or http:// in production.")
+            if "FRONTEND_URL" in self.model_fields_set and (
+                "localhost" in frontend_url.lower() or "127.0.0.1" in frontend_url.lower()
+            ):
+                raise ValueError("FRONTEND_URL cannot point to localhost or 127.0.0.1 in production.")
+            if "FRONTEND_URL" not in self.model_fields_set and (
+                "localhost" in frontend_url.lower() or "127.0.0.1" in frontend_url.lower()
+            ):
+                non_local_origins = [
+                    o for o in self.CORS_ORIGINS
+                    if "localhost" not in o.lower() and "127.0.0.1" not in o.lower()
+                ]
+                if non_local_origins:
+                    self.FRONTEND_URL = non_local_origins[0]
 
             sender = self.EMAIL_FROM.strip() if self.EMAIL_FROM else ""
             from email.utils import parseaddr

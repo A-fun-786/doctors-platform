@@ -38,9 +38,13 @@ def test_local_storage_crud(tmp_path):
 
 
 def test_local_storage_path_traversal_protection(tmp_path):
-    storage = LocalStorage(base_dir=str(tmp_path))
+    base = tmp_path / "uploads"
+    storage = LocalStorage(base_dir=str(base))
     with pytest.raises(ValueError, match="Path traversal"):
         storage.save_file(b"bad", "../../secret.txt")
+    # Sibling directory prefix bypass test (/tmp/.../uploads_evil starts with /tmp/.../uploads)
+    with pytest.raises(ValueError, match="Path traversal"):
+        storage.save_file(b"bad", "../uploads_evil/pwn.txt")
 
 
 def test_s3_storage_mocked():
@@ -163,4 +167,79 @@ def test_static_uploads_serving(tmp_path):
     finally:
         if local_target.exists():
             local_target.unlink()
+
+
+def _make_valid_png_bytes(width: int = 32, height: int = 32) -> bytes:
+    from PIL import Image
+    buf = io.BytesIO()
+    img = Image.new("RGBA", (width, height), color=(20, 120, 220, 255))
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_upload_avatar_and_icon_security_hardening(client, db_session):
+    import uuid
+    from app.core.security import create_access_token
+    from app.models.doctor import Doctor
+    from app.models.tenant import Tenant
+
+    doc = Doctor(
+        id=uuid.uuid4(),
+        email="uploadsec@example.com",
+        full_name="Dr. Upload Security",
+        is_active=True,
+    )
+    db_session.add(doc)
+    db_session.flush()
+    tenant = Tenant(id=uuid.uuid4(), doctor_id=doc.id, slug="dr-upload-sec", status="active")
+    db_session.add(tenant)
+    db_session.commit()
+
+    headers = {"Authorization": f"Bearer {create_access_token(str(doc.id))}"}
+
+    # 1. Stored XSS via SVG upload must be rejected (400)
+    svg_payload = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(localStorage.getItem("token"))</script></svg>'
+    res_svg = client.post(
+        "/api/v1/doctor/avatar",
+        headers=headers,
+        files={"file": ("exploit.svg", svg_payload, "image/svg+xml")},
+    )
+    assert res_svg.status_code == 400
+
+    # 2. Spoofed MIME type (image/png header with HTML/JS body) must fail magic-byte check (400)
+    res_spoof = client.post(
+        "/api/v1/doctor/app/icon",
+        headers=headers,
+        files={"file": ("exploit.html", b"<html><script>alert(1)</script></html>", "image/png")},
+    )
+    assert res_spoof.status_code == 400
+
+    # 3. Oversized payload (> 2 MB) must be rejected with 413 Payload Too Large
+    oversized = b"\x89PNG\r\n\x1a\n" + (b"A" * (2 * 1024 * 1024 + 1024))
+    res_large = client.post(
+        "/api/v1/doctor/avatar",
+        headers=headers,
+        files={"file": ("huge.png", oversized, "image/png")},
+    )
+    assert res_large.status_code == 413
+
+    # 4. Valid PNG with malicious filename extension (.html) is re-encoded and forced to .png
+    valid_png = _make_valid_png_bytes()
+    res_valid = client.post(
+        "/api/v1/doctor/avatar",
+        headers=headers,
+        files={"file": ("tricky.html", valid_png, "image/png")},
+    )
+    assert res_valid.status_code == 200
+    avatar_url = res_valid.json()["avatar_url"]
+    assert avatar_url.endswith(".png")
+    assert not avatar_url.endswith(".html")
+
+    # 5. Profile update rejects javascript: scheme in avatar_url
+    res_js = client.put(
+        "/api/v1/doctor/profile",
+        headers=headers,
+        json={"avatar_url": "javascript:alert(document.domain)"},
+    )
+    assert res_js.status_code == 422
 

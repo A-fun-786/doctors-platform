@@ -222,7 +222,7 @@ def test_production_settings_validation(monkeypatch):
             EMAIL_FROM="invalid-email-address",
         )
 
-    # Valid production settings pass
+    # Valid production settings pass and auto-derive FRONTEND_URL from non-local CORS_ORIGINS
     prod = Settings(
         _env_file=None,
         ENVIRONMENT="production",
@@ -230,12 +230,45 @@ def test_production_settings_validation(monkeypatch):
         JWT_SECRET_KEY="a" * 32,
         GOOGLE_CLIENT_ID="valid-id",
         DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+        CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
         EMAIL_BACKEND="resend",
         RESEND_API_KEY="re_valid_test_key",
         EMAIL_FROM="noreply@gosmartclinic.com",
     )
     assert prod.ENVIRONMENT == "production"
     assert prod.EMAIL_BACKEND == "resend"
+    assert prod.FRONTEND_URL == "https://doctors-platform-eight.vercel.app"
+
+    # Explicit localhost FRONTEND_URL in production must fail
+    with pytest.raises(ValidationError, match="FRONTEND_URL cannot point to localhost"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
+            EMAIL_BACKEND="resend",
+            RESEND_API_KEY="re_valid_test_key",
+            EMAIL_FROM="noreply@gosmartclinic.com",
+            FRONTEND_URL="http://localhost:3000",
+        )
+
+    # Production SMTP backend rejects localhost SMTP_HOST
+    with pytest.raises(ValidationError, match="non-local SMTP_HOST"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            ALLOW_MOCK_AUTH=False,
+            JWT_SECRET_KEY="a" * 32,
+            GOOGLE_CLIENT_ID="valid-id",
+            DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/db",
+            CORS_ORIGINS="https://doctors-platform-eight.vercel.app",
+            EMAIL_BACKEND="smtp",
+            SMTP_HOST="localhost",
+            EMAIL_FROM="noreply@gosmartclinic.com",
+        )
 
     # Development environment permits console and memory backends
     dev_console = Settings(

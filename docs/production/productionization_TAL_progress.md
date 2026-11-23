@@ -17,7 +17,7 @@ Each phase documents:
 | Phase | Focus Area | Status | Key Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Core Product Completeness & Safe Feature Boundaries | ✅ Completed | Real public patient appointment booking (`POST /api/v1/public/tenants/{slug}/appointments`), feature-flag gating for non-persistent clinical stubs (`ENABLE_EXPERIMENTAL_CLINICAL_SERVICES`), Android APK builder server lockdown (`ENABLE_ANDROID_APK_BUILDS`) & cross-tenant IDOR fix |
-| **Phase 2** | Upload Security, Cloud Storage, Config & Frontend CVEs | ⏳ Pending | Pillow image magic-byte validation & re-encoding (blocking SVG/HTML stored XSS & OOM DoS), path traversal `is_relative_to` fix, `FRONTEND_URL` & Postgres `alembic_version VARCHAR(128)` hardening, dynamic `$PORT`, Next.js CVE upgrade |
+| **Phase 2** | Upload Security, Cloud Storage, Config & Frontend CVEs | ✅ Completed | Pillow image magic-byte validation & re-encoding (blocking SVG/HTML stored XSS & OOM DoS), path traversal `is_relative_to` fix, `FRONTEND_URL` & Postgres `alembic_version VARCHAR(128)` hardening, dynamic `$PORT`, Next.js `15.5.29` & PostCSS `8.5.23` CVE upgrade (`0` vulnerabilities) |
 | **Phase 3** | Auth Lockout, JWT Revocation, DB Performance & Postgres CI | ⏳ Pending | Password login brute-force lockout, `token_version` JWT revocation on password reset, Google `email_verified` enforcement, `X-Forwarded-For` proxy-depth IP extraction, removal of redundant per-request `SELECT 1`, Ruff cleanup & real PostgreSQL CI testing |
 | **Phase 4** | Observability, PHI Privacy, CSP Tightening & Cutover Runbook | ⏳ Pending | Frontend Sentry `instrumentation.ts` & PII scrubbing, production CSP lockdown, clinic-timezone dashboard KPIs, redacted & updated deployment documentation |
 
@@ -103,3 +103,82 @@ Each phase documents:
   - Full backend test suite: `227 passed` (`0 failed`).
   - Ruff linter on all Phase 1 files: `All checks passed!`.
   - Frontend TypeScript (`npx tsc --noEmit`) & ESLint (`npm run lint`): `0 errors`.
+
+---
+
+### Phase 2: Upload Security, Cloud Storage, Config Hardening & Frontend CVE Remediation
+
+#### 1. Hardening Image Uploads Against Stored XSS & OOM DoS (`P0-4`)
+- **Files:**
+  - [`backend/app/core/uploads.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/uploads.py) *(New)*
+  - [`backend/requirements.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements.txt)
+  - [`backend/app/api/routes/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/doctor.py)
+  - [`backend/app/api/routes/app_build.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/app_build.py)
+  - [`backend/app/schemas/profile.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/profile.py)
+- **Symptom / Problem:**
+  1. **Stored Cross-Site Scripting (XSS) & Session Hijacking:** Both `POST /api/v1/doctor/avatar` and `POST /api/v1/doctor/app/icon` validated uploads solely with `file.content_type.startswith("image/")` and preserved the user-supplied filename extension via `Path(file.filename).suffix`. An attacker could upload an SVG containing `<script>` (`image/svg+xml`) or an `.html` file with a spoofed `Content-Type: image/png` header. Because `/uploads/*` is proxied onto the same Vercel frontend origin (`next.config.mjs`) where doctor JWT tokens are stored in `localStorage`, opening the uploaded URL executed arbitrary JavaScript in the application origin and allowed full JWT session theft.
+  2. **Out-of-Memory (OOM) Denial of Service:** Upload routes read the entire request stream into memory (`file_content.read()`) without any file size limit or decompression-bomb protection.
+  3. **Unvalidated Asset URL Schemes:** `PUT /api/v1/doctor/profile` accepted arbitrary strings for `avatar_url` and `app_icon_url` (including `javascript:` URIs).
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - Client-supplied `Content-Type` headers and filenames are untrusted user input and must never be used to determine storage extensions or file safety.
+  - Re-encoding images through `Pillow` after verifying binary headers guarantees that only genuine raster pixels (PNG, JPEG, WebP) reach storage, stripping any embedded scripts, polyglot payloads, or EXIF metadata.
+- **What Was Changed:**
+  - Added `pillow>=10.4.0,<12.0.0` to [`backend/requirements.txt`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/requirements.txt).
+  - Created [`backend/app/core/uploads.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/uploads.py) implementing `validate_and_sanitize_image()`:
+    - Streams uploads in 64 KB chunks and aborts immediately with `HTTP 413 Content Too Large` if the payload exceeds 2 MB.
+    - Restricts MIME types to `image/png`, `image/jpeg`, `image/jpg`, and `image/webp` (explicitly blocking `image/svg+xml`).
+    - Sets `Image.MAX_IMAGE_PIXELS = 4096 * 4096`, runs `img.verify()` + dimension checks (`<= 2048x2048`), and re-encodes the image into a fresh byte buffer with a deterministic extension (`.png`, `.jpg`, or `.webp`) while discarding the original filename.
+  - Wired `upload_doctor_avatar` (`doctor.py`) and `upload_app_icon` (`app_build.py`) through `validate_and_sanitize_image()`.
+  - Added `@field_validator("avatar_url", "app_icon_url")` on `DoctorProfileUpdateRequest` in [`backend/app/schemas/profile.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/schemas/profile.py#L49-L63) permitting only `https://`, `http://`, or root-relative `/path` URLs and rejecting `javascript:` / protocol-relative `//` URLs with `HTTP 422`.
+
+---
+
+#### 2. LocalStorage Path Traversal Prefix Fix (`P1-5`)
+- **File:** [`backend/app/core/storage.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/storage.py#L55-L60)
+- **Symptom / Problem:**
+  - `LocalStorage._resolve_safe_path()` checked `if not str(target).startswith(str(self.base_dir)):`.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - String prefix comparison (`startswith`) on directory paths without a trailing path separator is vulnerable to sibling-directory prefix bypasses: if `base_dir` is `/app/uploads`, a path resolving to `/app/uploads_evil/payload.txt` starts with `"/app/uploads"` and bypasses the check.
+- **What Was Changed:**
+  - Replaced `str(target).startswith(str(self.base_dir))` with `target.is_relative_to(self.base_dir)`, which performs strict path-component boundary verification.
+
+---
+
+#### 3. Production `FRONTEND_URL`, SMTP, Alembic `VARCHAR(128)` & Dynamic `$PORT` Hardening (`P0-3`, `P1-4`)
+- **Files:**
+  - [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py)
+  - [`backend/alembic/env.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/env.py)
+  - [`backend/Dockerfile`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/Dockerfile)
+- **Symptom / Problem:**
+  1. `FRONTEND_URL` defaulted to `http://localhost:3000` with no production validator check. If omitted on Railway, email verification and password reset emails sent to real doctors contained broken `http://localhost:3000` links.
+  2. Seven Alembic migration revision IDs in `backend/alembic/versions/` are 33–40 characters long (e.g., `007_appointment_active_slot_unique_index` is 40 chars), exceeding Alembic's default PostgreSQL `alembic_version.version_num VARCHAR(32)` column and causing `StringDataRightTruncation` on fresh or un-widened PostgreSQL databases.
+  3. `backend/Dockerfile` hardcoded `--port 8000` in exec-form `CMD` and `http://127.0.0.1:8000` in `HEALTHCHECK`, ignoring Railway's dynamically injected `$PORT` environment variable if `PORT` was changed from 8000.
+- **What Was Changed:**
+  - **Config Validation (`backend/app/core/config.py`):**
+    - In `ENVIRONMENT=production`, if `FRONTEND_URL` is explicitly set to `localhost` or `127.0.0.1`, startup fails with `ValueError`. If `FRONTEND_URL` was omitted in env vars, it now automatically derives from the first non-local production origin in `CORS_ORIGINS` (e.g., `https://doctors-platform-eight.vercel.app`).
+    - Added production validation rejecting `localhost` / empty `SMTP_HOST` when `EMAIL_BACKEND="smtp"`.
+  - **Automatic PostgreSQL `alembic_version` Widening (`backend/alembic/env.py`):**
+    - In `run_migrations_online()`, when `connection.dialect.name == "postgresql"`, Alembic now idempotently creates/alters `alembic_version.version_num` to `VARCHAR(128)` before running migrations.
+  - **Dynamic `$PORT` Container Support (`backend/Dockerfile`):**
+    - Updated `CMD` to `["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=*"]` and updated `HEALTHCHECK` to read `os.environ.get('PORT', '8000')`.
+
+---
+
+#### 4. Frontend Dependency Upgrade to Remediate Critical & High CVEs (`P0-7`)
+- **Files:**
+  - [`package.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package.json)
+  - [`package-lock.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/package-lock.json)
+  - [`tsconfig.json`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/tsconfig.json)
+- **Symptom / Problem:**
+  - `npm audit --omit=dev` reported **8 production vulnerabilities (1 critical, 2 high, 5 moderate)** across `next@14.2.24`, `postcss <=8.5.22`, `source-map-js`, `brace-expansion`, `glob`, and `minimatch`.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - `next@14.2.24` was affected by multiple critical and high advisories (including rewrite request smuggling, Server Components/Actions DoS, cache poisoning, and Image Optimizer DoS/SSRF). Upgrading to the patched Next.js 15.5 LTS backport line (`15.5.29`) resolves all Next.js advisories while maintaining full React 18 compatibility.
+- **What Was Changed:**
+  - Upgraded `next` and `eslint-config-next` from `14.2.24` to `^15.5.29`.
+  - Upgraded `postcss` to `^8.5.23` and added `"overrides": { "postcss": "^8.5.23" }` in `package.json` so Next.js's nested PostCSS dependency also resolves to `8.5.23`.
+  - Ran `npm audit fix` to patch remaining transitive packages (`brace-expansion`, `source-map-js`, `glob`, `minimatch`).
+- **Verification Executed:**
+  - `npm audit --omit=dev` and full `npm audit`: **`found 0 vulnerabilities`** (down from 8 prod / 15 total vulnerabilities).
+  - Phase 2 backend security & config tests (`tests/core/test_storage_and_containers.py`, `tests/core/test_health_and_models.py`): `16 passed, 0 failed`.
+  - Frontend ESLint (`npm run lint`), TypeScript (`npx tsc --noEmit`), unit tests (`npm test`), and production build (`npm run build`): all passed with `0 errors`.
+
