@@ -894,23 +894,45 @@ def test_3_29_get_another_doctors_appointment(client, db_session, doctor_a, doct
 
 
 # ==============================================================================
-# 3.30 – 3.32: Stub Cleanup Tests
+# 3.30 – 3.32: Public Booking & Experimental Stub Boundary Tests
 # ==============================================================================
 
-def test_3_30_old_stub_endpoint_removed(client, tenant_a):
+def test_3_30_public_appointment_booking_persists(client, tenant_a, db_session):
+    from datetime import timedelta
+    target_date = date.today() + timedelta(days=14)
+    if target_date.weekday() == 6:
+        target_date += timedelta(days=1)
+
     res = client.post(
         f"/api/v1/public/tenants/{tenant_a.slug}/appointments",
         json={
             "patient_name": "Test Patient",
-            "appointment_date": "2026-10-12",
+            "patient_phone": "+1234567890",
+            "appointment_date": target_date.isoformat(),
             "appointment_time": "10:00",
             "appointment_type": "in_clinic",
         },
     )
-    assert res.status_code in (404, 405)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["booking_id"].startswith("APT-")
+    assert data["status"] == "BOOKED"
 
 
-def test_3_31_medicine_order_stub_intact(client, tenant_a):
+def test_3_31_medicine_order_stub_gated_by_default(client, tenant_a, monkeypatch):
+    from app.core.config import get_settings
+    res_disabled = client.post(
+        f"/api/v1/public/tenants/{tenant_a.slug}/medicine-orders",
+        json={
+            "patient_name": "Test Patient",
+            "patient_phone": "+1234567890",
+            "delivery_address": "123 Main Street",
+            "medicines": "Paracetamol 500mg, 2 strips",
+        },
+    )
+    assert res_disabled.status_code == 501
+
+    monkeypatch.setattr(get_settings(), "ENABLE_EXPERIMENTAL_CLINICAL_SERVICES", True)
     res = client.post(
         f"/api/v1/public/tenants/{tenant_a.slug}/medicine-orders",
         json={
@@ -926,7 +948,20 @@ def test_3_31_medicine_order_stub_intact(client, tenant_a):
     assert data["order_id"].startswith("MED-")
 
 
-def test_3_32_report_upload_stub_intact(client, tenant_a):
+def test_3_32_report_upload_stub_gated_by_default(client, tenant_a, monkeypatch):
+    from app.core.config import get_settings
+    res_disabled = client.post(
+        f"/api/v1/public/tenants/{tenant_a.slug}/reports",
+        json={
+            "patient_name": "Test Patient",
+            "patient_phone": "+1234567890",
+            "report_type": "Blood Test",
+            "file_name": "blood_test.pdf",
+        },
+    )
+    assert res_disabled.status_code == 501
+
+    monkeypatch.setattr(get_settings(), "ENABLE_EXPERIMENTAL_CLINICAL_SERVICES", True)
     res = client.post(
         f"/api/v1/public/tenants/{tenant_a.slug}/reports",
         json={

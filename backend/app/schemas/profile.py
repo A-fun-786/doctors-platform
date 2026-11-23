@@ -62,16 +62,20 @@ class PublicDoctorProfileResponse(BaseModel):
 class AppointmentBookingRequest(BaseModel):
     """Patient appointment booking payload."""
     patient_name: str = Field(..., min_length=2)
-    patient_email: str
+    patient_email: Optional[str] = None
     patient_phone: str = Field(..., min_length=7)
     appointment_date: str
     appointment_time: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     appointment_type: str = "in_clinic"  # "in_clinic" | "video_consultation"
     notes: Optional[str] = None
+    staff_id: Optional[str] = None
 
 
 class AppointmentBookingResponse(BaseModel):
     booking_id: str
+    appointment_id: Optional[str] = None
     status: str
     message: str
     details: Dict[str, Any]

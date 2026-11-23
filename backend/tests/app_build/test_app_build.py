@@ -93,7 +93,8 @@ def test_prepare_project_workspace():
             shutil.rmtree(workspace, ignore_errors=True)
 
 
-def test_app_build_routes(client, db_session):
+def test_app_build_routes(client, db_session, monkeypatch):
+    from app.core.config import get_settings
     from app.core.security import create_access_token
 
     doc = Doctor(
@@ -102,7 +103,13 @@ def test_app_build_routes(client, db_session):
         full_name="Dr. App Builder",
         is_active=True,
     )
-    db_session.add(doc)
+    other_doc = Doctor(
+        id=uuid.uuid4(),
+        email="otherdoc@example.com",
+        full_name="Dr. Other Tenant",
+        is_active=True,
+    )
+    db_session.add_all([doc, other_doc])
     db_session.flush()
 
     tenant = Tenant(
@@ -111,12 +118,19 @@ def test_app_build_routes(client, db_session):
         slug="dr-app-builder",
         clinic_name="Wellness Center",
     )
-    db_session.add(tenant)
+    other_tenant = Tenant(
+        id=uuid.uuid4(),
+        doctor_id=other_doc.id,
+        slug="dr-other-tenant",
+        clinic_name="Other Clinic",
+    )
+    db_session.add_all([tenant, other_tenant])
     db_session.commit()
 
     token = create_access_token(subject=str(doc.id))
+    other_token = create_access_token(subject=str(other_doc.id))
 
-    # Test preview
+    # Test preview (builds_enabled is False by default)
     res = client.get(
         "/api/v1/doctor/app/preview",
         headers={"Authorization": f"Bearer {token}"},
@@ -125,8 +139,17 @@ def test_app_build_routes(client, db_session):
     data = res.json()
     assert data["app_name"] == "Wellness Center"
     assert data["package_name"] == "com.docspace.drappbuilder.wellnesscenter"
+    assert data["builds_enabled"] is False
 
-    # Test build trigger
+    # Build trigger is rejected with 503 when ENABLE_ANDROID_APK_BUILDS is False
+    res_disabled = client.post(
+        "/api/v1/doctor/app/build",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res_disabled.status_code == 503
+
+    # Enable flag and test build trigger + IDOR isolation
+    monkeypatch.setattr(get_settings(), "ENABLE_ANDROID_APK_BUILDS", True)
     res_build = client.post(
         "/api/v1/doctor/app/build",
         headers={"Authorization": f"Bearer {token}"},
@@ -136,11 +159,24 @@ def test_app_build_routes(client, db_session):
     assert "task_id" in build_data
     task_id = build_data["task_id"]
 
-    # Test status
+    # Test status for owning doctor
     res_status = client.get(
         f"/api/v1/doctor/app/build/{task_id}/status",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert res_status.status_code == 200
     assert res_status.json()["task_id"] == task_id
+
+    # Cross-tenant IDOR protection: other doctor must get 404 on status and logs
+    res_other_status = client.get(
+        f"/api/v1/doctor/app/build/{task_id}/status",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert res_other_status.status_code == 404
+
+    res_other_logs = client.get(
+        f"/api/v1/doctor/app/build/{task_id}/logs",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert res_other_logs.status_code == 404
 

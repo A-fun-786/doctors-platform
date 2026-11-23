@@ -135,16 +135,26 @@ export default function AppointmentBookingForm({
         staffId: activeStaffId,
       });
 
-      const res = await bookPublicAppointment(slug, {
-        patient_name: patientName,
-        patient_email: patientEmail,
-        patient_phone: patientPhone,
-        appointment_date: date,
-        appointment_time: selectedSlot,
-        appointment_type: consultationType,
-        notes: notes,
-        ...(activeStaffId ? { staff_id: activeStaffId } : {}),
-      });
+      const matchedSlot = availableSlots.find(
+        (s) => format12Hour(s.start) === selectedSlot || s.start === selectedSlot
+      );
+      const idempotencyKey = `${slug}:${date}:${matchedSlot?.start || selectedSlot}:${patientPhone.trim()}`;
+
+      const res = await bookPublicAppointment(
+        slug,
+        {
+          patient_name: patientName,
+          patient_email: patientEmail,
+          patient_phone: patientPhone,
+          appointment_date: date,
+          appointment_time: selectedSlot,
+          ...(matchedSlot ? { start_time: matchedSlot.start, end_time: matchedSlot.end } : {}),
+          appointment_type: consultationType,
+          notes: notes,
+          ...(activeStaffId ? { staff_id: activeStaffId } : {}),
+        },
+        idempotencyKey
+      );
 
       logger.info("PublicBooking", `Appointment booked successfully (${res.booking_id})`, {
         bookingId: res.booking_id,

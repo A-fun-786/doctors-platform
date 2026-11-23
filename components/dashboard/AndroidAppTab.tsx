@@ -341,13 +341,23 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               <button
                 type="button"
                 onClick={handleStartBuild}
-                disabled={buildingApp}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
+                disabled={buildingApp || appPreview?.builds_enabled === false}
+                title={
+                  appPreview?.builds_enabled === false
+                    ? "Android APK builds are disabled on this server"
+                    : undefined
+                }
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
               >
                 {buildingApp ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Building APK...</span>
+                  </>
+                ) : appPreview?.builds_enabled === false ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Builds Disabled on Server</span>
                   </>
                 ) : buildStatus?.status === "completed" ? (
                   <>
@@ -363,6 +373,18 @@ export default function AndroidAppTab({ doctor, profile }: AndroidAppTabProps) {
               </button>
             </div>
           </div>
+
+          {appPreview?.builds_enabled === false && (
+            <div className="mt-4 p-4 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold block">Cloud APK Compilation Disabled</span>
+                <span className="text-[11px] leading-relaxed block mt-0.5">
+                  On-demand Android APK compilation is currently disabled in the web container. Your custom branding and app icon settings are saved and ready for external CI builds.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Active Build Status Progress */}
           {buildingApp && buildStatus && (

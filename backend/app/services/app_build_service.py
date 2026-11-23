@@ -301,6 +301,7 @@ def trigger_app_build(
     with _LOCK:
         _BUILD_TASKS[build_id] = {
             "task_id": build_id,
+            "doctor_id": str(doctor.id),
             "status": "preparing",
             "progress": 10,
             "app_name": identity["app_name"],

@@ -1,11 +1,17 @@
 
+from datetime import date, timedelta
+from app.core.config import get_settings
+from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
 from app.core.security import create_access_token
 
 
-def test_doctor_profile_flow_and_public_sync(client, db_session):
+def test_doctor_profile_flow_and_public_sync(client, db_session, monkeypatch):
     # 1. Seed doctor and tenant
+    future_date = (date.today() + timedelta(days=7)).isoformat()
+    while (date.today() + timedelta(days=7)).weekday() == 6:
+        future_date = (date.today() + timedelta(days=8)).isoformat()
     doctor = Doctor(
         email="dr.khan@example.com",
         full_name="Dr. Ahmed Khan",
@@ -67,7 +73,7 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
     assert put_data["services"]["medicine_inventory"] is True
     assert put_data["services"]["lab_reports"] is True
 
-    # 4. GET /public/tenants/{slug} (Patient visits webpage)
+    # 4. GET /public/tenants/{slug} (Patient visits webpage - experimental clinical stubs hidden by default)
     pub_res = client.get("/api/v1/public/tenants/dr-ahmed-khan")
     assert pub_res.status_code == 200
     pub_data = pub_res.json()
@@ -76,25 +82,73 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
     assert pub_data["location"] == "400 Medical Center Blvd, Suite 300"
     assert pub_data["speciality"] == "Cardiologist"
     assert pub_data["services"]["appointment"] is True
-    assert pub_data["services"]["medicine_inventory"] is True
-    assert pub_data["services"]["lab_reports"] is True
+    assert pub_data["services"]["medicine_inventory"] is False
+    assert pub_data["services"]["lab_reports"] is False
 
-    # 5. Old Appointment Stub Removed (Phase 3)
+    # 5. Real Persisted Public Patient Appointment Booking
     apt_res = client.post(
         "/api/v1/public/tenants/dr-ahmed-khan/appointments",
+        headers={"Idempotency-Key": "test-public-booking-key-1"},
         json={
             "patient_name": "John Doe",
             "patient_email": "john@example.com",
             "patient_phone": "+1 555-111-2222",
-            "appointment_date": "2026-09-10",
+            "appointment_date": future_date,
             "appointment_time": "10:00 AM",
+            "start_time": "10:00",
+            "end_time": "10:30",
             "appointment_type": "in_clinic",
             "notes": "Routine cardiovascular screening",
         },
     )
-    assert apt_res.status_code == 404
+    assert apt_res.status_code == 201
+    apt_data = apt_res.json()
+    assert apt_data["booking_id"].startswith("APT-")
+    assert apt_data["status"] == "BOOKED"
+    persisted = db_session.query(Appointment).filter(Appointment.doctor_id == doctor.id).first()
+    assert persisted is not None
+    assert persisted.patient_name == "John Doe"
 
-    # 6. Patient Orders Medicine
+    # Duplicate slot booking without same idempotency key returns 409 Conflict
+    dup_res = client.post(
+        "/api/v1/public/tenants/dr-ahmed-khan/appointments",
+        json={
+            "patient_name": "Another Patient",
+            "patient_email": "other@example.com",
+            "patient_phone": "+1 555-333-4444",
+            "appointment_date": future_date,
+            "appointment_time": "10:00 AM",
+            "appointment_type": "in_clinic",
+        },
+    )
+    assert dup_res.status_code == 409
+
+    # 6. Experimental clinical stubs return 501 Not Implemented by default in production posture
+    med_disabled_res = client.post(
+        "/api/v1/public/tenants/dr-ahmed-khan/medicine-orders",
+        json={
+            "patient_name": "John Doe",
+            "patient_phone": "+1 555-111-2222",
+            "delivery_address": "742 Evergreen Terrace, Springfield",
+            "medicines": "Atorvastatin 20mg - 30 tablets",
+        },
+    )
+    assert med_disabled_res.status_code == 501
+
+    rep_disabled_res = client.post(
+        "/api/v1/public/tenants/dr-ahmed-khan/reports",
+        json={
+            "patient_name": "John Doe",
+            "patient_phone": "+1 555-111-2222",
+            "report_type": "Blood Work & Pathology",
+            "file_name": "lipid_panel_results.pdf",
+            "notes": "Fasting lipid panel done yesterday",
+        },
+    )
+    assert rep_disabled_res.status_code == 501
+
+    # 7. When experimental flag is explicitly enabled, medicine orders & lab reports succeed
+    monkeypatch.setattr(get_settings(), "ENABLE_EXPERIMENTAL_CLINICAL_SERVICES", True)
     med_res = client.post(
         "/api/v1/public/tenants/dr-ahmed-khan/medicine-orders",
         json={
@@ -109,7 +163,6 @@ def test_doctor_profile_flow_and_public_sync(client, db_session):
     assert med_data["status"] == "received"
     assert med_data["order_id"].startswith("MED-")
 
-    # 7. Patient Uploads Lab Report
     rep_res = client.post(
         "/api/v1/public/tenants/dr-ahmed-khan/reports",
         json={

@@ -108,10 +108,12 @@ export interface PublicDoctorProfileResponse {
 
 export interface AppointmentBookingPayload {
   patient_name: string;
-  patient_email: string;
+  patient_email?: string;
   patient_phone: string;
   appointment_date: string;
   appointment_time: string;
+  start_time?: string;
+  end_time?: string;
   appointment_type: "in_clinic" | "video_consultation";
   notes?: string;
   staff_id?: string;
@@ -136,6 +138,8 @@ export interface MedicineOrderPayload {
 export interface PublicAppointmentResponse {
   message: string;
   booking_id: string;
+  appointment_id?: string;
+  status?: string;
 }
 
 export interface PublicReportResponse {
@@ -714,15 +718,20 @@ export async function getPublicDoctorProfile(
 }
 
 /**
- * @deprecated Legacy appointment stub endpoint. Replaced by real appointment scheduling in Phase 5.
- * Submit an appointment request on the patient page.
+ * Submit a real persisted appointment booking request on the public patient page.
  */
 export async function bookPublicAppointment(
   slug: string,
-  payload: AppointmentBookingPayload
+  payload: AppointmentBookingPayload,
+  idempotencyKey?: string
 ): Promise<PublicAppointmentResponse> {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
   return apiFetch<PublicAppointmentResponse>(`/api/v1/public/tenants/${encodeURIComponent(slug)}/appointments`, {
     method: "POST",
+    headers,
     body: JSON.stringify(payload),
   });
 }
@@ -980,6 +989,7 @@ export interface AppPreviewResponse {
   has_custom_icon: boolean;
   app_icon_url?: string | null;
   latest_apk?: AppBuildStatusResponse | null;
+  builds_enabled?: boolean;
 }
 
 export interface AppBuildStartResponse {

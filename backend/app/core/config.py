@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_PASSWORD_RESET: str = "3/minute"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Feature Flags (Safe Production Boundaries)
+    ENABLE_EXPERIMENTAL_CLINICAL_SERVICES: bool = False
+    ENABLE_ANDROID_APK_BUILDS: bool = False
+
     @field_validator("CLINIC_TIMEZONE", mode="after")
     @classmethod
     def validate_clinic_timezone(cls, v: str) -> str:
