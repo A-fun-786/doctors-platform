@@ -19,7 +19,6 @@ from app.core.security import (
     DUMMY_BCRYPT_HASH,
     generate_verification_token,
     hash_token,
-    verify_token_hash,
 )
 from app.models.doctor import Doctor
 from app.models.tenant import Tenant
@@ -96,6 +95,11 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Google account does not have an associated email address",
             )
+        if not id_info.get("email_verified"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google account email address is not verified",
+            )
             
         email = email.lower().strip()
         full_name = id_info.get("name") or email.split("@")[0].capitalize()
@@ -164,7 +168,7 @@ class AuthService:
                 db.commit()
                 db.refresh(doctor)
                 db.refresh(tenant)
-            except Exception as exc:
+            except Exception:
                 db.rollback()
                 logger.error("Failed to provision doctor account via Google", exc_info=True)
                 raise HTTPException(
@@ -173,7 +177,10 @@ class AuthService:
                 )
 
         # Generate Platform JWT Access Token
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
@@ -325,7 +332,7 @@ class AuthService:
             db.query(EmailVerificationToken).filter(
                 EmailVerificationToken.doctor_id == doctor.id,
                 EmailVerificationToken.purpose == "email_verification",
-                EmailVerificationToken.used_at == None,
+                EmailVerificationToken.used_at.is_(None),
             ).update({"used_at": now})
 
             # Create EmailVerificationTokens atomically
@@ -366,7 +373,7 @@ class AuthService:
         except HTTPException:
             db.rollback()
             raise
-        except Exception as exc:
+        except Exception:
             db.rollback()
             logger.error("Unexpected error during doctor registration", exc_info=True)
             raise HTTPException(
@@ -403,7 +410,10 @@ class AuthService:
             )
             verification_email_sent = False
 
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
@@ -445,6 +455,17 @@ class AuthService:
                 detail="Inactive user account",
             )
 
+        now = datetime.now(timezone.utc)
+        if doctor.locked_until:
+            locked_until = doctor.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
+            if locked_until > now:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account is temporarily locked due to repeated failed login attempts. Please try again later.",
+                )
+
         if not doctor.hashed_password:
             verify_password(password, DUMMY_BCRYPT_HASH)
             raise HTTPException(
@@ -453,6 +474,10 @@ class AuthService:
             )
 
         if not verify_password(password, doctor.hashed_password):
+            doctor.failed_login_attempts = (doctor.failed_login_attempts or 0) + 1
+            if doctor.failed_login_attempts >= 5:
+                doctor.locked_until = now + timedelta(minutes=15)
+            db.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -464,9 +489,16 @@ class AuthService:
                 detail="Email verification required. Please verify your email before logging in.",
             )
 
-        # Transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        # Reset failed login counter and transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
+        updated_login_state = False
+        if doctor.failed_login_attempts or doctor.locked_until:
+            doctor.failed_login_attempts = 0
+            doctor.locked_until = None
+            updated_login_state = True
         if needs_rehash(doctor.hashed_password):
             doctor.hashed_password = hash_password(password)
+            updated_login_state = True
+        if updated_login_state:
             db.commit()
 
         tenant = doctor.tenant
@@ -477,7 +509,10 @@ class AuthService:
             db.commit()
             db.refresh(tenant)
 
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
@@ -566,7 +601,7 @@ class AuthService:
                     db.query(EmailVerificationToken).filter(
                         EmailVerificationToken.doctor_id == doctor.id,
                         EmailVerificationToken.purpose == "email_verification",
-                        EmailVerificationToken.used_at == None,
+                        EmailVerificationToken.used_at.is_(None),
                     ).update({"used_at": now})
                     db.commit()
                     raise HTTPException(
@@ -602,7 +637,7 @@ class AuthService:
         db.query(EmailVerificationToken).filter(
             EmailVerificationToken.doctor_id == doctor.id,
             EmailVerificationToken.purpose == "email_verification",
-            EmailVerificationToken.used_at == None,
+            EmailVerificationToken.used_at.is_(None),
         ).update({"used_at": now})
 
         doctor.email_verified = True
@@ -620,7 +655,10 @@ class AuthService:
             db.commit()
             db.refresh(tenant)
 
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,
@@ -722,7 +760,7 @@ class AuthService:
         db.query(EmailVerificationToken).filter(
             EmailVerificationToken.doctor_id == doctor.id,
             EmailVerificationToken.purpose == "email_verification",
-            EmailVerificationToken.used_at == None,
+            EmailVerificationToken.used_at.is_(None),
         ).update({"used_at": send_time})
 
         # Add replacement tokens with sent_at timestamp
@@ -867,7 +905,7 @@ class AuthService:
         db.query(EmailVerificationToken).filter(
             EmailVerificationToken.doctor_id == doctor.id,
             EmailVerificationToken.purpose == "password_reset",
-            EmailVerificationToken.used_at == None,
+            EmailVerificationToken.used_at.is_(None),
         ).update({"used_at": send_time})
 
         # Add new token pair
@@ -984,7 +1022,7 @@ class AuthService:
                     db.query(EmailVerificationToken).filter(
                         EmailVerificationToken.doctor_id == doctor.id,
                         EmailVerificationToken.purpose == "password_reset",
-                        EmailVerificationToken.used_at == None,
+                        EmailVerificationToken.used_at.is_(None),
                     ).update({"used_at": now})
                     db.commit()
                     raise HTTPException(
@@ -1029,8 +1067,9 @@ class AuthService:
                 detail="New password must be different from the current password.",
             )
 
-        # Apply reset
+        # Apply reset and increment token_version to revoke all pre-existing JWT sessions
         doctor.hashed_password = hash_password(new_password)
+        doctor.token_version = int(doctor.token_version or 1) + 1
         doctor.failed_login_attempts = 0
         doctor.locked_until = None
         if not doctor.email_verified:
@@ -1043,7 +1082,7 @@ class AuthService:
             .filter(
                 EmailVerificationToken.doctor_id == doctor.id,
                 EmailVerificationToken.purpose == "password_reset",
-                EmailVerificationToken.used_at == None,
+                EmailVerificationToken.used_at.is_(None),
             )
             .update({"used_at": now})
         )
@@ -1065,7 +1104,10 @@ class AuthService:
             db.commit()
             db.refresh(tenant)
 
-        access_token = create_access_token(subject=str(doctor.id))
+        access_token = create_access_token(
+            subject=str(doctor.id),
+            token_version=int(doctor.token_version or 1),
+        )
 
         return AuthResponse(
             access_token=access_token,

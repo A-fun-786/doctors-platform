@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 from typing import List, Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_doctor, get_active_tenant_by_slug

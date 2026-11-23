@@ -43,12 +43,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     BCRYPT_ROUNDS: int = 12
 
-    # Rate Limiting (SlowAPI)
+    # Rate Limiting & Proxy Trust (SlowAPI)
     RATE_LIMIT_GLOBAL: str = "100/minute"
     RATE_LIMIT_AUTH: str = "5/minute"
     RATE_LIMIT_AUTH_GOOGLE: str = "10/minute"
     RATE_LIMIT_SCHEDULE: str = "30/minute"
     RATE_LIMIT_APPOINTMENT: str = "20/minute"
+    TRUSTED_PROXY_COUNT: int = 0
+    REDIS_URL: str = ""
 
     # Observability & Monitoring (Sentry & Structlog)
     SENTRY_DSN: str = ""
@@ -173,6 +175,9 @@ class Settings(BaseSettings):
                 ]
                 if non_local_origins:
                     self.FRONTEND_URL = non_local_origins[0]
+
+            if "TRUSTED_PROXY_COUNT" not in self.model_fields_set and self.TRUSTED_PROXY_COUNT == 0:
+                self.TRUSTED_PROXY_COUNT = 1
 
             sender = self.EMAIL_FROM.strip() if self.EMAIL_FROM else ""
             from email.utils import parseaddr

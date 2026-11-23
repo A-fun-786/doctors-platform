@@ -18,7 +18,7 @@ Each phase documents:
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | Core Product Completeness & Safe Feature Boundaries | ✅ Completed | Real public patient appointment booking (`POST /api/v1/public/tenants/{slug}/appointments`), feature-flag gating for non-persistent clinical stubs (`ENABLE_EXPERIMENTAL_CLINICAL_SERVICES`), Android APK builder server lockdown (`ENABLE_ANDROID_APK_BUILDS`) & cross-tenant IDOR fix |
 | **Phase 2** | Upload Security, Cloud Storage, Config & Frontend CVEs | ✅ Completed | Pillow image magic-byte validation & re-encoding (blocking SVG/HTML stored XSS & OOM DoS), path traversal `is_relative_to` fix, `FRONTEND_URL` & Postgres `alembic_version VARCHAR(128)` hardening, dynamic `$PORT`, Next.js `15.5.29` & PostCSS `8.5.23` CVE upgrade (`0` vulnerabilities) |
-| **Phase 3** | Auth Lockout, JWT Revocation, DB Performance & Postgres CI | ⏳ Pending | Password login brute-force lockout, `token_version` JWT revocation on password reset, Google `email_verified` enforcement, `X-Forwarded-For` proxy-depth IP extraction, removal of redundant per-request `SELECT 1`, Ruff cleanup & real PostgreSQL CI testing |
+| **Phase 3** | Auth Lockout, JWT Revocation, DB Performance & Postgres CI | ✅ Completed | Password login brute-force lockout, `token_version` JWT revocation on password reset (Migration `013`), Google `email_verified` enforcement, `X-Forwarded-For` proxy-depth IP extraction (`TRUSTED_PROXY_COUNT`), removal of redundant per-request `SELECT 1`, health error scrubbing, Ruff cleanup (`0` errors) & real PostgreSQL CI testing |
 | **Phase 4** | Observability, PHI Privacy, CSP Tightening & Cutover Runbook | ⏳ Pending | Frontend Sentry `instrumentation.ts` & PII scrubbing, production CSP lockdown, clinic-timezone dashboard KPIs, redacted & updated deployment documentation |
 
 ---
@@ -181,4 +181,83 @@ Each phase documents:
   - `npm audit --omit=dev` and full `npm audit`: **`found 0 vulnerabilities`** (down from 8 prod / 15 total vulnerabilities).
   - Phase 2 backend security & config tests (`tests/core/test_storage_and_containers.py`, `tests/core/test_health_and_models.py`): `16 passed, 0 failed`.
   - Frontend ESLint (`npm run lint`), TypeScript (`npx tsc --noEmit`), unit tests (`npm test`), and production build (`npm run build`): all passed with `0 errors`.
+
+---
+
+### Phase 3: Authentication Hardening, Rate-Limit Proxy Integrity, DB Performance & PostgreSQL CI
+
+#### 1. Account Lockout, JWT Session Revocation (`token_version`) & Google OAuth Email Verification (`P1-1`, `P1-2`)
+- **Files:**
+  - [`backend/alembic/versions/013_add_token_version_to_doctors.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/versions/013_add_token_version_to_doctors.py) *(New)*
+  - [`backend/app/models/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/doctor.py)
+  - [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py)
+  - [`backend/app/api/deps.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/deps.py)
+  - [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py)
+- **Symptom / Problem:**
+  1. **Missing Password Login Lockout:** Although the `doctors` table had `failed_login_attempts` and `locked_until` columns (used in OTP verification and password reset), `login_email()` never checked `locked_until` and never incremented `failed_login_attempts`. An attacker rotating IPs across a botnet could brute-force a doctor's password indefinitely.
+  2. **No JWT Session Revocation After Password Reset:** Platform JWT access tokens have a 24-hour lifetime (`ACCESS_TOKEN_EXPIRE_MINUTES = 1440`). When a doctor reset a compromised password via `/api/v1/auth/reset-password`, existing stolen JWT tokens remained valid for up to 24 hours because `get_current_doctor()` only checked `Doctor.is_active`.
+  3. **Unchecked `email_verified` Claim in Google OAuth:** `authenticate_google()` linked incoming Google Sign-In tokens to existing email/password doctor accounts by matching `email` without verifying `id_info.get("email_verified") is True`.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - IP-based rate limiting alone (`5/minute` in SlowAPI) cannot stop distributed credential-stuffing attacks that rotate source IPs; per-account lockout (`failed_login_attempts` / `locked_until`) is mandatory defense-in-depth.
+  - Embedding a monotonically increasing `token_version` (`"tv"`) inside the JWT payload and validating it in `get_current_doctor()` allows instant, stateless-friendly session revocation whenever a doctor resets their password, without requiring a separate token blacklist lookup.
+  - Verifying `id_info.get("email_verified")` prevents account takeover via unverified workspace alias emails.
+- **What Was Changed:**
+  - Created Alembic migration [`013_add_token_version_to_doctors.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/alembic/versions/013_add_token_version_to_doctors.py) adding `token_version INTEGER NOT NULL DEFAULT 1` to `doctors` and mapped `Doctor.token_version` in [`backend/app/models/doctor.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/models/doctor.py#L101-L106).
+  - Updated `create_access_token()` in [`backend/app/core/security.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/security.py#L139-L161) to embed `"tv": int(token_version or 1)` in every JWT and updated `get_current_doctor()` in [`backend/app/api/deps.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/deps.py#L31-L55) to reject any token whose `"tv"` claim does not match `doctor.token_version`.
+  - Updated `reset_password()` in [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py#L1065-L1072) to increment `doctor.token_version += 1`, immediately invalidating all pre-existing JWTs.
+  - Updated `login_email()` in [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py#L455-L505) to enforce `doctor.locked_until > now` (`HTTP 403`), increment `failed_login_attempts` on invalid passwords, lock the account for 15 minutes after 5 consecutive failures, and reset the counter to `0` upon successful login.
+  - Updated `authenticate_google()` in [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py#L98-L102) to reject tokens where `id_info.get("email_verified")` is falsy (`HTTP 400`).
+
+---
+
+#### 2. `X-Forwarded-For` Anti-Spoofing (`TRUSTED_PROXY_COUNT`) & Redis Rate-Limit Readiness (`P1-1`)
+- **Files:**
+  - [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py)
+  - [`backend/app/core/rate_limit.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/rate_limit.py)
+- **Symptom / Problem:**
+  - `get_client_ip()` unconditionally extracted `forwarded_for.split(",")[0].strip()` (the **leftmost** hop in `X-Forwarded-For`). Because `backend/Dockerfile` runs Uvicorn behind Railway's edge proxy, an attacker could send a fabricated `X-Forwarded-For: <random-ip>` header on every request, causing `hops[0]` to be the attacker's spoofed IP and completely bypassing SlowAPI rate limits.
+- **Why This Change Was Needed (Root Cause & Rationale):**
+  - Reverse proxies append the connecting client IP to the **end** of `X-Forwarded-For`. When running behind $N$ trusted proxies (`TRUSTED_PROXY_COUNT = 1` on Railway), the authentic client IP observed by the edge proxy is `hops[-TRUSTED_PROXY_COUNT]`, while any entries to the left of that index are untrusted client-supplied values.
+- **What Was Changed:**
+  - Added `TRUSTED_PROXY_COUNT: int = 0` (automatically defaulting to `1` when `ENVIRONMENT == "production"`) and `REDIS_URL: str = ""` to `Settings` in [`backend/app/core/config.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/config.py#L52-L53).
+  - Updated `get_client_ip()` in [`backend/app/core/rate_limit.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/rate_limit.py#L12-L33) to select `hops[max(0, len(hops) - trusted_count)]` whenever `TRUSTED_PROXY_COUNT > 0`.
+  - Configured SlowAPI `Limiter` in [`backend/app/core/rate_limit.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/rate_limit.py#L40-L44) to use `settings.REDIS_URL` when provided (falling back to `"memory://"` for single-worker deployments).
+
+---
+
+#### 3. Database Per-Request Latency Optimization & Health Endpoint Error Sanitization (`P1-4`, `P1-5`)
+- **Files:**
+  - [`backend/app/core/database.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/database.py)
+  - [`backend/app/api/routes/health.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/health.py)
+- **Symptom / Problem:**
+  1. `create_session_with_retry()` executed `session.execute(text("SELECT 1"))` on **every single API request**, even though the SQLAlchemy engine already enabled `pool_pre_ping=True`. Because the production database is remote Serverless Neon PostgreSQL (`aws-us-east-2`), this redundant query added an unnecessary network round-trip to every API call.
+  2. `GET /api/v1/health/database` included `"error": str(exc)` in its unauthenticated `HTTP 503` response body when the database was unreachable, potentially exposing internal PostgreSQL hostnames, connection parameters, or driver details to public callers.
+- **What Was Changed:**
+  - Removed the redundant `session.execute(text("SELECT 1"))` from `create_session_with_retry()` in [`backend/app/core/database.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/core/database.py#L40-L42), relying on SQLAlchemy's built-in `pool_pre_ping=True`.
+  - Removed `"error": str(exc)` from the public `HTTP 503` payload in [`backend/app/api/routes/health.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/health.py#L36-L45) while preserving structured server-side error logging (`logger.error("database_health_check_failed", error=str(exc))`).
+
+---
+
+#### 4. Backend Lint Remediation & Real PostgreSQL CI Pipeline Hardening (`P1-3`)
+- **Files:**
+  - [`backend/app/services/auth_service.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/services/auth_service.py)
+  - [`backend/app/api/routes/schedule.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/app/api/routes/schedule.py)
+  - [`backend/tests/conftest.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/conftest.py)
+  - [`.github/workflows/ci.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/.github/workflows/ci.yml)
+- **Symptom / Problem:**
+  1. `ruff check backend/` was failing with **12 lint errors** (7× `E711` `== None` SQLAlchemy comparisons, 3× `F401` unused imports, 2× `F841` unused exception variables), breaking the `backend-checks` job in GitHub Actions.
+  2. Even though `.github/workflows/ci.yml` provisioned a `postgres:16-alpine` service container, `backend/tests/conftest.py` hardcoded `TEST_DATABASE_URL = "sqlite:///:memory:"` and `Base.metadata.create_all()`. As a result, the PostgreSQL container in CI was never used and `alembic upgrade head` was never tested in CI.
+  3. `pip-audit` and `npm audit` in `.github/workflows/ci.yml` appended `|| true`, silently ignoring dependency vulnerabilities, and `frontend-checks` did not run `npx tsc --noEmit` or `npm test`.
+- **What Was Changed:**
+  - Fixed all remaining Ruff lint errors across `auth_service.py`, `schedule.py`, and `public.py` (`ruff check .` now reports `All checks passed!`).
+  - Updated [`backend/tests/conftest.py`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/backend/tests/conftest.py#L18-L28) to read `os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")` and configure `StaticPool` only for SQLite, allowing CI to run the entire pytest suite against live PostgreSQL 16.
+  - Updated [`.github/workflows/ci.yml`](file:///Users/mdaffanahmed/VS%20Code/Full%20stack/Doctors%20Platform/.github/workflows/ci.yml#L54-L115) to:
+    - Run `alembic upgrade head` against `postgres:16-alpine` before pytest.
+    - Pass `TEST_DATABASE_URL` pointing to `postgres:16-alpine` during pytest execution.
+    - Enforce blocking `pip-audit` and `npm audit --omit=dev --audit-level=high` (removing `|| true`).
+    - Run `npx tsc --noEmit` and `npm test` in `frontend-checks`.
+- **Verification Executed:**
+  - `cd backend && .venv/bin/ruff check .`: **`All checks passed!`** (`0 errors`).
+  - Full backend pytest suite (including new lockout, Google `email_verified`, `token_version` revocation, migration `013`, `TRUSTED_PROXY_COUNT` anti-spoofing, and health error scrubbing tests): **`230 passed, 0 failed`**.
+
 

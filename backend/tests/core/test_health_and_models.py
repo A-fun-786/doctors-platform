@@ -49,6 +49,7 @@ def test_api_v1_health_database_disconnected():
         data = response.json()
         assert data["detail"]["status"] == "unhealthy"
         assert data["detail"]["database"] == "disconnected"
+        assert "error" not in data["detail"]
     app.dependency_overrides.clear()
 
 

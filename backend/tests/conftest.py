@@ -15,11 +15,16 @@ from app.core.rate_limit import limiter
 from app.main import app
 from app.models.base import Base
 
-TEST_DATABASE_URL = "sqlite:///:memory:"
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+_is_sqlite = TEST_DATABASE_URL.startswith("sqlite")
+_engine_kwargs = (
+    {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
+    if _is_sqlite
+    else {"pool_pre_ping": True}
+)
 test_engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    **_engine_kwargs,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 

@@ -98,6 +98,12 @@ class Doctor(Base, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
     )
+    token_version: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        server_default="1",
+        nullable=False,
+    )
 
     # 1:1 Relationship with Tenant
     tenant: Mapped[Optional["Tenant"]] = relationship(

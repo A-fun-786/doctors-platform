@@ -139,6 +139,7 @@ def verify_token_hash(raw_token: str, stored_hash: str) -> bool:
 def create_access_token(
     subject: str,
     expires_delta: Optional[timedelta] = None,
+    token_version: int = 1,
 ) -> str:
     """Create a signed JWT access token for a doctor."""
     if expires_delta:
@@ -154,6 +155,7 @@ def create_access_token(
         "iat": datetime.now(timezone.utc),
         "jti": str(uuid.uuid4()),
         "type": "access",
+        "tv": int(token_version or 1),
     }
     
     encoded_jwt = jwt.encode(

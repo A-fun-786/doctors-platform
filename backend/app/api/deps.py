@@ -34,7 +34,8 @@ def get_current_doctor(
         if doctor_id_str is None:
             raise credentials_exception
         doctor_id = uuid.UUID(doctor_id_str)
-    except (jwt.PyJWTError, ValueError):
+        token_version = int(payload.get("tv", 1))
+    except (jwt.PyJWTError, ValueError, TypeError):
         raise credentials_exception
 
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
@@ -45,6 +46,8 @@ def get_current_doctor(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user account",
         )
+    if token_version != int(doctor.token_version or 1):
+        raise credentials_exception
 
     return doctor
 

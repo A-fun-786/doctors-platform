@@ -118,6 +118,22 @@ def test_get_client_ip_resolution():
     assert get_client_ip(request) == "127.0.0.1"
 
 
+def test_get_client_ip_trusted_proxy_count_anti_spoofing(monkeypatch):
+    """When TRUSTED_PROXY_COUNT=1 (production default), client-spoofed leftmost XFF hops are ignored."""
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "TRUSTED_PROXY_COUNT", 1)
+
+    scope = {
+        "type": "http",
+        "headers": [
+            (b"x-forwarded-for", b"1.2.3.4, 203.0.113.195"),
+        ],
+        "client": ("172.18.0.4", 8000),
+    }
+    request = Request(scope)
+    assert get_client_ip(request) == "203.0.113.195"
+
+
 def test_cors_preflight_and_access_control():
     """Verify CORS headers for authorized origins and rejection of unauthorized origins."""
     client = TestClient(app)

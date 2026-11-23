@@ -245,3 +245,110 @@ def test_alembic_migration_012_upgrade_and_downgrade():
                 text("SELECT name FROM sqlite_master WHERE type='table' AND name='email_verification_tokens'")
             ).fetchone()
             assert tbl_check is not None
+
+        # 4. Upgrade to 013_add_token_version_to_doctors and verify token_version column
+        command.upgrade(alembic_cfg, "013_add_token_version_to_doctors")
+        with engine.begin() as conn:
+            cols = [
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(doctors)")).fetchall()
+            ]
+            assert "token_version" in cols
+
+
+def test_login_lockout_google_unverified_and_token_revocation(client, db_session):
+    """Verify Phase 3 auth hardening: password login lockout, Google email_verified check, and JWT revocation on password reset."""
+    from unittest.mock import patch
+    from app.core.security import generate_verification_token, hash_password, hash_token
+    from datetime import datetime, timedelta, timezone
+
+    # 1. Google OAuth rejects unverified email
+    with patch(
+        "app.services.auth_service.verify_google_token",
+        return_value={
+            "email": "unverified.google@hospital.org",
+            "name": "Dr. Unverified",
+            "sub": "unverified-sub-1",
+            "picture": None,
+            "email_verified": False,
+        },
+    ):
+        g_res = client.post("/api/v1/auth/google", json={"credential": "mock-unverified-token"})
+        assert g_res.status_code == 400
+        assert "not verified" in g_res.json()["detail"].lower()
+
+    # 2. Password login brute-force lockout after 5 failed attempts
+    doc = Doctor(
+        email="lockout.test@hospital.org",
+        full_name="Dr. Lockout",
+        auth_provider="email",
+        hashed_password=hash_password("CorrectHorseBattery1!"),
+        is_active=True,
+        email_verified=True,
+    )
+    db_session.add(doc)
+    db_session.commit()
+    db_session.refresh(doc)
+
+    for _ in range(5):
+        fail_res = client.post(
+            "/api/v1/auth/login",
+            json={"email": "lockout.test@hospital.org", "password": "WrongPassword123!"},
+        )
+        assert fail_res.status_code == 401
+
+    # Simulate distributed IP rotation (reset IP rate limiter) — account lockout still blocks with 403
+    from app.core.rate_limit import limiter
+    limiter.reset()
+
+    locked_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": "lockout.test@hospital.org", "password": "CorrectHorseBattery1!"},
+    )
+    assert locked_res.status_code == 403
+    assert "locked" in locked_res.json()["detail"].lower()
+
+    # Clear lock and login to get valid JWT (token_version = 1)
+    doc.locked_until = None
+    doc.failed_login_attempts = 0
+    db_session.commit()
+
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": "lockout.test@hospital.org", "password": "CorrectHorseBattery1!"},
+    )
+    assert login_res.status_code == 200
+    old_jwt = login_res.json()["access_token"]
+
+    me_before = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {old_jwt}"})
+    assert me_before.status_code == 200
+
+    # 3. Password reset increments token_version and immediately revokes old_jwt
+    otp, _ = generate_verification_token()
+    reset_tok = EmailVerificationToken(
+        doctor_id=doc.id,
+        token_hash=hash_token(otp),
+        purpose="password_reset",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+    db_session.add(reset_tok)
+    db_session.commit()
+
+    reset_res = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "email": "lockout.test@hospital.org",
+            "code": otp,
+            "new_password": "BrandNewSecurePassword2!",
+        },
+    )
+    assert reset_res.status_code == 200
+    new_jwt = reset_res.json()["access_token"]
+
+    # Old JWT must now fail with 401 Unauthorized
+    me_old = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {old_jwt}"})
+    assert me_old.status_code == 401
+
+    # New JWT succeeds
+    me_new = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {new_jwt}"})
+    assert me_new.status_code == 200
