@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   RotateCcw,
   MapPin,
-  Image as ImageIcon,
 } from "lucide-react";
 import { CountryDialCode } from "@/lib/dialCodes";
 import { PhoneInput } from "@/components/ui/PhoneInput";

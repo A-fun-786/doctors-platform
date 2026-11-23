@@ -142,15 +142,17 @@ def prepare_project_workspace(
 
     # 5. Handle Custom App Icon if available, or auto-apply default clinic logo
     icon_to_use = custom_icon_path or doctor.app_icon_url
+    dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
     if icon_to_use:
         try:
-            dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
             dest_icon.parent.mkdir(parents=True, exist_ok=True)
-            if Path(icon_to_use).exists():
+            public_dir = (WORKSPACE_ROOT / "public").resolve()
+            public_icon = (public_dir / icon_to_use.lstrip("/")).resolve()
+            if Path(icon_to_use).is_file():
                 shutil.copy2(icon_to_use, dest_icon)
-            elif (WORKSPACE_ROOT / "public" / icon_to_use.lstrip("/")).exists():
+            elif public_icon.is_relative_to(public_dir) and public_icon.is_file():
                 # Built-in public default logo (e.g. /emblem-only.png)
-                shutil.copy2(WORKSPACE_ROOT / "public" / icon_to_use.lstrip("/"), dest_icon)
+                shutil.copy2(public_icon, dest_icon)
             else:
                 # Resolve via storage abstraction (stripping /uploads/ prefix if present)
                 clean_key = icon_to_use.split("?")[0].replace("/uploads/", "").lstrip("/")
@@ -163,9 +165,8 @@ def prepare_project_workspace(
     else:
         # Auto-apply default logo if no icon or image was uploaded
         default_emblem = WORKSPACE_ROOT / "public" / "emblem-only.png"
-        if default_emblem.exists():
+        if default_emblem.is_file():
             try:
-                dest_icon = target_workspace / "app" / "src" / "main" / "res" / "drawable" / "custom_icon.png"
                 dest_icon.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(default_emblem, dest_icon)
             except Exception as e:
