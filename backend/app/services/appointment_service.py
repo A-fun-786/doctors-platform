@@ -101,9 +101,9 @@ def _validate_slot_against_schedule(
             )
 
         closed_days = working_hours.get("closed_days", [])
-        # Support schema/JS convention (0=Sun, 1=Mon...6=Sat) and ISO Sunday (6)
-        js_day = (slot_date.weekday() + 1) % 7
-        is_closed = (js_day in closed_days) or (slot_date.weekday() == 6 and 6 in closed_days)
+        # Evaluate closed days using schema standard convention (0=Sun, 1=Mon, ..., 6=Sat)
+        day_index = (slot_date.weekday() + 1) % 7
+        is_closed = day_index in closed_days
         if is_closed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

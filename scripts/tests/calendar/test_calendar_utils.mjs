@@ -422,6 +422,34 @@ describe("Dynamic Day Status (Open, Closed, Holiday) Verification", () => {
     assert.strictEqual(status.color, "bg-red-50 text-red-600 border-red-200");
   });
 
+  test("Saturday closed [6] does NOT close Sunday and leaves Sunday Clinic Open and slot bookable", () => {
+    const closedSaturdayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [6], // Saturday closed
+    };
+    // 2026-10-17 is Saturday (day 6) -> Closed
+    assert.strictEqual(getDayStatus("2026-10-17", closedSaturdayConfig).text, "Closed");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSaturdayConfig), false);
+
+    // 2026-10-18 is Sunday (day 0) -> Clinic Open
+    assert.strictEqual(getDayStatus("2026-10-18", closedSaturdayConfig).text, "Clinic Open");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSaturdayConfig), true);
+  });
+
+  test("Sunday closed [0] does NOT close Saturday and leaves Saturday Clinic Open and slot bookable", () => {
+    const closedSundayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [0], // Sunday closed
+    };
+    // 2026-10-18 is Sunday (day 0) -> Closed
+    assert.strictEqual(getDayStatus("2026-10-18", closedSundayConfig).text, "Closed");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSundayConfig), false);
+
+    // 2026-10-17 is Saturday (day 6) -> Clinic Open
+    assert.strictEqual(getDayStatus("2026-10-17", closedSundayConfig).text, "Clinic Open");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSundayConfig), true);
+  });
+
   test("Any day dynamically shows Closed when configured in closed_days", () => {
     const wedClosedConfig = {
       ...DEFAULT_WORKING_HOURS,

@@ -23,7 +23,7 @@ DEFAULT_WORKING_HOURS = {
         {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
         {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
     ],
-    "closed_days": [0],
+    "closed_days": [],
 }
 
 

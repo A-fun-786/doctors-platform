@@ -157,7 +157,7 @@ def generate_available_slots(
     Deterministic 30-minute slot generation engine:
     1. Precedence Rule: Check explicit AVAILABLE schedule intervals on query_date.
     2. Shift Fallback: If no AVAILABLE records exist and doctor has working_hours:
-       - Check query_date.weekday() against closed_days (ISO: Mon=0 ... Sun=6).
+       - Check query_date against closed_days (Schema standard: Sun=0, Mon=1 ... Sat=6).
        - Slice enabled shifts into 30m slots.
     3. Past-Slot Guard: If query_date == date.today(), filter out candidate intervals
        where end_time <= datetime.now().time().
@@ -194,9 +194,9 @@ def generate_available_slots(
             working_hours = resolve_doctor_working_hours(doctor.working_hours)
 
             closed_days = working_hours.get("closed_days", [])
-            # Evaluate closed days (JS/Schema convention: 0=Sun, 1=Mon...6=Sat, plus ISO Sunday=6)
-            js_day = (query_date.weekday() + 1) % 7
-            is_closed = (js_day in closed_days) or (query_date.weekday() == 6 and 6 in closed_days)
+            # Evaluate closed days using schema standard convention (0=Sun, 1=Mon, ..., 6=Sat)
+            day_index = (query_date.weekday() + 1) % 7
+            is_closed = day_index in closed_days
             if not is_closed:
                 shifts = working_hours.get("shifts", [])
                 for shift in shifts:
