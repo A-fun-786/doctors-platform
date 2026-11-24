@@ -145,11 +145,12 @@ def get_doctor_available_slots(
     """
     Generate available 30-minute booking slots for the authenticated doctor practice or specific practitioner.
     """
+    clean_staff_id = staff_id.strip() if staff_id and staff_id.strip() else None
     slots = schedule_service.generate_available_slots(
         doctor_id=current_doctor.id,
         query_date=date,
         db=db,
-        staff_id=staff_id,
+        staff_id=clean_staff_id,
     )
     return [AvailableSlotResponse(**slot) for slot in slots]
 
@@ -182,7 +183,8 @@ def get_public_available_slots(
             detail=f"Doctor practice with link '{slug}' was not found.",
         )
 
-    if staff_id is None:
+    clean_staff_id = staff_id.strip() if staff_id and staff_id.strip() else None
+    if clean_staff_id is None:
         cached_slots = get_cached_slots(tenant.doctor.id, date)
         if cached_slots is not None:
             return [AvailableSlotResponse(**slot) for slot in cached_slots]
@@ -191,9 +193,9 @@ def get_public_available_slots(
         doctor_id=tenant.doctor.id,
         query_date=date,
         db=db,
-        staff_id=staff_id,
+        staff_id=clean_staff_id,
     )
-    if staff_id is None:
+    if clean_staff_id is None:
         set_cached_slots(tenant.doctor.id, date, slots)
     return [AvailableSlotResponse(**slot) for slot in slots]
 

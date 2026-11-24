@@ -1,5 +1,5 @@
 # Agent Guidelines & Repository Architecture (AGENTS.md)
-*Last updated: November 22, 2026*
+*Last updated: November 24, 2026*
 
 ## Quick Verification Commands
 Always run these before and after changes:
@@ -46,6 +46,7 @@ Always run these before and after changes:
 - **Use Structured Logger**: Always import `logger` from `@/lib/logger` instead of using `console.log` or `console.warn`.
 - **Enforce Staff Doctor Boundaries**: Use `is_staff_doctor(current_doctor)` in backend and `isStaffDoctor` in UI. Staff doctors can view and complete only their own bookings; booking, rescheduling, and cancellation are reserved for receptionists and clinic owners.
 - **Restrict Schedule & Working Hours Mutations to Clinic Owner**: Enforce `require_doctor_owner` for `POST /doctor/schedule`, `DELETE /doctor/schedule/{id}`, and `PUT /doctor/working-hours`. Staff members (receptionists and staff doctors) must receive 403 Forbidden. Read endpoints (`GET /doctor/schedule`, `GET /doctor/available-slots`, `GET /doctor/working-hours`) remain open to all authenticated staff.
+- **Validate Practitioner Availability Boundary (Issue #29)**: In `GET /doctor/available-slots` and `GET /public/tenants/{slug}/available-slots`, strictly validate `staff_id` before computing candidate slots. Malformed strings or non-doctor roles must return 400 Bad Request; nonexistent or foreign staff doctors must return 404 Not Found. On-leave staff doctors return `[]`. Never fall back to clinic-wide multi-doctor slots when a specific practitioner ID is invalid.
 - **Standard Input Ergonomics**: Keep form inputs at `h-10` with `pl-11 pr-3.5` (or `h-11` for prominent forms) to prevent icon/placeholder text collisions.
 - **Beside-Input Generate Button**: Position the blue password Generate button directly beside the password input box (`flex items-center gap-2`, matching `h-10` height and `rounded-xl`).
 - **Staff User ID Normalization**: Normalize User IDs via schema field validators by stripping leading `@`, trimming whitespace, and converting to lowercase.
@@ -61,6 +62,7 @@ Always run these before and after changes:
 - **Do NOT allow non-doctor staff to complete appointments**: Return 403 Forbidden on the backend (`detail="Non-doctor staff members are not permitted to complete appointments."`) and omit the Mark Completed button in the UI (`canComplete = false`).
 - **Do NOT delete staff members with active or completed appointments**: Return 400 Bad Request if a staff member has active (`BOOKED`) or completed (`COMPLETED`) visits. Staff with clinical history must be deactivated (`status = 'inactive'`) rather than hard deleted to prevent `SET NULL` slot collisions and preserve medical records.
 - **Do NOT allow staff members to modify clinic schedules or working hours**: All schedule entries (LEAVE, BLOCKED, HOLIDAY, AVAILABLE) and clinic-wide shift changes must be restricted to clinic owner doctors (`require_doctor_owner`).
+- **Do NOT return clinic-wide slots for invalid practitioner queries**: When a specific `staff_id` is queried, do NOT fall back to multi-doctor capacity if the ID is missing or invalid; reject with 400 or 404 immediately.
 - **Do NOT require email for staff logins**: Staff authenticate via clinic-assigned User ID (`username`) + password. Email is purely optional.
 - **Do NOT reintroduce dynamic text in toolbar buttons**: Do not put dynamic dates inside button labels (e.g. `Day (Nov 6)`). Keep button labels static (`Day`, `Agenda`, `All`, `Confirmed`).
 - **Do NOT commit temporary seeding scripts**: Keep `scripts/` clean of temporary dummy data generators.
