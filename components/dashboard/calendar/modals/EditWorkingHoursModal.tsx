@@ -20,6 +20,16 @@ interface EditWorkingHoursModalProps {
   onSave: (newConfig: WorkingHoursConfig) => void;
 }
 
+const DAYS_OF_WEEK = [
+  { index: 0, label: "Sun", full: "Sunday" },
+  { index: 1, label: "Mon", full: "Monday" },
+  { index: 2, label: "Tue", full: "Tuesday" },
+  { index: 3, label: "Wed", full: "Wednesday" },
+  { index: 4, label: "Thu", full: "Thursday" },
+  { index: 5, label: "Fri", full: "Friday" },
+  { index: 6, label: "Sat", full: "Saturday" },
+];
+
 export default function EditWorkingHoursModal({
   isOpen,
   onClose,
@@ -27,6 +37,7 @@ export default function EditWorkingHoursModal({
   onSave,
 }: EditWorkingHoursModalProps) {
   const [shifts, setShifts] = useState<WorkingHoursShift[]>(config.shifts || []);
+  const [closedDays, setClosedDays] = useState<number[]>(config.closed_days ?? []);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -45,9 +56,18 @@ export default function EditWorkingHoursModal({
           },
         ];
       setShifts(initialShifts);
+      setClosedDays(config.closed_days ?? []);
       setError(null);
     }
   }, [isOpen, config]);
+
+  const handleToggleClosedDay = (dayIndex: number) => {
+    setClosedDays((prev) =>
+      prev.includes(dayIndex)
+        ? prev.filter((d) => d !== dayIndex)
+        : [...prev, dayIndex].sort((a, b) => a - b)
+    );
+  };
 
   const handleToggleShift = (shiftId: string) => {
     setShifts((prev) =>
@@ -204,10 +224,10 @@ export default function EditWorkingHoursModal({
     setIsSaving(true);
     setError(null);
 
-    // Save purely shifts without any breakTime field
+    // Save purely shifts and dynamic closed_days
     const newConfig: WorkingHoursConfig = {
       shifts,
-      closed_days: config.closed_days ?? [0],
+      closed_days: closedDays,
     };
 
     try {
@@ -215,7 +235,7 @@ export default function EditWorkingHoursModal({
       const merged: WorkingHoursConfig = {
         ...updated,
         shifts,
-        closed_days: config.closed_days ?? [0],
+        closed_days: closedDays,
       };
       saveDoctorWorkingHours(merged);
       onSave(merged);
@@ -278,6 +298,48 @@ export default function EditWorkingHoursModal({
             <span>{validationError || error}</span>
           </div>
         )}
+
+        {/* Weekly Closed Days (Off-Days) Section */}
+        <div className="p-3.5 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-brand-600 shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-slate-900">Weekly Closed Days</span>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Select which days the clinic is closed (weekly off)
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              {closedDays.length === 0 ? "Open All 7 Days" : `${closedDays.length} Day${closedDays.length > 1 ? "s" : ""} Off`}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1.5 pt-1">
+            {DAYS_OF_WEEK.map((d) => {
+              const isClosed = closedDays.includes(d.index);
+              return (
+                <button
+                  key={d.index}
+                  type="button"
+                  onClick={() => handleToggleClosedDay(d.index)}
+                  className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-0.5 ${
+                    isClosed
+                      ? "bg-rose-50 text-rose-700 border-rose-300 shadow-2xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-brand-50/50 hover:border-brand-200"
+                  }`}
+                  title={isClosed ? `${d.full}: Closed (Click to make open)` : `${d.full}: Open (Click to mark closed)`}
+                >
+                  <span className="text-[11px] font-bold">{d.label}</span>
+                  <span className={`text-[9px] font-semibold ${isClosed ? "text-rose-600" : "text-slate-400"}`}>
+                    {isClosed ? "Closed" : "Open"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Schedules List */}
         <div className="space-y-3 max-h-[58vh] overflow-y-auto pr-1">

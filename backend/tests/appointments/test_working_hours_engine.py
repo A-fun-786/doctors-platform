@@ -68,7 +68,7 @@ def test_1_get_working_hours_default_fallback(client, auth_headers, test_doctor,
     assert data["shifts"][1]["start"] == "16:00"
     assert data["shifts"][1]["end"] == "20:00"
     assert data["shifts"][1]["enabled"] is True
-    assert data["closed_days"] == [0]
+    assert data["closed_days"] == []
 
 
 test_get_working_hours_default = test_1_get_working_hours_default_fallback
@@ -769,12 +769,35 @@ def test_booking_and_slots_with_null_working_hours_uses_default(client, auth_hea
     )
     assert res.status_code == 201
 
-    # Sunday 2026-11-29: closed under default closed_days [0]
-    closed_res = client.post(
+    # Under default closed_days [], Sunday 2026-11-29 is open and can be booked
+    sunday_res = client.post(
         "/api/v1/doctor/appointments",
         headers=auth_headers,
         json={
             "patient_name": "Sunday Patient",
+            "date": "2026-11-29",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sunday_res.status_code == 201
+
+    # When doctor explicitly configures closed_days [0], Sunday booking is rejected
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [0],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    closed_res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Blocked Patient",
             "date": "2026-11-29",
             "start_time": "10:00:00",
             "end_time": "10:30:00",

@@ -46,7 +46,9 @@ export default function MobileHorizonDayStrip({
           const isToday = !!day.isToday;
           const events = getEventsForDate(day.dateStr);
           const hasAppointments = events.some((e) => e.type === "APPOINTMENT");
-          const hasLeave = events.some((e) => e.type === "LEAVE" || e.type === "BLOCKED");
+          const hasLeave = events.some(
+            (e) => e.type === "LEAVE" || e.type === "BLOCKED" || e.type === "HOLIDAY"
+          );
 
           return (
             <button

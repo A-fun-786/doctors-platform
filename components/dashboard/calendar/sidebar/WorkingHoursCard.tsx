@@ -16,12 +16,19 @@ interface WorkingHoursCardProps {
   onEditHours?: () => void;
 }
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function WorkingHoursCard({
   config = DEFAULT_WORKING_HOURS,
   onEditHours,
 }: WorkingHoursCardProps) {
   const shifts = config.shifts || DEFAULT_WORKING_HOURS.shifts;
   const enabledShifts = shifts.filter((s) => s.enabled);
+  const closedDays = config.closed_days ?? DEFAULT_WORKING_HOURS.closed_days ?? [];
+  const closedDaysText =
+    closedDays.length === 0
+      ? "Open 7 Days"
+      : closedDays.map((d) => DAY_LABELS[d]).join(", ");
 
   const totalSlots = enabledShifts.reduce(
     (sum, shift) => sum + calculateShiftSlotCount(shift.start, shift.end),
@@ -121,6 +128,14 @@ export default function WorkingHoursCard({
           </span>
         </div>
       )}
+
+      {/* Weekly Off Days Indicator */}
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] px-0.5">
+        <span className="text-slate-500 font-medium">Weekly Off:</span>
+        <span className="font-bold text-slate-700 truncate max-w-[150px] text-right" title={closedDaysText}>
+          {closedDaysText}
+        </span>
+      </div>
     </Card>
   );
 }

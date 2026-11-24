@@ -13,6 +13,7 @@ import {
   doesEventOverlapSlot,
   getDayStatus,
   getWorkingHoursTimeRows,
+  isSlotWithinWorkingHours,
   WorkingHoursConfig,
   timeToMinutes,
   WorkingHoursShift,
@@ -191,7 +192,8 @@ export default function WeekView({
                 </span>
               </div>
               {currentWeekDays.map((day) => {
-                const status = getDayStatus(day.dateStr);
+                const dayEvents = getEventsForDate(day.dateStr);
+                const status = getDayStatus(day.dateStr, workingHoursConfig, dayEvents);
                 return (
                   <div
                     key={`status-${day.dateStr}`}
@@ -265,6 +267,12 @@ export default function WeekView({
 
                         // Extract specific event types
                         const { apptEvent, apptEvents, leaveEvent, blockedEvent } = resolveCellEvents(cellEvents);
+                        const isWithinShift = isSlotWithinWorkingHours(
+                          day.dateStr,
+                          slotStart,
+                          slotEnd,
+                          workingHoursConfig
+                        );
 
                         return (
                           <div
@@ -309,6 +317,14 @@ export default function WeekView({
                                 <span className="text-[11px] font-bold text-purple-950 truncate w-full">
                                   {blockedEvent.reason || "Blocked Period"}
                                 </span>
+                              </div>
+                            ) : !isWithinShift ? (
+                              /* NON-WORKING / CLOSED DAY SLOT */
+                              <div
+                                className="w-full h-full min-h-[38px] rounded-md bg-slate-100/40 border border-transparent select-none flex items-center justify-center cursor-not-allowed"
+                                title={`Clinic Closed / Outside Shift (${format12Hour(slotStart)} - ${format12Hour(slotEnd)})`}
+                              >
+                                <span className="text-[10px] text-slate-300 font-medium select-none">•</span>
                               </div>
                             ) : (
                               /* PREFERENCE-COLORED EMPTY SLOT */
