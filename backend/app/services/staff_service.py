@@ -27,9 +27,9 @@ USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9._-]+$")
 def generate_username_candidates(full_name: str) -> List[str]:
     """
     Generate candidate staff User IDs derived from the staff member's full name.
-    Follows name-derived alphanumeric patterns (e.g., Emanur Rahman ->
-    emanur.rahman, e.rahman, emanur.r, emanurrahman, erahman, emanurr,
-    then minimal numbers like e1.rahman, emanur.r1, e2.rahman, emanur.r2).
+    Follows name-derived alphanumeric patterns (e.g., John Doe ->
+    john.doe, j.doe, john.d, johndoe, jdoe, johnd,
+    then minimal numbers like j1.doe, john.d1, j2.doe, john.d2).
     """
     raw_tokens = re.findall(r"[a-zA-Z0-9]+", full_name.lower())
     tokens = [t for t in raw_tokens if t not in HONORIFICS]
@@ -58,13 +58,13 @@ def generate_username_candidates(full_name: str) -> List[str]:
     candidates.append(f"{f_init}{last}")
     candidates.append(f"{first}{l_init}")
 
-    # For 3 or more tokens (e.g. Mohammad Emanur Rahman)
+    # For 3 or more tokens (e.g. John Robert Doe)
     if len(tokens) >= 3:
         candidates.append(f"{tokens[0]}.{tokens[1]}.{tokens[2]}")
         candidates.append(f"{tokens[0][0]}.{tokens[1][0]}.{tokens[2]}")
 
-    # Priority 2: Minimal numeric patterns matching user specification:
-    # e1.rahman, emanur.r1, e2.rahman, emanur.r2...
+    # Priority 2: Minimal numeric patterns matching specification:
+    # j1.doe, john.d1, j2.doe, john.d2...
     for i in range(1, 100):
         candidates.append(f"{f_init}{i}.{last}")
         candidates.append(f"{first}.{l_init}{i}")
@@ -177,7 +177,7 @@ class StaffService:
         else:
             username = generate_unique_staff_username(self.db, data.full_name)
 
-        # Validate email uniqueness against any active login-enabled staff account
+        # Validate email uniqueness against any active login-enabled staff account or doctor
         if email:
             existing_staff = self.db.scalar(
                 select(StaffMember).where(
@@ -191,6 +191,14 @@ class StaffService:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="A staff member with this login email already exists",
+                )
+            existing_doctor = self.db.scalar(
+                select(Doctor).where(func.lower(Doctor.email) == email)
+            )
+            if existing_doctor:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email already exists as a clinic administrator",
                 )
 
         # Portal login access validation
@@ -314,6 +322,14 @@ class StaffService:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="A staff member with this login email already exists",
+                    )
+                existing_doctor = self.db.scalar(
+                    select(Doctor).where(func.lower(Doctor.email) == norm_email)
+                )
+                if existing_doctor:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="An account with this email already exists as a clinic administrator",
                     )
 
         for field, value in update_dict.items():

@@ -60,13 +60,13 @@ class EmailLoginRequest(BaseModel):
     def validate_identifier(self) -> "EmailLoginRequest":
         cleaned = self.email.strip().lower()
         if self.portal_type == "staff":
+            if "@" in cleaned and not cleaned.startswith("@"):
+                raise ValueError("Staff accounts must sign in using their clinic-assigned User ID (e.g. username). Email login is not supported for staff.")
             if cleaned.startswith("@"):
                 stripped = cleaned.lstrip("@")
                 if not (3 <= len(stripped) <= 60 and USERNAME_REGEX.match(stripped)):
                     raise ValueError("User ID must be between 3 and 60 alphanumeric characters.")
                 cleaned = stripped
-            elif "@" in cleaned:
-                validate_email_id(cleaned)
             elif not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
                 raise ValueError("User ID must be between 3 and 60 alphanumeric characters.")
         else:

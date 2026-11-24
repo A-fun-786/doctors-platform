@@ -912,3 +912,51 @@ def test_case_insensitive_login_email_uniqueness_enforced(client, test_doctor_an
     assert res_update.status_code == 400
     assert "login email already exists" in res_update.json()["detail"].lower()
 
+
+def test_create_and_update_staff_rejects_existing_doctor_email(client, test_doctor_and_auth):
+    """Test that creating or updating a staff member rejects emails of registered doctors (Issue #36)."""
+    doctor, headers = test_doctor_and_auth
+    # doctor.email is known (from doctor_fixture)
+
+    # 1. Attempt to create staff with doctor's email
+    res_create = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Duplicate Email Staff",
+            "email": doctor.email.upper(),  # Test case-insensitivity
+            "phone": "+91 88888 44444",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res_create.status_code == 400
+    assert "clinic administrator" in res_create.json()["detail"].lower()
+
+    # 2. Create a valid staff member
+    res_valid = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Valid Member X",
+            "email": "unique.member@clinic.com",
+            "phone": "+91 88888 55555",
+            "role": "Receptionist",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res_valid.status_code == 201
+    valid_id = res_valid.json()["id"]
+
+    # 3. Attempt to update staff's email to doctor.email
+    res_update = client.put(
+        f"/api/v1/staff/{valid_id}",
+        json={"email": doctor.email},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "clinic administrator" in res_update.json()["detail"].lower()
+
+

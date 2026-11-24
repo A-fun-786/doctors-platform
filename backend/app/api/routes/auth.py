@@ -66,8 +66,8 @@ def email_register(
     "/login",
     response_model=AuthResponse,
     status_code=status.HTTP_200_OK,
-    summary="Doctor Email Login",
-    description="Authenticate an existing doctor with email and password.",
+    summary="Unified Portal Login",
+    description="Authenticate an administrator (via email) or staff member (via clinic-assigned User ID) with password.",
 )
 @limiter.limit(settings.RATE_LIMIT_AUTH)
 def email_login(

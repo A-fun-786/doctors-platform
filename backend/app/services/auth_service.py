@@ -85,8 +85,8 @@ class AuthService:
         provider_id = id_info.get("sub")
         avatar_url = id_info.get("picture")
 
-        # Find existing doctor by email
-        doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        # Find existing doctor by email (case-insensitive)
+        doctor = db.query(Doctor).filter(func.lower(Doctor.email) == email.lower()).first()
 
         if doctor:
             # Check account active
@@ -117,6 +117,17 @@ class AuthService:
                 db.commit()
                 db.refresh(tenant)
         else:
+            # Guard against shadowing existing login-enabled staff email (Issue #36)
+            conflicting_staff = db.query(StaffMember).filter(
+                func.lower(StaffMember.email) == email.lower(),
+                StaffMember.can_login.is_(True),
+            ).first()
+            if conflicting_staff:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This Google account is registered as a clinic staff member. Please sign in via the Staff portal using your clinic User ID and password.",
+                )
+
             # Atomic creation of Doctor and Tenant
             try:
                 doctor = Doctor(
@@ -187,12 +198,23 @@ class AuthService:
                 detail="Password must be at least 6 characters long",
             )
 
-        # Check for existing doctor
-        existing_doctor = db.query(Doctor).filter(Doctor.email == email).first()
+        # Check for existing doctor (case-insensitive)
+        existing_doctor = db.query(Doctor).filter(func.lower(Doctor.email) == email.lower()).first()
         if existing_doctor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="An account with this email already exists",
+            )
+
+        # Guard against shadowing existing login-enabled staff email (Issue #36)
+        conflicting_staff = db.query(StaffMember).filter(
+            func.lower(StaffMember.email) == email.lower(),
+            StaffMember.can_login.is_(True),
+        ).first()
+        if conflicting_staff:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this email address already exists as a clinic staff member. Please sign in via the Staff portal or contact your clinic administrator.",
             )
 
         # Derive clean doctor name if not provided
@@ -336,25 +358,21 @@ class AuthService:
         norm_identifier = identifier.lstrip("@").lower()
 
         # -------------------------------------------------------------
-        # Branch 1: Staff Portal Sign-In (Direct Staff Lookup by ID/Email)
+        # Branch 1: Staff Portal Sign-In (Direct Staff Lookup by User ID)
         # -------------------------------------------------------------
         if portal_type == "staff":
+            if "@" in identifier and not identifier.startswith("@"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Staff accounts must sign in using their clinic-assigned User ID (e.g. username). Email login is not supported for staff.",
+                )
+
             staff = db.query(StaffMember).filter(
-                or_(
-                    func.lower(StaffMember.username) == norm_identifier,
-                    func.lower(StaffMember.email) == identifier.lower(),
-                ),
+                func.lower(StaffMember.username) == norm_identifier,
                 StaffMember.can_login.is_(True),
             ).first()
 
             if not staff:
-                if "@" in identifier:
-                    doctor_check = db.query(Doctor).filter(func.lower(Doctor.email) == identifier.lower()).first()
-                    if doctor_check:
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="This account is a clinic administrator account. Please switch to the 'Admin' tab to sign in.",
-                        )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid User ID or password",
@@ -381,13 +399,10 @@ class AuthService:
 
         doctor = db.query(Doctor).filter(func.lower(Doctor.email) == identifier.lower()).first()
 
-        # If doctor record is not found, check staff member once
+        # If doctor record is not found, check staff member by User ID
         if not doctor:
             staff = db.query(StaffMember).filter(
-                or_(
-                    func.lower(StaffMember.username) == norm_identifier,
-                    func.lower(StaffMember.email) == identifier.lower(),
-                ),
+                func.lower(StaffMember.username) == norm_identifier,
                 StaffMember.can_login.is_(True),
             ).first()
 

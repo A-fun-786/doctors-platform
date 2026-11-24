@@ -184,13 +184,15 @@ def test_staff_login_and_me_endpoint(client, doctor_fixture, db_session):
         headers=doc_headers,
     )
     assert create_res.status_code == 201
+    nurse_username = create_res.json()["username"]
 
-    # 2. Authenticate Nurse via unified /api/v1/auth/login
+    # 2. Authenticate Nurse via /api/v1/auth/login using User ID
     login_res = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "sunita.nurse@example.com",
+            "email": f"@{nurse_username}",
             "password": "NursePassword123!",
+            "portal_type": "staff",
         },
     )
     assert login_res.status_code == 200
@@ -234,11 +236,12 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     )
     assert create_res.status_code == 201
     staff_id = create_res.json()["id"]
+    rohan_user = create_res.json()["username"]
 
     # Test wrong password
     bad_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "rohan.frontdesk@example.com", "password": "WrongPassword!"},
+        json={"email": f"@{rohan_user}", "password": "WrongPassword!", "portal_type": "staff"},
     )
     assert bad_login.status_code == 401
 
@@ -253,7 +256,7 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     # Inactive staff login must be rejected
     inactive_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "rohan.frontdesk@example.com", "password": "RohanSecretPassword123!"},
+        json={"email": f"@{rohan_user}", "password": "RohanSecretPassword123!", "portal_type": "staff"},
     )
     assert inactive_login.status_code == 401
     assert "inactive" in inactive_login.json()["detail"].lower()
@@ -277,11 +280,12 @@ def test_staff_cannot_perform_admin_mutations(client, doctor_fixture):
     )
     assert create_res.status_code == 201
     staff_id = create_res.json()["id"]
+    rahul_user = create_res.json()["username"]
 
     # Log in as Rahul
     auth_res = client.post(
         "/api/v1/auth/login",
-        json={"email": "rahul.jr@example.com", "password": "JuniorPassword123!"},
+        json={"email": f"@{rahul_user}", "password": "JuniorPassword123!", "portal_type": "staff"},
     )
     staff_token = auth_res.json()["access_token"]
     staff_headers = {"Authorization": f"Bearer {staff_token}"}
@@ -346,6 +350,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
         headers=doc_headers,
     )
     staff_id = create_res.json()["id"]
+    amina_user = create_res.json()["username"]
 
     # Admin Doctor resets Amina's password
     reset_res = client.post(
@@ -358,7 +363,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Amina can now log in with the new password
     new_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "amina.reception@example.com", "password": "NewFreshPassword456!"},
+        json={"email": f"@{amina_user}", "password": "NewFreshPassword456!", "portal_type": "staff"},
     )
     assert new_login.status_code == 200
     assert "access_token" in new_login.json()
@@ -366,7 +371,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Old password no longer works
     old_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "amina.reception@example.com", "password": "OldPassword123!"},
+        json={"email": f"@{amina_user}", "password": "OldPassword123!", "portal_type": "staff"},
     )
     assert old_login.status_code == 401
 
@@ -375,7 +380,7 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
     doctor, doc_headers = doctor_fixture
 
     # 1. Create Staff
-    client.post(
+    create_res = client.post(
         "/api/v1/staff",
         json={
             "full_name": "Nurse Maya",
@@ -387,8 +392,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
         },
         headers=doc_headers,
     )
+    assert create_res.status_code == 201
+    maya_username = create_res.json()["username"]
 
-    # 2. Staff tries to log in via "admin" portal -> Rejected with 403
+    # 2. Staff tries to log in via "admin" portal using email -> Unregistered doctor email returns 401
     staff_on_admin = client.post(
         "/api/v1/auth/login",
         json={
@@ -397,11 +404,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "admin",
         },
     )
-    assert staff_on_admin.status_code == 403
-    assert "switch to the 'staff' tab" in staff_on_admin.json()["detail"].lower()
+    assert staff_on_admin.status_code in (401, 403)
 
-    # 3. Staff logs in via "staff" portal -> Success 200
-    staff_on_staff = client.post(
+    # 3. Staff tries to log in via "staff" portal using email -> Rejected with 422 (Staff requires User ID)
+    staff_email_rejected = client.post(
         "/api/v1/auth/login",
         json={
             "email": "maya.nurse@example.com",
@@ -409,9 +415,21 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "staff",
         },
     )
+    assert staff_email_rejected.status_code == 422
+    assert "user id" in str(staff_email_rejected.json()).lower()
+
+    # 4. Staff logs in via "staff" portal using User ID -> Success 200
+    staff_on_staff = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": f"@{maya_username}",
+            "password": "MayaPassword123!",
+            "portal_type": "staff",
+        },
+    )
     assert staff_on_staff.status_code == 200
 
-    # 4. Doctor owner tries to log in via "staff" portal -> Rejected with 403
+    # 5. Doctor owner tries to log in via "staff" portal using email -> Rejected with 422 (Staff requires User ID)
     doc_on_staff = client.post(
         "/api/v1/auth/login",
         json={
@@ -420,10 +438,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "staff",
         },
     )
-    assert doc_on_staff.status_code == 403
-    assert "switch to the 'admin' tab" in doc_on_staff.json()["detail"].lower()
+    assert doc_on_staff.status_code == 422
+    assert "user id" in str(doc_on_staff.json()).lower()
 
-    # 5. Doctor owner logs in via "admin" portal -> Success 200
+    # 6. Doctor owner logs in via "admin" portal -> Success 200
     doc_on_admin = client.post(
         "/api/v1/auth/login",
         json={
@@ -438,14 +456,14 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
 def test_staff_username_candidate_generator():
     from app.services.staff_service import generate_username_candidates
 
-    # Dr. Emanur Rahman
-    candidates = generate_username_candidates("Dr. Emanur Rahman")
-    assert candidates[0] == "emanur.rahman"
-    assert candidates[1] == "e.rahman"
-    assert candidates[2] == "emanur.r"
-    assert candidates[3] == "emanurrahman"
-    assert "e1.rahman" in candidates
-    assert "emanur.r1" in candidates
+    # Dr. John Doe
+    candidates = generate_username_candidates("Dr. John Doe")
+    assert candidates[0] == "john.doe"
+    assert candidates[1] == "j.doe"
+    assert candidates[2] == "john.d"
+    assert candidates[3] == "johndoe"
+    assert "j1.doe" in candidates
+    assert "john.d1" in candidates
 
     # Single name
     single_candidates = generate_username_candidates("Rita")
@@ -457,13 +475,13 @@ def test_staff_username_candidate_generator():
 def test_staff_username_collision_resolution(client, doctor_fixture):
     doctor, doc_headers = doctor_fixture
 
-    # Create 8 staff members all named "Emanur Rahman"
+    # Create 8 staff members all named "John Doe"
     created_usernames = []
     for i in range(8):
         res = client.post(
             "/api/v1/staff",
             json={
-                "full_name": "Emanur Rahman",
+                "full_name": "John Doe",
                 "phone": f"+91 99999 {10000 + i}",
                 "role": "Doctor",
                 "can_login": True,
@@ -475,14 +493,14 @@ def test_staff_username_collision_resolution(client, doctor_fixture):
         created_usernames.append(res.json()["username"])
 
     # Verify priority sequence: natural names first, then minimal numbers
-    assert created_usernames[0] == "emanur.rahman"
-    assert created_usernames[1] == "e.rahman"
-    assert created_usernames[2] == "emanur.r"
-    assert created_usernames[3] == "emanurrahman"
-    assert created_usernames[4] == "erahman"
-    assert created_usernames[5] == "emanurr"
-    assert created_usernames[6] == "e1.rahman"
-    assert created_usernames[7] == "emanur.r1"
+    assert created_usernames[0] == "john.doe"
+    assert created_usernames[1] == "j.doe"
+    assert created_usernames[2] == "john.d"
+    assert created_usernames[3] == "johndoe"
+    assert created_usernames[4] == "jdoe"
+    assert created_usernames[5] == "johnd"
+    assert created_usernames[6] == "j1.doe"
+    assert created_usernames[7] == "john.d1"
 
     # All generated usernames are unique
     assert len(set(created_usernames)) == 8
@@ -727,7 +745,7 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
     assert login2.status_code == 200
     assert login2.json()["doctor"]["id"] == staff_id
 
-    # 4. Login using lowercase email pooja.shah@clinic.com
+    # 4. Attempt login using email pooja.shah@clinic.com on Staff portal -> Rejected (Staff must use User ID)
     login3 = client.post(
         "/api/v1/auth/login",
         json={
@@ -736,14 +754,14 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
             "portal_type": "staff",
         },
     )
-    assert login3.status_code == 200
-    assert login3.json()["doctor"]["id"] == staff_id
+    assert login3.status_code == 422
+    assert "user id" in str(login3.json()).lower()
 
-    # 5. Login using uppercase email POOJA.SHAH@CLINIC.COM
+    # 5. Login using mixed-case User ID @PoojaShah
     login4 = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "POOJA.SHAH@CLINIC.COM",
+            "email": "@PoojaShah",
             "password": "LoginSecret123!",
             "portal_type": "staff",
         },

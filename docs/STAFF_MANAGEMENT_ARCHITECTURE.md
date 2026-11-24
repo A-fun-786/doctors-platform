@@ -48,8 +48,8 @@ sequenceDiagram
     participant Dashboard as Dashboard Shell (/dashboard)
 
     Staff->>UI: Selects "Staff" Tab & Enters User ID + Password
-    UI->>AuthAPI: POST /api/v1/auth/login {email: "emanur.rahman", password, portal_type: "staff"}
-    AuthAPI->>DB: Query StaffMember by username/email WHERE can_login = True
+    UI->>AuthAPI: POST /api/v1/auth/login {email: "john.doe", password, portal_type: "staff"}
+    AuthAPI->>DB: Query StaffMember by username WHERE can_login = True
     DB-->>AuthAPI: Returns active StaffMember
     AuthAPI->>AuthAPI: Verify bcrypt hash & check token_version
     AuthAPI-->>UI: Returns JWT access_token with claims: {user_type: "staff", staff_id, token_version}
@@ -100,17 +100,17 @@ CREATE INDEX idx_staff_email ON staff_members(email);
 
 ### Why Staff User IDs Instead of Mandatory Emails
 - **Clinic Reality:** Many nurses, receptionists, lab technicians, and shift assistants in clinics do not have distinct clinic email addresses.
-- **Solution:** Automatic generation of professional, name-derived User IDs (`emanur.rahman`, `e.rahman`, `emanur.r`). Staff sign in with `@username` + password. Email is 100% optional.
+- **Solution:** Automatic generation of professional, name-derived User IDs (`john.doe`, `j.doe`, `john.d`). Staff sign in with their User ID + password. Email is 100% optional.
 
 ### Candidate Sequence & Collision Resolution
 When creating staff, `generate_username_candidates` tests candidates in batches of 50 in priority order:
-1. `first.last` (e.g. `emanur.rahman`)
-2. `f.last` (e.g. `e.rahman`)
-3. `first.l` (e.g. `emanur.r`)
-4. `firstlast` (e.g. `emanurrahman`)
-5. `flast` (e.g. `erahman`)
-6. `firstl` (e.g. `emanurr`)
-7. Minimal numeric fallbacks: `e1.rahman`, `emanur.r1`, `e2.rahman`, `emanur.r2`...
+1. `first.last` (e.g. `john.doe`)
+2. `f.last` (e.g. `j.doe`)
+3. `first.l` (e.g. `john.d`)
+4. `firstlast` (e.g. `johndoe`)
+5. `flast` (e.g. `jdoe`)
+6. `firstl` (e.g. `johnd`)
+7. Minimal numeric fallbacks: `j1.doe`, `john.d1`, `j2.doe`, `john.d2`...
 
 ### Immediate Session Invalidation (`token_version`)
 - **Mechanism:** The JWT payload includes a `token_version` claim matching `staff_members.token_version`.
@@ -128,6 +128,7 @@ When creating staff, `generate_username_candidates` tests candidates in batches 
 - **Primary Doctor Rescheduling Boundary (Issue #30):** When rescheduling an appointment attended by the primary doctor (`staff_id` is null or undefined), the UI passes `targetStaffId="primary"` to `SlotSelectorGrid` and `getDoctorAvailableSlots`. Omitting `staff_id` or passing `null` previously fell back to clinic-wide multi-doctor aggregate capacity, which hid valid primary slots when staff doctors were booked or exposed slots when the primary doctor was unavailable.
 - **Reschedule Reason and Notes Persistence (Issue #32):** Rescheduling an appointment attended by either a staff doctor or the primary clinic doctor persists any updated visit reasons and clinical notes in the database without silent truncation.
 - **Case-Insensitive Identity Uniqueness (Issue #35):** Staff User IDs and login-enabled emails are strictly case-insensitive unique, backed by functional unique indexes (`uq_staff_username_lower` and `uq_staff_login_email_lower`). All usernames are normalized by stripping leading `@`, trimming, and lowercasing. Login lookups accept User IDs with or without `@` and resolve accounts unambiguously, preventing cross-clinic account collision.
+- **Cross-Account Email Shadowing Prevention (Issue #36):** To prevent account hijacking or shadowing between clinic owners and staff, `register_email` and Google sign-in reject registrations if the email belongs to an existing login-enabled staff member. Conversely, staff provisioning rejects emails already registered to clinic doctors. Staff members authenticate strictly via clinic-assigned User IDs (e.g. `john.doe`), ensuring full account isolation across roles.
 
 ### Zero Plain-Text Storage & Ephemeral Session Cache
 - Passwords are one-way hashed with `bcrypt` (12 rounds) and never stored in plain text.

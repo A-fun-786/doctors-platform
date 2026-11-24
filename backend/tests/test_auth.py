@@ -439,3 +439,75 @@ def test_login_authentication_with_valid_and_invalid_credentials(client, db_sess
     assert data["doctor"]["email"] == "verified.doc@example.com"
 
 
+def test_doctor_registration_rejects_existing_staff_email(client, db_session):
+    """Test that doctor email registration rejects emails already registered to login-enabled staff (Issue #36)."""
+    # 1. Create a doctor to host the staff member
+    host_doc_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "host.doctor@clinic.com", "password": "HostPassword123!"},
+    )
+    assert host_doc_resp.status_code == 201
+    host_token = host_doc_resp.json()["access_token"]
+    host_headers = {"Authorization": f"Bearer {host_token}"}
+
+    # 2. Add a staff member with can_login=True and a specific email
+    staff_resp = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Sunita Rao",
+            "email": "sunita.rao@hospital.com",
+            "phone": "+91 98765 43210",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "SunitaPassword123!",
+        },
+        headers=host_headers,
+    )
+    assert staff_resp.status_code == 201
+
+    # 3. Attempt to register a new doctor with the same staff email -> Rejected with 400
+    dup_reg = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "Sunita.Rao@Hospital.COM",  # Mixed case to verify case-insensitivity
+            "password": "NewDoctorPassword123!",
+        },
+    )
+    assert dup_reg.status_code == 400
+    assert "clinic staff" in dup_reg.json()["detail"].lower()
+
+
+def test_doctor_google_auth_rejects_existing_staff_email(client, db_session):
+    """Test that Google OAuth auto-registration rejects emails registered to login-enabled staff (Issue #36)."""
+    # 1. Create host doctor
+    host_doc_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "host2.doctor@clinic.com", "password": "HostPassword123!"},
+    )
+    assert host_doc_resp.status_code == 201
+    host_token = host_doc_resp.json()["access_token"]
+    host_headers = {"Authorization": f"Bearer {host_token}"}
+
+    # 2. Add a staff member with can_login=True
+    staff_resp = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Alice Morgan",
+            "email": "alice.staff@gmail.com",
+            "phone": "+91 98765 88888",
+            "role": "Doctor",
+            "can_login": True,
+            "password": "AlicePassword123!",
+        },
+        headers=host_headers,
+    )
+    assert staff_resp.status_code == 201
+
+    # 3. Attempt Google OAuth sign-in with Alice's email
+    mock_token = "mock-google-token:Alice.Staff@Gmail.com:Dr. Alice Morgan:google-sub-alice:https://example.com/alice.jpg"
+    google_resp = client.post("/api/v1/auth/google", json={"credential": mock_token})
+    assert google_resp.status_code == 409
+    assert "clinic staff" in google_resp.json()["detail"].lower()
+
+
+
