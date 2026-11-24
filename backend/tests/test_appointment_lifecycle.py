@@ -626,6 +626,87 @@ def test_3_18_reschedule_to_valid_new_slot(client, db_session, doctor_a, headers
     assert res2.status_code == 201
 
 
+def test_reschedule_persists_reason_and_notes(client, db_session, doctor_a, headers_a):
+    """Asserts that reschedule requests persist edits to reason and notes (Issue #32)."""
+    sched = Schedule(
+        doctor_id=doctor_a.id,
+        date=date(2026, 10, 15),
+        start_time=time(9, 0),
+        end_time=time(13, 0),
+        type="AVAILABLE",
+    )
+    apt = Appointment(
+        doctor_id=doctor_a.id,
+        patient_name="Reason Test Patient",
+        date=date(2026, 10, 15),
+        start_time=time(10, 0),
+        end_time=time(10, 30),
+        reason="Initial General Checkup",
+        notes="Patient reports mild cough.",
+        status="BOOKED",
+    )
+    db_session.add_all([sched, apt])
+    db_session.commit()
+    db_session.refresh(apt)
+
+    # 1. Reschedule and update reason and notes
+    res = client.patch(
+        f"/api/v1/doctor/appointments/{apt.id}",
+        headers=headers_a,
+        json={
+            "date": "2026-10-15",
+            "start_time": "11:00:00",
+            "end_time": "11:30:00",
+            "reason": "Follow-up Specialist Consultation",
+            "notes": "Cough worsened; ordered chest X-ray.",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["start_time"] == "11:00:00"
+    assert data["end_time"] == "11:30:00"
+    assert data["reason"] == "Follow-up Specialist Consultation"
+    assert data["notes"] == "Cough worsened; ordered chest X-ray."
+
+    # Verify directly in DB
+    db_session.expire_all()
+    persisted = db_session.query(Appointment).filter(Appointment.id == apt.id).first()
+    assert persisted.reason == "Follow-up Specialist Consultation"
+    assert persisted.notes == "Cough worsened; ordered chest X-ray."
+
+    # 2. Reschedule slot again WITHOUT specifying reason/notes -> preserves existing
+    res2 = client.patch(
+        f"/api/v1/doctor/appointments/{apt.id}",
+        headers=headers_a,
+        json={
+            "date": "2026-10-15",
+            "start_time": "11:30:00",
+            "end_time": "12:00:00",
+        },
+    )
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert data2["start_time"] == "11:30:00"
+    assert data2["reason"] == "Follow-up Specialist Consultation"
+    assert data2["notes"] == "Cough worsened; ordered chest X-ray."
+
+    # 3. Explicitly update/clear notes
+    res3 = client.patch(
+        f"/api/v1/doctor/appointments/{apt.id}",
+        headers=headers_a,
+        json={
+            "date": "2026-10-15",
+            "start_time": "11:30:00",
+            "end_time": "12:00:00",
+            "notes": None,
+        },
+    )
+    assert res3.status_code == 200
+    data3 = res3.json()
+    assert data3["notes"] is None
+    assert data3["reason"] == "Follow-up Specialist Consultation"
+
+
 def test_3_19_reschedule_to_occupied_slot(client, db_session, doctor_a, headers_a):
     sched = Schedule(
         doctor_id=doctor_a.id,

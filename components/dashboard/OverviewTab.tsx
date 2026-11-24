@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Calendar,
   ClipboardList,
@@ -10,8 +10,7 @@ import {
   UserCheck,
   AlertCircle,
   Loader2,
-  User,
-  Users,
+  Clock,
 } from "lucide-react";
 import {
   DoctorMeResponse,
@@ -20,12 +19,32 @@ import {
   getDoctorAppointments,
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
-import { ResponsiveGrid, AdaptiveStack, AdaptiveDataView } from "@/components/layout";
+import { AdaptiveStack, AdaptiveDataView } from "@/components/layout";
 
 interface OverviewTabProps {
   doctor: DoctorMeResponse;
-  profile: DoctorProfileResponse | null;
+  profile?: DoctorProfileResponse | null;
   onNavigateTab: (tab: DashboardTabId) => void;
+}
+
+interface KpiCardConfig {
+  id: string;
+  label: string;
+  value: number;
+  Icon: React.ComponentType<{ className?: string }>;
+  bg: string;
+  text: string;
+}
+
+function getStatusBadgeStyle(status: string): string {
+  switch (status) {
+    case "BOOKED":
+      return "bg-blue-50 text-blue-700 border border-blue-200";
+    case "COMPLETED":
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    default:
+      return "bg-slate-100 text-slate-600 border border-slate-200";
+  }
 }
 
 export default function OverviewTab({
@@ -35,11 +54,22 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const [loading, setLoading] = useState(true);
   const [todayAppointments, setTodayAppointments] = useState<AppointmentEntry[]>([]);
+  const [todayTotalCount, setTodayTotalCount] = useState<number>(0);
   const [totalBookedCount, setTotalBookedCount] = useState<number>(0);
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Local calendar date formatted as YYYY-MM-DD (prevents UTC midnight skew)
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const formattedDoctorName = useMemo(() => {
+    const name = doctor.full_name?.trim() || "User";
+    if (doctor.user_type === "staff") return name;
+    return name.toLowerCase().startsWith("dr.") ? name : `Dr. ${name}`;
+  }, [doctor.full_name, doctor.user_type]);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,23 +78,39 @@ export default function OverviewTab({
         setLoading(true);
         setError(null);
 
-        const [todayApptRes, allApptRes] = await Promise.allSettled([
-          getDoctorAppointments({ from: todayStr, to: todayStr }),
-          getDoctorAppointments({ page_size: 100 }),
+        // Scalable server-side counting with O(1) payload size
+        const [todayApptRes, bookedApptRes, completedApptRes] = await Promise.allSettled([
+          getDoctorAppointments({ from: todayStr, to: todayStr, page_size: 100 }),
+          getDoctorAppointments({ status: "BOOKED", page_size: 1 }),
+          getDoctorAppointments({ status: "COMPLETED", page_size: 1 }),
         ]);
 
         if (!isMounted) return;
 
+        const fetchErrors: string[] = [];
+
         if (todayApptRes.status === "fulfilled") {
-          setTodayAppointments(todayApptRes.value.items || []);
+          const items = todayApptRes.value.items || [];
+          setTodayAppointments(items);
+          setTodayTotalCount(todayApptRes.value.total ?? items.length);
+        } else {
+          fetchErrors.push(todayApptRes.reason?.message || "Failed to load today's appointments");
         }
 
-        if (allApptRes.status === "fulfilled") {
-          const items = allApptRes.value.items || [];
-          const booked = items.filter((a) => a.status === "BOOKED").length;
-          const completed = items.filter((a) => a.status === "COMPLETED").length;
-          setTotalBookedCount(booked);
-          setCompletedCount(completed);
+        if (bookedApptRes.status === "fulfilled") {
+          setTotalBookedCount(bookedApptRes.value.total ?? 0);
+        } else {
+          fetchErrors.push(bookedApptRes.reason?.message || "Failed to load booked appointment count");
+        }
+
+        if (completedApptRes.status === "fulfilled") {
+          setCompletedCount(completedApptRes.value.total ?? 0);
+        } else {
+          fetchErrors.push(completedApptRes.reason?.message || "Failed to load completed appointment count");
+        }
+
+        if (fetchErrors.length > 0) {
+          setError(fetchErrors[0]);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -83,6 +129,36 @@ export default function OverviewTab({
     };
   }, [todayStr]);
 
+  const kpiCards: KpiCardConfig[] = useMemo(
+    () => [
+      {
+        id: "today",
+        label: "Today's Appointments",
+        value: todayTotalCount,
+        Icon: Calendar,
+        bg: "bg-blue-50",
+        text: "text-blue-600",
+      },
+      {
+        id: "booked",
+        label: "Upcoming Booked",
+        value: totalBookedCount,
+        Icon: ClipboardList,
+        bg: "bg-indigo-50",
+        text: "text-indigo-600",
+      },
+      {
+        id: "completed",
+        label: "Completed",
+        value: completedCount,
+        Icon: UserCheck,
+        bg: "bg-emerald-50",
+        text: "text-emerald-600",
+      },
+    ],
+    [todayTotalCount, totalBookedCount, completedCount]
+  );
+
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
@@ -93,7 +169,7 @@ export default function OverviewTab({
             <span>Practice Active</span>
           </div>
           <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight">
-            Welcome back, {doctor.full_name}
+            Welcome back, {formattedDoctorName}
           </h1>
           <p className="text-blue-100 text-xs sm:text-sm leading-relaxed">
             Here is your daily operational summary. Manage working hours, view appointments, and monitor patient bookings.
@@ -109,98 +185,34 @@ export default function OverviewTab({
         </div>
       )}
 
-      {/* ── Smart KPI Grid ──
-           3 cards → 3 cols (1 row)
-           4 cards → 2 cols (2×2)
-           5 cards → 3 cols (3+2)
-           6 cards → 3 cols (3×3)
-           Mobile  → 1 col, horizontal card layout
-      */}
-      {(() => {
-        const colorMap: Record<string, { bg: string; text: string }> = {
-          blue:    { bg: "bg-blue-50",    text: "text-blue-600"    },
-          indigo:  { bg: "bg-indigo-50",  text: "text-indigo-600"  },
-          emerald: { bg: "bg-emerald-50", text: "text-emerald-600" },
-          amber:   { bg: "bg-amber-50",   text: "text-amber-600"   },
-          rose:    { bg: "bg-rose-50",    text: "text-rose-600"    },
-          violet:  { bg: "bg-violet-50",  text: "text-violet-600"  },
-        };
+      {/* Smart KPI Grid (3 cards in 1 row across all screen sizes) */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        {kpiCards.map(({ id, label, value, Icon, bg, text }) => (
+          <div
+            key={id}
+            className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-xs p-2.5 sm:p-5 flex flex-col items-center text-center gap-1 sm:gap-2"
+          >
+            {/* Icon */}
+            <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${bg} ${text} flex items-center justify-center shrink-0`}>
+              <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+            </div>
 
-        const kpiCards = [
-          {
-            id: "today",
-            label: "Today's Appointments",
-            sublabel: "Booked for today",
-            value: todayAppointments.length,
-            Icon: Calendar,
-            color: "blue",
-          },
-          {
-            id: "booked",
-            label: "Upcoming Booked",
-            sublabel: "Confirmed appointments",
-            value: totalBookedCount,
-            Icon: ClipboardList,
-            color: "indigo",
-          },
-          {
-            id: "completed",
-            label: "Completed",
-            sublabel: "Consultations finished",
-            value: completedCount,
-            Icon: UserCheck,
-            color: "emerald",
-          },
-          // 👇 Future cards — uncomment to test layouts:
-          // { id: "cancelled", label: "Cancelled",  sublabel: "Appointments cancelled", value: 0, Icon: AlertCircle, color: "rose"   },
-          // { id: "noshow",    label: "No-shows",   sublabel: "Patients did not arrive", value: 0, Icon: UserCheck,   color: "amber"  },
-          // { id: "reschedule",label: "Rescheduled",sublabel: "Moved to new slot",       value: 0, Icon: CalendarDays,color: "violet" },
-        ];
+            {/* Number */}
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            ) : (
+              <p className="text-lg sm:text-3xl font-bold text-slate-900 tabular-nums leading-none">
+                {value}
+              </p>
+            )}
 
-        const n = kpiCards.length;
-
-        // Same grid logic on ALL screens (mobile + desktop):
-        // 3 → 3 cols (1 row)
-        // 4 → 2 cols (2×2)
-        // 5 → 3 cols (3+2)
-        // 6 → 3 cols (3×3)
-        const colsClass = n === 4 ? "grid-cols-2" : "grid-cols-3";
-
-        return (
-          <div className={`grid ${colsClass} gap-2 sm:gap-4`}>
-            {kpiCards.map(({ id, label, sublabel, value, Icon, color }) => {
-              const { bg, text } = colorMap[color] ?? colorMap.blue;
-              return (
-                <div
-                  key={id}
-                  className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-xs
-                             p-2.5 sm:p-5
-                             flex flex-col items-center text-center gap-1 sm:gap-2"
-                >
-                  {/* Icon */}
-                  <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${bg} ${text} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-                  </div>
-
-                  {/* Number */}
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                  ) : (
-                    <p className="text-lg sm:text-3xl font-bold text-slate-900 tabular-nums leading-none">
-                      {value}
-                    </p>
-                  )}
-
-                  {/* Label */}
-                  <p className="text-[9px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wide leading-tight line-clamp-2">
-                    {label}
-                  </p>
-                </div>
-              );
-            })}
+            {/* Label */}
+            <p className="text-[9px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wide leading-tight line-clamp-2">
+              {label}
+            </p>
           </div>
-        );
-      })()}
+        ))}
+      </div>
 
       {/* Today's Appointments Section */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4">
@@ -248,7 +260,7 @@ export default function OverviewTab({
           <AdaptiveDataView<AppointmentEntry>
             data={todayAppointments}
             renderDesktopTable={() => (
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs" aria-label="Today's Appointments">
                 <thead className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-4">Time</th>
@@ -265,17 +277,13 @@ export default function OverviewTab({
                         {appt.start_time} - {appt.end_time}
                       </td>
                       <td className="py-3 px-4 font-medium text-slate-900">{appt.patient_name}</td>
-                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "â€”"}</td>
+                      <td className="py-3 px-4 text-slate-600">{appt.patient_contact || "—"}</td>
                       <td className="py-3 px-4 text-slate-500 max-w-xs truncate">{appt.reason || "General Consultation"}</td>
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            appt.status === "BOOKED"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : appt.status === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-slate-100 text-slate-600 border border-slate-200"
-                          }`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${getStatusBadgeStyle(
+                            appt.status
+                          )}`}
                         >
                           {appt.status}
                         </span>
@@ -290,19 +298,18 @@ export default function OverviewTab({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900">{appt.patient_name}</span>
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      appt.status === "BOOKED"
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : appt.status === "COMPLETED"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-slate-100 text-slate-600 border border-slate-200"
-                    }`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeStyle(
+                      appt.status
+                    )}`}
                   >
                     {appt.status}
                   </span>
                 </div>
                 <div className="text-xs text-slate-600 flex items-center justify-between">
-                  <span className="font-semibold text-brand-700">ðŸ•’ {appt.start_time} - {appt.end_time}</span>
+                  <span className="font-semibold text-brand-700 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {appt.start_time} - {appt.end_time}
+                  </span>
                   <span className="text-slate-500">{appt.patient_contact || "No phone"}</span>
                 </div>
                 {appt.reason && (
@@ -315,63 +322,6 @@ export default function OverviewTab({
           />
         )}
       </div>
-
-      {/* Auto-Responsive Quick Actions Grid */}
-      <ResponsiveGrid minItemWidth={260} gap="md">
-        <button
-          type="button"
-          onClick={() => onNavigateTab("appointment")}
-          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
-        >
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Operational Calendar
-            </h3>
-            <p className="text-xs text-slate-500">
-              Inspect your unified day and week event stream across slots, leaves, and appointments.
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-            <Calendar className="w-4 h-4" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateTab("staff")}
-          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
-        >
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Manage Staff
-            </h3>
-            <p className="text-xs text-slate-500">
-              Add and manage clinic doctors, nurses, and administrative personnel.
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <Users className="w-4 h-4" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateTab("profile")}
-          className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-brand-300 hover:shadow-md transition-all text-left flex items-start justify-between group"
-        >
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
-              Admin Profile
-            </h3>
-            <p className="text-xs text-slate-500">
-              Update clinic address, consultation fees, bio, services offered, and photo.
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <User className="w-4 h-4" />
-          </div>
-        </button>
-      </ResponsiveGrid>
     </div>
   );
 }

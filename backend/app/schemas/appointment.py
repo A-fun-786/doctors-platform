@@ -20,8 +20,8 @@ class AppointmentCreateRequest(BaseModel):
     date: date
     start_time: time
     end_time: time
-    reason: Optional[str] = None
-    notes: Optional[str] = None
+    reason: Optional[str] = Field(None, max_length=1000)
+    notes: Optional[str] = Field(None, max_length=5000)
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "AppointmentCreateRequest":
@@ -38,6 +38,8 @@ class AppointmentRescheduleRequest(BaseModel):
     date: date
     start_time: time
     end_time: time
+    reason: Optional[str] = Field(None, max_length=1000)
+    notes: Optional[str] = Field(None, max_length=5000)
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "AppointmentRescheduleRequest":

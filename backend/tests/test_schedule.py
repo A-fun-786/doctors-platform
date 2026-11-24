@@ -483,3 +483,124 @@ def test_owner_can_still_update_working_hours(client, headers_a):
     }
     res = client.put("/api/v1/doctor/working-hours", json=payload, headers=headers_a)
     assert res.status_code == 200
+
+
+# ============================================================================
+# Issue #29 Tests: Availability Endpoint Staff ID Validation
+# ============================================================================
+
+def test_available_slots_rejects_malformed_staff_id(client, headers_a):
+    """GET /doctor/available-slots rejects malformed staff_id with 400 Bad Request."""
+    res = client.get("/api/v1/doctor/available-slots?date=2026-12-05&staff_id=not-a-valid-uuid", headers=headers_a)
+    assert res.status_code == 400
+    assert "Invalid practitioner staff ID format" in res.json()["detail"]
+
+
+def test_available_slots_rejects_nonexistent_staff_id(client, headers_a):
+    """GET /doctor/available-slots rejects nonexistent staff UUID with 404 Not Found."""
+    nonexistent_id = str(uuid.uuid4())
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-05&staff_id={nonexistent_id}", headers=headers_a)
+    assert res.status_code == 404
+    assert "Selected staff doctor was not found in this practice" in res.json()["detail"]
+
+
+def test_available_slots_rejects_foreign_staff_id(client, doctor_b, headers_a, db_session):
+    """GET /doctor/available-slots rejects foreign staff member belonging to another doctor with 404."""
+    _, foreign_staff = _create_staff_and_headers(db_session, doctor_b, role="General Physician")
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-05&staff_id={foreign_staff.id}", headers=headers_a)
+    assert res.status_code == 404
+    assert "Selected staff doctor was not found in this practice" in res.json()["detail"]
+
+
+def test_available_slots_rejects_non_doctor_staff_id(client, doctor_a, headers_a, db_session):
+    """GET /doctor/available-slots rejects non-doctor staff (e.g. Nurse/Receptionist) with 400."""
+    _, nurse = _create_staff_and_headers(db_session, doctor_a, role="Nurse")
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-05&staff_id={nurse.id}", headers=headers_a)
+    assert res.status_code == 400
+    assert "is not a clinical doctor" in res.json()["detail"]
+
+
+def test_available_slots_rejects_inactive_staff_doctor(client, doctor_a, headers_a, db_session):
+    """GET /doctor/available-slots rejects inactive staff doctor with 400."""
+    _, doc = _create_staff_and_headers(db_session, doctor_a, role="General Physician")
+    doc.status = "inactive"
+    db_session.commit()
+
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-05&staff_id={doc.id}", headers=headers_a)
+    assert res.status_code == 400
+    assert "is inactive and cannot accept appointments" in res.json()["detail"]
+
+
+def test_available_slots_returns_empty_when_staff_doctor_on_leave(client, doctor_a, headers_a, db_session):
+    """GET /doctor/available-slots returns empty list when requested staff doctor is on leave."""
+    _, doc = _create_staff_and_headers(db_session, doctor_a, role="General Physician")
+    doc.status = "on_leave"
+    db_session.commit()
+
+    # Create available schedule
+    client.post("/api/v1/doctor/schedule", json={
+        "date": "2026-12-05", "start_time": "09:00:00", "end_time": "13:00:00", "type": "AVAILABLE"
+    }, headers=headers_a)
+
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-05&staff_id={doc.id}", headers=headers_a)
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_available_slots_accepts_valid_staff_doctor(client, doctor_a, headers_a, db_session):
+    """GET /doctor/available-slots returns valid slots for active staff doctor."""
+    _, doc = _create_staff_and_headers(db_session, doctor_a, role="General Physician")
+
+    client.post("/api/v1/doctor/schedule", json={
+        "date": "2026-12-06", "start_time": "10:00:00", "end_time": "11:00:00", "type": "AVAILABLE"
+    }, headers=headers_a)
+
+    res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-06&staff_id={doc.id}", headers=headers_a)
+    assert res.status_code == 200
+    slots = res.json()
+    assert len(slots) == 2
+    assert slots[0] == {"start": "10:00", "end": "10:30"}
+    assert slots[1] == {"start": "10:30", "end": "11:00"}
+
+
+def test_available_slots_accepts_primary_doctor_flag(client, doctor_a, headers_a):
+    """GET /doctor/available-slots accepts staff_id=primary (case-insensitive)."""
+    client.post("/api/v1/doctor/schedule", json={
+        "date": "2026-12-07", "start_time": "10:00:00", "end_time": "11:00:00", "type": "AVAILABLE"
+    }, headers=headers_a)
+
+    for sentinel in ["primary", "PRIMARY", "Primary"]:
+        res = client.get(f"/api/v1/doctor/available-slots?date=2026-12-07&staff_id={sentinel}", headers=headers_a)
+        assert res.status_code == 200
+        assert len(res.json()) == 2
+
+
+def test_public_available_slots_validates_staff_id(client, doctor_a, db_session):
+    """Public /public/tenants/{slug}/available-slots validates staff_id properly."""
+    from app.models.tenant import Tenant
+    tenant = Tenant(
+        doctor_id=doctor_a.id,
+        slug="alice-clinic",
+        clinic_name="Alice Clinic",
+        status="active",
+    )
+    db_session.add(tenant)
+    db_session.commit()
+
+    # 1. Malformed UUID -> 400
+    res_malformed = client.get("/api/v1/public/tenants/alice-clinic/available-slots?date=2026-12-05&staff_id=bad-uuid")
+    assert res_malformed.status_code == 400
+    assert "Invalid practitioner staff ID format" in res_malformed.json()["detail"]
+
+    # 2. Nonexistent UUID -> 404
+    nonexistent = str(uuid.uuid4())
+    res_nonexistent = client.get(f"/api/v1/public/tenants/alice-clinic/available-slots?date=2026-12-05&staff_id={nonexistent}")
+    assert res_nonexistent.status_code == 404
+    assert "Selected staff doctor was not found in this practice" in res_nonexistent.json()["detail"]
+
+    # 3. Non-doctor staff -> 400
+    _, nurse = _create_staff_and_headers(db_session, doctor_a, role="Nurse")
+    res_nurse = client.get(f"/api/v1/public/tenants/alice-clinic/available-slots?date=2026-12-05&staff_id={nurse.id}")
+    assert res_nurse.status_code == 400
+    assert "is not a clinical doctor" in res_nurse.json()["detail"]
+

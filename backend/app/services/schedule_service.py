@@ -172,6 +172,52 @@ def generate_available_slots(
          - If unavailable < total capacity, slot is available!
     5. Return deduplicated, sorted available slots.
     """
+    # Step 0: Practitioner validation (Issue #29)
+    is_primary_only = False
+    target_staff: Optional[StaffMember] = None
+
+    if staff_id is not None and str(staff_id).strip() != "":
+        clean_staff = str(staff_id).strip()
+        if clean_staff.lower() == "primary":
+            is_primary_only = True
+        else:
+            try:
+                target_staff_uuid = uuid.UUID(clean_staff) if isinstance(clean_staff, str) else clean_staff
+            except (ValueError, AttributeError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid practitioner staff ID format: '{clean_staff}'. Expected a valid UUID or 'primary'.",
+                )
+
+            target_staff = (
+                db.query(StaffMember)
+                .filter(
+                    StaffMember.id == target_staff_uuid,
+                    StaffMember.doctor_id == doctor_id,
+                )
+                .first()
+            )
+            if not target_staff:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Selected staff doctor was not found in this practice.",
+                )
+
+            if not is_doctor_role(target_staff.role):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Staff member {target_staff.full_name} ({target_staff.role}) is not a clinical doctor.",
+                )
+
+            if target_staff.status == "on_leave":
+                return []
+
+            if target_staff.status != "active":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Staff doctor {target_staff.full_name} is {target_staff.status} and cannot accept appointments.",
+                )
+
     current_dt = clinic_time.get_clinic_now(now)
     if query_date < current_dt.date():
         return []
@@ -272,34 +318,8 @@ def generate_available_slots(
         .all()
     )
 
-    # Determine if query is for a specific practitioner
-    is_primary_only = (staff_id == "primary")
-    target_staff_uuid = None
-    if staff_id and staff_id != "primary":
-        if isinstance(staff_id, str):
-            try:
-                target_staff_uuid = uuid.UUID(staff_id)
-            except ValueError:
-                target_staff_uuid = None
-        else:
-            target_staff_uuid = staff_id
-
-    # Active staff doctors
-    staff_members = (
-        db.query(StaffMember)
-        .filter(
-            StaffMember.doctor_id == doctor_id,
-            StaffMember.status.in_(["active", "on_leave"]),
-        )
-        .all()
-    )
-    staff_doctors = [
-        s for s in staff_members
-        if s.is_doctor
-    ]
-
     # Handle specific practitioner slot generation
-    if is_primary_only or target_staff_uuid is not None:
+    if is_primary_only or target_staff is not None:
         blocked_intervals: List[Tuple[int, int]] = []
         if is_primary_only:
             # Primary doctor leaves and blocked times
@@ -315,13 +335,9 @@ def generate_available_slots(
                     a_en = 24 * 60 if apt.end_time >= time(23, 59) else _time_to_minutes(apt.end_time)
                     blocked_intervals.append((a_st, a_en))
         else:
-            # Staff doctor: check if staff member is on leave
-            target_staff = next((s for s in staff_doctors if s.id == target_staff_uuid), None)
-            if target_staff and target_staff.status == "on_leave":
-                return []
-            # Staff doctor appointments
+            # Staff doctor appointments (on_leave already handled in Step 0)
             for apt in appointments:
-                if apt.staff_id == target_staff_uuid:
+                if apt.staff_id == target_staff.id:
                     a_st = _time_to_minutes(apt.start_time)
                     a_en = 24 * 60 if apt.end_time >= time(23, 59) else _time_to_minutes(apt.end_time)
                     blocked_intervals.append((a_st, a_en))
@@ -344,6 +360,18 @@ def generate_available_slots(
 
     # Multi-Doctor Capacity (staff_id is None):
     # Total active doctor capacity = 1 (primary) + active staff doctors
+    staff_members = (
+        db.query(StaffMember)
+        .filter(
+            StaffMember.doctor_id == doctor_id,
+            StaffMember.status.in_(["active", "on_leave"]),
+        )
+        .all()
+    )
+    staff_doctors = [
+        s for s in staff_members
+        if is_doctor_role(s.role)
+    ]
     active_staff_docs = [s for s in staff_doctors if s.status == "active"]
     total_capacity = 1 + len(active_staff_docs)
 

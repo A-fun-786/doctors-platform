@@ -275,6 +275,8 @@ export interface AppointmentReschedulePayload {
   date: string;
   start_time: string;
   end_time: string;
+  reason?: string | null;
+  notes?: string | null;
 }
 
 export interface AppointmentFilterParams {
@@ -1026,6 +1028,51 @@ export interface StaffMemberCreatePayload {
   notes?: string;
   can_login?: boolean;
   password?: string;
+}
+
+export const DOCTOR_ROLE_KEYWORDS = [
+  "doctor",
+  "physician",
+  "specialist",
+  "consultant",
+  "surgeon",
+  "pediatrician",
+  "cardiologist",
+  "dermatologist",
+  "gynecologist",
+  "orthopedic",
+  "neurologist",
+  "dentist",
+  "practitioner",
+  "resident",
+  "fellow",
+] as const;
+
+export const NON_DOCTOR_ROLE_KEYWORDS = [
+  "assistant",
+  "technician",
+  "nurse",
+  "receptionist",
+  "pharmacist",
+  "billing",
+  "admin",
+  "clerk",
+  "attendant",
+] as const;
+
+/**
+ * Canonical practitioner classifier matching backend is_doctor_role() in app.models.staff.
+ * Returns true if the role string represents a medical doctor/practitioner.
+ * Excludes support personnel (nurses, assistants, technicians, etc.) even if their role
+ * contains clinical keywords.
+ */
+export function isDoctorRole(role?: string | null): boolean {
+  if (!role) return false;
+  const r = role.trim().toLowerCase();
+  if (NON_DOCTOR_ROLE_KEYWORDS.some((kw) => r.includes(kw))) {
+    return false;
+  }
+  return DOCTOR_ROLE_KEYWORDS.some((kw) => r.includes(kw));
 }
 
 export interface StaffMemberUpdatePayload {

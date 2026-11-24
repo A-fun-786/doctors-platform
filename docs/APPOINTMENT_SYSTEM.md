@@ -157,7 +157,7 @@ engine = create_engine(
 
 - `AppointmentCreateRequest`: `patient_name`, `patient_contact?`, `date`, `start_time`, `end_time`, `reason?`, `notes?`
 - `AppointmentResponse`: full appointment with all fields (+ `page`, `page_size`, `total` in list responses)
-- `AppointmentRescheduleRequest`: `date`, `start_time`, `end_time`
+- `AppointmentRescheduleRequest`: `date`, `start_time`, `end_time`, `staff_id?`, `reason?`, `notes?`
 
 ### Phase 1 Test Cases
 
@@ -194,12 +194,19 @@ Core logic:
 1. **`create_schedule_entries(doctor_id, entries)`** — batch insert schedule events with validation (end_time > start_time, no overlapping AVAILABLE windows on same date).
 2. **`get_schedule(doctor_id, from_date, to_date)`** — query all schedule events in range.
 3. **`delete_schedule_entry(doctor_id, schedule_id)`** — remove with ownership check.
-4. **`generate_available_slots(doctor_id, date)`**:
-   - Query all `AVAILABLE` entries for doctor + date → candidate intervals.
-   - Slice each interval into 30-minute slots.
+4. **`generate_available_slots(doctor_id, date, db, staff_id=None, now=None)`**:
+   - **Practitioner Validation (Step 0)**: If `staff_id` is supplied:
+     - Rejects malformed strings with `400 Bad Request`.
+     - Validates staff exists under `doctor_id` (`404 Not Found` if missing or foreign).
+     - Validates role is a clinical doctor via `is_doctor_role` (`400 Bad Request` if non-doctor).
+     - Returns `[]` if staff doctor is on leave; rejects with `400` if inactive.
+   - Query all `AVAILABLE` entries for doctor + date → candidate intervals (fallback to enabled working hours shifts).
+   - Slice each interval into 30-minute slots; filter out expired intervals if query date is clinic today.
    - Query `LEAVE`, `HOLIDAY`, `BLOCKED` entries for that date → exclusion intervals.
-   - Query `appointments` with `status = BOOKED` for that date → occupied slots.
-   - Return only slots that don't overlap any exclusion or occupied interval.
+   - Query `appointments` with `status IN ('BOOKED', 'COMPLETED')` for that date → occupied slots.
+   - If specific doctor (`staff_id` or `"primary"`): subtract individual exclusions and bookings.
+   - If clinic-wide (`staff_id is None`): compute aggregate capacity (`1 + active_staff_doctors`) and deduct booked/unavailable doctors per slot.
+   - Return deduplicated, chronologically sorted available slots.
 
 ### 2.2 Schedule Routes
 
@@ -872,7 +879,7 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
 - [`calendar/views/DayView.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/views/DayView.tsx): Displays stacked concurrent doctor appointments for time intervals.
 - [`calendar/modals/AddAppointmentModal.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/modals/AddAppointmentModal.tsx): Doctor selection dropdown with scoped conflict checking.
 - [`calendar/modals/SlotActionModal.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/modals/SlotActionModal.tsx): Practitioner selector when booking from empty slot clicks.
-- [`calendar/panels/SlotSelectorGrid.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/panels/SlotSelectorGrid.tsx): Reschedule slot selection scoped to `targetStaffId`.
+- [`calendar/panels/SlotSelectorGrid.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/panels/SlotSelectorGrid.tsx): Reschedule slot selection scoped to `targetStaffId` (normalizes primary doctor appointments to `staff_id="primary"` to prevent clinic-wide capacity fallback).
 
 ---
 
@@ -886,11 +893,18 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
 2. **Clinic Capacity Slot Calculation**:
    - When no specific doctor is requested (`staff_id=None`), candidate 30-min slots check unavailable doctor count. A slot is only considered blocked if all clinic doctors are simultaneously busy or on leave.
 3. **No Dynamic Button Widths in Toolbars**:
-   - Dynamic date text inside action buttons (`Day ({formattedDate})`) caused variable-width flex-wrap breaking on certain dates. Kept buttons constant-width (`All`, `Confirmed`, `Completed`, `Day`, `Agenda`), placing changing dates strictly in fixed header capsules.
-4. **Zero Horizontal Scrolling**:
+   - Dynamic text like `Day (Oct 22)` inside view mode buttons causes layout jitter. Kept buttons constant-width (`All`, `Confirmed`, `Completed`, `Day`, `Agenda`), placing changing dates strictly in fixed header capsules.
+4. **Primary Doctor Rescheduling Boundary (Issue #30)**:
+   - When rescheduling an appointment attended by the primary doctor, `AppointmentRescheduleForm` and `SlotSelectorGrid` pass `targetStaffId="primary"`.
+   - Passing `null` or omitting `staff_id` would trigger clinic-wide multi-doctor capacity calculation, hiding valid primary slots or exposing slots when the primary doctor is blocked or on leave.
+5. **Zero Horizontal Scrolling**:
    - The "Reason for visit" column was removed from the agenda table to prevent horizontal overflow on smaller laptops and tablets. Full clinical reason and vitals are presented in the right-side `AppointmentDetailsPanel` upon row click.
-5. **Legacy Test Compatibility Wrapper**:
+6. **Legacy Test Compatibility Wrapper**:
    - `scripts/test_sidebar_quick_actions_clean.mjs` explicitly checks for `<CalendarSidebar` in `CalendarTab.tsx`. To keep test suites passing 100% while streamlining the view to full-width, `CalendarSidebar` is mounted in a `<div className="hidden" aria-hidden="true">` wrapper.
+7. **Reschedule Reason and Notes Persistence (Issue #32)**:
+   - When rescheduling an appointment, `AppointmentRescheduleRequest` accepts optional `reason` and `notes`.
+   - The backend service evaluates `"reason" in payload.model_fields_set` and `"notes" in payload.model_fields_set` to allow partial updates, preserving existing clinical notes when fields are omitted and updating/clearing them when explicitly provided.
+   - The frontend `AppointmentRescheduleForm` and `AppointmentDetailsPanel` propagate edits to prevent silent data loss.
 
 ---
 

@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Clock, Check, Loader2, AlertCircle } from "lucide-react";
 import { getDoctorAvailableSlots, AvailableSlot, CalendarEvent } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import { format12Hour, doesEventOverlapSlot, isSlotWithinWorkingHours, WorkingHoursConfig } from "../calendarUtils";
 
-interface SlotSelectorGridProps {
+export interface SlotSelectorGridProps {
   date: string;
   selectedSlot: { start: string; end: string } | null;
   onSelectSlot: (slot: { start: string; end: string }) => void;
@@ -15,11 +16,157 @@ interface SlotSelectorGridProps {
   targetStaffId?: string | null;
 }
 
-interface CandidateSlot {
+export interface CandidateSlot {
   start: string;
   end: string;
   isAvailable: boolean;
   conflictReason?: string;
+}
+
+export interface CandidateSlotParams {
+  date: string;
+  targetStaffId?: string | null;
+  workingHoursConfig?: WorkingHoursConfig;
+  existingEvents?: CalendarEvent[];
+  currentAppointmentId?: string;
+  apiSlots?: AvailableSlot[] | null;
+  now?: Date;
+}
+
+/**
+ * Pure generator function to build candidate slots and compute conflicts (SRP).
+ * Evaluates working hours shifts, existing calendar events, and backend slot availability.
+ */
+export function generateCandidateSlots({
+  date,
+  targetStaffId,
+  workingHoursConfig,
+  existingEvents = [],
+  currentAppointmentId,
+  apiSlots = null,
+  now,
+}: CandidateSlotParams): CandidateSlot[] {
+  const list: CandidateSlot[] = [];
+  const startHour = 9;
+  const endHour = 20;
+
+  const isTargetPrimary = !targetStaffId || targetStaffId.toLowerCase() === "primary";
+  const localTodayStr = now
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    : null;
+  const localNowTimeStr = now
+    ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+    : null;
+
+  // Pre-find the current appointment once (O(1) lookups during the slot iteration)
+  const currentAppt = currentAppointmentId
+    ? existingEvents.find((ev) => ev.appointment_id === currentAppointmentId)
+    : undefined;
+
+  for (let h = startHour; h < endHour; h++) {
+    for (const m of [0, 30]) {
+      const hStr = h.toString().padStart(2, "0");
+      const mStr = m.toString().padStart(2, "0");
+      const start = `${hStr}:${mStr}`;
+
+      let nextH = h;
+      let nextM = m + 30;
+      if (nextM >= 60) {
+        nextH += 1;
+        nextM = 0;
+      }
+      const end = `${nextH.toString().padStart(2, "0")}:${nextM.toString().padStart(2, "0")}`;
+
+      // Check if within working hours
+      const withinShift = isSlotWithinWorkingHours(date, start, end, workingHoursConfig);
+
+      let isBlocked = false;
+      let reason = "";
+
+      if (!withinShift) {
+        isBlocked = true;
+        reason = "Outside Shift";
+      }
+
+      // Check if slot belongs to the current appointment being rescheduled
+      const isCurrentApptSlot = Boolean(
+        currentAppt && doesEventOverlapSlot(currentAppt, start, end)
+      );
+
+      // Check conflicts in existingEvents
+      for (const ev of existingEvents) {
+        if (ev.status === "CANCELLED") continue;
+        // Ignore current appointment's own slot so they can re-select it if desired
+        if (currentAppointmentId && ev.appointment_id === currentAppointmentId) {
+          continue;
+        }
+
+        if ((ev.type as string) === "AVAILABLE") continue;
+
+        if (doesEventOverlapSlot(ev, start, end)) {
+          // For appointments, only conflict if it belongs to the target doctor
+          if (ev.type === "APPOINTMENT") {
+            const isEvPrimary = !ev.staff_id || ev.staff_id.toLowerCase() === "primary";
+            const sameDoctor = isTargetPrimary ? isEvPrimary : ev.staff_id === targetStaffId;
+            if (!sameDoctor) {
+              // Different doctor - does not conflict
+              continue;
+            }
+            isBlocked = true;
+            reason = "Already Booked";
+            break;
+          } else if (ev.type === "LEAVE") {
+            if (!isTargetPrimary) {
+              // Primary doctor leave does not block staff doctor
+              continue;
+            }
+            isBlocked = true;
+            reason = "Doctor Leave";
+            break;
+          } else if (ev.type === "HOLIDAY") {
+            isBlocked = true;
+            reason = "Clinic Holiday";
+            break;
+          } else if (ev.type === "BLOCKED") {
+            isBlocked = true;
+            reason = "Blocked";
+            break;
+          } else {
+            isBlocked = true;
+            reason = "Unavailable";
+            break;
+          }
+        }
+      }
+
+      // Check if backend specifically marked this slot as available (if API returned data)
+      let isAvailable = !isBlocked;
+      if (apiSlots !== null) {
+        const matchInApi = apiSlots.some((s) => s.start === start && s.end === end);
+        const isPastSlot = Boolean(
+          localTodayStr &&
+            localNowTimeStr &&
+            (date < localTodayStr || (date === localTodayStr && end <= localNowTimeStr))
+        );
+        if (isBlocked) {
+          isAvailable = false;
+        } else if (!matchInApi && (!isCurrentApptSlot || isPastSlot)) {
+          // If backend didn't list it and it's either not the current slot or it's in the past, mark as unavailable
+          isAvailable = false;
+          if (!reason) reason = isPastSlot ? "Past Slot" : "Unavailable";
+        }
+      }
+
+      list.push({
+        start,
+        end,
+        isAvailable,
+        conflictReason: reason,
+      });
+    }
+  }
+
+  return list;
 }
 
 export default function SlotSelectorGrid({
@@ -35,7 +182,10 @@ export default function SlotSelectorGrid({
   const [apiSlots, setApiSlots] = useState<AvailableSlot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available slots from backend whenever date changes
+  // Normalize target doctor: default to "primary" if unspecified
+  const effectiveStaffId = targetStaffId || "primary";
+
+  // Fetch available slots from backend whenever date or practitioner changes
   useEffect(() => {
     let isMounted = true;
     async function fetchSlots() {
@@ -43,13 +193,17 @@ export default function SlotSelectorGrid({
       try {
         setLoading(true);
         setError(null);
-        const slots = await getDoctorAvailableSlots(date, targetStaffId);
+        const slots = await getDoctorAvailableSlots(date, effectiveStaffId);
         if (isMounted) {
           setApiSlots(slots);
         }
       } catch (err: unknown) {
         if (isMounted) {
-          console.warn("Could not load backend available slots, falling back to local calculation:", err);
+          logger.warn(
+            "SlotSelectorGrid",
+            "Could not load backend available slots, falling back to local calculation",
+            { error: err instanceof Error ? err.message : String(err) }
+          );
           setApiSlots(null);
         }
       } finally {
@@ -61,110 +215,22 @@ export default function SlotSelectorGrid({
     return () => {
       isMounted = false;
     };
-  }, [date, targetStaffId]);
+  }, [date, effectiveStaffId]);
 
-  // Generate complete sequence of 30-minute daytime candidate slots (09:00 - 20:00)
-  const candidateSlots: CandidateSlot[] = useMemo(() => {
-    const list: CandidateSlot[] = [];
-    const startHour = 9;
-    const endHour = 20;
-
-    for (let h = startHour; h < endHour; h++) {
-      for (const m of [0, 30]) {
-        const hStr = h.toString().padStart(2, "0");
-        const mStr = m.toString().padStart(2, "0");
-        const start = `${hStr}:${mStr}`;
-
-        let nextH = h;
-        let nextM = m + 30;
-        if (nextM >= 60) {
-          nextH += 1;
-          nextM = 0;
-        }
-        const end = `${nextH.toString().padStart(2, "0")}:${nextM.toString().padStart(2, "0")}`;
-
-        // Check if within working hours
-        const withinShift = isSlotWithinWorkingHours(date, start, end, workingHoursConfig);
-
-        // Check conflicts against existing calendar events
-        let isBlocked = false;
-        let reason = "";
-
-        if (!withinShift) {
-          isBlocked = true;
-          reason = "Outside Shift";
-        }
-
-        // Check conflicts in existingEvents
-        for (const ev of existingEvents) {
-          if (ev.status === "CANCELLED") continue;
-          // Ignore current appointment's own slot so they can re-select it if desired
-          if (currentAppointmentId && ev.appointment_id === currentAppointmentId) {
-            continue;
-          }
-
-          if ((ev.type as string) === "AVAILABLE") continue;
-
-          if (doesEventOverlapSlot(ev, start, end)) {
-            // For appointments, only conflict if it belongs to the target doctor
-            if (ev.type === "APPOINTMENT") {
-              const evStaffId = ev.staff_id || null;
-              const targetId = targetStaffId || null;
-              if (evStaffId !== targetId) {
-                // Different doctor - does not conflict
-                continue;
-              }
-              isBlocked = true;
-              reason = "Already Booked";
-              break;
-            } else if (ev.type === "LEAVE") {
-              if (targetStaffId) {
-                // Primary doctor leave does not block staff doctor
-                continue;
-              }
-              isBlocked = true;
-              reason = "Doctor Leave";
-              break;
-            } else if (ev.type === "HOLIDAY") {
-              isBlocked = true;
-              reason = "Clinic Holiday";
-              break;
-            } else if (ev.type === "BLOCKED") {
-              isBlocked = true;
-              reason = "Blocked";
-              break;
-            } else {
-              isBlocked = true;
-              reason = "Unavailable";
-              break;
-            }
-          }
-        }
-
-        // Check if backend specifically marked this slot as available (if API returned data)
-        let isAvailable = !isBlocked;
-        if (apiSlots && apiSlots.length > 0) {
-          const matchInApi = apiSlots.some((s) => s.start === start && s.end === end);
-          if (isBlocked) {
-            isAvailable = false;
-          } else if (!matchInApi) {
-            // If backend didn't list it, mark as booked
-            isAvailable = false;
-            if (!reason) reason = "Unavailable";
-          }
-        }
-
-        list.push({
-          start,
-          end,
-          isAvailable,
-          conflictReason: reason,
-        });
-      }
-    }
-
-    return list;
-  }, [date, existingEvents, workingHoursConfig, currentAppointmentId, apiSlots, targetStaffId]);
+  // Generate sequence of 30-minute daytime candidate slots (09:00 - 20:00)
+  const candidateSlots: CandidateSlot[] = useMemo(
+    () =>
+      generateCandidateSlots({
+        date,
+        targetStaffId: effectiveStaffId,
+        workingHoursConfig,
+        existingEvents,
+        currentAppointmentId,
+        apiSlots,
+        now: new Date(),
+      }),
+    [date, effectiveStaffId, workingHoursConfig, existingEvents, currentAppointmentId, apiSlots]
+  );
 
   const availableCount = candidateSlots.filter((s) => s.isAvailable).length;
 

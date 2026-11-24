@@ -584,6 +584,10 @@ def reschedule_appointment(
     appointment.end_time = payload.end_time
     if payload.staff_id is not None:
         appointment.staff_id = payload.staff_id
+    if "reason" in payload.model_fields_set:
+        appointment.reason = payload.reason.strip() if payload.reason and payload.reason.strip() else None
+    if "notes" in payload.model_fields_set:
+        appointment.notes = payload.notes.strip() if payload.notes and payload.notes.strip() else None
     try:
         db.commit()
         db.refresh(appointment)

@@ -91,7 +91,10 @@ verifyCheck("A", 2, "Flexible containers and max-width", () => {
 
 verifyCheck("A", 3, "CSS Grid and Flexbox layouts", () => {
   assert.ok(responsiveGrid.includes("repeat(auto-fit, minmax("), "ResponsiveGrid uses dynamic auto-fit CSS grid");
-  assert.ok(overviewTab.includes("ResponsiveGrid"), "OverviewTab incorporates ResponsiveGrid");
+  assert.ok(
+    overviewTab.includes("grid-cols-") || overviewTab.includes("AdaptiveStack"),
+    "OverviewTab incorporates CSS grid and flexbox layout structures"
+  );
 });
 
 verifyCheck("A", 4, "Correct spacing, padding and margins", () => {

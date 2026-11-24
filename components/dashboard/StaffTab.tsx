@@ -44,6 +44,7 @@ import {
   updateStaffMember,
   resetStaffPassword,
   deleteStaffMember,
+  isDoctorRole,
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
 
@@ -150,7 +151,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   const startEditingStaff = (staff: StaffMember) => {
     setSuccessMsg(null);
     setErrorMsg(null);
-    const isDoc = staff.role.toLowerCase().includes("doctor");
+    const isDoc = isDoctorRole(staff.role);
     setEditingStaff({
       ...staff,
       speciality: isDoc ? (staff.speciality || "General Physician") : (staff.speciality || ""),
@@ -317,7 +318,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         quickFilter === "all"
           ? true
           : quickFilter === "doctors"
-          ? s.role.toLowerCase().includes("doctor")
+          ? isDoctorRole(s.role)
           : quickFilter === "active"
           ? s.status === "active"
           : quickFilter === "portal"
@@ -331,7 +332,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   // Handle Add Staff
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isDoc = staffForm.role.toLowerCase().includes("doctor");
+    const isDoc = isDoctorRole(staffForm.role);
     if (isDoc && !staffForm.speciality?.trim()) {
       setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
       return;
@@ -462,7 +463,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
-    const isDoc = editingStaff.role.toLowerCase().includes("doctor");
+    const isDoc = isDoctorRole(editingStaff.role);
     if (isDoc && !editingStaff.speciality?.trim()) {
       setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
       return;
@@ -657,7 +658,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
 
               {/* Row 1: Name, Role, Specialist (Doctor Only), Department */}
               {(() => {
-                const isDoctor = staffForm.role.toLowerCase().includes("doctor");
+                const isDoctor = isDoctorRole(staffForm.role);
                 return (
                   <div
                     className={`grid grid-cols-1 ${
@@ -697,7 +698,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           value={staffForm.role}
                           onChange={(e) => {
                             const newRole = e.target.value;
-                            const isDoc = newRole.toLowerCase().includes("doctor");
+                            const isDoc = isDoctorRole(newRole);
                             setStaffForm({
                               ...staffForm,
                               role: newRole,
@@ -1217,7 +1218,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
 
               {/* Row 1: Full Name, Role, Specialist (Doctor Only), Department */}
               {(() => {
-                const isEditDoctor = editingStaff.role.toLowerCase().includes("doctor");
+                const isEditDoctor = isDoctorRole(editingStaff.role);
                 return (
                   <div
                     className={`grid grid-cols-1 ${
@@ -1256,7 +1257,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           value={editingStaff.role}
                           onChange={(e) => {
                             const newRole = e.target.value;
-                            const isDoc = newRole.toLowerCase().includes("doctor");
+                            const isDoc = isDoctorRole(newRole);
                             setEditingStaff({
                               ...editingStaff,
                               role: newRole,
@@ -1712,12 +1713,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <div className="flex items-center gap-3.5">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base border shadow-2xs ring-4 ${
-                    selectedStaff.role.toLowerCase().includes("doctor")
+                    isDoctorRole(selectedStaff.role)
                       ? "bg-purple-100 text-purple-700 border-purple-200 ring-purple-500/10"
                       : "bg-brand-50 text-brand-700 border-brand-100 ring-brand-500/10"
                   }`}
                 >
-                  {selectedStaff.role.toLowerCase().includes("doctor") ? (
+                  {isDoctorRole(selectedStaff.role) ? (
                     <Stethoscope className="w-6 h-6" />
                   ) : (
                     selectedStaff.full_name.charAt(0).toUpperCase()
@@ -2140,7 +2141,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </div>
                 <div className="flex items-baseline gap-1.5 mt-1">
                   <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                    {staffList.filter((s) => s.role.toLowerCase().includes("doctor")).length}
+                    {staffList.filter((s) => isDoctorRole(s.role)).length}
                   </span>
                   <span className="text-[11px] text-purple-700 font-semibold">care providers</span>
                 </div>
@@ -2220,7 +2221,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-600"
                   }`}
                 >
-                  Doctors ({staffList.filter((s) => s.role.toLowerCase().includes("doctor")).length})
+                  Doctors ({staffList.filter((s) => isDoctorRole(s.role)).length})
                 </button>
                 <button
                   type="button"
@@ -2313,7 +2314,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredStaff.map((staff) => {
-                    const isDoctor = staff.role.toLowerCase().includes("doctor");
+                    const isDoctor = isDoctorRole(staff.role);
                     return (
                       <tr
                         key={staff.id}

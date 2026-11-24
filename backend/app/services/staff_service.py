@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.models.doctor import Doctor
-from app.models.staff import StaffMember
+from app.models.staff import StaffMember, is_doctor_role
 from app.models.appointment import Appointment
 from app.schemas.staff import (
     StaffMemberCreate,
@@ -423,14 +423,10 @@ class StaffService:
             )
         ) or 0
 
-        doctors_count = self.db.scalar(
-            select(func.count(StaffMember.id)).where(
-                and_(
-                    StaffMember.doctor_id == doctor_id,
-                    StaffMember.role.ilike("%doctor%"),
-                )
-            )
-        ) or 0
+        roles = self.db.scalars(
+            select(StaffMember.role).where(StaffMember.doctor_id == doctor_id)
+        ).all()
+        doctors_count = sum(1 for r in roles if is_doctor_role(r))
 
         departments_count = self.db.scalar(
             select(func.count(func.distinct(StaffMember.department))).where(
