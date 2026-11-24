@@ -1075,13 +1075,6 @@ export function isDoctorRole(role?: string | null): boolean {
   return DOCTOR_ROLE_KEYWORDS.some((kw) => r.includes(kw));
 }
 
-export interface StaffSummaryMetrics {
-  total_staff: number;
-  active_staff: number;
-  doctors_count: number;
-  departments_count: number;
-}
-
 export interface StaffMemberUpdatePayload {
   full_name?: string;
   username?: string;
@@ -1114,16 +1107,6 @@ export async function listStaff(params?: {
   if (params?.search) query.set("search", params.search);
   const qs = query.toString();
   return apiFetch<StaffMember[]>(`/api/v1/staff${qs ? `?${qs}` : ""}`, {
-    method: "GET",
-    requireAuth: true,
-  });
-}
-
-/**
- * Fetch high-level Staff Management KPI summary metrics for the clinic.
- */
-export async function getStaffSummary(): Promise<StaffSummaryMetrics> {
-  return apiFetch<StaffSummaryMetrics>("/api/v1/staff/summary", {
     method: "GET",
     requireAuth: true,
   });

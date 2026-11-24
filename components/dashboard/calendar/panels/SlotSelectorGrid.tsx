@@ -30,6 +30,7 @@ export interface CandidateSlotParams {
   existingEvents?: CalendarEvent[];
   currentAppointmentId?: string;
   apiSlots?: AvailableSlot[] | null;
+  now?: Date;
 }
 
 /**
@@ -43,12 +44,19 @@ export function generateCandidateSlots({
   existingEvents = [],
   currentAppointmentId,
   apiSlots = null,
+  now,
 }: CandidateSlotParams): CandidateSlot[] {
   const list: CandidateSlot[] = [];
   const startHour = 9;
   const endHour = 20;
 
   const isTargetPrimary = !targetStaffId || targetStaffId.toLowerCase() === "primary";
+  const localTodayStr = now
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    : null;
+  const localNowTimeStr = now
+    ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+    : null;
 
   // Pre-find the current appointment once (O(1) lookups during the slot iteration)
   const currentAppt = currentAppointmentId
@@ -135,12 +143,17 @@ export function generateCandidateSlots({
       let isAvailable = !isBlocked;
       if (apiSlots !== null) {
         const matchInApi = apiSlots.some((s) => s.start === start && s.end === end);
+        const isPastSlot = Boolean(
+          localTodayStr &&
+            localNowTimeStr &&
+            (date < localTodayStr || (date === localTodayStr && end <= localNowTimeStr))
+        );
         if (isBlocked) {
           isAvailable = false;
-        } else if (!matchInApi && !isCurrentApptSlot) {
-          // If backend didn't list it and it's not the appointment's own current slot, mark as unavailable
+        } else if (!matchInApi && (!isCurrentApptSlot || isPastSlot)) {
+          // If backend didn't list it and it's either not the current slot or it's in the past, mark as unavailable
           isAvailable = false;
-          if (!reason) reason = "Unavailable";
+          if (!reason) reason = isPastSlot ? "Past Slot" : "Unavailable";
         }
       }
 
@@ -214,6 +227,7 @@ export default function SlotSelectorGrid({
         existingEvents,
         currentAppointmentId,
         apiSlots,
+        now: new Date(),
       }),
     [date, effectiveStaffId, workingHoursConfig, existingEvents, currentAppointmentId, apiSlots]
   );

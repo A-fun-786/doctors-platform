@@ -54,6 +54,7 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const [loading, setLoading] = useState(true);
   const [todayAppointments, setTodayAppointments] = useState<AppointmentEntry[]>([]);
+  const [todayTotalCount, setTodayTotalCount] = useState<number>(0);
   const [totalBookedCount, setTotalBookedCount] = useState<number>(0);
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
@@ -86,18 +87,30 @@ export default function OverviewTab({
 
         if (!isMounted) return;
 
+        const fetchErrors: string[] = [];
+
         if (todayApptRes.status === "fulfilled") {
-          setTodayAppointments(todayApptRes.value.items || []);
+          const items = todayApptRes.value.items || [];
+          setTodayAppointments(items);
+          setTodayTotalCount(todayApptRes.value.total ?? items.length);
         } else {
-          setError(todayApptRes.reason?.message || "Failed to load today's appointments");
+          fetchErrors.push(todayApptRes.reason?.message || "Failed to load today's appointments");
         }
 
         if (bookedApptRes.status === "fulfilled") {
           setTotalBookedCount(bookedApptRes.value.total ?? 0);
+        } else {
+          fetchErrors.push(bookedApptRes.reason?.message || "Failed to load booked appointment count");
         }
 
         if (completedApptRes.status === "fulfilled") {
           setCompletedCount(completedApptRes.value.total ?? 0);
+        } else {
+          fetchErrors.push(completedApptRes.reason?.message || "Failed to load completed appointment count");
+        }
+
+        if (fetchErrors.length > 0) {
+          setError(fetchErrors[0]);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -121,7 +134,7 @@ export default function OverviewTab({
       {
         id: "today",
         label: "Today's Appointments",
-        value: todayAppointments.length,
+        value: todayTotalCount,
         Icon: Calendar,
         bg: "bg-blue-50",
         text: "text-blue-600",
@@ -143,7 +156,7 @@ export default function OverviewTab({
         text: "text-emerald-600",
       },
     ],
-    [todayAppointments.length, totalBookedCount, completedCount]
+    [todayTotalCount, totalBookedCount, completedCount]
   );
 
   return (

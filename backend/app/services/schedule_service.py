@@ -335,10 +335,7 @@ def generate_available_slots(
                     a_en = 24 * 60 if apt.end_time >= time(23, 59) else _time_to_minutes(apt.end_time)
                     blocked_intervals.append((a_st, a_en))
         else:
-            # Staff doctor: check if staff member is on leave
-            if target_staff.status == "on_leave":
-                return []
-            # Staff doctor appointments
+            # Staff doctor appointments (on_leave already handled in Step 0)
             for apt in appointments:
                 if apt.staff_id == target_staff.id:
                     a_st = _time_to_minutes(apt.start_time)
