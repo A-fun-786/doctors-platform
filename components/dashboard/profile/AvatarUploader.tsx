@@ -53,7 +53,7 @@ export default function AvatarUploader({
       />
 
       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3">
-        Doctor Profile Photo
+        Profile Photo
       </label>
 
       <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -61,7 +61,7 @@ export default function AvatarUploader({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={displayAvatar}
-            alt="Doctor Profile Preview"
+            alt="Profile Preview"
             className="w-full h-full object-cover"
           />
         </div>
