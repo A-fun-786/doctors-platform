@@ -347,7 +347,7 @@ export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
       enabled: true,
     },
   ],
-  closed_days: [0],
+  closed_days: [],
 };
 
 export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
@@ -427,7 +427,7 @@ export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
 
 /**
  * Check if a time slot (start, end) falls within doctor's configured working hours.
- * Defaults to closed on Sundays if closed_days not specified, and disallows intervals during the doctor's break time.
+ * Evaluates against doctor's active shifts and closed_days (defaulting to open 7 days when closed_days is empty).
  */
 export function isSlotWithinWorkingHours(
   dateStr: string,
@@ -438,7 +438,7 @@ export function isSlotWithinWorkingHours(
   if (!dateStr || !slotStart || !slotEnd) return false;
   const d = new Date(dateStr);
   const activeConfig = config || DEFAULT_WORKING_HOURS;
-  const closedDays = activeConfig.closed_days ?? [0];
+  const closedDays = activeConfig.closed_days ?? [];
   if (closedDays.includes(d.getDay())) return false;
 
   const startM = timeToMinutes(slotStart);

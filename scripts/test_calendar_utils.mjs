@@ -335,7 +335,7 @@ describe("Editable Working Hours & Clinical Notes", () => {
     assert.strictEqual(calculateShiftSlotCount("14:00", "10:00"), 0); // inverted = 0 slots
   });
 
-  test("isSlotWithinWorkingHours respects default doctor operating hours and Sunday closure", () => {
+  test("isSlotWithinWorkingHours permits Sunday appointment booking by default and respects closed_days", () => {
     // 2026-10-19 is Monday
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "10:00", "10:30"), true);
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "12:30", "13:00"), true);
@@ -345,8 +345,33 @@ describe("Editable Working Hours & Clinical Notes", () => {
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "14:00", "14:30"), false);
     // Early morning
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "08:00", "08:30"), false);
-    // 2026-10-18 is Sunday (Closed)
-    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30"), false);
+    // 2026-10-18 is Sunday (Open by default under empty closed_days)
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30"), true);
+    // When closed_days: [0] is configured, Sunday is closed
+    const sundayClosedConfig = { ...DEFAULT_WORKING_HOURS, closed_days: [0] };
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", sundayClosedConfig), false);
+  });
+
+  test("Saturday closed [6] does NOT close Sunday and leaves Sunday slot bookable", () => {
+    const closedSaturdayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [6], // Saturday closed
+    };
+    // 2026-10-17 is Saturday (day 6) -> Closed
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSaturdayConfig), false);
+    // 2026-10-18 is Sunday (day 0) -> Open
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSaturdayConfig), true);
+  });
+
+  test("Sunday closed [0] does NOT close Saturday and leaves Saturday slot bookable", () => {
+    const closedSundayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [0], // Sunday closed
+    };
+    // 2026-10-18 is Sunday (day 0) -> Closed
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSundayConfig), false);
+    // 2026-10-17 is Saturday (day 6) -> Open
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSundayConfig), true);
   });
 
   test("isSlotWithinWorkingHours respects dynamic customized shifts and disabled shifts", () => {

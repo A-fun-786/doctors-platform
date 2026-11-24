@@ -9,7 +9,7 @@ from app.models.schedule import Schedule
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.staff import StaffMember, is_doctor_role
-from app.schemas.schedule import ScheduleCreateRequest
+from app.schemas.schedule import ScheduleCreateRequest, resolve_doctor_working_hours
 
 
 def _time_to_minutes(t: time) -> int:
@@ -201,19 +201,12 @@ def generate_available_slots(
     else:
         # Step B: Shift Fallback from Doctor.working_hours
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if doctor and doctor.working_hours:
-            working_hours = doctor.working_hours
-            if isinstance(working_hours, str):
-                import json
-                try:
-                    working_hours = json.loads(working_hours)
-                except Exception:
-                    working_hours = {}
-
+        if doctor:
+            working_hours = resolve_doctor_working_hours(doctor.working_hours)
             closed_days = working_hours.get("closed_days", [])
-            # Evaluate closed days (JS/Schema convention: 0=Sun, 1=Mon...6=Sat, plus ISO Sunday=6)
-            js_day = (query_date.weekday() + 1) % 7
-            is_closed = (js_day in closed_days) or (query_date.weekday() == 6 and 6 in closed_days)
+            # Evaluate closed days using schema standard convention (0=Sun, 1=Mon, ..., 6=Sat)
+            day_index = (query_date.weekday() + 1) % 7
+            is_closed = day_index in closed_days
             if not is_closed:
                 shifts = working_hours.get("shifts", [])
                 for shift in shifts:

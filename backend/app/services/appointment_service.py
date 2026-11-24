@@ -15,6 +15,7 @@ from app.schemas.appointment import (
     AppointmentRescheduleRequest,
     AppointmentResponse,
 )
+from app.schemas.schedule import resolve_doctor_working_hours
 from app.services import idempotency_service
 
 
@@ -93,26 +94,26 @@ def _validate_slot_against_schedule(
                 detail="Slot does not fall within any AVAILABLE schedule window",
             )
     else:
-        # Step B: Fall back to doctor working_hours
+        # Step B: Fall back to doctor working_hours (or default shifts if unconfigured)
         doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if not doctor or not doctor.working_hours:
+        if not doctor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No AVAILABLE schedule window for this date",
             )
 
-        working_hours = doctor.working_hours
-        if isinstance(working_hours, str):
-            import json
-            try:
-                working_hours = json.loads(working_hours)
-            except Exception:
-                working_hours = {}
+        working_hours = resolve_doctor_working_hours(doctor.working_hours)
+        shifts = working_hours.get("shifts", [])
+        if not shifts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No AVAILABLE schedule window for this date",
+            )
 
         closed_days = working_hours.get("closed_days", [])
-        # Support schema/JS convention (0=Sun, 1=Mon...6=Sat) and ISO Sunday (6)
-        js_day = (slot_date.weekday() + 1) % 7
-        is_closed = (js_day in closed_days) or (slot_date.weekday() == 6 and 6 in closed_days)
+        # Evaluate closed days using schema standard convention (0=Sun, 1=Mon, ..., 6=Sat)
+        day_index = (slot_date.weekday() + 1) % 7
+        is_closed = day_index in closed_days
         if is_closed:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
