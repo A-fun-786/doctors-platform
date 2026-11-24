@@ -157,7 +157,7 @@ engine = create_engine(
 
 - `AppointmentCreateRequest`: `patient_name`, `patient_contact?`, `date`, `start_time`, `end_time`, `reason?`, `notes?`
 - `AppointmentResponse`: full appointment with all fields (+ `page`, `page_size`, `total` in list responses)
-- `AppointmentRescheduleRequest`: `date`, `start_time`, `end_time`
+- `AppointmentRescheduleRequest`: `date`, `start_time`, `end_time`, `staff_id?`, `reason?`, `notes?`
 
 ### Phase 1 Test Cases
 
@@ -901,6 +901,10 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
    - The "Reason for visit" column was removed from the agenda table to prevent horizontal overflow on smaller laptops and tablets. Full clinical reason and vitals are presented in the right-side `AppointmentDetailsPanel` upon row click.
 6. **Legacy Test Compatibility Wrapper**:
    - `scripts/test_sidebar_quick_actions_clean.mjs` explicitly checks for `<CalendarSidebar` in `CalendarTab.tsx`. To keep test suites passing 100% while streamlining the view to full-width, `CalendarSidebar` is mounted in a `<div className="hidden" aria-hidden="true">` wrapper.
+7. **Reschedule Reason and Notes Persistence (Issue #32)**:
+   - When rescheduling an appointment, `AppointmentRescheduleRequest` accepts optional `reason` and `notes`.
+   - The backend service evaluates `"reason" in payload.model_fields_set` and `"notes" in payload.model_fields_set` to allow partial updates, preserving existing clinical notes when fields are omitted and updating/clearing them when explicitly provided.
+   - The frontend `AppointmentRescheduleForm` and `AppointmentDetailsPanel` propagate edits to prevent silent data loss.
 
 ---
 

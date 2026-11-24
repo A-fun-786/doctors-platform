@@ -77,12 +77,21 @@ export default function RescheduleConfirmModal({
         </div>
 
         {/* Notice */}
-        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/80 text-[11px] text-amber-800 flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <span>
-            The previous slot will be immediately freed and made available for other bookings.
-          </span>
-        </div>
+        {originalDate === newDate &&
+        originalStartTime === newStartTime &&
+        originalEndTime === newEndTime ? (
+          <div className="p-3 bg-blue-50 rounded-xl border border-blue-200/80 text-[11px] text-blue-800 flex items-start gap-2">
+            <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <span>The appointment time slot remains unchanged. Visit details will be updated.</span>
+          </div>
+        ) : (
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/80 text-[11px] text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              The previous slot will be immediately freed and made available for other bookings.
+            </span>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100">

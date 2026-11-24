@@ -29,7 +29,13 @@ interface AppointmentRescheduleFormProps {
   event: CalendarEvent;
   date: string;
   onCancel: () => void;
-  onSuccess: (updatedDate: string, updatedStart: string, updatedEnd: string) => void;
+  onSuccess: (
+    updatedDate: string,
+    updatedStart: string,
+    updatedEnd: string,
+    updatedReason?: string,
+    updatedNotes?: string
+  ) => void;
   existingEvents?: CalendarEvent[];
   workingHoursConfig?: WorkingHoursConfig;
   showToast?: (msg: string) => void;
@@ -112,7 +118,16 @@ export default function AppointmentRescheduleForm({
       selectedSlot.start === event.start &&
       selectedSlot.end === event.end;
 
-    if (isSlotUnchanged && reason === (event.reason || "") && notes === (event.notes || "")) {
+    const trimmedReason = reason.trim();
+    const trimmedNotes = notes.trim();
+    const initialReason = (event.reason || "").trim();
+    const initialNotes = (event.notes || "").trim();
+
+    if (
+      isSlotUnchanged &&
+      trimmedReason === initialReason &&
+      trimmedNotes === initialNotes
+    ) {
       setFormError("No changes detected. Select a new date, time, or update visit details.");
       return;
     }
@@ -128,10 +143,15 @@ export default function AppointmentRescheduleForm({
     setFormError(null);
 
     try {
+      const trimmedReason = reason.trim();
+      const trimmedNotes = notes.trim();
+
       await rescheduleAppointment(event.appointment_id, {
         date: targetDate,
         start_time: selectedSlot.start,
         end_time: selectedSlot.end,
+        reason: trimmedReason || null,
+        notes: trimmedNotes || null,
       });
 
       if (showToast) {
@@ -143,7 +163,7 @@ export default function AppointmentRescheduleForm({
       }
 
       setShowConfirmModal(false);
-      onSuccess(targetDate, selectedSlot.start, selectedSlot.end);
+      onSuccess(targetDate, selectedSlot.start, selectedSlot.end, trimmedReason, trimmedNotes);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Failed to reschedule appointment";
       setFormError(errMsg);
@@ -232,6 +252,7 @@ export default function AppointmentRescheduleForm({
         <input
           type="text"
           value={reason}
+          maxLength={1000}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. Follow-up Consultation"
           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-2xs"
@@ -263,6 +284,7 @@ export default function AppointmentRescheduleForm({
         <textarea
           rows={3}
           value={notes}
+          maxLength={5000}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Internal notes for medical team..."
           className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-2xs resize-none"

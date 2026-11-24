@@ -135,8 +135,8 @@ export default function AppointmentDetailsPanel({
             patient_blood_group: full.patient_blood_group || prev.patient_blood_group,
             patient_address: full.patient_address || prev.patient_address,
             created_at: full.created_at || prev.created_at,
-            reason: full.reason || prev.reason,
-            notes: full.notes || prev.notes,
+            reason: full.reason !== undefined ? (full.reason ?? "") : prev.reason,
+            notes: full.notes !== undefined ? (full.notes ?? "") : prev.notes,
             status: full.status || prev.status,
           }));
         }
@@ -171,13 +171,17 @@ export default function AppointmentDetailsPanel({
   const handleRescheduleSuccess = (
     newDate: string,
     newStart: string,
-    newEnd: string
+    newEnd: string,
+    newReason?: string,
+    newNotes?: string
   ) => {
     setCurrentDate(newDate);
     setCurrentEvent((prev) => ({
       ...prev,
       start: newStart,
       end: newEnd,
+      reason: newReason !== undefined ? newReason : prev.reason,
+      notes: newNotes !== undefined ? newNotes : prev.notes,
     }));
     setIsEditing(false);
     onRefreshCalendar();
