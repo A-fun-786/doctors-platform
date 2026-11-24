@@ -57,7 +57,7 @@ def get_current_doctor(
             )
 
         jwt_token_version = payload.get("token_version")
-        if jwt_token_version is not None and staff.token_version != jwt_token_version:
+        if jwt_token_version is None or staff.token_version != jwt_token_version:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credentials have changed. Please log in again.",

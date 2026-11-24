@@ -293,7 +293,7 @@ class AuthService:
                 "user_type": "staff",
                 "staff_id": str(staff.id),
                 "username": staff.username,
-                "token_version": staff.token_version,
+                "token_version": staff.token_version or 1,
             },
         )
 

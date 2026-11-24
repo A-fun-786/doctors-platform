@@ -126,6 +126,7 @@ When creating staff, `generate_username_candidates` tests candidates in batches 
 ### Zero Plain-Text Storage & Ephemeral Session Cache
 - Passwords are one-way hashed with `bcrypt` (12 rounds) and never stored in plain text.
 - To allow clinic owners to share initial credentials, the UI uses an in-memory session cache (`recentPasswords`) to display a temporary **Eye Reveal/Mask** toggle and **Copy Pass** button. Refreshing the browser permanently purges the plain text from memory.
+- **Mandatory Token Version Validation (Issue #34):** All staff JWT tokens must contain a valid `token_version` claim. In `get_current_doctor` ([`backend/app/api/deps.py`](file:///Users/emanur/doctors-platform/backend/app/api/deps.py)), any token with a missing, null, or mismatched version is rejected with `401 Unauthorized` (`detail="Credentials have changed. Please log in again."`). Whenever a staff password is changed or reset, `staff.token_version` increments, instantly invalidating all active sessions.
 
 ---
 

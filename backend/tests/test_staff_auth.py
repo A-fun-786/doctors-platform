@@ -603,3 +603,79 @@ def test_token_version_invalidation_on_password_reset(client, doctor_fixture):
     me_again = client.get("/api/v1/auth/me", headers=new_headers)
     assert me_again.status_code == 200
 
+
+def test_staff_token_without_token_version_claim_rejected(client, doctor_fixture, db_session):
+    """
+    Issue #34: Staff tokens without token_version claim must be rejected with 401.
+    Prevents pre-revocation legacy or stripped tokens from bypassing session invalidation.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Create staff member
+    staff_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Aman Verma",
+            "phone": "+91 98888 22222",
+            "role": "Receptionist",
+            "can_login": True,
+            "password": "SecurePass123!",
+        },
+        headers=doc_headers,
+    )
+    assert staff_res.status_code == 201
+    staff_id = staff_res.json()["id"]
+
+    # 2. Mint token with user_type='staff' but OMIT token_version claim
+    stripped_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            # token_version intentionally omitted
+        },
+    )
+    stripped_headers = {"Authorization": f"Bearer {stripped_token}"}
+
+    # 3. Access must be rejected with 401
+    res = client.get("/api/v1/auth/me", headers=stripped_headers)
+    assert res.status_code == 401
+    assert "credentials have changed" in res.json()["detail"].lower()
+
+    # 4. Mint token with explicit token_version=None
+    null_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            "token_version": None,
+        },
+    )
+    null_headers = {"Authorization": f"Bearer {null_token}"}
+
+    res_null = client.get("/api/v1/auth/me", headers=null_headers)
+    assert res_null.status_code == 401
+    assert "credentials have changed" in res_null.json()["detail"].lower()
+
+    # 5. Mint token with valid matching token_version=1
+    valid_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            "token_version": 1,
+        },
+    )
+    valid_headers = {"Authorization": f"Bearer {valid_token}"}
+
+    res_valid = client.get("/api/v1/auth/me", headers=valid_headers)
+    assert res_valid.status_code == 200
+    assert res_valid.json()["id"] == staff_id
+
+
