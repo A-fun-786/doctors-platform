@@ -349,11 +349,16 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
+    if (staffForm.username && staffForm.username.includes("@")) {
+      setErrorMsg("Staff User ID cannot contain '@'. Enter only letters, numbers, dots, and hyphens.");
+      return;
+    }
+
     try {
       const paise = Math.round(parseFloat(staffForm.base_salary_rupees || "0") * 100);
       const created = await createStaffMember({
         full_name: staffForm.full_name,
-        username: staffForm.username ? staffForm.username.trim().replace(/^@+/, "") : undefined,
+        username: staffForm.username ? staffForm.username.trim() : undefined,
         email: staffForm.email ? staffForm.email.trim() : undefined,
         phone: staffForm.phone,
         role: staffForm.role,
@@ -479,6 +484,11 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
+    if (editingStaff.username && editingStaff.username.includes("@")) {
+      setErrorMsg("Staff User ID cannot contain '@'. Enter only letters, numbers, dots, and hyphens.");
+      return;
+    }
+
     if (!window.confirm(`Save changes for ${editingStaff.full_name}?`)) {
       return;
     }
@@ -486,7 +496,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     try {
       const updated = await updateStaffMember(editingStaff.id, {
         full_name: editingStaff.full_name,
-        username: editingStaff.username ? editingStaff.username.trim().replace(/^@+/, "") : undefined,
+        username: editingStaff.username ? editingStaff.username.trim() : undefined,
         email: editingStaff.email ? editingStaff.email.trim() : undefined,
         phone: editingStaff.phone,
         role: editingStaff.role,

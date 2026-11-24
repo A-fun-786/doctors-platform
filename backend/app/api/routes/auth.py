@@ -11,6 +11,7 @@ from app.schemas.auth import (
     GoogleAuthRequest,
     EmailRegisterRequest,
     EmailLoginRequest,
+    ChangePasswordRequest,
     AuthResponse,
     DoctorMeResponse,
     TenantResponse,
@@ -133,4 +134,27 @@ def get_me(
         staff_id=None,
         can_manage_staff=True,
         must_change_password=False,
+    )
+
+
+@router.post(
+    "/change-password",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Change Password",
+    description="Self-service endpoint for staff and doctors to update their account password.",
+)
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Update current user password, clear must_change_password, and issue a fresh session."""
+    return auth_service.change_password(
+        db=db,
+        current_doctor=current_doctor,
+        new_password=payload.new_password,
+        current_password=payload.current_password,
     )

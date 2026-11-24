@@ -186,11 +186,23 @@ def test_staff_login_and_me_endpoint(client, doctor_fixture, db_session):
     assert create_res.status_code == 201
     nurse_username = create_res.json()["username"]
 
-    # 2. Authenticate Nurse via /api/v1/auth/login using User ID
-    login_res = client.post(
+    # 2. Attempt login using @nurse_username -> Rejected (Staff must use exact User ID without @)
+    at_login_res = client.post(
         "/api/v1/auth/login",
         json={
             "email": f"@{nurse_username}",
+            "password": "NursePassword123!",
+            "portal_type": "staff",
+        },
+    )
+    assert at_login_res.status_code == 422
+    assert "invalid user id or password" in str(at_login_res.json()).lower()
+
+    # 3. Authenticate Nurse via /api/v1/auth/login using exact User ID
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": nurse_username,
             "password": "NursePassword123!",
             "portal_type": "staff",
         },
@@ -241,7 +253,7 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     # Test wrong password
     bad_login = client.post(
         "/api/v1/auth/login",
-        json={"email": f"@{rohan_user}", "password": "WrongPassword!", "portal_type": "staff"},
+        json={"email": rohan_user, "password": "WrongPassword!", "portal_type": "staff"},
     )
     assert bad_login.status_code == 401
 
@@ -256,7 +268,7 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     # Inactive staff login must be rejected
     inactive_login = client.post(
         "/api/v1/auth/login",
-        json={"email": f"@{rohan_user}", "password": "RohanSecretPassword123!", "portal_type": "staff"},
+        json={"email": rohan_user, "password": "RohanSecretPassword123!", "portal_type": "staff"},
     )
     assert inactive_login.status_code == 401
     assert "inactive" in inactive_login.json()["detail"].lower()
@@ -285,12 +297,29 @@ def test_staff_cannot_perform_admin_mutations(client, doctor_fixture):
     # Log in as Rahul
     auth_res = client.post(
         "/api/v1/auth/login",
-        json={"email": f"@{rahul_user}", "password": "JuniorPassword123!", "portal_type": "staff"},
+        json={"email": rahul_user, "password": "JuniorPassword123!", "portal_type": "staff"},
     )
-    staff_token = auth_res.json()["access_token"]
+    assert auth_res.json()["doctor"]["must_change_password"] is True
+    initial_staff_token = auth_res.json()["access_token"]
+    initial_staff_headers = {"Authorization": f"Bearer {initial_staff_token}"}
+
+    # Before changing password, accessing clinic roster is blocked with 403 (Issue #37)
+    blocked_res = client.get("/api/v1/staff", headers=initial_staff_headers)
+    assert blocked_res.status_code == 403
+    assert "Password change required" in blocked_res.json()["detail"]
+
+    # Rahul performs mandatory self-service password change
+    cp_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "JuniorPassword123!", "new_password": "RahulNewPassword456!"},
+        headers=initial_staff_headers,
+    )
+    assert cp_res.status_code == 200
+    assert cp_res.json()["doctor"]["must_change_password"] is False
+    staff_token = cp_res.json()["access_token"]
     staff_headers = {"Authorization": f"Bearer {staff_token}"}
 
-    # Staff CAN read clinic roster, but sensitive compensation and personal data are masked (#33)
+    # Staff CAN read clinic roster once password is changed, but sensitive compensation and personal data are masked (#33)
     list_res = client.get("/api/v1/staff", headers=staff_headers)
     assert list_res.status_code == 200
     roster = list_res.json()
@@ -363,7 +392,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Amina can now log in with the new password
     new_login = client.post(
         "/api/v1/auth/login",
-        json={"email": f"@{amina_user}", "password": "NewFreshPassword456!", "portal_type": "staff"},
+        json={"email": amina_user, "password": "NewFreshPassword456!", "portal_type": "staff"},
     )
     assert new_login.status_code == 200
     assert "access_token" in new_login.json()
@@ -371,7 +400,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Old password no longer works
     old_login = client.post(
         "/api/v1/auth/login",
-        json={"email": f"@{amina_user}", "password": "OldPassword123!", "portal_type": "staff"},
+        json={"email": amina_user, "password": "OldPassword123!", "portal_type": "staff"},
     )
     assert old_login.status_code == 401
 
@@ -422,7 +451,7 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
     staff_on_staff = client.post(
         "/api/v1/auth/login",
         json={
-            "email": f"@{maya_username}",
+            "email": maya_username,
             "password": "MayaPassword123!",
             "portal_type": "staff",
         },
@@ -721,7 +750,7 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
     assert staff_res.status_code == 201
     staff_id = staff_res.json()["id"]
 
-    # 2. Login using @poojashah (lowercase with leading @)
+    # 2. Login using @poojashah -> Rejected (must NOT use @)
     login1 = client.post(
         "/api/v1/auth/login",
         json={
@@ -730,14 +759,14 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
             "portal_type": "staff",
         },
     )
-    assert login1.status_code == 200
-    assert login1.json()["doctor"]["id"] == staff_id
+    assert login1.status_code == 422
+    assert "invalid user id or password" in str(login1.json()).lower()
 
-    # 3. Login using POOJASHAH (uppercase without @)
+    # 3. Login using poojashah (exact lowercase)
     login2 = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "POOJASHAH",
+            "email": "poojashah",
             "password": "LoginSecret123!",
             "portal_type": "staff",
         },
@@ -745,8 +774,20 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
     assert login2.status_code == 200
     assert login2.json()["doctor"]["id"] == staff_id
 
-    # 4. Attempt login using email pooja.shah@clinic.com on Staff portal -> Rejected (Staff must use User ID)
+    # 4. Login using POOJASHAH (uppercase without @)
     login3 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "POOJASHAH",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login3.status_code == 200
+    assert login3.json()["doctor"]["id"] == staff_id
+
+    # 5. Attempt login using email pooja.shah@clinic.com on Staff portal -> Rejected (Staff must use User ID)
+    login4 = client.post(
         "/api/v1/auth/login",
         json={
             "email": "pooja.shah@clinic.com",
@@ -754,20 +795,135 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
             "portal_type": "staff",
         },
     )
-    assert login3.status_code == 422
-    assert "user id" in str(login3.json()).lower()
+    assert login4.status_code == 422
+    assert "user id" in str(login4.json()).lower()
 
-    # 5. Login using mixed-case User ID @PoojaShah
-    login4 = client.post(
+    # 6. Login using mixed-case User ID PoojaShah (without @)
+    login5 = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "@PoojaShah",
+            "email": "PoojaShah",
             "password": "LoginSecret123!",
             "portal_type": "staff",
         },
     )
-    assert login4.status_code == 200
-    assert login4.json()["doctor"]["id"] == staff_id
+    assert login5.status_code == 200
+    assert login5.json()["doctor"]["id"] == staff_id
+
+
+def test_must_change_password_enforcement_and_clearance(client, doctor_fixture):
+    """
+    Test Issue #37:
+    1. Provisioning sets must_change_password=True.
+    2. Login returns must_change_password=True.
+    3. Accessing protected non-auth routes returns 403 Forbidden.
+    4. Accessing /auth/me succeeds.
+    5. Self-service password change validates current password and strength.
+    6. Successful password change clears must_change_password to False and increments token_version.
+    7. Old session token is invalidated.
+    8. New session token can access all protected routes cleanly.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Provision staff member with initial password
+    prov_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Maya Roy",
+            "email": "maya.roy@hospital.com",
+            "phone": "+91 98765 11111",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "TempPass@123",
+        },
+        headers=doc_headers,
+    )
+    assert prov_res.status_code == 201
+    maya_user = prov_res.json()["username"]
+
+    # 2. Login as Maya Roy
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "TempPass@123", "portal_type": "staff"},
+    )
+    assert login_res.status_code == 200
+    auth_data = login_res.json()
+    assert auth_data["doctor"]["must_change_password"] is True
+    temp_token = auth_data["access_token"]
+    temp_headers = {"Authorization": f"Bearer {temp_token}"}
+
+    # 3. Accessing /auth/me succeeds even with must_change_password=True
+    me_res = client.get("/api/v1/auth/me", headers=temp_headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["must_change_password"] is True
+
+    # 4. Accessing protected non-auth routes is blocked with 403
+    blocked_res = client.get("/api/v1/staff", headers=temp_headers)
+    assert blocked_res.status_code == 403
+    assert "Password change required" in blocked_res.json()["detail"]
+
+    # 5. Password change with wrong current password fails
+    wrong_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "WrongPassword!", "new_password": "NewSecretPass@456"},
+        headers=temp_headers,
+    )
+    assert wrong_curr.status_code == 400
+    assert "Current password is incorrect" in wrong_curr.json()["detail"]
+
+    # 6. Password change with same password fails
+    same_pass = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "TempPass@123"},
+        headers=temp_headers,
+    )
+    assert same_pass.status_code == 400
+    assert "cannot be the same" in same_pass.json()["detail"]
+
+    # 7. Password change with short new password fails (schema validator)
+    short_pass = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "123"},
+        headers=temp_headers,
+    )
+    assert short_pass.status_code == 422
+
+    # 8. Successful password change
+    change_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "MayaPrivatePass@789"},
+        headers=temp_headers,
+    )
+    assert change_res.status_code == 200
+    new_auth = change_res.json()
+    assert new_auth["doctor"]["must_change_password"] is False
+    new_token = new_auth["access_token"]
+    new_headers = {"Authorization": f"Bearer {new_token}"}
+
+    # 9. Old token is immediately invalidated (token_version incremented)
+    old_token_res = client.get("/api/v1/auth/me", headers=temp_headers)
+    assert old_token_res.status_code == 401
+    assert "Credentials have changed" in old_token_res.json()["detail"]
+
+    # 10. New token can access protected routes cleanly
+    unblocked_res = client.get("/api/v1/staff", headers=new_headers)
+    assert unblocked_res.status_code == 200
+
+    # 11. Subsequent login with old password fails
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "TempPass@123", "portal_type": "staff"},
+    )
+    assert old_login.status_code == 401
+
+    # 12. Login with new password succeeds and must_change_password is False
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "MayaPrivatePass@789", "portal_type": "staff"},
+    )
+    assert new_login.status_code == 200
+    assert new_login.json()["doctor"]["must_change_password"] is False
+
 
 
 

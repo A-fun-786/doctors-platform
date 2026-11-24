@@ -428,7 +428,7 @@ export async function apiFetch<T = unknown>(
     const durationMs = performance.now() - startTime;
 
     if (!response.ok) {
-      if (requireAuth && (response.status === 401 || response.status === 403)) {
+      if (requireAuth && response.status === 401) {
         removeAuthToken();
         logger.warn("ApiClient", `Session expired (${response.status}) on ${method} ${endpoint}`, {
           status: response.status,
@@ -551,6 +551,29 @@ export async function getCurrentDoctor(token?: string): Promise<DoctorMeResponse
     requireAuth: true,
     token,
   });
+}
+
+export interface ChangePasswordPayload {
+  new_password: string;
+  current_password?: string;
+}
+
+/**
+ * Self-service password change for authenticated staff or doctors.
+ * Clears must_change_password and updates stored session token.
+ */
+export async function changePassword(
+  payload: ChangePasswordPayload
+): Promise<AuthResponse> {
+  const data = await apiFetch<AuthResponse>("/api/v1/auth/change-password", {
+    method: "POST",
+    requireAuth: true,
+    body: JSON.stringify(payload),
+  });
+  if (data?.access_token) {
+    setAuthToken(data.access_token);
+  }
+  return data;
 }
 
 /**

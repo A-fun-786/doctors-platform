@@ -181,17 +181,11 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
         return;
       }
     } else {
-      // Staff mode: strictly accept clinic-assigned User ID (e.g. john.doe)
-      if (cleanEmail.includes("@") && !cleanEmail.startsWith("@")) {
-        logger.warn("Auth", `Staff login rejected email address: ${cleanEmail}`);
-        setError("Staff accounts must sign in with their User ID (e.g. username). Email sign-in is reserved for clinic administrators.");
-        return;
-      }
-      const normalizedStaffId = cleanEmail.replace(/^@+/, "");
-      const isUsername = /^[a-zA-Z0-9._-]+$/.test(normalizedStaffId) && normalizedStaffId.length >= 3;
+      // Staff mode: strictly accept exact clinic-assigned User ID (e.g. john.doe)
+      const isUsername = /^[a-zA-Z0-9._-]+$/.test(cleanEmail) && cleanEmail.length >= 3;
       if (!isUsername) {
         logger.warn("Auth", `Validation rejected invalid staff identifier: ${cleanEmail}`);
-        setError("Please enter a valid Staff User ID (e.g. john.doe).");
+        setError("Invalid User ID or password");
         return;
       }
     }

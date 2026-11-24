@@ -20,6 +20,7 @@ from app.schemas.auth import (
     DoctorResponse,
     TenantResponse,
     validate_email_id,
+    validate_strong_password,
 )
 
 
@@ -333,6 +334,7 @@ class AuthService:
                 role=staff.role,
                 user_type="staff",
                 staff_id=staff.id,
+                must_change_password=staff.must_change_password,
             ),
             tenant=TenantResponse.model_validate(tenant),
         )
@@ -355,16 +357,16 @@ class AuthService:
             )
 
         identifier = email.strip()
-        norm_identifier = identifier.lstrip("@").lower()
+        norm_identifier = identifier.lower()
 
         # -------------------------------------------------------------
         # Branch 1: Staff Portal Sign-In (Direct Staff Lookup by User ID)
         # -------------------------------------------------------------
         if portal_type == "staff":
-            if "@" in identifier and not identifier.startswith("@"):
+            if "@" in identifier:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Staff accounts must sign in using their clinic-assigned User ID (e.g. username). Email login is not supported for staff.",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid User ID or password",
                 )
 
             staff = db.query(StaffMember).filter(
@@ -437,13 +439,6 @@ class AuthService:
                 detail="Invalid email or password",
             )
 
-        # Strict role boundary enforcement: Admin cannot log in via the Staff portal
-        if portal_type == "staff":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This account is a clinic administrator account. Please switch to the 'Admin' tab to sign in.",
-            )
-
         # Transparently rehash legacy PBKDF2 passwords to bcrypt on successful login
         if needs_rehash(doctor.hashed_password):
             doctor.hashed_password = hash_password(password)
@@ -481,6 +476,141 @@ class AuthService:
             ),
             tenant=TenantResponse.model_validate(tenant),
         )
+
+    @staticmethod
+    def change_password(
+        db: Session,
+        current_doctor: Doctor,
+        new_password: str,
+        current_password: Optional[str] = None,
+    ) -> AuthResponse:
+        """
+        Self-service password change for authenticated staff members or doctors.
+        Verifies current password if provided, enforces password strength, resets must_change_password to False,
+        increments token_version (invalidating pre-change sessions), and issues a fresh session token.
+        """
+        if not new_password or not new_password.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password is required",
+            )
+
+        try:
+            validate_strong_password(new_password)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(err),
+            )
+
+        # Ensure tenant exists to prevent AuthResponse validation error
+        tenant = current_doctor.tenant
+        if not tenant:
+            slug = generate_unique_tenant_slug(db, current_doctor.full_name)
+            tenant = Tenant(doctor_id=current_doctor.id, slug=slug, status="active")
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+
+        is_staff = getattr(current_doctor, "_is_staff", False)
+
+        if is_staff:
+            staff: StaffMember = current_doctor._current_staff
+            if current_password:
+                if not staff.hashed_password or not verify_password(current_password, staff.hashed_password):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Current password is incorrect",
+                    )
+                if current_password == new_password:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="New password cannot be the same as the current password",
+                    )
+            elif staff.hashed_password and verify_password(new_password, staff.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="New password cannot be the same as your temporary password",
+                )
+
+            staff.hashed_password = hash_password(new_password)
+            staff.must_change_password = False
+            staff.token_version = (staff.token_version or 1) + 1
+            db.commit()
+            db.refresh(staff)
+
+            access_token = create_access_token(
+                subject=str(staff.id),
+                claims={
+                    "doctor_id": str(current_doctor.id),
+                    "role": staff.role,
+                    "user_type": "staff",
+                    "staff_id": str(staff.id),
+                    "username": staff.username,
+                    "token_version": staff.token_version,
+                },
+            )
+
+            return AuthResponse(
+                access_token=access_token,
+                token_type="bearer",
+                doctor=DoctorResponse(
+                    id=staff.id,
+                    full_name=staff.full_name,
+                    email=staff.email or f"{staff.username}@staff.clinic",
+                    username=staff.username,
+                    avatar_url=None,
+                    auth_provider="staff_credentials",
+                    onboarding_completed=True,
+                    role=staff.role,
+                    user_type="staff",
+                    staff_id=staff.id,
+                    must_change_password=False,
+                ),
+                tenant=TenantResponse.model_validate(tenant),
+            )
+        else:
+            if current_password:
+                if not current_doctor.hashed_password or not verify_password(current_password, current_doctor.hashed_password):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Current password is incorrect",
+                    )
+                if current_password == new_password:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="New password cannot be the same as the current password",
+                    )
+
+            current_doctor.hashed_password = hash_password(new_password)
+            db.commit()
+            db.refresh(current_doctor)
+
+            access_token = create_access_token(
+                subject=str(current_doctor.id),
+                claims={
+                    "doctor_id": str(current_doctor.id),
+                    "role": "Doctor",
+                    "user_type": "doctor",
+                },
+            )
+
+            return AuthResponse(
+                access_token=access_token,
+                token_type="bearer",
+                doctor=DoctorResponse(
+                    id=current_doctor.id,
+                    full_name=current_doctor.full_name,
+                    email=current_doctor.email,
+                    avatar_url=current_doctor.avatar_url,
+                    auth_provider=current_doctor.auth_provider,
+                    onboarding_completed=current_doctor.onboarding_completed,
+                    role="Doctor",
+                    user_type="doctor",
+                    must_change_password=False,
+                ),
+                tenant=TenantResponse.model_validate(tenant),
+            )
 
 
 auth_service = AuthService()

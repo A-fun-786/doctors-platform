@@ -1,8 +1,8 @@
 import uuid
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
@@ -14,6 +14,7 @@ security_scheme = HTTPBearer(auto_error=True)
 
 
 def get_current_doctor(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: Session = Depends(get_db),
 ) -> Doctor:
@@ -42,7 +43,12 @@ def get_current_doctor(
 
     # Handle Staff Member authentication
     if user_type == "staff":
-        staff = db.query(StaffMember).filter(StaffMember.id == user_id).first()
+        staff = (
+            db.query(StaffMember)
+            .options(joinedload(StaffMember.doctor))
+            .filter(StaffMember.id == user_id)
+            .first()
+        )
         if staff is None or not staff.can_login:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,13 +70,26 @@ def get_current_doctor(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        doctor = db.query(Doctor).filter(Doctor.id == staff.doctor_id).first()
+        doctor = staff.doctor
         if doctor is None or not doctor.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Clinic account is inactive",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        if staff.must_change_password:
+            path = request.url.path.rstrip("/")
+            allowed_paths = {
+                "/api/v1/auth/change-password",
+                "/api/v1/auth/me",
+                "/api/v1/auth/logout",
+            }
+            if path not in allowed_paths and not path.endswith(("/auth/change-password", "/auth/me", "/auth/logout")):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Password change required. You must change your password before accessing the clinic portal.",
+                )
 
         doctor._current_staff = staff
         doctor._is_staff = True

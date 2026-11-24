@@ -91,10 +91,14 @@ it("2.1 Migration 015 exists and defines upgrade/downgrade for case-insensitive 
 const authServicePath = path.join(projectRoot, "backend", "app", "services", "auth_service.py");
 const authServiceSource = fs.readFileSync(authServicePath, "utf-8");
 
-it("3.1 auth_service normalizes identifier by stripping leading @ for staff login", () => {
+it("3.1 auth_service strictly checks username with norm_identifier and rejects @", () => {
   assert.ok(
-    authServiceSource.includes('norm_identifier = identifier.lstrip("@").lower()'),
-    "auth_service must normalize identifier with lstrip('@').lower()"
+    authServiceSource.includes('norm_identifier = identifier.lower()'),
+    "auth_service must normalize identifier with lower()"
+  );
+  assert.ok(
+    authServiceSource.includes('if "@" in identifier:'),
+    "auth_service must block @ in staff User ID"
   );
   assert.ok(
     authServiceSource.includes("func.lower(StaffMember.username) == norm_identifier"),
@@ -105,14 +109,14 @@ it("3.1 auth_service normalizes identifier by stripping leading @ for staff logi
 const authSchemaPath = path.join(projectRoot, "backend", "app", "schemas", "auth.py");
 const authSchemaSource = fs.readFileSync(authSchemaPath, "utf-8");
 
-it("3.2 auth.py EmailLoginRequest handles staff User ID with leading @ symbol", () => {
+it("3.2 auth.py EmailLoginRequest rejects invalid User IDs including @", () => {
   assert.ok(
-    authSchemaSource.includes('if cleaned.startswith("@"):'),
-    "EmailLoginRequest must detect leading @ for staff portal"
+    authSchemaSource.includes("USERNAME_REGEX.match(cleaned)"),
+    "EmailLoginRequest must strictly validate against USERNAME_REGEX (rejecting @ and extra symbols)"
   );
   assert.ok(
-    authSchemaSource.includes('stripped = cleaned.lstrip("@")'),
-    "EmailLoginRequest must strip @ before validating alphanumeric User ID"
+    authSchemaSource.includes("Invalid User ID or password"),
+    "EmailLoginRequest must return unified Invalid User ID or password error"
   );
 });
 
@@ -121,14 +125,15 @@ it("3.2 auth.py EmailLoginRequest handles staff User ID with leading @ symbol", 
 // ------------------------------------------------------------------
 function normalizeUsername(raw) {
   if (!raw) return null;
-  return raw.trim().replace(/^@+/, "").toLowerCase();
+  if (raw.includes("@")) return null;
+  return raw.trim().toLowerCase();
 }
 
-it("4.1 Normalizes diverse casing and leading @ variants to identical lowercase key", () => {
-  const v1 = normalizeUsername("@JohnDoe");
+it("4.1 Normalizes diverse casing variants to identical lowercase key", () => {
+  const v1 = normalizeUsername("JohnDoe");
   const v2 = normalizeUsername("johndoe");
-  const v3 = normalizeUsername("@JOHNDOE");
-  const v4 = normalizeUsername("  @johnDoe  ");
+  const v3 = normalizeUsername("JOHNDOE");
+  const v4 = normalizeUsername("  johnDoe  ");
 
   assert.strictEqual(v1, "johndoe");
   assert.strictEqual(v2, "johndoe");
@@ -139,13 +144,9 @@ it("4.1 Normalizes diverse casing and leading @ variants to identical lowercase 
   assert.strictEqual(v3, v4);
 });
 
-it("4.2 Differentiates login email vs User ID without stripping internal @", () => {
-  const emailInput = "nurse.joy@hospital.com";
-  const userIdInput = "@nurse.joy";
-
-  assert.strictEqual(normalizeUsername(userIdInput), "nurse.joy");
-  // Email stays as email
-  assert.strictEqual(emailInput.trim().toLowerCase(), "nurse.joy@hospital.com");
+it("4.2 Rejects @ in User ID while differentiating exact User ID", () => {
+  assert.strictEqual(normalizeUsername("@nurse.joy"), null);
+  assert.strictEqual(normalizeUsername("nurse.joy"), "nurse.joy");
 });
 
 console.log("============================================================");

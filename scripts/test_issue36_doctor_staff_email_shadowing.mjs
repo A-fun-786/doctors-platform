@@ -140,12 +140,12 @@ it("3.3 test_staff.py includes test_create_and_update_staff_rejects_existing_doc
 // ------------------------------------------------------------------
 it("4.1 auth_service login_email rejects email addresses in staff portal", () => {
   assert.ok(
-    authServiceSource.includes('if "@" in identifier and not identifier.startswith("@"):'),
+    authServiceSource.includes('if "@" in identifier:'),
     "Staff portal must reject email addresses with @"
   );
   assert.ok(
-    authServiceSource.includes("Email login is not supported for staff"),
-    "Must explain that email login is not supported for staff"
+    authServiceSource.includes("Invalid User ID or password"),
+    "Must return uniform Invalid User ID or password error"
   );
 });
 
@@ -164,14 +164,14 @@ it("4.2 auth_service login_email queries staff strictly by username", () => {
 const formPath = path.join(projectRoot, "components", "auth", "EmailAuthForm.tsx");
 const formSource = fs.readFileSync(formPath, "utf-8");
 
-it("4.3 EmailAuthForm rejects email on staff tab with actionable message", () => {
+it("4.3 EmailAuthForm rejects invalid staff IDs including email with clean uniform message", () => {
   assert.ok(
-    formSource.includes('cleanEmail.includes("@") && !cleanEmail.startsWith("@")'),
-    "Form must detect email address on staff tab"
+    formSource.includes("/^[a-zA-Z0-9._-]+$/.test(cleanEmail)"),
+    "Form must enforce exact alphanumeric User ID pattern"
   );
   assert.ok(
-    formSource.includes("Email sign-in is reserved for clinic administrators"),
-    "Form must guide staff to use User ID"
+    formSource.includes("Invalid User ID or password"),
+    "Form must display uniform Invalid User ID or password error"
   );
 });
 

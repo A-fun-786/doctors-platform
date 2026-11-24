@@ -160,11 +160,11 @@ class StaffService:
 
         # User ID assignment & uniqueness validation
         if data.username and data.username.strip():
-            username = data.username.strip().lstrip("@").lower()
+            username = data.username.strip().lower()
             if not (3 <= len(username) <= 60 and USERNAME_REGEX.match(username)):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed)",
+                    detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed). Do not include '@'.",
                 )
             existing_user = self.db.scalar(
                 select(StaffMember).where(func.lower(StaffMember.username) == username)
@@ -256,11 +256,11 @@ class StaffService:
         if "username" in update_dict:
             new_username = update_dict.pop("username")
             if new_username:
-                new_username = new_username.strip().lstrip("@").lower()
+                new_username = new_username.strip().lower()
                 if not (3 <= len(new_username) <= 60 and USERNAME_REGEX.match(new_username)):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed)",
+                        detail="User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed). Do not include '@'.",
                     )
                 existing = self.db.scalar(
                     select(StaffMember).where(

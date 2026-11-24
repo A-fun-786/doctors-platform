@@ -101,7 +101,7 @@ class StaffMember(Base, TimestampMixin):
     username: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
     can_login: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
