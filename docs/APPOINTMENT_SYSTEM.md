@@ -879,7 +879,7 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
 - [`calendar/views/DayView.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/views/DayView.tsx): Displays stacked concurrent doctor appointments for time intervals.
 - [`calendar/modals/AddAppointmentModal.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/modals/AddAppointmentModal.tsx): Doctor selection dropdown with scoped conflict checking.
 - [`calendar/modals/SlotActionModal.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/modals/SlotActionModal.tsx): Practitioner selector when booking from empty slot clicks.
-- [`calendar/panels/SlotSelectorGrid.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/panels/SlotSelectorGrid.tsx): Reschedule slot selection scoped to `targetStaffId`.
+- [`calendar/panels/SlotSelectorGrid.tsx`](file:///Users/emanur/doctors-platform/components/dashboard/calendar/panels/SlotSelectorGrid.tsx): Reschedule slot selection scoped to `targetStaffId` (normalizes primary doctor appointments to `staff_id="primary"` to prevent clinic-wide capacity fallback).
 
 ---
 
@@ -893,10 +893,13 @@ In a multi-practitioner clinic, multiple doctors (the practice owner and employe
 2. **Clinic Capacity Slot Calculation**:
    - When no specific doctor is requested (`staff_id=None`), candidate 30-min slots check unavailable doctor count. A slot is only considered blocked if all clinic doctors are simultaneously busy or on leave.
 3. **No Dynamic Button Widths in Toolbars**:
-   - Dynamic date text inside action buttons (`Day ({formattedDate})`) caused variable-width flex-wrap breaking on certain dates. Kept buttons constant-width (`All`, `Confirmed`, `Completed`, `Day`, `Agenda`), placing changing dates strictly in fixed header capsules.
-4. **Zero Horizontal Scrolling**:
+   - Dynamic text like `Day (Oct 22)` inside view mode buttons causes layout jitter. Kept buttons constant-width (`All`, `Confirmed`, `Completed`, `Day`, `Agenda`), placing changing dates strictly in fixed header capsules.
+4. **Primary Doctor Rescheduling Boundary (Issue #30)**:
+   - When rescheduling an appointment attended by the primary doctor, `AppointmentRescheduleForm` and `SlotSelectorGrid` pass `targetStaffId="primary"`.
+   - Passing `null` or omitting `staff_id` would trigger clinic-wide multi-doctor capacity calculation, hiding valid primary slots or exposing slots when the primary doctor is blocked or on leave.
+5. **Zero Horizontal Scrolling**:
    - The "Reason for visit" column was removed from the agenda table to prevent horizontal overflow on smaller laptops and tablets. Full clinical reason and vitals are presented in the right-side `AppointmentDetailsPanel` upon row click.
-5. **Legacy Test Compatibility Wrapper**:
+6. **Legacy Test Compatibility Wrapper**:
    - `scripts/test_sidebar_quick_actions_clean.mjs` explicitly checks for `<CalendarSidebar` in `CalendarTab.tsx`. To keep test suites passing 100% while streamlining the view to full-width, `CalendarSidebar` is mounted in a `<div className="hidden" aria-hidden="true">` wrapper.
 
 ---

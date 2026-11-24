@@ -220,7 +220,7 @@ export default function AppointmentRescheduleForm({
         existingEvents={targetEvents}
         workingHoursConfig={workingHoursConfig}
         currentAppointmentId={event.appointment_id}
-        targetStaffId={event.staff_id || null}
+        targetStaffId={event.staff_id || "primary"}
       />
 
       {/* Field: Visit Reason */}
