@@ -181,8 +181,9 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
         return;
       }
     } else {
-      // Staff mode: accept either name-derived User ID (e.g., emanur.rahman) or email
-      const isUsername = /^[a-zA-Z0-9._-]+$/.test(cleanEmail) && cleanEmail.length >= 3;
+      // Staff mode: accept either name-derived User ID (e.g., emanur.rahman or @emanur.rahman) or email
+      const normalizedStaffId = cleanEmail.replace(/^@+/, "");
+      const isUsername = /^[a-zA-Z0-9._-]+$/.test(normalizedStaffId) && normalizedStaffId.length >= 3;
       if (!isUsername && !isValidEmail(cleanEmail)) {
         logger.warn("Auth", `Validation rejected invalid staff identifier: ${cleanEmail}`);
         setError("Please enter a valid Staff User ID (e.g. emanur.rahman) or email.");

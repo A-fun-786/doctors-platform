@@ -679,3 +679,77 @@ def test_staff_token_without_token_version_claim_rejected(client, doctor_fixture
     assert res_valid.json()["id"] == staff_id
 
 
+def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_session):
+    """
+    Issue #35: Staff login by User ID (with or without leading @) or email
+    must resolve uniquely and case-insensitively.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Create staff with User ID @PoojaShah and email Pooja.Shah@Clinic.com
+    staff_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Pooja Shah",
+            "phone": "+91 97777 33333",
+            "role": "Receptionist",
+            "username": "@PoojaShah",
+            "email": "Pooja.Shah@Clinic.com",
+            "can_login": True,
+            "password": "LoginSecret123!",
+        },
+        headers=doc_headers,
+    )
+    assert staff_res.status_code == 201
+    staff_id = staff_res.json()["id"]
+
+    # 2. Login using @poojashah (lowercase with leading @)
+    login1 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "@poojashah",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login1.status_code == 200
+    assert login1.json()["doctor"]["id"] == staff_id
+
+    # 3. Login using POOJASHAH (uppercase without @)
+    login2 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "POOJASHAH",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login2.status_code == 200
+    assert login2.json()["doctor"]["id"] == staff_id
+
+    # 4. Login using lowercase email pooja.shah@clinic.com
+    login3 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "pooja.shah@clinic.com",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login3.status_code == 200
+    assert login3.json()["doctor"]["id"] == staff_id
+
+    # 5. Login using uppercase email POOJA.SHAH@CLINIC.COM
+    login4 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "POOJA.SHAH@CLINIC.COM",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login4.status_code == 200
+    assert login4.json()["doctor"]["id"] == staff_id
+
+
+

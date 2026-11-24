@@ -177,6 +177,22 @@ class StaffService:
         else:
             username = generate_unique_staff_username(self.db, data.full_name)
 
+        # Validate email uniqueness against any active login-enabled staff account
+        if email:
+            existing_staff = self.db.scalar(
+                select(StaffMember).where(
+                    and_(
+                        func.lower(StaffMember.email) == email,
+                        StaffMember.can_login.is_(True),
+                    )
+                )
+            )
+            if existing_staff:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A staff member with this login email already exists",
+                )
+
         # Portal login access validation
         hashed_pw = None
         if data.can_login:
@@ -185,21 +201,6 @@ class StaffService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Password must be at least 6 characters long",
                 )
-            if email:
-                existing_staff = self.db.scalar(
-                    select(StaffMember).where(
-                        and_(
-                            func.lower(StaffMember.email) == email,
-                            StaffMember.can_login.is_(True),
-                        )
-                    )
-                )
-                if existing_staff:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="A staff member with this login email already exists",
-                    )
-
             hashed_pw = hash_password(data.password)
 
         staff = StaffMember(
@@ -292,24 +293,28 @@ class StaffService:
                 )
 
         # Enforce email uniqueness across portal login-enabled accounts
-        target_can_login = update_dict.get("can_login", staff.can_login)
         target_email = update_dict.get("email", staff.email)
-        if target_can_login and target_email:
-            norm_email = target_email.strip().lower()
-            existing_email_staff = self.db.scalar(
-                select(StaffMember).where(
-                    and_(
-                        func.lower(StaffMember.email) == norm_email,
-                        StaffMember.id != staff.id,
-                        StaffMember.can_login.is_(True),
+        if target_email:
+            norm_email = (
+                target_email.strip().lower()
+                if isinstance(target_email, str) and target_email.strip()
+                else None
+            )
+            if norm_email:
+                existing_email_staff = self.db.scalar(
+                    select(StaffMember).where(
+                        and_(
+                            func.lower(StaffMember.email) == norm_email,
+                            StaffMember.id != staff.id,
+                            StaffMember.can_login.is_(True),
+                        )
                     )
                 )
-            )
-            if existing_email_staff:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A staff member with this login email already exists",
-                )
+                if existing_email_staff:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="A staff member with this login email already exists",
+                    )
 
         for field, value in update_dict.items():
             if field == "email":

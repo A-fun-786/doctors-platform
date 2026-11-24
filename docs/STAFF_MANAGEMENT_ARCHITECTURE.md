@@ -1,9 +1,9 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.5.0  
+**Document Version:** 2.6.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
-**Last Updated:** November 20, 2026  
+**Last Updated:** November 24, 2026  
 
 ---
 
@@ -63,10 +63,11 @@ CREATE TABLE staff_members (
     id UUID PRIMARY KEY,
     doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
     full_name VARCHAR(120) NOT NULL,
-    username VARCHAR(60) UNIQUE NULL,
+    username VARCHAR(60) NULL,
     email VARCHAR(255) NULL,
     phone VARCHAR(30) NOT NULL,
     role VARCHAR(50) NOT NULL,
+    speciality VARCHAR(100) NULL,
     department VARCHAR(50) NOT NULL DEFAULT 'Clinical',
     employment_type VARCHAR(30) NOT NULL DEFAULT 'full_time',
     status VARCHAR(30) NOT NULL DEFAULT 'active',
@@ -83,7 +84,11 @@ CREATE TABLE staff_members (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_staff_username ON staff_members(username);
+-- Case-Insensitive Unique Indexes (Issue #35, Migration 015)
+CREATE UNIQUE INDEX uq_staff_username_lower ON staff_members (lower(username));
+CREATE UNIQUE INDEX uq_staff_login_email_lower ON staff_members (lower(email)) WHERE can_login = true AND email IS NOT NULL;
+
+-- Lookup and Multi-Tenant Isolation Indexes
 CREATE INDEX idx_staff_doctor_status ON staff_members(doctor_id, status);
 CREATE INDEX idx_staff_doctor_dept ON staff_members(doctor_id, department);
 CREATE INDEX idx_staff_email ON staff_members(email);
@@ -122,6 +127,7 @@ When creating staff, `generate_username_candidates` tests candidates in batches 
 - **Availability Query Boundary (Issue #29):** When querying `GET /doctor/available-slots` or `/public/tenants/{slug}/available-slots` with a `staff_id`, the engine enforces Step 0 validation against the clinic's active doctor staff. Malformed UUID strings or non-doctor roles reject with `400 Bad Request`, foreign or nonexistent IDs reject with `404 Not Found`, and on-leave doctors return `[]`, eliminating phantom slot leaks and accidental fallbacks to clinic-wide multi-doctor capacity.
 - **Primary Doctor Rescheduling Boundary (Issue #30):** When rescheduling an appointment attended by the primary doctor (`staff_id` is null or undefined), the UI passes `targetStaffId="primary"` to `SlotSelectorGrid` and `getDoctorAvailableSlots`. Omitting `staff_id` or passing `null` previously fell back to clinic-wide multi-doctor aggregate capacity, which hid valid primary slots when staff doctors were booked or exposed slots when the primary doctor was unavailable.
 - **Reschedule Reason and Notes Persistence (Issue #32):** Rescheduling an appointment attended by either a staff doctor or the primary clinic doctor persists any updated visit reasons and clinical notes in the database without silent truncation.
+- **Case-Insensitive Identity Uniqueness (Issue #35):** Staff User IDs and login-enabled emails are strictly case-insensitive unique, backed by functional unique indexes (`uq_staff_username_lower` and `uq_staff_login_email_lower`). All usernames are normalized by stripping leading `@`, trimming, and lowercasing. Login lookups accept User IDs with or without `@` and resolve accounts unambiguously, preventing cross-clinic account collision.
 
 ### Zero Plain-Text Storage & Ephemeral Session Cache
 - Passwords are one-way hashed with `bcrypt` (12 rounds) and never stored in plain text.

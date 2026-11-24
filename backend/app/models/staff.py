@@ -10,6 +10,8 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Index,
+    and_,
+    func,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -96,7 +98,7 @@ class StaffMember(Base, TimestampMixin):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Authentication & Portal Access fields
-    username: Mapped[Optional[str]] = mapped_column(String(60), nullable=True, unique=True)
+    username: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
     can_login: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -115,5 +117,12 @@ class StaffMember(Base, TimestampMixin):
         Index("idx_staff_doctor_status", "doctor_id", "status"),
         Index("idx_staff_doctor_dept", "doctor_id", "department"),
         Index("idx_staff_email", "email"),
-        Index("idx_staff_username", "username", unique=True),
+        Index("uq_staff_username_lower", func.lower(username), unique=True),
+        Index(
+            "uq_staff_login_email_lower",
+            func.lower(email),
+            unique=True,
+            postgresql_where=and_(can_login.is_(True), email.isnot(None)),
+            sqlite_where=and_(can_login.is_(True), email.isnot(None)),
+        ),
     )

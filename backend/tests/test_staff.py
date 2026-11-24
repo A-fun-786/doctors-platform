@@ -770,3 +770,145 @@ def test_clinic_owner_sees_compensation_and_notes(client, test_doctor_and_auth):
     assert data["base_salary_paise"] == 9500000
     assert data["emergency_contact"] == "Spouse (+919876500011)"
     assert data["notes"] == "Highly confidential HR evaluation notes"
+
+
+def test_case_insensitive_username_uniqueness_enforced(client, test_doctor_and_auth):
+    """
+    Issue #35: Staff username uniqueness must be strictly case-insensitive.
+    Reject duplicates regardless of mixed case or leading @ symbol.
+    """
+    _, headers = test_doctor_and_auth
+
+    # 1. Create staff with mixed-case username @JohnDoe
+    res1 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "John Doe",
+            "phone": "+91 99999 11111",
+            "role": "Receptionist",
+            "username": "@JohnDoe",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res1.status_code == 201
+    assert res1.json()["username"] == "johndoe"
+    staff1_id = res1.json()["id"]
+
+    # 2. Attempt to create another staff with lowercase johndoe
+    res2 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Johnny Junior",
+            "phone": "+91 99999 22222",
+            "role": "Nurse",
+            "username": "johndoe",
+        },
+        headers=headers,
+    )
+    assert res2.status_code == 400
+    assert "already exists" in res2.json()["detail"].lower()
+
+    # 3. Attempt to create another staff with uppercase @JOHNDOE
+    res3 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Big John",
+            "phone": "+91 99999 33333",
+            "role": "Nurse",
+            "username": "@JOHNDOE",
+        },
+        headers=headers,
+    )
+    assert res3.status_code == 400
+    assert "already exists" in res3.json()["detail"].lower()
+
+    # 4. Create another staff with distinct username
+    res4 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Alice Smith",
+            "phone": "+91 99999 44444",
+            "role": "Nurse",
+            "username": "alicesmith",
+        },
+        headers=headers,
+    )
+    assert res4.status_code == 201
+    staff2_id = res4.json()["id"]
+
+    # 5. Attempt to update Alice's username to @JOHNDOE -> must fail with 400
+    res_update = client.put(
+        f"/api/v1/staff/{staff2_id}",
+        json={"username": "@JOHNDOE"},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "already exists" in res_update.json()["detail"].lower()
+
+
+def test_case_insensitive_login_email_uniqueness_enforced(client, test_doctor_and_auth):
+    """
+    Issue #35: Staff login-enabled emails must be strictly case-insensitive unique.
+    Updates that keep or disable login cannot claim an active login email.
+    """
+    _, headers = test_doctor_and_auth
+
+    # 1. Create staff with mixed-case email Nurse.Joy@Hospital.com and can_login=True
+    res1 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Joy",
+            "email": "Nurse.Joy@Hospital.com",
+            "phone": "+91 88888 11111",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res1.status_code == 201
+    assert res1.json()["email"] == "nurse.joy@hospital.com"
+
+    # 2. Attempt to create another staff with lowercase nurse.joy@hospital.com and can_login=True
+    res2 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Joy Sister",
+            "email": "nurse.joy@hospital.com",
+            "phone": "+91 88888 22222",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res2.status_code == 400
+    assert "login email already exists" in res2.json()["detail"].lower()
+
+    # 3. Create staff without login
+    res3 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Officer Jenny",
+            "email": "jenny@police.com",
+            "phone": "+91 88888 33333",
+            "role": "Receptionist",
+            "can_login": False,
+        },
+        headers=headers,
+    )
+    assert res3.status_code == 201
+    staff3_id = res3.json()["id"]
+
+    # 4. Attempt to update Officer Jenny's email to NURSE.JOY@HOSPITAL.COM (with can_login=False)
+    # Must reject because nurse.joy@hospital.com is an active login account
+    res_update = client.put(
+        f"/api/v1/staff/{staff3_id}",
+        json={"email": "NURSE.JOY@HOSPITAL.COM"},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "login email already exists" in res_update.json()["detail"].lower()
+

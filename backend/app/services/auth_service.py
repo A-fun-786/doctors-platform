@@ -333,6 +333,7 @@ class AuthService:
             )
 
         identifier = email.strip()
+        norm_identifier = identifier.lstrip("@").lower()
 
         # -------------------------------------------------------------
         # Branch 1: Staff Portal Sign-In (Direct Staff Lookup by ID/Email)
@@ -340,7 +341,7 @@ class AuthService:
         if portal_type == "staff":
             staff = db.query(StaffMember).filter(
                 or_(
-                    func.lower(StaffMember.username) == identifier.lower(),
+                    func.lower(StaffMember.username) == norm_identifier,
                     func.lower(StaffMember.email) == identifier.lower(),
                 ),
                 StaffMember.can_login.is_(True),
@@ -384,7 +385,7 @@ class AuthService:
         if not doctor:
             staff = db.query(StaffMember).filter(
                 or_(
-                    func.lower(StaffMember.username) == identifier.lower(),
+                    func.lower(StaffMember.username) == norm_identifier,
                     func.lower(StaffMember.email) == identifier.lower(),
                 ),
                 StaffMember.can_login.is_(True),
