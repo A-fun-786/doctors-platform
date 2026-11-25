@@ -385,37 +385,17 @@ class AuthService:
         # -------------------------------------------------------------
         # Branch 2: Administrator Portal Sign-In (or Default)
         # -------------------------------------------------------------
-        if portal_type == "admin":
-            try:
-                identifier = validate_email_id(identifier)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(exc),
-                )
-        elif "@" in identifier:
-            try:
-                identifier = validate_email_id(identifier)
-            except ValueError:
-                pass
+        try:
+            identifier = validate_email_id(identifier)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            )
 
         doctor = db.query(Doctor).filter(func.lower(Doctor.email) == identifier.lower()).first()
 
-        # If doctor record is not found, check staff member by User ID
         if not doctor:
-            staff = db.query(StaffMember).filter(
-                func.lower(StaffMember.username) == norm_identifier,
-                StaffMember.can_login.is_(True),
-            ).first()
-
-            if staff:
-                if portal_type == "admin":
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="This account is a clinic staff account. Please switch to the 'Staff' tab to sign in.",
-                    )
-                return AuthService._create_staff_auth_session(db, staff, password)
-
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
