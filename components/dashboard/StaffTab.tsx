@@ -349,11 +349,16 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
+    if (staffForm.username && staffForm.username.includes("@")) {
+      setErrorMsg("Staff User ID cannot contain '@'. Enter only letters, numbers, dots, and hyphens.");
+      return;
+    }
+
     try {
       const paise = Math.round(parseFloat(staffForm.base_salary_rupees || "0") * 100);
       const created = await createStaffMember({
         full_name: staffForm.full_name,
-        username: staffForm.username ? staffForm.username.trim().replace(/^@+/, "") : undefined,
+        username: staffForm.username ? staffForm.username.trim() : undefined,
         email: staffForm.email ? staffForm.email.trim() : undefined,
         phone: staffForm.phone,
         role: staffForm.role,
@@ -370,7 +375,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       setStaffList((prev) => [created, ...prev]);
       setSuccessMsg(
         created.can_login
-          ? `${created.role} ${created.full_name} added with portal User ID @${created.username}.`
+          ? `${created.role} ${created.full_name} added with portal User ID ${created.username}.`
           : `${created.role} ${created.full_name} added to staff roster.`
       );
       setIsAddStaffOpen(false);
@@ -479,6 +484,11 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
+    if (editingStaff.username && editingStaff.username.includes("@")) {
+      setErrorMsg("Staff User ID cannot contain '@'. Enter only letters, numbers, dots, and hyphens.");
+      return;
+    }
+
     if (!window.confirm(`Save changes for ${editingStaff.full_name}?`)) {
       return;
     }
@@ -486,7 +496,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     try {
       const updated = await updateStaffMember(editingStaff.id, {
         full_name: editingStaff.full_name,
-        username: editingStaff.username ? editingStaff.username.trim().replace(/^@+/, "") : undefined,
+        username: editingStaff.username ? editingStaff.username.trim() : undefined,
         email: editingStaff.email ? editingStaff.email.trim() : undefined,
         phone: editingStaff.phone,
         role: editingStaff.role,
@@ -1015,21 +1025,20 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           Staff User ID <span className="text-slate-400 font-normal lowercase">(optional)</span>
                         </label>
                         <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
-                          Preview: @{staffForm.username ? staffForm.username.trim().toLowerCase() : derivePreviewUsername(staffForm.full_name)}
+                          Preview: {staffForm.username ? staffForm.username.trim().toLowerCase() : derivePreviewUsername(staffForm.full_name)}
                         </span>
                       </div>
                       <div className="relative flex items-center group">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs select-none pointer-events-none">@</span>
                         <input
                           type="text"
-                          placeholder={staffForm.full_name ? derivePreviewUsername(staffForm.full_name) : "e.g. emanur.rahman"}
+                          placeholder={staffForm.full_name ? derivePreviewUsername(staffForm.full_name) : "e.g. john.doe"}
                           value={staffForm.username}
                           onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })}
-                          className="w-full h-10 pl-10 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl font-mono text-xs font-semibold text-slate-900 transition-all shadow-2xs"
+                          className="w-full h-10 px-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl font-mono text-xs font-semibold text-slate-900 transition-all shadow-2xs"
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        Leave blank to auto-generate from name (e.g. <span className="font-mono text-slate-700 font-semibold">@{derivePreviewUsername(staffForm.full_name)}</span>).
+                        Leave blank to auto-generate from name (e.g. <span className="font-mono text-slate-700 font-semibold">{derivePreviewUsername(staffForm.full_name)}</span>).
                       </p>
                     </div>
 
@@ -1164,7 +1173,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                   <h2 className="text-lg font-bold text-slate-900 tracking-tight">Edit Staff: {editingStaff.full_name}</h2>
                   {editingStaff.username && (
                     <span className="text-[11px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
-                      @{editingStaff.username}
+                      {editingStaff.username}
                     </span>
                   )}
                 </div>
@@ -1589,13 +1598,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </label>
                       </div>
                       <div className="relative flex items-center group">
-                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs select-none pointer-events-none">@</span>
                         <input
                           type="text"
-                          placeholder="e.g. emanur.rahman"
+                          placeholder="e.g. john.doe"
                           value={editingStaff.username || ""}
                           onChange={(e) => setEditingStaff({ ...editingStaff, username: e.target.value })}
-                          className="w-full h-10 pl-10 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl font-mono text-xs font-semibold text-slate-900 transition-all shadow-2xs"
+                          className="w-full h-10 px-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl font-mono text-xs font-semibold text-slate-900 transition-all shadow-2xs"
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500">
@@ -1752,7 +1760,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                     </h2>
                     {selectedStaff.username && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
-                        @{selectedStaff.username}
+                        {selectedStaff.username}
                       </span>
                     )}
                   </div>
@@ -1955,7 +1963,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </span>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-mono text-sm font-bold text-slate-900 bg-emerald-50/80 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                            @{selectedStaff.username}
+                            {selectedStaff.username}
                           </span>
                         </div>
                       </div>
@@ -2035,7 +2043,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       <span>Portal Sign In Instructions</span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Staff members sign in at <code className="text-brand-700 font-semibold">/login</code> on the <strong>Staff</strong> tab using their User ID (<code>@{selectedStaff.username}</code>) and assigned password.
+                      Staff members sign in at <code className="text-brand-700 font-semibold">/login</code> on the <strong>Staff</strong> tab using their User ID (<code>{selectedStaff.username}</code>) and assigned password.
                     </p>
                   </div>
                 </div>
@@ -2344,7 +2352,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                               {staff.username ? (
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span className="text-[11px] font-mono text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/70 font-medium leading-none">
-                                    @{staff.username}
+                                    {staff.username}
                                   </span>
                                   <button
                                     type="button"
@@ -2576,7 +2584,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(credentialsModal.username || credentialsModal.email, "modal-id")}
+                    onClick={() => {
+                      const uid = credentialsModal.username || credentialsModal.email || "";
+                      copyToClipboard(uid, "modal-id");
+                    }}
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-white hover:bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 shadow-2xs transition-colors cursor-pointer"
                   >
                     {copiedStaffId === "modal-id" ? (
@@ -2637,7 +2648,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <button
                 type="button"
                 onClick={() => {
-                  const shareText = `Clinic Portal Login Credentials:\nStaff Member: ${credentialsModal.staffName} (${credentialsModal.role})\nPortal: Staff Login (/login)\nUser ID: ${credentialsModal.username || credentialsModal.email}${credentialsModal.email ? `\nEmail: ${credentialsModal.email}` : ""}\nPassword: ${credentialsModal.password}`;
+                  const uid = credentialsModal.username || credentialsModal.email || "";
+                  const shareText = `Clinic Portal Login Credentials:\nStaff Member: ${credentialsModal.staffName} (${credentialsModal.role})\nPortal: Staff Login (/login)\nUser ID: ${uid}\nPassword: ${credentialsModal.password}`;
                   navigator.clipboard.writeText(shareText);
                   setCopiedCredentials(true);
                   setTimeout(() => setCopiedCredentials(false), 3000);

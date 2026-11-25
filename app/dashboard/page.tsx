@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Activity, Loader2, AlertTriangle, ExternalLink } from "lucide-react";
 import {
   getCurrentDoctor,
@@ -13,12 +14,24 @@ import {
 } from "@/lib/api";
 import DashboardShell, { DashboardTabId } from "@/components/dashboard/DashboardShell";
 import OverviewTab from "@/components/dashboard/OverviewTab";
-import CalendarTab from "@/components/dashboard/CalendarTab";
-import StaffTab from "@/components/dashboard/StaffTab";
-import ProfileTab from "@/components/dashboard/ProfileTab";
-import AndroidAppTab from "@/components/dashboard/AndroidAppTab";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { logger } from "@/lib/logger";
+
+const TabLoader = () => (
+  <div className="flex items-center justify-center py-16 text-slate-500 text-sm gap-2">
+    <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+    <span>Loading view...</span>
+  </div>
+);
+
+const CalendarTab = dynamic(() => import("@/components/dashboard/CalendarTab"), { loading: TabLoader });
+const StaffTab = dynamic(() => import("@/components/dashboard/StaffTab"), { loading: TabLoader });
+const ProfileTab = dynamic(() => import("@/components/dashboard/ProfileTab"), { loading: TabLoader });
+const AndroidAppTab = dynamic(() => import("@/components/dashboard/AndroidAppTab"), { loading: TabLoader });
+const MandatoryChangePasswordModal = dynamic(
+  () => import("@/components/auth/MandatoryChangePasswordModal"),
+  { loading: TabLoader }
+);
 
 const ENABLE_ANDROID_BUILD = process.env.NEXT_PUBLIC_ENABLE_ANDROID_BUILD === "true";
 
@@ -29,44 +42,55 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
 
-  useEffect(() => {
-    async function loadDoctor() {
-      try {
-        const [meData, profileData] = await Promise.all([
-          getCurrentDoctor(),
-          getDoctorProfile().catch(() => null),
-        ]);
-        setDoctor(meData);
-        if (profileData) {
-          setProfile(profileData);
-        }
+  const loadDoctor = React.useCallback(async () => {
+    try {
+      const meData = await getCurrentDoctor();
+      setDoctor(meData);
 
-        // Attach doctor & tenant identity to production logger
-        logger.setUserContext({
+      // Attach doctor & tenant identity to production logger
+      logger.setUserContext({
+        userId: meData.id,
+        email: meData.email,
+        tenantSlug: meData.tenant?.slug || undefined,
+        role: meData.user_type === "staff" ? "staff" : "doctor",
+      });
+
+      // If password change is required, hold portal loading until password is set
+      if (meData.must_change_password) {
+        logger.info("Dashboard", "Staff member must change password before loading portal", {
           userId: meData.id,
-          email: meData.email,
-          tenantSlug: meData.tenant?.slug || undefined,
-          role: "doctor",
         });
-
-        logger.info("Dashboard", "Doctor portal initialized successfully", {
-          doctorId: meData.id,
-          email: meData.email,
-          tenantSlug: meData.tenant?.slug,
-          onboardingCompleted: meData.onboarding_completed,
-        });
-      } catch (err: unknown) {
-        logger.warn("Dashboard", "Failed to verify session, redirecting to login", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        router.replace("/login");
-      } finally {
-        setLoading(false);
+        return;
       }
-    }
 
-    loadDoctor();
+      // Only load clinic doctor profile for non-staff doctor owners (non-blocking so OverviewTab mounts immediately)
+      if (meData.user_type !== "staff") {
+        getDoctorProfile()
+          .then((profileData) => {
+            if (profileData) setProfile(profileData);
+          })
+          .catch(() => null);
+      }
+
+      logger.info("Dashboard", "Doctor portal initialized successfully", {
+        doctorId: meData.id,
+        email: meData.email,
+        tenantSlug: meData.tenant?.slug,
+        onboardingCompleted: meData.onboarding_completed,
+      });
+    } catch (err: unknown) {
+      logger.warn("Dashboard", "Failed to verify session, redirecting to login", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      router.replace("/login");
+    } finally {
+      setLoading(false);
+    }
   }, [router]);
+
+  useEffect(() => {
+    loadDoctor();
+  }, [loadDoctor]);
 
   const handleTabChange = (newTab: DashboardTabId) => {
     if (newTab !== activeTab) {
@@ -105,6 +129,19 @@ export default function DashboardPage() {
 
   if (!doctor) {
     return null;
+  }
+
+  // Security Gate: If password change is required, do NOT render clinical dashboard into the DOM
+  if (doctor.must_change_password) {
+    return (
+      <MandatoryChangePasswordModal
+        doctor={doctor}
+        onSuccess={() => {
+          setDoctor((prev) => (prev ? { ...prev, must_change_password: false } : null));
+          loadDoctor();
+        }}
+      />
+    );
   }
 
   return (

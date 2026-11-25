@@ -184,13 +184,27 @@ def test_staff_login_and_me_endpoint(client, doctor_fixture, db_session):
         headers=doc_headers,
     )
     assert create_res.status_code == 201
+    nurse_username = create_res.json()["username"]
 
-    # 2. Authenticate Nurse via unified /api/v1/auth/login
+    # 2. Attempt login using @nurse_username -> Rejected (Staff must use exact User ID without @)
+    at_login_res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": f"@{nurse_username}",
+            "password": "NursePassword123!",
+            "portal_type": "staff",
+        },
+    )
+    assert at_login_res.status_code == 422
+    assert "invalid user id or password" in str(at_login_res.json()).lower()
+
+    # 3. Authenticate Nurse via /api/v1/auth/login using exact User ID
     login_res = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "sunita.nurse@example.com",
+            "email": nurse_username,
             "password": "NursePassword123!",
+            "portal_type": "staff",
         },
     )
     assert login_res.status_code == 200
@@ -234,11 +248,12 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     )
     assert create_res.status_code == 201
     staff_id = create_res.json()["id"]
+    rohan_user = create_res.json()["username"]
 
     # Test wrong password
     bad_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "rohan.frontdesk@example.com", "password": "WrongPassword!"},
+        json={"email": rohan_user, "password": "WrongPassword!", "portal_type": "staff"},
     )
     assert bad_login.status_code == 401
 
@@ -253,7 +268,7 @@ def test_staff_login_wrong_password_and_inactive(client, doctor_fixture, db_sess
     # Inactive staff login must be rejected
     inactive_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "rohan.frontdesk@example.com", "password": "RohanSecretPassword123!"},
+        json={"email": rohan_user, "password": "RohanSecretPassword123!", "portal_type": "staff"},
     )
     assert inactive_login.status_code == 401
     assert "inactive" in inactive_login.json()["detail"].lower()
@@ -277,16 +292,34 @@ def test_staff_cannot_perform_admin_mutations(client, doctor_fixture):
     )
     assert create_res.status_code == 201
     staff_id = create_res.json()["id"]
+    rahul_user = create_res.json()["username"]
 
     # Log in as Rahul
     auth_res = client.post(
         "/api/v1/auth/login",
-        json={"email": "rahul.jr@example.com", "password": "JuniorPassword123!"},
+        json={"email": rahul_user, "password": "JuniorPassword123!", "portal_type": "staff"},
     )
-    staff_token = auth_res.json()["access_token"]
+    assert auth_res.json()["doctor"]["must_change_password"] is True
+    initial_staff_token = auth_res.json()["access_token"]
+    initial_staff_headers = {"Authorization": f"Bearer {initial_staff_token}"}
+
+    # Before changing password, accessing clinic roster is blocked with 403 (Issue #37)
+    blocked_res = client.get("/api/v1/staff", headers=initial_staff_headers)
+    assert blocked_res.status_code == 403
+    assert "Password change required" in blocked_res.json()["detail"]
+
+    # Rahul performs mandatory self-service password change
+    cp_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "JuniorPassword123!", "new_password": "RahulNewPassword456!"},
+        headers=initial_staff_headers,
+    )
+    assert cp_res.status_code == 200
+    assert cp_res.json()["doctor"]["must_change_password"] is False
+    staff_token = cp_res.json()["access_token"]
     staff_headers = {"Authorization": f"Bearer {staff_token}"}
 
-    # Staff CAN read clinic roster, but sensitive compensation and personal data are masked (#33)
+    # Staff CAN read clinic roster once password is changed, but sensitive compensation and personal data are masked (#33)
     list_res = client.get("/api/v1/staff", headers=staff_headers)
     assert list_res.status_code == 200
     roster = list_res.json()
@@ -346,6 +379,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
         headers=doc_headers,
     )
     staff_id = create_res.json()["id"]
+    amina_user = create_res.json()["username"]
 
     # Admin Doctor resets Amina's password
     reset_res = client.post(
@@ -358,7 +392,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Amina can now log in with the new password
     new_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "amina.reception@example.com", "password": "NewFreshPassword456!"},
+        json={"email": amina_user, "password": "NewFreshPassword456!", "portal_type": "staff"},
     )
     assert new_login.status_code == 200
     assert "access_token" in new_login.json()
@@ -366,7 +400,7 @@ def test_doctor_admin_reset_staff_password(client, doctor_fixture):
     # Old password no longer works
     old_login = client.post(
         "/api/v1/auth/login",
-        json={"email": "amina.reception@example.com", "password": "OldPassword123!"},
+        json={"email": amina_user, "password": "OldPassword123!", "portal_type": "staff"},
     )
     assert old_login.status_code == 401
 
@@ -375,7 +409,7 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
     doctor, doc_headers = doctor_fixture
 
     # 1. Create Staff
-    client.post(
+    create_res = client.post(
         "/api/v1/staff",
         json={
             "full_name": "Nurse Maya",
@@ -387,8 +421,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
         },
         headers=doc_headers,
     )
+    assert create_res.status_code == 201
+    maya_username = create_res.json()["username"]
 
-    # 2. Staff tries to log in via "admin" portal -> Rejected with 403
+    # 2. Staff tries to log in via "admin" portal using email -> Unregistered doctor email returns 401
     staff_on_admin = client.post(
         "/api/v1/auth/login",
         json={
@@ -397,11 +433,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "admin",
         },
     )
-    assert staff_on_admin.status_code == 403
-    assert "switch to the 'staff' tab" in staff_on_admin.json()["detail"].lower()
+    assert staff_on_admin.status_code in (401, 403)
 
-    # 3. Staff logs in via "staff" portal -> Success 200
-    staff_on_staff = client.post(
+    # 3. Staff tries to log in via "staff" portal using email -> Rejected with 422 (Staff requires User ID)
+    staff_email_rejected = client.post(
         "/api/v1/auth/login",
         json={
             "email": "maya.nurse@example.com",
@@ -409,9 +444,21 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "staff",
         },
     )
+    assert staff_email_rejected.status_code == 422
+    assert "user id" in str(staff_email_rejected.json()).lower()
+
+    # 4. Staff logs in via "staff" portal using User ID -> Success 200
+    staff_on_staff = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": maya_username,
+            "password": "MayaPassword123!",
+            "portal_type": "staff",
+        },
+    )
     assert staff_on_staff.status_code == 200
 
-    # 4. Doctor owner tries to log in via "staff" portal -> Rejected with 403
+    # 5. Doctor owner tries to log in via "staff" portal using email -> Rejected with 422 (Staff requires User ID)
     doc_on_staff = client.post(
         "/api/v1/auth/login",
         json={
@@ -420,10 +467,10 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
             "portal_type": "staff",
         },
     )
-    assert doc_on_staff.status_code == 403
-    assert "switch to the 'admin' tab" in doc_on_staff.json()["detail"].lower()
+    assert doc_on_staff.status_code == 422
+    assert "user id" in str(doc_on_staff.json()).lower()
 
-    # 5. Doctor owner logs in via "admin" portal -> Success 200
+    # 6. Doctor owner logs in via "admin" portal -> Success 200
     doc_on_admin = client.post(
         "/api/v1/auth/login",
         json={
@@ -438,14 +485,14 @@ def test_portal_type_strict_enforcement(client, doctor_fixture):
 def test_staff_username_candidate_generator():
     from app.services.staff_service import generate_username_candidates
 
-    # Dr. Emanur Rahman
-    candidates = generate_username_candidates("Dr. Emanur Rahman")
-    assert candidates[0] == "emanur.rahman"
-    assert candidates[1] == "e.rahman"
-    assert candidates[2] == "emanur.r"
-    assert candidates[3] == "emanurrahman"
-    assert "e1.rahman" in candidates
-    assert "emanur.r1" in candidates
+    # Dr. John Doe
+    candidates = generate_username_candidates("Dr. John Doe")
+    assert candidates[0] == "john.doe"
+    assert candidates[1] == "j.doe"
+    assert candidates[2] == "john.d"
+    assert candidates[3] == "johndoe"
+    assert "j1.doe" in candidates
+    assert "john.d1" in candidates
 
     # Single name
     single_candidates = generate_username_candidates("Rita")
@@ -457,13 +504,13 @@ def test_staff_username_candidate_generator():
 def test_staff_username_collision_resolution(client, doctor_fixture):
     doctor, doc_headers = doctor_fixture
 
-    # Create 8 staff members all named "Emanur Rahman"
+    # Create 8 staff members all named "John Doe"
     created_usernames = []
     for i in range(8):
         res = client.post(
             "/api/v1/staff",
             json={
-                "full_name": "Emanur Rahman",
+                "full_name": "John Doe",
                 "phone": f"+91 99999 {10000 + i}",
                 "role": "Doctor",
                 "can_login": True,
@@ -475,14 +522,14 @@ def test_staff_username_collision_resolution(client, doctor_fixture):
         created_usernames.append(res.json()["username"])
 
     # Verify priority sequence: natural names first, then minimal numbers
-    assert created_usernames[0] == "emanur.rahman"
-    assert created_usernames[1] == "e.rahman"
-    assert created_usernames[2] == "emanur.r"
-    assert created_usernames[3] == "emanurrahman"
-    assert created_usernames[4] == "erahman"
-    assert created_usernames[5] == "emanurr"
-    assert created_usernames[6] == "e1.rahman"
-    assert created_usernames[7] == "emanur.r1"
+    assert created_usernames[0] == "john.doe"
+    assert created_usernames[1] == "j.doe"
+    assert created_usernames[2] == "john.d"
+    assert created_usernames[3] == "johndoe"
+    assert created_usernames[4] == "jdoe"
+    assert created_usernames[5] == "johnd"
+    assert created_usernames[6] == "j1.doe"
+    assert created_usernames[7] == "john.d1"
 
     # All generated usernames are unique
     assert len(set(created_usernames)) == 8
@@ -602,4 +649,290 @@ def test_token_version_invalidation_on_password_reset(client, doctor_fixture):
 
     me_again = client.get("/api/v1/auth/me", headers=new_headers)
     assert me_again.status_code == 200
+
+
+def test_staff_token_without_token_version_claim_rejected(client, doctor_fixture, db_session):
+    """
+    Issue #34: Staff tokens without token_version claim must be rejected with 401.
+    Prevents pre-revocation legacy or stripped tokens from bypassing session invalidation.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Create staff member
+    staff_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Aman Verma",
+            "phone": "+91 98888 22222",
+            "role": "Receptionist",
+            "can_login": True,
+            "password": "SecurePass123!",
+        },
+        headers=doc_headers,
+    )
+    assert staff_res.status_code == 201
+    staff_id = staff_res.json()["id"]
+
+    # 2. Mint token with user_type='staff' but OMIT token_version claim
+    stripped_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            # token_version intentionally omitted
+        },
+    )
+    stripped_headers = {"Authorization": f"Bearer {stripped_token}"}
+
+    # 3. Access must be rejected with 401
+    res = client.get("/api/v1/auth/me", headers=stripped_headers)
+    assert res.status_code == 401
+    assert "credentials have changed" in res.json()["detail"].lower()
+
+    # 4. Mint token with explicit token_version=None
+    null_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            "token_version": None,
+        },
+    )
+    null_headers = {"Authorization": f"Bearer {null_token}"}
+
+    res_null = client.get("/api/v1/auth/me", headers=null_headers)
+    assert res_null.status_code == 401
+    assert "credentials have changed" in res_null.json()["detail"].lower()
+
+    # 5. Mint token with valid matching token_version=1
+    valid_token = create_access_token(
+        subject=staff_id,
+        claims={
+            "doctor_id": str(doctor.id),
+            "user_type": "staff",
+            "role": "Receptionist",
+            "staff_id": staff_id,
+            "token_version": 1,
+        },
+    )
+    valid_headers = {"Authorization": f"Bearer {valid_token}"}
+
+    res_valid = client.get("/api/v1/auth/me", headers=valid_headers)
+    assert res_valid.status_code == 200
+    assert res_valid.json()["id"] == staff_id
+
+
+def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_session):
+    """
+    Issue #35: Staff login by User ID (with or without leading @) or email
+    must resolve uniquely and case-insensitively.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Create staff with User ID PoojaShah and email Pooja.Shah@Clinic.com
+    staff_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Pooja Shah",
+            "phone": "+91 97777 33333",
+            "role": "Receptionist",
+            "username": "PoojaShah",
+            "email": "Pooja.Shah@Clinic.com",
+            "can_login": True,
+            "password": "LoginSecret123!",
+        },
+        headers=doc_headers,
+    )
+    assert staff_res.status_code == 201
+    staff_id = staff_res.json()["id"]
+
+    # 2. Login using @poojashah -> Rejected (must NOT use @)
+    login1 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "@poojashah",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login1.status_code == 422
+    assert "invalid user id or password" in str(login1.json()).lower()
+
+    # 3. Login using poojashah (exact lowercase)
+    login2 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "poojashah",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login2.status_code == 200
+    assert login2.json()["doctor"]["id"] == staff_id
+
+    # 4. Login using POOJASHAH (uppercase without @)
+    login3 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "POOJASHAH",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login3.status_code == 200
+    assert login3.json()["doctor"]["id"] == staff_id
+
+    # 5. Attempt login using email pooja.shah@clinic.com on Staff portal -> Rejected (Staff must use User ID)
+    login4 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "pooja.shah@clinic.com",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login4.status_code == 422
+    assert "user id" in str(login4.json()).lower()
+
+    # 6. Login using mixed-case User ID PoojaShah (without @)
+    login5 = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "PoojaShah",
+            "password": "LoginSecret123!",
+            "portal_type": "staff",
+        },
+    )
+    assert login5.status_code == 200
+    assert login5.json()["doctor"]["id"] == staff_id
+
+
+def test_must_change_password_enforcement_and_clearance(client, doctor_fixture):
+    """
+    Test Issue #37:
+    1. Provisioning sets must_change_password=True.
+    2. Login returns must_change_password=True.
+    3. Accessing protected non-auth routes returns 403 Forbidden.
+    4. Accessing /auth/me succeeds.
+    5. Self-service password change validates current password and strength.
+    6. Successful password change clears must_change_password to False and increments token_version.
+    7. Old session token is invalidated.
+    8. New session token can access all protected routes cleanly.
+    """
+    doctor, doc_headers = doctor_fixture
+
+    # 1. Provision staff member with initial password
+    prov_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Maya Roy",
+            "email": "maya.roy@hospital.com",
+            "phone": "+91 98765 11111",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "TempPass@123",
+        },
+        headers=doc_headers,
+    )
+    assert prov_res.status_code == 201
+    maya_user = prov_res.json()["username"]
+
+    # 2. Login as Maya Roy
+    login_res = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "TempPass@123", "portal_type": "staff"},
+    )
+    assert login_res.status_code == 200
+    auth_data = login_res.json()
+    assert auth_data["doctor"]["must_change_password"] is True
+    temp_token = auth_data["access_token"]
+    temp_headers = {"Authorization": f"Bearer {temp_token}"}
+
+    # 3. Accessing /auth/me succeeds even with must_change_password=True
+    me_res = client.get("/api/v1/auth/me", headers=temp_headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["must_change_password"] is True
+
+    # 4. Accessing protected non-auth routes is blocked with 403
+    blocked_res = client.get("/api/v1/staff", headers=temp_headers)
+    assert blocked_res.status_code == 403
+    assert "Password change required" in blocked_res.json()["detail"]
+
+    # 5. Password change with wrong current password fails
+    wrong_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "WrongPassword!", "new_password": "NewSecretPass@456"},
+        headers=temp_headers,
+    )
+    assert wrong_curr.status_code == 400
+    assert "Current password is incorrect" in wrong_curr.json()["detail"]
+
+    # 6. Password change with same password fails
+    same_pass = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "TempPass@123"},
+        headers=temp_headers,
+    )
+    assert same_pass.status_code == 400
+    assert "cannot be the same" in same_pass.json()["detail"]
+
+    # 7. Password change with short new password fails (schema validator)
+    short_pass = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "123"},
+        headers=temp_headers,
+    )
+    assert short_pass.status_code == 422
+
+    # 8. Successful password change
+    change_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "TempPass@123", "new_password": "MayaPrivatePass@789"},
+        headers=temp_headers,
+    )
+    assert change_res.status_code == 200
+    new_auth = change_res.json()
+    assert new_auth["doctor"]["must_change_password"] is False
+    new_token = new_auth["access_token"]
+    new_headers = {"Authorization": f"Bearer {new_token}"}
+
+    # 9. Old token is immediately invalidated (token_version incremented)
+    old_token_res = client.get("/api/v1/auth/me", headers=temp_headers)
+    assert old_token_res.status_code == 401
+    assert "Credentials have changed" in old_token_res.json()["detail"]
+
+    # 10. New token can access protected routes cleanly
+    unblocked_res = client.get("/api/v1/staff", headers=new_headers)
+    assert unblocked_res.status_code == 200
+
+    # 11. Subsequent login with old password fails
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "TempPass@123", "portal_type": "staff"},
+    )
+    assert old_login.status_code == 401
+
+    # 12. Login with new password succeeds and must_change_password is False
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": maya_user, "password": "MayaPrivatePass@789", "portal_type": "staff"},
+    )
+    assert new_login.status_code == 200
+    assert new_login.json()["doctor"]["must_change_password"] is False
+
+    # 13. Once must_change_password is False, subsequent password changes require current_password
+    no_curr_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "AnotherStrongPass@999"},
+        headers=new_headers,
+    )
+    assert no_curr_res.status_code == 400
+    assert "current password is required" in no_curr_res.json()["detail"].lower()
+
+
+
 

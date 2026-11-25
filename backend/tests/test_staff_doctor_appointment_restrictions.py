@@ -125,6 +125,7 @@ def staff_doctor_headers(staff_doctor, clinic_owner):
             "user_type": "staff",
             "role": "Doctor",
             "staff_id": str(staff_doctor.id),
+            "token_version": getattr(staff_doctor, "token_version", 1) or 1,
         },
     )
     return {"Authorization": f"Bearer {token}"}
@@ -139,6 +140,7 @@ def receptionist_headers(staff_receptionist, clinic_owner):
             "user_type": "staff",
             "role": "Receptionist",
             "staff_id": str(staff_receptionist.id),
+            "token_version": getattr(staff_receptionist, "token_version", 1) or 1,
         },
     )
     return {"Authorization": f"Bearer {token}"}
@@ -549,6 +551,7 @@ def test_nurse_cannot_complete_appointments(
             "user_type": "staff",
             "role": "Nurse",
             "staff_id": str(nurse.id),
+            "token_version": getattr(nurse, "token_version", 1) or 1,
         },
     )
     nurse_headers = {"Authorization": f"Bearer {token}"}

@@ -439,3 +439,126 @@ def test_login_authentication_with_valid_and_invalid_credentials(client, db_sess
     assert data["doctor"]["email"] == "verified.doc@example.com"
 
 
+def test_doctor_registration_rejects_existing_staff_email(client, db_session):
+    """Test that doctor email registration rejects emails already registered to login-enabled staff (Issue #36)."""
+    # 1. Create a doctor to host the staff member
+    host_doc_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "host.doctor@clinic.com", "password": "HostPassword123!"},
+    )
+    assert host_doc_resp.status_code == 201
+    host_token = host_doc_resp.json()["access_token"]
+    host_headers = {"Authorization": f"Bearer {host_token}"}
+
+    # 2. Add a staff member with can_login=True and a specific email
+    staff_resp = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Sunita Rao",
+            "email": "sunita.rao@hospital.com",
+            "phone": "+91 98765 43210",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "SunitaPassword123!",
+        },
+        headers=host_headers,
+    )
+    assert staff_resp.status_code == 201
+
+    # 3. Attempt to register a new doctor with the same staff email -> Rejected with 400
+    dup_reg = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "Sunita.Rao@Hospital.COM",  # Mixed case to verify case-insensitivity
+            "password": "NewDoctorPassword123!",
+        },
+    )
+    assert dup_reg.status_code == 400
+    assert "clinic staff" in dup_reg.json()["detail"].lower()
+
+
+def test_doctor_google_auth_rejects_existing_staff_email(client, db_session):
+    """Test that Google OAuth auto-registration rejects emails registered to login-enabled staff (Issue #36)."""
+    # 1. Create host doctor
+    host_doc_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "host2.doctor@clinic.com", "password": "HostPassword123!"},
+    )
+    assert host_doc_resp.status_code == 201
+    host_token = host_doc_resp.json()["access_token"]
+    host_headers = {"Authorization": f"Bearer {host_token}"}
+
+    # 2. Add a staff member with can_login=True
+    staff_resp = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Dr. Alice Morgan",
+            "email": "alice.staff@gmail.com",
+            "phone": "+91 98765 88888",
+            "role": "Doctor",
+            "can_login": True,
+            "password": "AlicePassword123!",
+        },
+        headers=host_headers,
+    )
+    assert staff_resp.status_code == 201
+
+    # 3. Attempt Google OAuth sign-in with Alice's email
+    mock_token = "mock-google-token:Alice.Staff@Gmail.com:Dr. Alice Morgan:google-sub-alice:https://example.com/alice.jpg"
+    google_resp = client.post("/api/v1/auth/google", json={"credential": mock_token})
+    assert google_resp.status_code == 409
+    assert "clinic staff" in google_resp.json()["detail"].lower()
+
+
+def test_doctor_change_password_requires_current_password(client, db_session):
+    """Test that doctors (and any account where must_change_password is False) must provide current_password."""
+    reg_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "cp.doctor@clinic.com", "password": "InitialPassword123!"},
+    )
+    assert reg_resp.status_code == 201
+    token = reg_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Missing current_password -> 400
+    missing_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert missing_curr.status_code == 400
+    assert "current password is required" in missing_curr.json()["detail"].lower()
+
+    # 2. Wrong current_password -> 400
+    wrong_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "WrongPassword123!", "new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert wrong_curr.status_code == 400
+    assert "current password is incorrect" in wrong_curr.json()["detail"].lower()
+
+    # 3. Valid current_password -> 200
+    ok_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "InitialPassword123!", "new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert ok_res.status_code == 200
+
+    # 4. Google OAuth doctor without password cannot bypass current_password check
+    mock_google = "mock-google-token:google.doc@clinic.com:Dr. Google:google-sub-doc:https://example.com/g.jpg"
+    g_resp = client.post("/api/v1/auth/google", json={"credential": mock_google})
+    assert g_resp.status_code == 200
+    g_headers = {"Authorization": f"Bearer {g_resp.json()['access_token']}"}
+    g_cp = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "UpdatedStrongPass@456"},
+        headers=g_headers,
+    )
+    assert g_cp.status_code == 400
+    assert "current password is required" in g_cp.json()["detail"].lower()
+
+
+
+

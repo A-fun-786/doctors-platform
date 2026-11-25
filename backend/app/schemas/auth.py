@@ -19,20 +19,6 @@ def validate_email_id(email: str) -> str:
     return cleaned
 
 
-def validate_identifier(identifier: str) -> str:
-    """Validate an authentication identifier (either RFC-compliant email or alphanumeric username)."""
-    if not isinstance(identifier, str):
-        raise ValueError("Invalid login identifier.")
-    cleaned = identifier.strip().lower()
-    if not cleaned:
-        raise ValueError("Login identifier cannot be empty.")
-    if "@" in cleaned:
-        return validate_email_id(cleaned)
-    if not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
-        raise ValueError("User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed).")
-    return cleaned
-
-
 class GoogleAuthRequest(BaseModel):
     """Payload sent by frontend containing Google ID Token."""
     credential: str
@@ -60,10 +46,8 @@ class EmailLoginRequest(BaseModel):
     def validate_identifier(self) -> "EmailLoginRequest":
         cleaned = self.email.strip().lower()
         if self.portal_type == "staff":
-            if "@" in cleaned:
-                validate_email_id(cleaned)
-            elif not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
-                raise ValueError("User ID must be between 3 and 60 alphanumeric characters.")
+            if not (3 <= len(cleaned) <= 60 and USERNAME_REGEX.match(cleaned)):
+                raise ValueError("Invalid User ID or password")
         else:
             # Default and Admin portals require a valid RFC-compliant email address
             validate_email_id(cleaned)
@@ -76,6 +60,39 @@ class TenantResponse(BaseModel):
 
     id: uuid.UUID
     slug: str
+
+
+COMMON_EASY_PASSWORDS = {
+    "password", "password123", "admin123", "12345678", "123456789",
+    "qwerty123", "letmein123", "welcome123", "doctor123", "clinic123"
+}
+
+
+def validate_strong_password(v: str) -> str:
+    """Validate that the provided password meets enterprise strength criteria."""
+    if len(v) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Password must contain at least one uppercase letter (A-Z)")
+    if not any(c.islower() for c in v):
+        raise ValueError("Password must contain at least one lowercase letter (a-z)")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Password must contain at least one number (0-9)")
+    if not any(c in r"""!@#$%^&*()-_=+[]{};:'",.<>/?\\|`~""" for c in v):
+        raise ValueError("Password must contain at least one special character (!@#$%^&*)")
+    if v.lower() in COMMON_EASY_PASSWORDS:
+        raise ValueError("Password is too common or easy to guess. Please choose a stronger password.")
+    return v
+
+
+class ChangePasswordRequest(BaseModel):
+    new_password: str
+    current_password: Optional[str] = None
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return validate_strong_password(v)
 
 
 class DoctorResponse(BaseModel):
@@ -91,6 +108,7 @@ class DoctorResponse(BaseModel):
     role: Optional[str] = "Doctor"
     user_type: Optional[str] = "doctor"  # "doctor" | "staff"
     staff_id: Optional[uuid.UUID] = None
+    must_change_password: Optional[bool] = False
 
 
 class AuthResponse(BaseModel):

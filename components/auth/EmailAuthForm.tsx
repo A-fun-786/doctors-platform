@@ -181,11 +181,11 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
         return;
       }
     } else {
-      // Staff mode: accept either name-derived User ID (e.g., emanur.rahman) or email
+      // Staff mode: strictly accept exact clinic-assigned User ID (e.g. john.doe)
       const isUsername = /^[a-zA-Z0-9._-]+$/.test(cleanEmail) && cleanEmail.length >= 3;
-      if (!isUsername && !isValidEmail(cleanEmail)) {
+      if (!isUsername) {
         logger.warn("Auth", `Validation rejected invalid staff identifier: ${cleanEmail}`);
-        setError("Please enter a valid Staff User ID (e.g. emanur.rahman) or email.");
+        setError("Invalid User ID or password");
         return;
       }
     }
@@ -357,7 +357,7 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
           <form onSubmit={handleSubmit} noValidate className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="email">
-                {mode === "login" && authRole === "staff" ? "Staff User ID or Email" : "Email Address"}
+                {mode === "login" && authRole === "staff" ? "Staff User ID" : "Email Address"}
               </label>
               <div className="relative flex items-center group">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors pointer-events-none shrink-0">
@@ -382,14 +382,14 @@ export default function EmailAuthForm({ mode }: EmailAuthFormProps) {
                       ? "doctor@example.com"
                       : authRole === "admin"
                       ? "doctor@example.com"
-                      : "e.g. emanur.rahman or User ID"
+                      : "e.g. john.doe"
                   }
                   className="w-full h-11 pl-11 pr-3.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-600 transition-all shadow-2xs font-medium"
                 />
               </div>
               {mode === "login" && authRole === "staff" && (
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Enter the User ID provided by your clinic administrator (e.g. <span className="font-mono text-slate-700 font-medium">emanur.rahman</span>).
+                  Enter the User ID provided by your clinic administrator (e.g. <span className="font-mono text-slate-700 font-medium">john.doe</span>).
                 </p>
               )}
             </div>

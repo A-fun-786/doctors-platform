@@ -486,7 +486,7 @@ def test_staff_phone_and_email_validation(client, test_doctor_and_auth):
 def test_staff_username_at_symbol_normalization(client, test_doctor_and_auth):
     _, headers = test_doctor_and_auth
 
-    # Sending username with leading @ should be cleanly normalized
+    # Sending username with '@' on creation must be rejected (Issue #69)
     res = client.post(
         "/api/v1/staff",
         json={
@@ -497,8 +497,32 @@ def test_staff_username_at_symbol_normalization(client, test_doctor_and_auth):
         },
         headers=headers,
     )
-    assert res.status_code == 201
-    assert res.json()["username"] == "prefix.user"
+    assert res.status_code == 422
+    assert "do not include '@'" in str(res.json()).lower()
+
+    # Creating with exact User ID without '@' succeeds
+    valid_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Prefix Test",
+            "phone": "+91 98765 43210",
+            "role": "Receptionist",
+            "username": "prefix.user",
+        },
+        headers=headers,
+    )
+    assert valid_res.status_code == 201
+    assert valid_res.json()["username"] == "prefix.user"
+    staff_id = valid_res.json()["id"]
+
+    # Updating username with '@' must also be rejected
+    upd_res = client.put(
+        f"/api/v1/staff/{staff_id}",
+        json={"username": "@prefix.user2"},
+        headers=headers,
+    )
+    assert upd_res.status_code == 422
+    assert "do not include '@'" in str(upd_res.json()).lower()
 
 
 def test_staff_update_email_collision_prevented(client, test_doctor_and_auth):
@@ -770,3 +794,262 @@ def test_clinic_owner_sees_compensation_and_notes(client, test_doctor_and_auth):
     assert data["base_salary_paise"] == 9500000
     assert data["emergency_contact"] == "Spouse (+919876500011)"
     assert data["notes"] == "Highly confidential HR evaluation notes"
+
+
+def test_case_insensitive_username_uniqueness_enforced(client, test_doctor_and_auth):
+    """
+    Issue #35 & #69: Staff username uniqueness must be strictly case-insensitive,
+    and '@' in usernames must be rejected on create/update.
+    """
+    _, headers = test_doctor_and_auth
+
+    # 0. Attempt to create staff with '@' in username -> rejected with 422
+    res_at = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "John Doe",
+            "phone": "+91 99999 00000",
+            "role": "Receptionist",
+            "username": "@JohnDoe",
+        },
+        headers=headers,
+    )
+    assert res_at.status_code == 422
+
+    # 1. Create staff with mixed-case username JohnDoe
+    res1 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "John Doe",
+            "phone": "+91 99999 11111",
+            "role": "Receptionist",
+            "username": "JohnDoe",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res1.status_code == 201
+    assert res1.json()["username"] == "johndoe"
+    staff1_id = res1.json()["id"]
+
+    # 2. Attempt to create another staff with lowercase johndoe
+    res2 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Johnny Junior",
+            "phone": "+91 99999 22222",
+            "role": "Nurse",
+            "username": "johndoe",
+        },
+        headers=headers,
+    )
+    assert res2.status_code == 400
+    assert "already exists" in res2.json()["detail"].lower()
+
+    # 3. Attempt to create another staff with uppercase JOHNDOE
+    res3 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Big John",
+            "phone": "+91 99999 33333",
+            "role": "Nurse",
+            "username": "JOHNDOE",
+        },
+        headers=headers,
+    )
+    assert res3.status_code == 400
+    assert "already exists" in res3.json()["detail"].lower()
+
+    # 4. Create another staff with distinct username
+    res4 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Alice Smith",
+            "phone": "+91 99999 44444",
+            "role": "Nurse",
+            "username": "alicesmith",
+        },
+        headers=headers,
+    )
+    assert res4.status_code == 201
+    staff2_id = res4.json()["id"]
+
+    # 5. Attempt to update Alice's username to JOHNDOE -> must fail with 400
+    res_update = client.put(
+        f"/api/v1/staff/{staff2_id}",
+        json={"username": "JOHNDOE"},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "already exists" in res_update.json()["detail"].lower()
+
+
+def test_case_insensitive_login_email_uniqueness_enforced(client, test_doctor_and_auth):
+    """
+    Issue #35: Staff login-enabled emails must be strictly case-insensitive unique.
+    Updates that keep or disable login cannot claim an active login email.
+    """
+    _, headers = test_doctor_and_auth
+
+    # 1. Create staff with mixed-case email Nurse.Joy@Hospital.com and can_login=True
+    res1 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Joy",
+            "email": "Nurse.Joy@Hospital.com",
+            "phone": "+91 88888 11111",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res1.status_code == 201
+    assert res1.json()["email"] == "nurse.joy@hospital.com"
+
+    # 2. Attempt to create another staff with lowercase nurse.joy@hospital.com and can_login=True
+    res2 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Nurse Joy Sister",
+            "email": "nurse.joy@hospital.com",
+            "phone": "+91 88888 22222",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res2.status_code == 400
+    assert "login email already exists" in res2.json()["detail"].lower()
+
+    # 3. Create staff without login
+    res3 = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Officer Jenny",
+            "email": "jenny@police.com",
+            "phone": "+91 88888 33333",
+            "role": "Receptionist",
+            "can_login": False,
+        },
+        headers=headers,
+    )
+    assert res3.status_code == 201
+    staff3_id = res3.json()["id"]
+
+    # 4. Attempt to update Officer Jenny's email to NURSE.JOY@HOSPITAL.COM (with can_login=False)
+    # Must reject because nurse.joy@hospital.com is an active login account
+    res_update = client.put(
+        f"/api/v1/staff/{staff3_id}",
+        json={"email": "NURSE.JOY@HOSPITAL.COM"},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "login email already exists" in res_update.json()["detail"].lower()
+
+
+def test_create_and_update_staff_rejects_existing_doctor_email(client, test_doctor_and_auth):
+    """Test that creating or updating a staff member rejects emails of registered doctors (Issue #36)."""
+    doctor, headers = test_doctor_and_auth
+    # doctor.email is known (from doctor_fixture)
+
+    # 1. Attempt to create staff with doctor's email
+    res_create = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Duplicate Email Staff",
+            "email": doctor.email.upper(),  # Test case-insensitivity
+            "phone": "+91 88888 44444",
+            "role": "Nurse",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res_create.status_code == 400
+    assert "clinic administrator" in res_create.json()["detail"].lower()
+
+    # 2. Create a valid staff member
+    res_valid = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Valid Member X",
+            "email": "unique.member@clinic.com",
+            "phone": "+91 88888 55555",
+            "role": "Receptionist",
+            "can_login": True,
+            "password": "Password123!",
+        },
+        headers=headers,
+    )
+    assert res_valid.status_code == 201
+    valid_id = res_valid.json()["id"]
+
+    # 3. Attempt to update staff's email to doctor.email
+    res_update = client.put(
+        f"/api/v1/staff/{valid_id}",
+        json={"email": doctor.email},
+        headers=headers,
+    )
+    assert res_update.status_code == 400
+    assert "clinic administrator" in res_update.json()["detail"].lower()
+
+
+def test_migration_015_deduplicates_case_colliding_usernames_and_login_emails():
+    """Test that Migration 015 upgrade() safely drops idx_staff_username first and deduplicates collisions."""
+    import importlib.util
+    from pathlib import Path
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    mig_path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "015_staff_case_insensitive_unique_indexes.py"
+    )
+    spec = importlib.util.spec_from_file_location("mig_015", mig_path)
+    mig_015 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_015)
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE staff_members ("
+                "id TEXT PRIMARY KEY, "
+                "username TEXT, "
+                "email TEXT, "
+                "can_login BOOLEAN NOT NULL DEFAULT 0, "
+                "created_at TEXT NOT NULL"
+                ")"
+            )
+        )
+        # Pre-015 case-sensitive unique index
+        conn.execute(sa.text("CREATE UNIQUE INDEX idx_staff_username ON staff_members (username)"))
+
+        # Insert case-colliding usernames and login-enabled emails that were allowed before Migration 015
+        conn.execute(
+            sa.text(
+                "INSERT INTO staff_members (id, username, email, can_login, created_at) VALUES "
+                "('11111111-1111-1111-1111-111111111111', 'John.Doe', 'Nurse@Clinic.com', 1, '2026-01-01T00:00:00Z'), "
+                "('22222222-2222-2222-2222-222222222222', 'john.doe', 'nurse@clinic.com', 1, '2026-01-02T00:00:00Z')"
+            )
+        )
+
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            mig_015.upgrade()
+
+        rows = conn.execute(
+            sa.text("SELECT id, username, email FROM staff_members ORDER BY created_at ASC")
+        ).fetchall()
+        assert rows[0] == ("11111111-1111-1111-1111-111111111111", "john.doe", "nurse@clinic.com")
+        assert rows[1][1] == "john.doe.222222"
+        assert rows[1][2] is None
+
+
+

@@ -1,9 +1,9 @@
 # Staff Management & Authentication Architecture
 
-**Document Version:** 2.5.0  
+**Document Version:** 2.6.0  
 **Status:** Production Ready  
 **Target Platform:** GoSmartClinic Practice Management System  
-**Last Updated:** November 20, 2026  
+**Last Updated:** November 24, 2026  
 
 ---
 
@@ -48,8 +48,8 @@ sequenceDiagram
     participant Dashboard as Dashboard Shell (/dashboard)
 
     Staff->>UI: Selects "Staff" Tab & Enters User ID + Password
-    UI->>AuthAPI: POST /api/v1/auth/login {email: "emanur.rahman", password, portal_type: "staff"}
-    AuthAPI->>DB: Query StaffMember by username/email WHERE can_login = True
+    UI->>AuthAPI: POST /api/v1/auth/login {email: "john.doe", password, portal_type: "staff"}
+    AuthAPI->>DB: Query StaffMember by username WHERE can_login = True
     DB-->>AuthAPI: Returns active StaffMember
     AuthAPI->>AuthAPI: Verify bcrypt hash & check token_version
     AuthAPI-->>UI: Returns JWT access_token with claims: {user_type: "staff", staff_id, token_version}
@@ -63,10 +63,11 @@ CREATE TABLE staff_members (
     id UUID PRIMARY KEY,
     doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
     full_name VARCHAR(120) NOT NULL,
-    username VARCHAR(60) UNIQUE NULL,
+    username VARCHAR(60) NULL,
     email VARCHAR(255) NULL,
     phone VARCHAR(30) NOT NULL,
     role VARCHAR(50) NOT NULL,
+    speciality VARCHAR(100) NULL,
     department VARCHAR(50) NOT NULL DEFAULT 'Clinical',
     employment_type VARCHAR(30) NOT NULL DEFAULT 'full_time',
     status VARCHAR(30) NOT NULL DEFAULT 'active',
@@ -83,7 +84,11 @@ CREATE TABLE staff_members (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_staff_username ON staff_members(username);
+-- Case-Insensitive Unique Indexes (Issue #35, Migration 015)
+CREATE UNIQUE INDEX uq_staff_username_lower ON staff_members (lower(username));
+CREATE UNIQUE INDEX uq_staff_login_email_lower ON staff_members (lower(email)) WHERE can_login = true AND email IS NOT NULL;
+
+-- Lookup and Multi-Tenant Isolation Indexes
 CREATE INDEX idx_staff_doctor_status ON staff_members(doctor_id, status);
 CREATE INDEX idx_staff_doctor_dept ON staff_members(doctor_id, department);
 CREATE INDEX idx_staff_email ON staff_members(email);
@@ -95,17 +100,17 @@ CREATE INDEX idx_staff_email ON staff_members(email);
 
 ### Why Staff User IDs Instead of Mandatory Emails
 - **Clinic Reality:** Many nurses, receptionists, lab technicians, and shift assistants in clinics do not have distinct clinic email addresses.
-- **Solution:** Automatic generation of professional, name-derived User IDs (`emanur.rahman`, `e.rahman`, `emanur.r`). Staff sign in with `@username` + password. Email is 100% optional.
+- **Solution:** Automatic generation of professional, name-derived User IDs (`john.doe`, `j.doe`, `john.d`). Staff sign in with their User ID + password. Email is 100% optional.
 
 ### Candidate Sequence & Collision Resolution
 When creating staff, `generate_username_candidates` tests candidates in batches of 50 in priority order:
-1. `first.last` (e.g. `emanur.rahman`)
-2. `f.last` (e.g. `e.rahman`)
-3. `first.l` (e.g. `emanur.r`)
-4. `firstlast` (e.g. `emanurrahman`)
-5. `flast` (e.g. `erahman`)
-6. `firstl` (e.g. `emanurr`)
-7. Minimal numeric fallbacks: `e1.rahman`, `emanur.r1`, `e2.rahman`, `emanur.r2`...
+1. `first.last` (e.g. `john.doe`)
+2. `f.last` (e.g. `j.doe`)
+3. `first.l` (e.g. `john.d`)
+4. `firstlast` (e.g. `johndoe`)
+5. `flast` (e.g. `jdoe`)
+6. `firstl` (e.g. `johnd`)
+7. Minimal numeric fallbacks: `j1.doe`, `john.d1`, `j2.doe`, `john.d2`...
 
 ### Immediate Session Invalidation (`token_version`)
 - **Mechanism:** The JWT payload includes a `token_version` claim matching `staff_members.token_version`.
@@ -122,10 +127,14 @@ When creating staff, `generate_username_candidates` tests candidates in batches 
 - **Availability Query Boundary (Issue #29):** When querying `GET /doctor/available-slots` or `/public/tenants/{slug}/available-slots` with a `staff_id`, the engine enforces Step 0 validation against the clinic's active doctor staff. Malformed UUID strings or non-doctor roles reject with `400 Bad Request`, foreign or nonexistent IDs reject with `404 Not Found`, and on-leave doctors return `[]`, eliminating phantom slot leaks and accidental fallbacks to clinic-wide multi-doctor capacity.
 - **Primary Doctor Rescheduling Boundary (Issue #30):** When rescheduling an appointment attended by the primary doctor (`staff_id` is null or undefined), the UI passes `targetStaffId="primary"` to `SlotSelectorGrid` and `getDoctorAvailableSlots`. Omitting `staff_id` or passing `null` previously fell back to clinic-wide multi-doctor aggregate capacity, which hid valid primary slots when staff doctors were booked or exposed slots when the primary doctor was unavailable.
 - **Reschedule Reason and Notes Persistence (Issue #32):** Rescheduling an appointment attended by either a staff doctor or the primary clinic doctor persists any updated visit reasons and clinical notes in the database without silent truncation.
+- **Strict User ID Matching without '@' (Issue #35, Issue #69):** Staff User IDs and login-enabled emails are strictly case-insensitive unique, backed by functional unique indexes (`uq_staff_username_lower` and `uq_staff_login_email_lower`). User IDs must be exact alphanumeric strings as assigned by the clinic administrator without any leading or internal '@'. The login parser does not strip or guess '@'; any input containing '@' is strictly rejected, ensuring staff authenticate strictly with their assigned credentials.
+- **Cross-Account Email Shadowing Prevention (Issue #36):** To prevent account hijacking or shadowing between clinic owners and staff, `register_email` and Google sign-in reject registrations if the email belongs to an existing login-enabled staff member. Conversely, staff provisioning rejects emails already registered to clinic doctors. Staff members authenticate strictly via clinic-assigned User IDs (e.g. `john.doe`), ensuring full account isolation across roles.
+- **Mandatory Password Change Enforcement (Issue #37):** Staff provisioned with login access or whose passwords are reset have `must_change_password = True`. In `get_current_doctor` ([`backend/app/api/deps.py`](file:///Users/emanur/doctors-platform/backend/app/api/deps.py)), access to all non-auth endpoints is blocked with `403 Forbidden` (`detail="Password change required..."`) until updated. The self-service route `POST /api/v1/auth/change-password` verifies current credentials, enforces enterprise strong password criteria ($\ge 8$ chars, uppercase, lowercase, number, special character, rejection of common dictionary passwords, and disallowing temporary password reuse), clears `must_change_password = False`, increments `token_version`, and issues an unlocked session token. The frontend completely unmounts the `<DashboardShell>` DOM to prevent patient data exposure and presents a focused `<MandatoryChangePasswordModal />` with real-time requirements checklist before granting portal access.
 
 ### Zero Plain-Text Storage & Ephemeral Session Cache
 - Passwords are one-way hashed with `bcrypt` (12 rounds) and never stored in plain text.
 - To allow clinic owners to share initial credentials, the UI uses an in-memory session cache (`recentPasswords`) to display a temporary **Eye Reveal/Mask** toggle and **Copy Pass** button. Refreshing the browser permanently purges the plain text from memory.
+- **Mandatory Token Version Validation (Issue #34):** All staff JWT tokens must contain a valid `token_version` claim. In `get_current_doctor` ([`backend/app/api/deps.py`](file:///Users/emanur/doctors-platform/backend/app/api/deps.py)), any token with a missing, null, or mismatched version is rejected with `401 Unauthorized` (`detail="Credentials have changed. Please log in again."`). Whenever a staff password is changed or reset, `staff.token_version` increments, instantly invalidating all active sessions.
 
 ---
 

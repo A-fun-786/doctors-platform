@@ -1,5 +1,5 @@
 from typing import Generator
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import OperationalError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -40,10 +40,8 @@ def init_db() -> None:
     retry=retry_if_exception_type(OperationalError),
 )
 def create_session_with_retry() -> Session:
-    """Create a database session with retry on transient OperationalError."""
-    session = SessionLocal()
-    session.execute(text("SELECT 1"))
-    return session
+    """Create a database session; stale connections are handled by pool_pre_ping=True."""
+    return SessionLocal()
 
 
 def get_db() -> Generator[Session, None, None]:
