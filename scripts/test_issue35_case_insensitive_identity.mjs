@@ -71,9 +71,19 @@ const migrationPath = path.join(
   "015_staff_case_insensitive_unique_indexes.py"
 );
 
-it("2.1 Migration 015 exists and defines upgrade/downgrade for case-insensitive indexes", () => {
+it("2.1 Migration 015 exists and defines safe upgrade/downgrade for case-insensitive indexes", () => {
   assert.ok(fs.existsSync(migrationPath), "Migration 015 file must exist");
   const migSource = fs.readFileSync(migrationPath, "utf-8");
+  const dropIdxPos = migSource.indexOf("DROP INDEX IF EXISTS idx_staff_username");
+  const updateLowerPos = migSource.indexOf("UPDATE staff_members SET username = LOWER(username)");
+  assert.ok(
+    dropIdxPos !== -1 && updateLowerPos !== -1 && dropIdxPos < updateLowerPos,
+    "Migration 015 must drop idx_staff_username with IF EXISTS before running UPDATE ... LOWER(username)"
+  );
+  assert.ok(
+    migSource.includes("dup_usernames") && migSource.includes("dup_emails"),
+    "Migration 015 must deduplicate case-colliding usernames and login-enabled emails before creating unique indexes"
+  );
   assert.ok(
     migSource.includes('op.create_index(\n        "uq_staff_username_lower"') ||
     migSource.includes('"uq_staff_username_lower"'),

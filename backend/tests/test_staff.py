@@ -997,3 +997,59 @@ def test_create_and_update_staff_rejects_existing_doctor_email(client, test_doct
     assert "clinic administrator" in res_update.json()["detail"].lower()
 
 
+def test_migration_015_deduplicates_case_colliding_usernames_and_login_emails():
+    """Test that Migration 015 upgrade() safely drops idx_staff_username first and deduplicates collisions."""
+    import importlib.util
+    from pathlib import Path
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    mig_path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "015_staff_case_insensitive_unique_indexes.py"
+    )
+    spec = importlib.util.spec_from_file_location("mig_015", mig_path)
+    mig_015 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig_015)
+
+    engine = sa.create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE staff_members ("
+                "id TEXT PRIMARY KEY, "
+                "username TEXT, "
+                "email TEXT, "
+                "can_login BOOLEAN NOT NULL DEFAULT 0, "
+                "created_at TEXT NOT NULL"
+                ")"
+            )
+        )
+        # Pre-015 case-sensitive unique index
+        conn.execute(sa.text("CREATE UNIQUE INDEX idx_staff_username ON staff_members (username)"))
+
+        # Insert case-colliding usernames and login-enabled emails that were allowed before Migration 015
+        conn.execute(
+            sa.text(
+                "INSERT INTO staff_members (id, username, email, can_login, created_at) VALUES "
+                "('11111111-1111-1111-1111-111111111111', 'John.Doe', 'Nurse@Clinic.com', 1, '2026-01-01T00:00:00Z'), "
+                "('22222222-2222-2222-2222-222222222222', 'john.doe', 'nurse@clinic.com', 1, '2026-01-02T00:00:00Z')"
+            )
+        )
+
+        ctx = MigrationContext.configure(conn)
+        with Operations.context(ctx):
+            mig_015.upgrade()
+
+        rows = conn.execute(
+            sa.text("SELECT id, username, email FROM staff_members ORDER BY created_at ASC")
+        ).fetchall()
+        assert rows[0] == ("11111111-1111-1111-1111-111111111111", "john.doe", "nurse@clinic.com")
+        assert rows[1][1] == "john.doe.222222"
+        assert rows[1][2] is None
+
+
+
