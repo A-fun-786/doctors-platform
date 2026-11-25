@@ -575,22 +575,21 @@ class AuthService:
                 tenant=TenantResponse.model_validate(tenant),
             )
         else:
-            if current_doctor.hashed_password and not current_password:
+            if not current_password:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Current password is required",
                 )
-            if current_password:
-                if not current_doctor.hashed_password or not verify_password(current_password, current_doctor.hashed_password):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Current password is incorrect",
-                    )
-                if current_password == new_password:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="New password cannot be the same as the current password",
-                    )
+            if not current_doctor.hashed_password or not verify_password(current_password, current_doctor.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current password is incorrect",
+                )
+            if current_password == new_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="New password cannot be the same as the current password",
+                )
 
             current_doctor.hashed_password = hash_password(new_password)
             db.commit()

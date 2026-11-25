@@ -86,6 +86,14 @@ it("2.2 auth_service implements change_password with validation and version bump
     "auth_service must declare change_password method"
   );
   assert.ok(
+    authServiceSource.includes("if not staff.must_change_password and not current_password:"),
+    "change_password must require current_password when staff.must_change_password is False"
+  );
+  assert.ok(
+    authServiceSource.includes("Current password is required"),
+    "change_password must reject missing current_password when not in mandatory first-login reset"
+  );
+  assert.ok(
     authServiceSource.includes("Current password is incorrect"),
     "change_password must verify current password"
   );

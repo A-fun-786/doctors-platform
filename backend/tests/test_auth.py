@@ -510,4 +510,55 @@ def test_doctor_google_auth_rejects_existing_staff_email(client, db_session):
     assert "clinic staff" in google_resp.json()["detail"].lower()
 
 
+def test_doctor_change_password_requires_current_password(client, db_session):
+    """Test that doctors (and any account where must_change_password is False) must provide current_password."""
+    reg_resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "cp.doctor@clinic.com", "password": "InitialPassword123!"},
+    )
+    assert reg_resp.status_code == 201
+    token = reg_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Missing current_password -> 400
+    missing_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert missing_curr.status_code == 400
+    assert "current password is required" in missing_curr.json()["detail"].lower()
+
+    # 2. Wrong current_password -> 400
+    wrong_curr = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "WrongPassword123!", "new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert wrong_curr.status_code == 400
+    assert "current password is incorrect" in wrong_curr.json()["detail"].lower()
+
+    # 3. Valid current_password -> 200
+    ok_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "InitialPassword123!", "new_password": "UpdatedStrongPass@456"},
+        headers=headers,
+    )
+    assert ok_res.status_code == 200
+
+    # 4. Google OAuth doctor without password cannot bypass current_password check
+    mock_google = "mock-google-token:google.doc@clinic.com:Dr. Google:google-sub-doc:https://example.com/g.jpg"
+    g_resp = client.post("/api/v1/auth/google", json={"credential": mock_google})
+    assert g_resp.status_code == 200
+    g_headers = {"Authorization": f"Bearer {g_resp.json()['access_token']}"}
+    g_cp = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "UpdatedStrongPass@456"},
+        headers=g_headers,
+    )
+    assert g_cp.status_code == 400
+    assert "current password is required" in g_cp.json()["detail"].lower()
+
+
+
 
