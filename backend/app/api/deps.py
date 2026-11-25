@@ -83,9 +83,8 @@ def get_current_doctor(
             allowed_paths = {
                 "/api/v1/auth/change-password",
                 "/api/v1/auth/me",
-                "/api/v1/auth/logout",
             }
-            if path not in allowed_paths and not path.endswith(("/auth/change-password", "/auth/me", "/auth/logout")):
+            if path not in allowed_paths:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Password change required. You must change your password before accessing the clinic portal.",

@@ -120,6 +120,20 @@ it("3.2 auth.py EmailLoginRequest rejects invalid User IDs including @", () => {
   );
 });
 
+const staffSchemaPath = path.join(projectRoot, "backend", "app", "schemas", "staff.py");
+const staffSchemaSource = fs.readFileSync(staffSchemaPath, "utf-8");
+
+it("3.3 schemas/staff.py validate_staff_username rejects @ without stripping", () => {
+  assert.ok(
+    !staffSchemaSource.includes('lstrip("@")'),
+    "validate_staff_username must not strip leading @ with lstrip"
+  );
+  assert.ok(
+    staffSchemaSource.includes("USERNAME_ALLOWED_CHARS_REGEX.match(cleaned)"),
+    "validate_staff_username must strictly validate against USERNAME_ALLOWED_CHARS_REGEX"
+  );
+});
+
 // ------------------------------------------------------------------
 // 4. Behavioral Simulation: Normalization & Identity Matching
 // ------------------------------------------------------------------

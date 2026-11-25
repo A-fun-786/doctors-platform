@@ -28,14 +28,14 @@ USERNAME_ALLOWED_CHARS_REGEX = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
 def validate_staff_username(val: Optional[str]) -> Optional[str]:
-    """Validate and normalize staff User ID ensuring lowercase alphanumeric format without leading @."""
+    """Validate and normalize staff User ID ensuring lowercase alphanumeric format (rejecting '@')."""
     if val is None:
         return None
-    cleaned = str(val).strip().lstrip("@").lower()
+    cleaned = str(val).strip().lower()
     if not cleaned:
         return None
     if not (3 <= len(cleaned) <= 60 and USERNAME_ALLOWED_CHARS_REGEX.match(cleaned)):
-        raise ValueError("User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed).")
+        raise ValueError("User ID must be between 3 and 60 alphanumeric characters (dots, underscores, and hyphens allowed). Do not include '@'.")
     return cleaned
 
 

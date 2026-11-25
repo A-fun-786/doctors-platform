@@ -733,14 +733,14 @@ def test_staff_case_insensitive_login_resolution(client, doctor_fixture, db_sess
     """
     doctor, doc_headers = doctor_fixture
 
-    # 1. Create staff with User ID @PoojaShah and email Pooja.Shah@Clinic.com
+    # 1. Create staff with User ID PoojaShah and email Pooja.Shah@Clinic.com
     staff_res = client.post(
         "/api/v1/staff",
         json={
             "full_name": "Pooja Shah",
             "phone": "+91 97777 33333",
             "role": "Receptionist",
-            "username": "@PoojaShah",
+            "username": "PoojaShah",
             "email": "Pooja.Shah@Clinic.com",
             "can_login": True,
             "password": "LoginSecret123!",
@@ -923,6 +923,15 @@ def test_must_change_password_enforcement_and_clearance(client, doctor_fixture):
     )
     assert new_login.status_code == 200
     assert new_login.json()["doctor"]["must_change_password"] is False
+
+    # 13. Once must_change_password is False, subsequent password changes require current_password
+    no_curr_res = client.post(
+        "/api/v1/auth/change-password",
+        json={"new_password": "AnotherStrongPass@999"},
+        headers=new_headers,
+    )
+    assert no_curr_res.status_code == 400
+    assert "current password is required" in no_curr_res.json()["detail"].lower()
 
 
 

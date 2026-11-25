@@ -516,6 +516,11 @@ class AuthService:
 
         if is_staff:
             staff: StaffMember = current_doctor._current_staff
+            if not staff.must_change_password and not current_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current password is required",
+                )
             if current_password:
                 if not staff.hashed_password or not verify_password(current_password, staff.hashed_password):
                     raise HTTPException(
@@ -570,6 +575,11 @@ class AuthService:
                 tenant=TenantResponse.model_validate(tenant),
             )
         else:
+            if current_doctor.hashed_password and not current_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current password is required",
+                )
             if current_password:
                 if not current_doctor.hashed_password or not verify_password(current_password, current_doctor.hashed_password):
                     raise HTTPException(

@@ -486,7 +486,7 @@ def test_staff_phone_and_email_validation(client, test_doctor_and_auth):
 def test_staff_username_at_symbol_normalization(client, test_doctor_and_auth):
     _, headers = test_doctor_and_auth
 
-    # Sending username with leading @ should be cleanly normalized
+    # Sending username with '@' on creation must be rejected (Issue #69)
     res = client.post(
         "/api/v1/staff",
         json={
@@ -497,8 +497,32 @@ def test_staff_username_at_symbol_normalization(client, test_doctor_and_auth):
         },
         headers=headers,
     )
-    assert res.status_code == 201
-    assert res.json()["username"] == "prefix.user"
+    assert res.status_code == 422
+    assert "do not include '@'" in str(res.json()).lower()
+
+    # Creating with exact User ID without '@' succeeds
+    valid_res = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Prefix Test",
+            "phone": "+91 98765 43210",
+            "role": "Receptionist",
+            "username": "prefix.user",
+        },
+        headers=headers,
+    )
+    assert valid_res.status_code == 201
+    assert valid_res.json()["username"] == "prefix.user"
+    staff_id = valid_res.json()["id"]
+
+    # Updating username with '@' must also be rejected
+    upd_res = client.put(
+        f"/api/v1/staff/{staff_id}",
+        json={"username": "@prefix.user2"},
+        headers=headers,
+    )
+    assert upd_res.status_code == 422
+    assert "do not include '@'" in str(upd_res.json()).lower()
 
 
 def test_staff_update_email_collision_prevented(client, test_doctor_and_auth):
@@ -774,19 +798,32 @@ def test_clinic_owner_sees_compensation_and_notes(client, test_doctor_and_auth):
 
 def test_case_insensitive_username_uniqueness_enforced(client, test_doctor_and_auth):
     """
-    Issue #35: Staff username uniqueness must be strictly case-insensitive.
-    Reject duplicates regardless of mixed case or leading @ symbol.
+    Issue #35 & #69: Staff username uniqueness must be strictly case-insensitive,
+    and '@' in usernames must be rejected on create/update.
     """
     _, headers = test_doctor_and_auth
 
-    # 1. Create staff with mixed-case username @JohnDoe
+    # 0. Attempt to create staff with '@' in username -> rejected with 422
+    res_at = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "John Doe",
+            "phone": "+91 99999 00000",
+            "role": "Receptionist",
+            "username": "@JohnDoe",
+        },
+        headers=headers,
+    )
+    assert res_at.status_code == 422
+
+    # 1. Create staff with mixed-case username JohnDoe
     res1 = client.post(
         "/api/v1/staff",
         json={
             "full_name": "John Doe",
             "phone": "+91 99999 11111",
             "role": "Receptionist",
-            "username": "@JohnDoe",
+            "username": "JohnDoe",
             "can_login": True,
             "password": "Password123!",
         },
@@ -810,14 +847,14 @@ def test_case_insensitive_username_uniqueness_enforced(client, test_doctor_and_a
     assert res2.status_code == 400
     assert "already exists" in res2.json()["detail"].lower()
 
-    # 3. Attempt to create another staff with uppercase @JOHNDOE
+    # 3. Attempt to create another staff with uppercase JOHNDOE
     res3 = client.post(
         "/api/v1/staff",
         json={
             "full_name": "Big John",
             "phone": "+91 99999 33333",
             "role": "Nurse",
-            "username": "@JOHNDOE",
+            "username": "JOHNDOE",
         },
         headers=headers,
     )
@@ -838,10 +875,10 @@ def test_case_insensitive_username_uniqueness_enforced(client, test_doctor_and_a
     assert res4.status_code == 201
     staff2_id = res4.json()["id"]
 
-    # 5. Attempt to update Alice's username to @JOHNDOE -> must fail with 400
+    # 5. Attempt to update Alice's username to JOHNDOE -> must fail with 400
     res_update = client.put(
         f"/api/v1/staff/{staff2_id}",
-        json={"username": "@JOHNDOE"},
+        json={"username": "JOHNDOE"},
         headers=headers,
     )
     assert res_update.status_code == 400

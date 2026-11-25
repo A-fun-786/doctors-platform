@@ -18,17 +18,38 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Backfill and normalize existing usernames and emails to lowercase
-    op.execute(sa.text("UPDATE staff_members SET username = LOWER(username) WHERE username IS NOT NULL"))
-    op.execute(sa.text("UPDATE staff_members SET email = LOWER(email) WHERE email IS NOT NULL"))
-
-    # 2. Drop old case-sensitive unique index on username
+    # 1. Drop old case-sensitive unique index on username first so normalization does not collide on it
     try:
         op.drop_index("idx_staff_username", table_name="staff_members")
     except Exception:
         pass
 
-    # 3. Create case-insensitive functional unique index on username
+    # 2. Deduplicate any pre-existing case-insensitive username collisions before lowercasing
+    conn = op.get_bind()
+    dup_usernames = conn.execute(
+        sa.text(
+            "SELECT id, LOWER(username) AS uname FROM staff_members "
+            "WHERE username IS NOT NULL ORDER BY created_at ASC, id ASC"
+        )
+    ).fetchall()
+    seen_usernames: set[str] = set()
+    for row_id, uname in dup_usernames:
+        if uname in seen_usernames:
+            suffix = str(row_id).replace("-", "")[:6].lower()
+            deduped = f"{uname[:52]}.{suffix}"
+            conn.execute(
+                sa.text("UPDATE staff_members SET username = :uname WHERE id = :id"),
+                {"uname": deduped, "id": row_id},
+            )
+            seen_usernames.add(deduped)
+        else:
+            seen_usernames.add(uname)
+
+    # 3. Backfill and normalize existing usernames and emails to lowercase
+    op.execute(sa.text("UPDATE staff_members SET username = LOWER(username) WHERE username IS NOT NULL"))
+    op.execute(sa.text("UPDATE staff_members SET email = LOWER(email) WHERE email IS NOT NULL"))
+
+    # 4. Create case-insensitive functional unique index on username
     op.create_index(
         "uq_staff_username_lower",
         "staff_members",
@@ -36,7 +57,7 @@ def upgrade() -> None:
         unique=True,
     )
 
-    # 4. Create case-insensitive partial unique index on email for login-enabled staff
+    # 5. Create case-insensitive partial unique index on email for login-enabled staff
     op.create_index(
         "uq_staff_login_email_lower",
         "staff_members",
