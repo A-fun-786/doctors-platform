@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+# Local Git pre-push hook — runs centralized Antigravity (`agy`) AI code review
+# against all outgoing commits before allowing `git push` to proceed.
+#
+# Blocks push (non-zero exit) on CRITICAL/HIGH findings or any execution/auth/schema failure.
+
+set -eu
+
+if [ "${AGY_SKIP_REVIEW:-0}" = "1" ]; then
+  echo "[ai-review] WARNING: AGY_SKIP_REVIEW=1 set; skipping local pre-push AI code review." >&2
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+RUNNER="$REPO_ROOT/scripts/ai_review/run_review.py"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[ai-review] ERROR: python3 is required for the pre-push AI code review hook. Failing closed." >&2
+  exit 2
+fi
+
+if [ ! -f "$RUNNER" ]; then
+  echo "[ai-review] ERROR: Review runner missing at $RUNNER. Failing closed." >&2
+  exit 2
+fi
+
+echo "[ai-review] Running read-only Antigravity (agy) code review on outgoing commits..." >&2
+exec python3 "$RUNNER" --mode pre-push --repo-root "$REPO_ROOT"

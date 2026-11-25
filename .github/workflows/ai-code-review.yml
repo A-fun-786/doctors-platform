@@ -1,0 +1,148 @@
+name: AI Code Review
+
+# `pull_request_target` ensures GitHub ALWAYS loads this workflow YAML from the
+# trusted base branch, preventing PR code from modifying workflow steps or gates.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ai-code-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-code-review:
+    name: AI Code Review
+    # Run on an isolated, preferably ephemeral self-hosted runner authenticated with `agy`.
+    runs-on: ["self-hosted", "agy-reviewer"]
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Guard Self-Hosted Runner Against Untrusted Fork PRs
+        if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        shell: bash
+        run: |
+          echo "::error::Self-hosted agy intelligence node refuses untrusted fork PRs for host security. Failing closed."
+          exit 2
+
+      - name: Checkout Trusted Base Commit (Never Checkout Untrusted PR Head)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          clean: true
+          persist-credentials: false
+
+      - name: Fetch PR Head Git Objects Without Checking Out PR Code
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          git -c "http.https://github.com/.extraheader=${AUTH_HEADER}" fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          git rev-parse --verify "${HEAD_SHA}^{commit}"
+
+      - name: Run Centralized Antigravity (`agy`) Code Review
+        id: review
+        shell: bash
+        env:
+          AGY_AUTH_MODE: self-hosted
+          AGY_MODEL: ${{ vars.AGY_MODEL || '' }}
+          AGY_REVIEW_TIMEOUT: ${{ vars.AGY_REVIEW_TIMEOUT || '180' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          python3 scripts/ai_review/run_review.py \
+            --mode pr \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --auth-mode self-hosted \
+            --json-out "$RUNNER_TEMP/ai-review-report.json" \
+            --markdown-out "$RUNNER_TEMP/ai-review-comment.md"
+          REVIEW_EXIT=$?
+          echo "exit_code=$REVIEW_EXIT" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload AI Review JSON Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-code-review-report-pr-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/ai-review-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Post or Update PR Review Summary Comment
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const path = require("path");
+            const mdPath = path.join(process.env.RUNNER_TEMP, "ai-review-comment.md");
+            const marker = "<!-- agy-ai-code-review -->";
+            let body;
+            if (fs.existsSync(mdPath)) {
+              body = fs.readFileSync(mdPath, "utf8");
+            } else {
+              body = `${marker}\n## Antigravity (\`agy\`) AI Code Review — :x: **FAILED CLOSED**\n\nReview execution failed before generating a report. Inspect workflow logs.`;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Scrub Runner Workspace
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/ai-review-report.json" "$RUNNER_TEMP/ai-review-comment.md" || true
+          git reset --hard --quiet || true
+          git clean -fdx --quiet || true
+
+      - name: Enforce AI Code Review Status Gate
+        shell: bash
+        env:
+          REVIEW_EXIT: ${{ steps.review.outputs.exit_code }}
+        run: |
+          if [ -z "${REVIEW_EXIT:-}" ]; then
+            echo "::error::AI Code Review step did not produce an exit code. Failing closed."
+            exit 2
+          fi
+          if [ "$REVIEW_EXIT" -eq 1 ]; then
+            echo "::error::AI Code Review blocked this PR due to CRITICAL or HIGH findings."
+            exit 1
+          fi
+          if [ "$REVIEW_EXIT" -ne 0 ]; then
+            echo "::error::AI Code Review failed closed (exit code $REVIEW_EXIT)."
+            exit "$REVIEW_EXIT"
+          fi
+          echo "AI Code Review passed."
