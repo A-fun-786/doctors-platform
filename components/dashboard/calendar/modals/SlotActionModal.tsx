@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Calendar,
   User,
@@ -135,6 +135,30 @@ export default function SlotActionModal({
   // Leave Form State
   const [leaveReason, setLeaveReason] = useState("Personal Leave");
   const [customLeaveReason, setCustomLeaveReason] = useState("");
+
+  const resetForm = useCallback(() => {
+    setInternalStaffId("");
+    setPatientName("");
+    setPatientContact("");
+    setPatientGender("");
+    setPatientAge("");
+    setReason("General Consultation");
+    setCustomReason("");
+    setPatientHeight("");
+    setPatientWeight("");
+    setPatientBloodGroup("");
+    setPatientAddress("");
+    setNotes("");
+    setLeaveReason("Personal Leave");
+    setCustomLeaveReason("");
+  }, []);
+
+  // Reset form state whenever the modal opens or target slot changes so prior patient info never persists
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, date, startTime, endTime, resetForm]);
 
 
   // Formatted date and time strings

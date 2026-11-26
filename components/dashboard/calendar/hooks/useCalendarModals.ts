@@ -55,6 +55,9 @@ export function useCalendarModals() {
       setModalStartTime(start);
       setModalEndTime(end);
       setSelectedStaffId(staffId);
+      setNewPatientName("");
+      setNewPatientContact("");
+      setNewApptReason("");
       setShowAddAppointmentModal(true);
     },
     []
