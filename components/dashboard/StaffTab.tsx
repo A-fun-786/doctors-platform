@@ -7,7 +7,6 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  Building2,
   Phone,
   Mail,
   Edit2,
@@ -55,13 +54,8 @@ interface StaffTabProps {
 
 const ROLE_OPTIONS = [
   "Doctor",
-  "Junior Doctor",
   "Nurse",
   "Receptionist",
-  "Pharmacist",
-  "Lab Technician",
-  "Billing Executive",
-  "Administrative Assistant",
   "Other",
 ];
 
@@ -90,18 +84,6 @@ const SPECIALITY_OPTIONS = [
   "Other Specialist",
 ];
 
-const DEPARTMENT_OPTIONS = [
-  "All Departments",
-  "Clinical",
-  "Nursing",
-  "Front Desk",
-  "Pharmacy",
-  "Laboratory",
-  "Administration",
-  "Emergency",
-  "General",
-];
-
 // Helper to format currency
 function formatINR(paise: number): string {
   if (!paise || paise <= 0) return "₹0";
@@ -122,7 +104,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
 
   // Filtering states
   const [searchQuery, setSearchQuery] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("All Departments");
   const [quickFilter, setQuickFilter] = useState<"all" | "doctors" | "active" | "portal">("all");
 
   // Modals state
@@ -147,15 +128,19 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [copiedStaffId, setCopiedStaffId] = useState<string | null>(null);
   const [editModeEnteredAt, setEditModeEnteredAt] = useState<number>(0);
+  const [editCustomRole, setEditCustomRole] = useState("");
 
   const startEditingStaff = (staff: StaffMember) => {
     setSuccessMsg(null);
     setErrorMsg(null);
     const isDoc = isDoctorRole(staff.role);
+    const isPresetRole = ROLE_OPTIONS.some((r) => r !== "Other" && r === staff.role);
     setEditingStaff({
       ...staff,
+      role: isPresetRole ? staff.role : "Other",
       speciality: isDoc ? (staff.speciality || "General Physician") : (staff.speciality || ""),
     });
+    setEditCustomRole(isPresetRole || staff.role === "Other" ? "" : staff.role);
     setEditPasswordInput("");
     setSelectedStaff(null);
     setEditModeEnteredAt(Date.now());
@@ -166,11 +151,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     const original = staffList.find((s) => s.id === editing.id);
     if (!original) return false;
 
+    const effectiveRole = editing.role === "Other" ? editCustomRole.trim() : editing.role;
+
     if (editPasswordInput.trim().length > 0) return true;
     if (editing.full_name.trim() !== original.full_name.trim()) return true;
-    if (editing.role !== original.role) return true;
+    if (effectiveRole !== original.role) return true;
     if ((editing.speciality || "").trim() !== (original.speciality || "").trim()) return true;
-    if (editing.department !== original.department) return true;
     if (editing.phone.trim() !== original.phone.trim()) return true;
     if ((editing.email || "").trim() !== (original.email || "").trim()) return true;
     if (editing.status !== original.status) return true;
@@ -190,6 +176,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       setSelectedStaff(original);
     }
     setEditingStaff(null);
+    setEditCustomRole("");
     setEditPasswordInput("");
   };
 
@@ -262,8 +249,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     email: "",
     phone: "",
     role: "Doctor",
+    custom_role: "",
     speciality: "General Physician",
-    department: "Clinical",
     employment_type: "full_time",
     base_salary_rupees: "50000",
     emergency_contact: "",
@@ -311,28 +298,30 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         s.phone.includes(query) ||
         (s.email && s.email.toLowerCase().includes(query));
 
-      const matchesDept =
-        departmentFilter === "All Departments" || s.department === departmentFilter;
-
       const matchesQuick =
         quickFilter === "all"
           ? true
           : quickFilter === "doctors"
-          ? isDoctorRole(s.role)
-          : quickFilter === "active"
-          ? s.status === "active"
-          : quickFilter === "portal"
-          ? Boolean(s.can_login)
-          : true;
+            ? isDoctorRole(s.role)
+            : quickFilter === "active"
+              ? s.status === "active"
+              : quickFilter === "portal"
+                ? Boolean(s.can_login)
+                : true;
 
-      return matchesSearch && matchesDept && matchesQuick;
+      return matchesSearch && matchesQuick;
     });
-  }, [staffList, searchQuery, departmentFilter, quickFilter]);
+  }, [staffList, searchQuery, quickFilter]);
 
   // Handle Add Staff
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isDoc = isDoctorRole(staffForm.role);
+    const effectiveRole = staffForm.role === "Other" ? staffForm.custom_role.trim() : staffForm.role;
+    if (!effectiveRole) {
+      setErrorMsg("Please enter a custom role / designation.");
+      return;
+    }
+    const isDoc = isDoctorRole(effectiveRole);
     if (isDoc && !staffForm.speciality?.trim()) {
       setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
       return;
@@ -361,9 +350,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         username: staffForm.username ? staffForm.username.trim() : undefined,
         email: staffForm.email ? staffForm.email.trim() : undefined,
         phone: staffForm.phone,
-        role: staffForm.role,
+        role: effectiveRole,
         speciality: isDoc ? (staffForm.speciality || "General Physician") : undefined,
-        department: staffForm.department,
         employment_type: staffForm.employment_type,
         base_salary_paise: paise,
         emergency_contact: staffForm.emergency_contact || undefined,
@@ -398,8 +386,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         email: "",
         phone: "",
         role: "Doctor",
+        custom_role: "",
         speciality: "General Physician",
-        department: "Clinical",
         employment_type: "full_time",
         base_salary_rupees: "50000",
         emergency_contact: "",
@@ -468,7 +456,13 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       return;
     }
 
-    const isDoc = isDoctorRole(editingStaff.role);
+    const effectiveRole = editingStaff.role === "Other" ? editCustomRole.trim() : editingStaff.role;
+    if (!effectiveRole) {
+      setErrorMsg("Please enter a custom role / designation.");
+      return;
+    }
+
+    const isDoc = isDoctorRole(effectiveRole);
     if (isDoc && !editingStaff.speciality?.trim()) {
       setErrorMsg("Specialist field is mandatory for doctors. Please select a speciality.");
       return;
@@ -499,9 +493,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
         username: editingStaff.username ? editingStaff.username.trim() : undefined,
         email: editingStaff.email ? editingStaff.email.trim() : undefined,
         phone: editingStaff.phone,
-        role: editingStaff.role,
+        role: effectiveRole,
         speciality: isDoc ? (editingStaff.speciality || "General Physician") : null,
-        department: editingStaff.department,
         employment_type: editingStaff.employment_type,
         status: editingStaff.status,
         base_salary_paise: editingStaff.base_salary_paise,
@@ -527,6 +520,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
       }
 
       setEditingStaff(null);
+      setEditCustomRole("");
       setEditPasswordInput("");
       loadData();
     } catch (err: unknown) {
@@ -666,14 +660,14 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </div>
               </div>
 
-              {/* Row 1: Name, Role, Specialist (Doctor Only), Department */}
+              {/* Row 1: Name, Role, Specialist (Doctor Only) */}
               {(() => {
-                const isDoctor = isDoctorRole(staffForm.role);
+                const effectiveCreateRole = staffForm.role === "Other" ? staffForm.custom_role : staffForm.role;
+                const isDoctor = isDoctorRole(effectiveCreateRole);
                 return (
                   <div
-                    className={`grid grid-cols-1 ${
-                      isDoctor ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"
-                    } gap-4 sm:gap-5`}
+                    className={`grid grid-cols-1 ${isDoctor ? "md:grid-cols-3" : "md:grid-cols-2"
+                      } gap-4 sm:gap-5`}
                   >
                     {/* Full Name */}
                     <div>
@@ -708,12 +702,13 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           value={staffForm.role}
                           onChange={(e) => {
                             const newRole = e.target.value;
-                            const isDoc = isDoctorRole(newRole);
+                            const resolved = newRole === "Other" ? staffForm.custom_role : newRole;
+                            const isDoc = isDoctorRole(resolved);
                             setStaffForm({
                               ...staffForm,
                               role: newRole,
+                              custom_role: newRole === "Other" ? staffForm.custom_role : "",
                               speciality: isDoc ? (staffForm.speciality || "General Physician") : "",
-                              department: isDoc ? "Clinical" : staffForm.department,
                             });
                           }}
                           className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
@@ -726,6 +721,28 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </select>
                         <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
                       </div>
+                      {staffForm.role === "Other" && (
+                        <div className="relative flex items-center group mt-2 animate-in fade-in duration-150">
+                          <Briefcase className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                          <input
+                            type="text"
+                            required
+                            maxLength={50}
+                            placeholder="Enter role / designation (e.g. Physiotherapist)"
+                            value={staffForm.custom_role}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const isDoc = isDoctorRole(val);
+                              setStaffForm({
+                                ...staffForm,
+                                custom_role: val,
+                                speciality: isDoc ? (staffForm.speciality || "General Physician") : "",
+                              });
+                            }}
+                            className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs font-medium"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Specialist / Medical Speciality (Doctor Only) */}
@@ -758,30 +775,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </div>
                       </div>
                     )}
-
-                    {/* Department */}
-                    <div>
-                      <div className="h-5 flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                          Department <span className="text-brand-600">*</span>
-                        </label>
-                      </div>
-                      <div className="relative flex items-center group">
-                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                        <select
-                          value={staffForm.department}
-                          onChange={(e) => setStaffForm({ ...staffForm, department: e.target.value })}
-                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
-                        >
-                          {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                      </div>
-                    </div>
                   </div>
                 );
               })()}
@@ -807,11 +800,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         setStaffFormTouched((prev) => ({ ...prev, phone: true }));
                         setStaffForm({ ...staffForm, phone: filterPhoneInput(e.target.value) });
                       }}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        addPhoneWarning
+                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${addPhoneWarning
                           ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                           : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
+                        }`}
                     />
                   </div>
                   {addPhoneWarning && (
@@ -840,11 +832,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         setStaffFormTouched((prev) => ({ ...prev, email: true }));
                         setStaffForm({ ...staffForm, email: e.target.value });
                       }}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        addEmailWarning
+                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${addEmailWarning
                           ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                           : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
+                        }`}
                     />
                   </div>
                   {addEmailWarning && (
@@ -971,11 +962,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <div className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold border transition-colors ${
-                      staffForm.can_login
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold border transition-colors ${staffForm.can_login
                         ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                         : "bg-slate-100 text-slate-500 border-slate-200"
-                    }`}
+                      }`}
                   >
                     <Lock className="w-4 h-4" />
                   </div>
@@ -983,11 +973,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 text-xs">Grant Portal Login Access</span>
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          staffForm.can_login
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${staffForm.can_login
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                             : "bg-slate-100 text-slate-500 border-slate-200"
-                        }`}
+                          }`}
                       >
                         {staffForm.can_login ? "Enabled" : "Disabled"}
                       </span>
@@ -1003,14 +992,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                   role="switch"
                   aria-checked={staffForm.can_login}
                   onClick={() => setStaffForm({ ...staffForm, can_login: !staffForm.can_login })}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
-                    staffForm.can_login ? "bg-brand-600" : "bg-slate-300"
-                  }`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${staffForm.can_login ? "bg-brand-600" : "bg-slate-300"
+                    }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      staffForm.can_login ? "translate-x-5" : "translate-x-0"
-                    }`}
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${staffForm.can_login ? "translate-x-5" : "translate-x-0"
+                      }`}
                   />
                 </button>
               </div>
@@ -1058,11 +1045,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                             placeholder="Minimum 6 characters (e.g. TempPass@123)"
                             value={staffForm.password}
                             onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                            className={`w-full h-10 pl-11 pr-10 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl font-mono text-xs transition-all shadow-2xs ${
-                              staffForm.password.length > 0 && staffForm.password.length < 6
+                            className={`w-full h-10 pl-11 pr-10 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl font-mono text-xs transition-all shadow-2xs ${staffForm.password.length > 0 && staffForm.password.length < 6
                                 ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                                 : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                            }`}
+                              }`}
                           />
                           <button
                             type="button"
@@ -1225,14 +1211,14 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 </div>
               </div>
 
-              {/* Row 1: Full Name, Role, Specialist (Doctor Only), Department */}
+              {/* Row 1: Full Name, Role, Specialist (Doctor Only) */}
               {(() => {
-                const isEditDoctor = isDoctorRole(editingStaff.role);
+                const effectiveEditRole = editingStaff.role === "Other" ? editCustomRole : editingStaff.role;
+                const isEditDoctor = isDoctorRole(effectiveEditRole);
                 return (
                   <div
-                    className={`grid grid-cols-1 ${
-                      isEditDoctor ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"
-                    } gap-4 sm:gap-5`}
+                    className={`grid grid-cols-1 ${isEditDoctor ? "md:grid-cols-3" : "md:grid-cols-2"
+                      } gap-4 sm:gap-5`}
                   >
                     {/* Full Name */}
                     <div>
@@ -1266,12 +1252,15 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           value={editingStaff.role}
                           onChange={(e) => {
                             const newRole = e.target.value;
-                            const isDoc = isDoctorRole(newRole);
+                            const resolved = newRole === "Other" ? editCustomRole : newRole;
+                            const isDoc = isDoctorRole(resolved);
+                            if (newRole !== "Other") {
+                              setEditCustomRole("");
+                            }
                             setEditingStaff({
                               ...editingStaff,
                               role: newRole,
                               speciality: isDoc ? (editingStaff.speciality || "General Physician") : undefined,
-                              department: isDoc ? "Clinical" : editingStaff.department,
                             });
                           }}
                           className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-semibold transition-all shadow-2xs appearance-none cursor-pointer"
@@ -1284,6 +1273,28 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </select>
                         <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
                       </div>
+                      {editingStaff.role === "Other" && (
+                        <div className="relative flex items-center group mt-2 animate-in fade-in duration-150">
+                          <Briefcase className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
+                          <input
+                            type="text"
+                            required
+                            maxLength={50}
+                            placeholder="Enter role / designation (e.g. Physiotherapist)"
+                            value={editCustomRole}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const isDoc = isDoctorRole(val);
+                              setEditCustomRole(val);
+                              setEditingStaff({
+                                ...editingStaff,
+                                speciality: isDoc ? (editingStaff.speciality || "General Physician") : undefined,
+                              });
+                            }}
+                            className="w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 transition-all shadow-2xs font-medium"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Specialist / Medical Speciality (Doctor Only) */}
@@ -1316,30 +1327,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         </div>
                       </div>
                     )}
-
-                    {/* Department */}
-                    <div>
-                      <div className="h-5 flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                          Department <span className="text-brand-600">*</span>
-                        </label>
-                      </div>
-                      <div className="relative flex items-center group">
-                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                        <select
-                          value={editingStaff.department}
-                          onChange={(e) => setEditingStaff({ ...editingStaff, department: e.target.value })}
-                          className="w-full h-10 pl-11 pr-9 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 rounded-xl text-xs text-slate-900 font-medium transition-all shadow-2xs appearance-none cursor-pointer"
-                        >
-                          {DEPARTMENT_OPTIONS.filter((d) => d !== "All Departments").map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                      </div>
-                    </div>
                   </div>
                 );
               })()}
@@ -1360,11 +1347,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       required
                       value={editingStaff.phone}
                       onChange={(e) => setEditingStaff({ ...editingStaff, phone: filterPhoneInput(e.target.value) })}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        editPhoneWarning
+                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${editPhoneWarning
                           ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                           : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
+                        }`}
                     />
                   </div>
                   {editPhoneWarning && (
@@ -1388,11 +1374,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       type="email"
                       value={editingStaff.email || ""}
                       onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        editEmailWarning
+                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${editEmailWarning
                           ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                           : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
+                        }`}
                     />
                   </div>
                   {editEmailWarning && (
@@ -1543,11 +1528,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <div className="p-4 bg-white rounded-xl border border-slate-200/80 flex items-center justify-between transition-colors shadow-2xs">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold border transition-colors ${
-                      editingStaff.can_login
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold border transition-colors ${editingStaff.can_login
                         ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                         : "bg-slate-100 text-slate-500 border-slate-200"
-                    }`}
+                      }`}
                   >
                     <Lock className="w-4 h-4" />
                   </div>
@@ -1555,11 +1539,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 text-xs">Grant Portal Login Access</span>
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          editingStaff.can_login
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${editingStaff.can_login
                             ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                             : "bg-slate-100 text-slate-500 border-slate-200"
-                        }`}
+                          }`}
                       >
                         {editingStaff.can_login ? "Enabled" : "Disabled"}
                       </span>
@@ -1575,14 +1558,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                   role="switch"
                   aria-checked={editingStaff.can_login}
                   onClick={() => setEditingStaff({ ...editingStaff, can_login: !editingStaff.can_login })}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
-                    editingStaff.can_login ? "bg-brand-600" : "bg-slate-300"
-                  }`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${editingStaff.can_login ? "bg-brand-600" : "bg-slate-300"
+                    }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      editingStaff.can_login ? "translate-x-5" : "translate-x-0"
-                    }`}
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${editingStaff.can_login ? "translate-x-5" : "translate-x-0"
+                      }`}
                   />
                 </button>
               </div>
@@ -1634,11 +1615,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                                   }
                                   value={editPasswordInput}
                                   onChange={(e) => setEditPasswordInput(e.target.value)}
-                                  className={`w-full h-10 pl-11 pr-10 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl font-mono text-xs transition-all shadow-2xs ${
-                                    editPasswordInput.length > 0 && editPasswordInput.length < 6
+                                  className={`w-full h-10 pl-11 pr-10 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl font-mono text-xs transition-all shadow-2xs ${editPasswordInput.length > 0 && editPasswordInput.length < 6
                                       ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
                                       : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                                  }`}
+                                    }`}
                                 />
                                 <button
                                   type="button"
@@ -1720,11 +1700,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               </button>
               <div className="flex items-center gap-3.5">
                 <div
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base border shadow-2xs ring-4 ${
-                    isDoctorRole(selectedStaff.role)
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base border shadow-2xs ring-4 ${isDoctorRole(selectedStaff.role)
                       ? "bg-purple-100 text-purple-700 border-purple-200 ring-purple-500/10"
                       : "bg-brand-50 text-brand-700 border-brand-100 ring-brand-500/10"
-                  }`}
+                    }`}
                 >
                   {isDoctorRole(selectedStaff.role) ? (
                     <Stethoscope className="w-6 h-6" />
@@ -1789,16 +1768,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
           </div>
 
           {/* Quick Stats Banner Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200/80 text-xs">
-            <div className="p-3.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Department</span>
-                <span className="text-sm font-bold text-slate-900 mt-0.5 block">{selectedStaff.department}</span>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 border border-brand-100 flex items-center justify-center shrink-0">
-                <Building2 className="w-4 h-4" />
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200/80 text-xs">
             <div className="p-3.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Employment</span>
@@ -1886,13 +1856,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                         )}
                         <span
-                          className={`relative inline-flex rounded-full h-2 w-2 ${
-                            selectedStaff.status === "active"
+                          className={`relative inline-flex rounded-full h-2 w-2 ${selectedStaff.status === "active"
                               ? "bg-emerald-500"
                               : selectedStaff.status === "on_leave"
-                              ? "bg-amber-500"
-                              : "bg-slate-400"
-                          }`}
+                                ? "bg-amber-500"
+                                : "bg-slate-400"
+                            }`}
                         />
                       </span>
                       <span className="font-bold text-slate-800 capitalize">{selectedStaff.status.replace("_", " ")}</span>
@@ -2112,9 +2081,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <button
                 type="button"
                 onClick={() => setQuickFilter("all")}
-                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${
-                  quickFilter === "all" ? "bg-slate-50/90 ring-1 ring-inset ring-slate-200" : "hover:bg-slate-50/50"
-                }`}
+                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${quickFilter === "all" ? "bg-slate-50/90 ring-1 ring-inset ring-slate-200" : "hover:bg-slate-50/50"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -2135,9 +2103,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <button
                 type="button"
                 onClick={() => setQuickFilter("doctors")}
-                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${
-                  quickFilter === "doctors" ? "bg-purple-50/70 ring-1 ring-inset ring-purple-200" : "hover:bg-slate-50/50"
-                }`}
+                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${quickFilter === "doctors" ? "bg-purple-50/70 ring-1 ring-inset ring-purple-200" : "hover:bg-slate-50/50"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">
@@ -2158,9 +2125,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <button
                 type="button"
                 onClick={() => setQuickFilter("active")}
-                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${
-                  quickFilter === "active" ? "bg-teal-50/70 ring-1 ring-inset ring-teal-200" : "hover:bg-slate-50/50"
-                }`}
+                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${quickFilter === "active" ? "bg-teal-50/70 ring-1 ring-inset ring-teal-200" : "hover:bg-slate-50/50"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block">
@@ -2181,9 +2147,8 @@ export default function StaffTab({ doctor }: StaffTabProps) {
               <button
                 type="button"
                 onClick={() => setQuickFilter("portal")}
-                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${
-                  quickFilter === "portal" ? "bg-emerald-50/70 ring-1 ring-inset ring-emerald-200" : "hover:bg-slate-50/50"
-                }`}
+                className={`p-3.5 sm:p-4 text-left transition-all cursor-pointer group ${quickFilter === "portal" ? "bg-emerald-50/70 ring-1 ring-inset ring-emerald-200" : "hover:bg-slate-50/50"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
@@ -2212,50 +2177,46 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                 <button
                   type="button"
                   onClick={() => setQuickFilter("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    quickFilter === "all"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${quickFilter === "all"
                       ? "bg-slate-900 text-white shadow-2xs"
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-600"
-                  }`}
+                    }`}
                 >
                   All ({staffList.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickFilter("doctors")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    quickFilter === "doctors"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${quickFilter === "doctors"
                       ? "bg-purple-700 text-white shadow-2xs"
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-600"
-                  }`}
+                    }`}
                 >
                   Doctors ({staffList.filter((s) => isDoctorRole(s.role)).length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickFilter("active")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    quickFilter === "active"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${quickFilter === "active"
                       ? "bg-teal-700 text-white shadow-2xs"
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-600"
-                  }`}
+                    }`}
                 >
                   Active ({staffList.filter((s) => s.status === "active").length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickFilter("portal")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    quickFilter === "portal"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${quickFilter === "portal"
                       ? "bg-emerald-700 text-white shadow-2xs"
                       : "bg-slate-100 hover:bg-slate-200/80 text-slate-600"
-                  }`}
+                    }`}
                 >
                   Sign-In ({staffList.filter((s) => s.can_login).length})
                 </button>
               </div>
 
-              {/* Right Side: Search + Department + Refresh + Add Staff */}
+              {/* Right Side: Search + Refresh + Add Staff */}
               <div className="flex flex-wrap items-center gap-2">
                 {/* Search Input */}
                 <div className="relative flex items-center group flex-1 sm:flex-initial">
@@ -2267,22 +2228,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-9 pl-9 pr-3 text-xs bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-800 focus:outline-hidden focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 w-full sm:w-48 shadow-2xs transition-all font-medium placeholder:text-slate-400"
                   />
-                </div>
-
-                {/* Department Filter */}
-                <div className="relative flex items-center shrink-0">
-                  <select
-                    value={departmentFilter}
-                    onChange={(e) => setDepartmentFilter(e.target.value)}
-                    className="h-9 pl-3 pr-8 text-xs bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-slate-700 focus:outline-hidden focus:ring-4 focus:ring-brand-500/10 shadow-2xs transition-all font-medium appearance-none cursor-pointer"
-                  >
-                    {DEPARTMENT_OPTIONS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
 
                 {/* Refresh */}
@@ -2314,7 +2259,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                   <tr>
                     <th className="py-3.5 px-4">Staff Member</th>
                     <th className="py-3.5 px-4">Role / Designation</th>
-                    <th className="py-3.5 px-4">Department</th>
                     <th className="py-3.5 px-4">Phone Number</th>
                     <th className="py-3.5 px-4">Duty Status</th>
                     <th className="py-3.5 px-4 text-right">View</th>
@@ -2333,11 +2277,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         <td className="py-3.5 px-4 font-semibold text-slate-900">
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-2xs ${
-                                isDoctor
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border shadow-2xs ${isDoctor
                                   ? "bg-purple-100 text-purple-700 border-purple-200"
                                   : "bg-brand-50 text-brand-700 border-brand-100"
-                              }`}
+                                }`}
                             >
                               {isDoctor ? (
                                 <Stethoscope className="w-4.5 h-4.5" />
@@ -2383,11 +2326,10 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col items-start gap-1">
                             <span
-                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                                isDoctor
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${isDoctor
                                   ? "bg-purple-50 text-purple-700 border-purple-200 font-bold"
                                   : "bg-slate-100 text-slate-700 border-slate-200"
-                              }`}
+                                }`}
                             >
                               {staff.role}
                             </span>
@@ -2396,14 +2338,6 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                                 {staff.speciality}
                               </span>
                             )}
-                          </div>
-                        </td>
-
-                        {/* Department */}
-                        <td className="py-3.5 px-4 text-slate-700 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{staff.department}</span>
                           </div>
                         </td>
 
@@ -2421,13 +2355,12 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                                 )}
                                 <span
-                                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                                    staff.status === "active"
+                                  className={`relative inline-flex rounded-full h-2 w-2 ${staff.status === "active"
                                       ? "bg-emerald-500"
                                       : staff.status === "on_leave"
-                                      ? "bg-amber-500"
-                                      : "bg-slate-400"
-                                  }`}
+                                        ? "bg-amber-500"
+                                        : "bg-slate-400"
+                                    }`}
                                 />
                               </span>
                               <span className="capitalize">{staff.status.replace("_", " ")}</span>
@@ -2457,7 +2390,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
 
                   {filteredStaff.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
                         <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         <p className="text-xs font-medium text-slate-600">No staff members found.</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
