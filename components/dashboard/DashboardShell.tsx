@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Calendar,
-  User,
   Smartphone,
   LogOut,
   Menu,
@@ -45,7 +44,6 @@ interface ProfileDropdownMenuProps {
   clinicName: string;
   formattedDoctorName: string;
   email: string;
-  speciality: string;
   onNavigateProfile: () => void;
   onLogout: () => void;
   className?: string;
@@ -56,7 +54,6 @@ function ProfileDropdownMenu({
   clinicName,
   formattedDoctorName,
   email,
-  speciality,
   onNavigateProfile,
   onLogout,
   className = "w-[268px] mt-2.5",
@@ -65,84 +62,74 @@ function ProfileDropdownMenu({
     <div
       className={`absolute right-0 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-150 origin-top-right space-y-1.5 ${className}`}
     >
-      {/* 1. Read-Only Account Identity Info */}
-      <div className="p-2.5 bg-slate-50/90 rounded-xl border border-slate-100 select-text cursor-default">
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={clinicLogo}
-              alt={clinicName}
-              className="w-10 h-10 rounded-full border border-slate-200 object-contain bg-white p-0.5 shadow-2xs"
-              onError={(e) => {
-                const target = e.currentTarget;
-                if (target.src !== DEFAULT_CLINIC_LOGO) {
-                  target.src = DEFAULT_CLINIC_LOGO;
-                }
-              }}
-            />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+      {/* 1. Clickable Profile Identity Card (navigates to Admin Profile) */}
+      <button
+        type="button"
+        onClick={onNavigateProfile}
+        aria-label="Open Admin Profile and clinic settings"
+        title="View & edit Admin Profile"
+        className="w-full p-2.5 bg-slate-50/90 hover:bg-brand-50/80 rounded-xl border border-slate-100 hover:border-brand-200/80 text-left transition-all duration-150 group cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={clinicLogo}
+                alt={clinicName}
+                className="w-10 h-10 rounded-full border border-slate-200 group-hover:border-brand-300 object-contain bg-white p-0.5 shadow-2xs transition-colors"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (target.src !== DEFAULT_CLINIC_LOGO) {
+                    target.src = DEFAULT_CLINIC_LOGO;
+                  }
+                }}
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div
+                className="text-xs font-bold text-slate-900 group-hover:text-brand-700 truncate transition-colors"
+                title={clinicName}
+              >
+                {clinicName}
+              </div>
+              <div className="text-[11px] text-slate-600 font-medium truncate">
+                {formattedDoctorName}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">{email}</div>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 truncate" title={clinicName}>
-              {clinicName}
+          <ChevronRight
+            className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0"
+            aria-hidden="true"
+          />
+        </div>
+      </button>
+
+      <div className="border-t border-slate-100 my-1" />
+
+      {/* 2. Sign Out Action Button */}
+      <button
+        type="button"
+        onClick={onLogout}
+        className="w-full flex items-center justify-between p-2 rounded-xl text-left transition-all duration-150 group cursor-pointer hover:bg-rose-50 border border-slate-100 hover:border-rose-200/80 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors shadow-2xs">
+            <LogOut className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-rose-700 group-hover:text-rose-800 transition-colors">
+              Sign Out
             </div>
-            <div className="text-[11px] text-slate-600 font-medium truncate">
-              {formattedDoctorName}
+            <div className="text-[10px] text-rose-500/80 truncate">
+              End your session
             </div>
-            <div className="text-[10px] text-slate-400 truncate">{email}</div>
           </div>
         </div>
-      </div>
-
-      {/* 2. Clickable Actions */}
-      <div className="space-y-1">
-        {/* Admin Profile Action Button */}
-        <button
-          type="button"
-          onClick={onNavigateProfile}
-          className="w-full flex items-center justify-between p-2 rounded-xl text-left transition-all duration-150 group cursor-pointer hover:bg-brand-50/80 border border-slate-100 hover:border-brand-200/80 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 group-hover:bg-brand-600 group-hover:text-white transition-colors shadow-2xs">
-              <User className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-800 group-hover:text-brand-700 transition-colors">
-                Admin Profile
-              </div>
-              <div className="text-[10px] text-slate-500 truncate">
-                Account &amp; clinic settings
-              </div>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
-        </button>
-
-        <div className="border-t border-slate-100 my-1" />
-
-        {/* Sign Out Action Button */}
-        <button
-          type="button"
-          onClick={onLogout}
-          className="w-full flex items-center justify-between p-2 rounded-xl text-left transition-all duration-150 group cursor-pointer hover:bg-rose-50 border border-slate-100 hover:border-rose-200/80 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors shadow-2xs">
-              <LogOut className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-rose-700 group-hover:text-rose-800 transition-colors">
-                Sign Out
-              </div>
-              <div className="text-[10px] text-rose-500/80 truncate">
-                End your session
-              </div>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-rose-300 group-hover:text-rose-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
-        </button>
-      </div>
+        <ChevronRight className="w-4 h-4 text-rose-300 group-hover:text-rose-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
+      </button>
     </div>
   );
 }
@@ -349,7 +336,6 @@ export default function DashboardShell({
                 clinicName={clinicName}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
-                speciality={profile?.speciality || "General Practice"}
                 onNavigateProfile={() => {
                   setIsProfileMenuOpen(false);
                   onTabChange("profile");
@@ -434,7 +420,6 @@ export default function DashboardShell({
                 clinicName={clinicName}
                 formattedDoctorName={formattedDoctorName}
                 email={doctor.email}
-                speciality={profile?.speciality || "Healthcare Practice"}
                 onNavigateProfile={() => {
                   setIsProfileMenuOpen(false);
                   onTabChange("profile");
@@ -483,30 +468,42 @@ export default function DashboardShell({
               </button>
             </div>
 
-            {/* Clinic & Doctor Info Card */}
-            <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={clinicLogo}
-                alt={clinicName}
-                className="w-10 h-10 rounded-full border-2 border-brand-200 object-contain bg-white p-0.5 shrink-0"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  if (target.src !== DEFAULT_CLINIC_LOGO) {
-                    target.src = DEFAULT_CLINIC_LOGO;
-                  }
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-900 truncate" title={clinicName}>
-                  {clinicName}
-                </p>
-                <p className="text-xs text-slate-600 font-medium truncate">
-                  {formattedDoctorName}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">{doctor.email}</p>
+            {/* Clickable Clinic & Doctor Info Card (navigates to Admin Profile) */}
+            <button
+              type="button"
+              onClick={() => handleTabSelect("profile")}
+              aria-label="Open Admin Profile and clinic settings"
+              title="View & edit Admin Profile"
+              className="w-full p-4 bg-slate-50/70 hover:bg-brand-50/70 border-b border-slate-100 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={clinicLogo}
+                  alt={clinicName}
+                  className="w-10 h-10 rounded-full border-2 border-brand-200 object-contain bg-white p-0.5 shrink-0"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== DEFAULT_CLINIC_LOGO) {
+                      target.src = DEFAULT_CLINIC_LOGO;
+                    }
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900 group-hover:text-brand-700 truncate transition-colors" title={clinicName}>
+                    {clinicName}
+                  </p>
+                  <p className="text-xs text-slate-600 font-medium truncate">
+                    {formattedDoctorName}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate">{doctor.email}</p>
+                </div>
               </div>
-            </div>
+              <ChevronRight
+                className="w-4 h-4 text-slate-400 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all shrink-0"
+                aria-hidden="true"
+              />
+            </button>
 
             {/* Drawer Navigation Links */}
             <nav className="p-3 flex-1 overflow-y-auto space-y-1 custom-scrollbar">

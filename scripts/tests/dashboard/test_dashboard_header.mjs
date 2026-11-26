@@ -174,6 +174,33 @@ describe("Mobile Top Bar, Drawer & Profile Dropdown Consistency", () => {
       "ProfileDropdownMenuProps must declare clinicName"
     );
   });
+
+  test("ProfileDropdownMenu makes profile identity card clickable instead of separate Admin Profile section (Issue #65)", () => {
+    const startIdx = dashboardShellSrc.indexOf("function ProfileDropdownMenu(");
+    const endIdx = dashboardShellSrc.indexOf("export default function DashboardShell(");
+    assert.ok(startIdx !== -1 && endIdx !== -1 && endIdx > startIdx, "ProfileDropdownMenu function must exist");
+    const dropdownSrc = dashboardShellSrc.slice(startIdx, endIdx);
+
+    assert.ok(
+      dropdownSrc.includes("onClick={onNavigateProfile}"),
+      "ProfileDropdownMenu identity card button must call onNavigateProfile"
+    );
+    assert.ok(
+      !dropdownSrc.includes("Account &amp; clinic settings"),
+      "ProfileDropdownMenu must not render a redundant separate Admin Profile button section"
+    );
+    assert.ok(
+      !dropdownSrc.includes("cursor-default"),
+      "ProfileDropdownMenu identity card must be interactive, not cursor-default"
+    );
+  });
+
+  test("Mobile drawer identity card is clickable and navigates to profile (Issue #65)", () => {
+    assert.ok(
+      dashboardShellSrc.includes('onClick={() => handleTabSelect("profile")}'),
+      "Mobile drawer identity card must navigate to profile on click"
+    );
+  });
 });
 
 // ============================================================================
