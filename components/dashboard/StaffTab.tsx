@@ -47,6 +47,8 @@ import {
   isDoctorRole,
 } from "@/lib/api";
 import { DashboardTabId } from "./DashboardShell";
+import { CountryPhoneInput } from "@/components/ui/CountryPhoneInput";
+import { validateStaffPhoneValue } from "@/lib/phone";
 
 interface StaffTabProps {
   doctor: DoctorMeResponse;
@@ -217,26 +219,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     return `${parts[0]}.${parts[parts.length - 1]}`;
   };
 
-  const filterPhoneInput = (val: string): string => {
-    return val.replace(/[^0-9+\s\-().]/g, "");
-  };
-
   const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
-
-  const getPhoneWarning = (phone: string, isTouched: boolean = false): string | null => {
-    const trimmed = phone.trim();
-    if (!trimmed) {
-      return isTouched ? "Phone number is required." : null;
-    }
-    const digits = trimmed.replace(/\D/g, "");
-    if (digits.length < 7) {
-      return `Must contain at least 7 digits (currently ${digits.length}).`;
-    }
-    if (digits.length > 15) {
-      return `Cannot exceed 15 digits (currently ${digits.length}).`;
-    }
-    return null;
-  };
 
   const getEmailWarning = (email?: string | null): string | null => {
     if (!email || !email.trim()) return null;
@@ -247,7 +230,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
   };
 
   const validatePhoneAndEmail = (phone: string, email?: string | null): string | null => {
-    const phoneWarn = getPhoneWarning(phone, true);
+    const phoneWarn = validateStaffPhoneValue(phone, true);
     if (phoneWarn) return phoneWarn;
     const emailWarn = getEmailWarning(email);
     if (emailWarn) return emailWarn;
@@ -550,9 +533,7 @@ export default function StaffTab({ doctor }: StaffTabProps) {
     }
   };
 
-  const addPhoneWarning = getPhoneWarning(staffForm.phone, Boolean(staffFormTouched.phone || staffForm.phone.length > 0));
   const addEmailWarning = getEmailWarning(staffForm.email);
-  const editPhoneWarning = editingStaff ? getPhoneWarning(editingStaff.phone, true) : null;
   const editEmailWarning = editingStaff ? getEmailWarning(editingStaff.email) : null;
 
   return (
@@ -795,31 +776,15 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       Phone Number <span className="text-brand-600">*</span>
                     </label>
                   </div>
-                  <div className="relative flex items-center group">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <input
-                      type="tel"
-                      required
-                      placeholder="+91 98765 00000"
-                      value={staffForm.phone}
-                      onBlur={() => setStaffFormTouched((prev) => ({ ...prev, phone: true }))}
-                      onChange={(e) => {
-                        setStaffFormTouched((prev) => ({ ...prev, phone: true }));
-                        setStaffForm({ ...staffForm, phone: filterPhoneInput(e.target.value) });
-                      }}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        addPhoneWarning
-                          ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
-                          : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
-                    />
-                  </div>
-                  {addPhoneWarning && (
-                    <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1 font-medium animate-in fade-in">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                      <span>{addPhoneWarning}</span>
-                    </p>
-                  )}
+                  <CountryPhoneInput
+                    value={staffForm.phone}
+                    touched={Boolean(staffFormTouched.phone)}
+                    onBlur={() => setStaffFormTouched((prev) => ({ ...prev, phone: true }))}
+                    onChange={(formatted) => {
+                      setStaffFormTouched((prev) => ({ ...prev, phone: true }));
+                      setStaffForm((prev) => ({ ...prev, phone: formatted }));
+                    }}
+                  />
                 </div>
 
                 {/* Email Address */}
@@ -1353,26 +1318,11 @@ export default function StaffTab({ doctor }: StaffTabProps) {
                       Phone Number <span className="text-brand-600">*</span>
                     </label>
                   </div>
-                  <div className="relative flex items-center group">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-brand-600 transition-colors shrink-0" />
-                    <input
-                      type="tel"
-                      required
-                      value={editingStaff.phone}
-                      onChange={(e) => setEditingStaff({ ...editingStaff, phone: filterPhoneInput(e.target.value) })}
-                      className={`w-full h-10 pl-11 pr-3.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-xl text-xs font-medium transition-all shadow-2xs ${
-                        editPhoneWarning
-                          ? "border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-400/20 bg-rose-50/20 text-rose-900"
-                          : "border-slate-200 hover:border-slate-300 focus:border-brand-600 focus:ring-4 focus:ring-brand-500/10 text-slate-900"
-                      }`}
-                    />
-                  </div>
-                  {editPhoneWarning && (
-                    <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1 font-medium animate-in fade-in">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
-                      <span>{editPhoneWarning}</span>
-                    </p>
-                  )}
+                  <CountryPhoneInput
+                    value={editingStaff.phone}
+                    touched={true}
+                    onChange={(formatted) => setEditingStaff((prev) => (prev ? { ...prev, phone: formatted } : prev))}
+                  />
                 </div>
 
                 {/* Email Address */}
