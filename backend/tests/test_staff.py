@@ -431,13 +431,22 @@ def test_staff_phone_and_email_validation(client, test_doctor_and_auth):
     )
     assert res_bad_phone1.status_code == 422
 
-    # 2. Reject phone with too few digits (< 7)
+    # 2. Reject phone with too few digits (< 10)
     res_bad_phone2 = client.post(
         "/api/v1/staff",
         json={"full_name": "Test User", "phone": "12345", "role": "Receptionist"},
         headers=headers,
     )
     assert res_bad_phone2.status_code == 422
+
+    # 2b. Reject Indian mobile numbers that are not strictly 10 valid digits starting with 6-9
+    for bad_in_phone in ["+91 987654321", "+91 98765432101", "+91 5876543210", "0123456789", "+91 9999999999"]:
+        res_bad_in = client.post(
+            "/api/v1/staff",
+            json={"full_name": "Test User", "phone": bad_in_phone, "role": "Receptionist"},
+            headers=headers,
+        )
+        assert res_bad_in.status_code == 422, f"Expected 422 for invalid phone {bad_in_phone}"
 
     # 3. Reject invalid email format
     res_bad_email = client.post(
@@ -481,6 +490,18 @@ def test_staff_phone_and_email_validation(client, test_doctor_and_auth):
         headers=headers,
     )
     assert res_bad_update_email.status_code == 422
+
+    # 7. Accept valid international mobile number (e.g. UK +44)
+    res_intl = client.post(
+        "/api/v1/staff",
+        json={
+            "full_name": "Intl Member",
+            "phone": "+44 7911123456",
+            "role": "Receptionist",
+        },
+        headers=headers,
+    )
+    assert res_intl.status_code == 201
 
 
 def test_staff_username_at_symbol_normalization(client, test_doctor_and_auth):

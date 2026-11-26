@@ -24,6 +24,7 @@ EMAIL_REGEX = re.compile(
     r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$"
 )
 PHONE_ALLOWED_CHARS_REGEX = re.compile(r"^\+?[0-9\s\-().]{7,25}$")
+INDIAN_MOBILE_REGEX = re.compile(r"^[6-9]\d{9}$")
 USERNAME_ALLOWED_CHARS_REGEX = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
@@ -40,7 +41,7 @@ def validate_staff_username(val: Optional[str]) -> Optional[str]:
 
 
 def validate_staff_phone(val: Optional[str]) -> Optional[str]:
-    """Validate phone number ensuring allowed format and realistic digit count (7-15 digits)."""
+    """Validate staff mobile number: strict 10-digit Indian mobile (+91) or valid E.164 international number."""
     if val is None:
         return None
     cleaned = str(val).strip()
@@ -48,9 +49,23 @@ def validate_staff_phone(val: Optional[str]) -> Optional[str]:
         raise ValueError("Phone number cannot be empty.")
     if not PHONE_ALLOWED_CHARS_REGEX.match(cleaned):
         raise ValueError("Phone number contains invalid characters. Use digits, +, -, and spaces.")
-    digits = [c for c in cleaned if c.isdigit()]
-    if len(digits) < 7 or len(digits) > 15:
-        raise ValueError("Phone number must contain between 7 and 15 digits.")
+    digits = "".join(c for c in cleaned if c.isdigit())
+
+    if cleaned.startswith("+91") or not cleaned.startswith("+"):
+        local_digits = digits[2:] if cleaned.startswith("+91") else digits
+        if len(local_digits) != 10:
+            raise ValueError("Mobile number must be exactly 10 digits (e.g., +91 9876543210).")
+        if not INDIAN_MOBILE_REGEX.match(local_digits):
+            raise ValueError("Indian mobile numbers must be 10 digits starting with 6, 7, 8, or 9.")
+        if len(set(local_digits)) == 1:
+            raise ValueError("Phone number cannot consist of all identical digits.")
+    else:
+        if digits.startswith("0"):
+            raise ValueError("Invalid international country code.")
+        if len(digits) < 7 or len(digits) > 15:
+            raise ValueError("International phone number must contain between 7 and 15 digits.")
+        if len(set(digits)) == 1:
+            raise ValueError("Phone number cannot consist of all identical digits.")
     return cleaned
 
 
