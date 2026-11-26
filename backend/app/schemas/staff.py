@@ -8,13 +8,8 @@ from app.models.staff import is_doctor_role
 # Core Type Literals
 StaffRole = Literal[
     "Doctor",
-    "Junior Doctor",
     "Nurse",
     "Receptionist",
-    "Pharmacist",
-    "Lab Technician",
-    "Billing Executive",
-    "Administrative Assistant",
     "Other",
 ]
 StaffStatus = Literal["active", "on_leave", "inactive", "terminated"]
