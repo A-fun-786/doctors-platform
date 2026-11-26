@@ -124,10 +124,20 @@ describe("Dashboard Header Clinic Identity & Logo Integration", () => {
     );
   });
 
-  test("Image onError fallback restores DEFAULT_CLINIC_LOGO", () => {
+  test("Image onError fallback uses handleClinicLogoError with getAttribute guard and onerror=null", () => {
     assert.ok(
-      dashboardShellSrc.includes("target.src = DEFAULT_CLINIC_LOGO"),
-      "Image elements must provide onError fallback to DEFAULT_CLINIC_LOGO"
+      dashboardShellSrc.includes("function handleClinicLogoError("),
+      "DashboardShell must define shared handleClinicLogoError helper"
+    );
+    assert.ok(
+      dashboardShellSrc.includes("target.onerror = null;") &&
+      dashboardShellSrc.includes('target.getAttribute("src") !== DEFAULT_CLINIC_LOGO') &&
+      dashboardShellSrc.includes("target.src = DEFAULT_CLINIC_LOGO;"),
+      "handleClinicLogoError must clear onerror and compare getAttribute('src') to prevent infinite loops"
+    );
+    assert.ok(
+      dashboardShellSrc.includes("onError={handleClinicLogoError}"),
+      "Image elements must wire onError={handleClinicLogoError}"
     );
   });
 
@@ -227,12 +237,9 @@ describe("Clinic Logo & Name Resolution Logic Simulation", () => {
   const DEFAULT_CLINIC_LOGO = "/emblem-only.png";
 
   function resolveTestLogo(profile, doctor) {
-    return profile?.app_icon_url && profile.app_icon_url !== DEFAULT_DOCTOR_AVATAR && profile.app_icon_url !== ""
-      ? profile.app_icon_url
-      : profile?.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR && profile.avatar_url !== ""
-      ? profile.avatar_url
-      : doctor?.avatar_url && doctor.avatar_url !== DEFAULT_DOCTOR_AVATAR && doctor.avatar_url !== ""
-      ? doctor.avatar_url
+    const trimmedAppIcon = profile?.app_icon_url?.trim();
+    return trimmedAppIcon && trimmedAppIcon !== DEFAULT_DOCTOR_AVATAR
+      ? trimmedAppIcon
       : DEFAULT_CLINIC_LOGO;
   }
 
@@ -285,6 +292,24 @@ describe("Clinic Logo & Name Resolution Logic Simulation", () => {
 
     assert.equal(resolveTestLogo(profile, doctor), DEFAULT_CLINIC_LOGO);
     assert.notEqual(resolveTestLogo(profile, doctor), DEFAULT_DOCTOR_AVATAR);
+  });
+
+  test("Personal doctor/profile avatar_url is never used as clinic logo when app_icon_url is unset", () => {
+    const profile = {
+      clinic_name: "Metro Wellness",
+      avatar_url: "https://storage.example.com/doctor-headshot.png",
+      app_icon_url: "",
+    };
+    const doctor = {
+      full_name: "Dr. Smith",
+      avatar_url: "https://storage.example.com/doctor-headshot.png",
+    };
+
+    assert.equal(resolveTestLogo(profile, doctor), DEFAULT_CLINIC_LOGO);
+    assert.ok(
+      !dashboardShellSrc.includes("profile?.avatar_url"),
+      "DashboardShell clinicLogo must not fall back to personal profile.avatar_url"
+    );
   });
 
   test("Fallback to doctor tenant clinic_name when profile is not yet loaded", () => {

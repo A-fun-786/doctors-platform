@@ -8,6 +8,8 @@ import {
   getTimeRowRange,
   doesEventOverlapSlot,
   getWorkingHoursTimeRows,
+  getDayStatus,
+  isSlotWithinWorkingHours,
   WorkingHoursConfig,
   WorkingHoursShift,
   timeToMinutes,
@@ -40,18 +42,27 @@ export default function DayView({
     (e) => e.type === "LEAVE" || e.type === "HOLIDAY"
   ).length;
 
+  // Evaluate overall day status (Holiday > Full-day Leave > Weekly Closed Day > No Shifts > Open)
+  const dayStatus = useMemo(
+    () => getDayStatus(selectedDate, workingHoursConfig, events),
+    [selectedDate, workingHoursConfig, events]
+  );
+
   // Only show working hours slots (active shifts) or slots that contain scheduled events
   const workingTimeRows = useMemo(() => {
     return getWorkingHoursTimeRows(workingHoursConfig, events);
   }, [workingHoursConfig, events]);
 
-  // Calculate unbooked empty 30-minute slots count within active working shifts
+  // Calculate unbooked empty 30-minute slots count within active working shifts and open days
   const emptySlotsCount = useMemo(() => {
     return workingTimeRows.filter((timeRow) => {
       const { start: slotStart, end: slotEnd } = getTimeRowRange(timeRow);
+      if (!isSlotWithinWorkingHours(selectedDate, slotStart, slotEnd, workingHoursConfig)) {
+        return false;
+      }
       return !events.some((ev) => doesEventOverlapSlot(ev, slotStart, slotEnd));
     }).length;
-  }, [workingTimeRows, events]);
+  }, [workingTimeRows, events, selectedDate, workingHoursConfig]);
 
   const activeShifts = (workingHoursConfig || DEFAULT_WORKING_HOURS).shifts.filter(
     (s: WorkingHoursShift) => s.enabled
@@ -94,13 +105,22 @@ export default function DayView({
 
       <div className="p-3.5 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
         {/* Header */}
-        <div className="pb-4 border-b border-slate-100">
-          <h3 className="text-base font-bold text-slate-900">
-            Day Schedule — {selectedDate}
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Operational 30-minute stream with schedule-divided borders and clean UI.
-          </p>
+        <div className="pb-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Day Schedule — {selectedDate}
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Operational 30-minute stream with schedule-divided borders and clean UI.
+            </p>
+          </div>
+          {dayStatus.text !== "Clinic Open" && (
+            <span
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${dayStatus.color}`}
+            >
+              {dayStatus.text}
+            </span>
+          )}
         </div>
 
         {/* Summary KPI Cards */}
@@ -292,7 +312,37 @@ export default function DayView({
                   );
                 }
 
-                // 4. Clean Empty Slot (Schedule-colored border, zero text clutter)
+                const isWithinShift = isSlotWithinWorkingHours(
+                  selectedDate,
+                  slotStart,
+                  slotEnd,
+                  workingHoursConfig
+                );
+
+                // 4. Non-Working / Closed Day Slot (non-clickable)
+                if (!isWithinShift) {
+                  return (
+                    <React.Fragment key={timeRow}>
+                      {shiftDivider}
+                      <div
+                        className="p-2.5 sm:p-3.5 rounded-xl border border-slate-200/70 bg-slate-100/60 flex items-center justify-between gap-2 sm:gap-3 cursor-not-allowed select-none opacity-75"
+                        title={`Clinic Closed / Outside Working Hours (${format12Hour(slotStart)} – ${format12Hour(slotEnd)})`}
+                        aria-disabled="true"
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+                          <div className="font-mono text-[11px] sm:text-xs font-medium text-slate-400 whitespace-nowrap">
+                            {format12Hour(slotStart)} – {format12Hour(slotEnd)}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+                          Closed
+                        </span>
+                      </div>
+                    </React.Fragment>
+                  );
+                }
+
+                // 5. Clean Empty Slot (Schedule-colored border, zero text clutter)
                 return (
                   <React.Fragment key={timeRow}>
                     {shiftDivider}

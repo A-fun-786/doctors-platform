@@ -39,6 +39,14 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
+function handleClinicLogoError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const target = e.currentTarget;
+  target.onerror = null;
+  if (target.getAttribute("src") !== DEFAULT_CLINIC_LOGO) {
+    target.src = DEFAULT_CLINIC_LOGO;
+  }
+}
+
 interface ProfileDropdownMenuProps {
   clinicLogo: string;
   clinicName: string;
@@ -78,12 +86,7 @@ function ProfileDropdownMenu({
                 src={clinicLogo}
                 alt={clinicName}
                 className="w-10 h-10 rounded-full border border-slate-200 group-hover:border-brand-300 object-contain bg-white p-0.5 shadow-2xs transition-colors"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  if (target.src !== DEFAULT_CLINIC_LOGO) {
-                    target.src = DEFAULT_CLINIC_LOGO;
-                  }
-                }}
+                onError={handleClinicLogoError}
               />
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
             </div>
@@ -221,14 +224,11 @@ export default function DashboardShell({
     navItems.push({ id: "android", label: "Android App", icon: Smartphone });
   }
 
-  // Resolve clinic logo: prioritize custom uploaded logo/icon, fallback to DEFAULT_CLINIC_LOGO (fixes #51, ref #49)
+  // Resolve clinic logo: prioritize custom uploaded clinic icon, fallback directly to DEFAULT_CLINIC_LOGO (fixes #51, ref #49)
+  const trimmedAppIcon = profile?.app_icon_url?.trim();
   const clinicLogo =
-    profile?.app_icon_url && profile.app_icon_url !== DEFAULT_DOCTOR_AVATAR && profile.app_icon_url !== ""
-      ? profile.app_icon_url
-      : profile?.avatar_url && profile.avatar_url !== DEFAULT_DOCTOR_AVATAR && profile.avatar_url !== ""
-      ? profile.avatar_url
-      : doctor.avatar_url && doctor.avatar_url !== DEFAULT_DOCTOR_AVATAR && doctor.avatar_url !== ""
-      ? doctor.avatar_url
+    trimmedAppIcon && trimmedAppIcon !== DEFAULT_DOCTOR_AVATAR
+      ? trimmedAppIcon
       : DEFAULT_CLINIC_LOGO;
 
   // Resolve clinic name: prioritize clinic_name from profile or tenant, fallback to doctor's clinic or generic
@@ -313,12 +313,7 @@ export default function DashboardShell({
                   src={clinicLogo}
                   alt={clinicName}
                   className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 object-contain bg-white p-0.5 shadow-xs"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (target.src !== DEFAULT_CLINIC_LOGO) {
-                      target.src = DEFAULT_CLINIC_LOGO;
-                    }
-                  }}
+                  onError={handleClinicLogoError}
                 />
                 <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
               </div>
@@ -382,12 +377,7 @@ export default function DashboardShell({
                   src={clinicLogo}
                   alt={clinicName}
                   className="w-8 h-8 rounded-full border-2 border-white ring-2 ring-slate-300 group-hover:ring-brand-500 object-contain bg-white p-0.5 shadow-xs transition-all"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (target.src !== DEFAULT_CLINIC_LOGO) {
-                      target.src = DEFAULT_CLINIC_LOGO;
-                    }
-                  }}
+                  onError={handleClinicLogoError}
                 />
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>
@@ -482,12 +472,7 @@ export default function DashboardShell({
                   src={clinicLogo}
                   alt={clinicName}
                   className="w-10 h-10 rounded-full border-2 border-brand-200 object-contain bg-white p-0.5 shrink-0"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (target.src !== DEFAULT_CLINIC_LOGO) {
-                      target.src = DEFAULT_CLINIC_LOGO;
-                    }
-                  }}
+                  onError={handleClinicLogoError}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-slate-900 group-hover:text-brand-700 truncate transition-colors" title={clinicName}>

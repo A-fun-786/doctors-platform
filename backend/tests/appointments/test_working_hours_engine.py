@@ -926,4 +926,65 @@ def test_sunday_closed_leaves_saturday_open_for_booking(client, auth_headers, te
     assert sat_booking.json()["patient_name"] == "Saturday Accepted Patient"
 
 
+def test_alembic_migration_014_aligns_legacy_closed_days(tmp_path):
+    """
+    Forward migration 014_align_doctor_working_hours_closed_days must:
+    - Convert legacy default closed_days=[0] and legacy ISO Sunday [6] to []
+    - Preserve custom closed_days such as [3] (Wednesday)
+    - Support downgrade back to [0] for rows with []
+    """
+    import json as _json
+    import os
+    import sqlite3
+    from alembic import command
+    from alembic.config import Config
+
+    db_file = tmp_path / "test_mig_014.db"
+    db_url = f"sqlite:///{db_file}"
+
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    alembic_cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+
+    # Upgrade up to 013 before 014
+    command.upgrade(alembic_cfg, "013_add_token_version_to_doctors")
+
+    conn = sqlite3.connect(db_file)
+    try:
+        for doc_id, closed in [("d1", [0]), ("d2", [6]), ("d3", [3])]:
+            wh = _json.dumps({"shifts": [], "closed_days": closed})
+            conn.execute(
+                "INSERT INTO doctors (id, email, full_name, is_active, working_hours) "
+                "VALUES (?, ?, ?, 1, ?)",
+                (doc_id, f"{doc_id}@example.com", f"Dr {doc_id}", wh),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Run forward migration 014
+    command.upgrade(alembic_cfg, "014_align_doctor_working_hours_closed_days")
+
+    conn = sqlite3.connect(db_file)
+    try:
+        rows = dict(conn.execute("SELECT id, working_hours FROM doctors").fetchall())
+        assert _json.loads(rows["d1"])["closed_days"] == []
+        assert _json.loads(rows["d2"])["closed_days"] == []
+        assert _json.loads(rows["d3"])["closed_days"] == [3]
+    finally:
+        conn.close()
+
+    # Verify downgrade
+    command.downgrade(alembic_cfg, "013_add_token_version_to_doctors")
+    conn = sqlite3.connect(db_file)
+    try:
+        rows = dict(conn.execute("SELECT id, working_hours FROM doctors").fetchall())
+        assert _json.loads(rows["d1"])["closed_days"] == [0]
+        assert _json.loads(rows["d3"])["closed_days"] == [3]
+    finally:
+        conn.close()
+
+
+
 

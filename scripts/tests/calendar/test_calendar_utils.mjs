@@ -481,6 +481,26 @@ describe("Dynamic Day Status (Open, Closed, Holiday) Verification", () => {
     assert.strictEqual(status.text, "On Leave");
     assert.strictEqual(status.color, "bg-amber-50 text-amber-700 border-amber-200");
   });
+
+  test("DayView enforces isSlotWithinWorkingHours and getDayStatus for closed days", () => {
+    const dayViewPath = path.join(projectRoot, "components", "dashboard", "calendar", "views", "DayView.tsx");
+    const dayViewSrc = fs.readFileSync(dayViewPath, "utf-8");
+    assert.strictEqual(
+      dayViewSrc.includes("isSlotWithinWorkingHours(selectedDate, slotStart, slotEnd, workingHoursConfig)"),
+      true,
+      "DayView must check isSlotWithinWorkingHours for both emptySlotsCount and slot rendering"
+    );
+    assert.strictEqual(
+      dayViewSrc.includes("getDayStatus(selectedDate, workingHoursConfig, events)"),
+      true,
+      "DayView must compute dayStatus via getDayStatus"
+    );
+    assert.strictEqual(
+      dayViewSrc.includes('aria-disabled="true"'),
+      true,
+      "DayView must render non-clickable disabled slots on closed days"
+    );
+  });
 });
 
 // ============================================================================
