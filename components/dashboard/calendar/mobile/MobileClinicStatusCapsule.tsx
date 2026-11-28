@@ -26,6 +26,20 @@ export default function MobileClinicStatusCapsule({
     const currentMins = now.getHours() * 60 + now.getMinutes();
 
     const enabledShifts = shifts.filter((s) => s.enabled);
+    const closedDays = config.closed_days ?? [];
+
+    // Check if clinic is closed today (weekly off)
+    if (closedDays.includes(now.getDay())) {
+      return {
+        type: "closed",
+        label: "Clinic Closed",
+        subtext: "Weekly off today",
+        badgeColor: "bg-slate-400",
+        pulse: false,
+        icon: Clock,
+      };
+    }
+
     if (enabledShifts.length === 0) {
       return {
         type: "off",
@@ -75,7 +89,7 @@ export default function MobileClinicStatusCapsule({
       pulse: false,
       icon: Clock,
     };
-  }, [shifts]);
+  }, [shifts, config.closed_days]);
 
   const StatusIcon = statusInfo.icon;
 

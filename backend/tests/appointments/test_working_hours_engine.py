@@ -68,7 +68,7 @@ def test_1_get_working_hours_default_fallback(client, auth_headers, test_doctor,
     assert data["shifts"][1]["start"] == "16:00"
     assert data["shifts"][1]["end"] == "20:00"
     assert data["shifts"][1]["enabled"] is True
-    assert data["closed_days"] == [0]
+    assert data["closed_days"] == []
 
 
 test_get_working_hours_default = test_1_get_working_hours_default_fallback
@@ -340,7 +340,7 @@ test_alembic_migration_009_bidirectional = test_5_migration_009_upgrade_downgrad
 # ==============================================================================
 def test_3_slot_generation_from_shifts_and_closed_day(db_session, test_doctor):
     """
-    Asserts 14 slots on weekdays, 0 on Sunday (closed_days=[6]).
+    Asserts 14 slots on weekdays, 0 on Sunday (closed_days=[0]).
     Default shifts: Morning 10:00-13:00 (6 slots), Evening 16:00-20:00 (8 slots).
     """
     test_doctor.working_hours = {
@@ -348,7 +348,7 @@ def test_3_slot_generation_from_shifts_and_closed_day(db_session, test_doctor):
             {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
             {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
         ],
-        "closed_days": [6],
+        "closed_days": [0],
     }
     db_session.add(test_doctor)
     db_session.commit()
@@ -381,7 +381,7 @@ def test_4_precedence_explicit_available_wins(db_session, test_doctor):
             {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
             {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
         ],
-        "closed_days": [6],
+        "closed_days": [0],
     }
     db_session.add(test_doctor)
 
@@ -537,7 +537,7 @@ def test_booking_directly_within_working_hours_without_schedule_succeeds(client,
             {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
             {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
         ],
-        "closed_days": [6],
+        "closed_days": [0],
     }
     db_session.add(test_doctor)
     db_session.commit()
@@ -572,7 +572,7 @@ def test_booking_outside_working_hours_rejected(client, auth_headers, test_docto
             {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
             {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
         ],
-        "closed_days": [6],
+        "closed_days": [0],
     }
     db_session.add(test_doctor)
     db_session.commit()
@@ -600,7 +600,7 @@ def test_booking_on_closed_day_rejected(client, auth_headers, test_doctor, db_se
         "shifts": [
             {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
         ],
-        "closed_days": [6],  # Sunday is closed
+        "closed_days": [0],  # Sunday is closed
     }
     db_session.add(test_doctor)
     db_session.commit()
@@ -769,12 +769,35 @@ def test_booking_and_slots_with_null_working_hours_uses_default(client, auth_hea
     )
     assert res.status_code == 201
 
-    # Sunday 2026-11-29: closed under default closed_days [0]
-    closed_res = client.post(
+    # Under default closed_days [], Sunday 2026-11-29 is open and can be booked
+    sunday_res = client.post(
         "/api/v1/doctor/appointments",
         headers=auth_headers,
         json={
             "patient_name": "Sunday Patient",
+            "date": "2026-11-29",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sunday_res.status_code == 201
+
+    # When doctor explicitly configures closed_days [0], Sunday booking is rejected
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [0],
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    closed_res = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Blocked Patient",
             "date": "2026-11-29",
             "start_time": "10:00:00",
             "end_time": "10:30:00",
@@ -795,5 +818,173 @@ def test_booking_and_slots_with_null_working_hours_uses_default(client, auth_hea
     created_doc = db_session.query(Doctor).filter(Doctor.id == reg_res.doctor.id).first()
     assert created_doc is not None
     assert created_doc.working_hours == DEFAULT_DOCTOR_WORKING_HOURS
+
+
+def test_saturday_closed_leaves_sunday_open_for_booking(client, auth_headers, test_doctor, db_session):
+    """
+    Closing Saturday (schema index 6) must NOT close Sunday (schema index 0).
+    Saturday has 0 slots and rejects booking; Sunday has 14 slots and accepts booking.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [6],  # Saturday is closed
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Saturday: 2026-11-07 (closed)
+    sat_date = date(2026, 11, 7)
+    sat_slots = schedule_service.generate_available_slots(test_doctor.id, sat_date, db_session)
+    assert sat_slots == []
+
+    sat_booking = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Saturday Rejected Patient",
+            "date": "2026-11-07",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sat_booking.status_code == 400
+    assert "Clinic is closed on this date" in sat_booking.json()["detail"]
+
+    # Sunday: 2026-11-08 (must remain open)
+    sun_date = date(2026, 11, 8)
+    sun_slots = schedule_service.generate_available_slots(test_doctor.id, sun_date, db_session)
+    assert len(sun_slots) == 14
+
+    sun_booking = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Accepted Patient",
+            "date": "2026-11-08",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sun_booking.status_code == 201
+    assert sun_booking.json()["status"] == "BOOKED"
+    assert sun_booking.json()["patient_name"] == "Sunday Accepted Patient"
+
+
+def test_sunday_closed_leaves_saturday_open_for_booking(client, auth_headers, test_doctor, db_session):
+    """
+    Closing Sunday (schema index 0) must NOT close Saturday (schema index 6).
+    Sunday has 0 slots and rejects booking; Saturday has 14 slots and accepts booking.
+    """
+    test_doctor.working_hours = {
+        "shifts": [
+            {"id": "morning", "label": "Morning Shift", "start": "10:00", "end": "13:00", "enabled": True},
+            {"id": "evening", "label": "Evening Shift", "start": "16:00", "end": "20:00", "enabled": True},
+        ],
+        "closed_days": [0],  # Sunday is closed
+    }
+    db_session.add(test_doctor)
+    db_session.commit()
+
+    # Sunday: 2026-11-08 (closed)
+    sun_date = date(2026, 11, 8)
+    sun_slots = schedule_service.generate_available_slots(test_doctor.id, sun_date, db_session)
+    assert sun_slots == []
+
+    sun_booking = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Sunday Blocked Patient",
+            "date": "2026-11-08",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sun_booking.status_code == 400
+    assert "Clinic is closed on this date" in sun_booking.json()["detail"]
+
+    # Saturday: 2026-11-07 (must remain open)
+    sat_date = date(2026, 11, 7)
+    sat_slots = schedule_service.generate_available_slots(test_doctor.id, sat_date, db_session)
+    assert len(sat_slots) == 14
+
+    sat_booking = client.post(
+        "/api/v1/doctor/appointments",
+        headers=auth_headers,
+        json={
+            "patient_name": "Saturday Accepted Patient",
+            "date": "2026-11-07",
+            "start_time": "10:00:00",
+            "end_time": "10:30:00",
+        },
+    )
+    assert sat_booking.status_code == 201
+    assert sat_booking.json()["status"] == "BOOKED"
+    assert sat_booking.json()["patient_name"] == "Saturday Accepted Patient"
+
+
+def test_alembic_migration_014_aligns_legacy_closed_days(tmp_path):
+    """
+    Forward migration 014_align_doctor_working_hours_closed_days must:
+    - Convert legacy default closed_days=[0] and legacy ISO Sunday [6] to []
+    - Preserve custom closed_days such as [3] (Wednesday)
+    - Support downgrade back to [0] for rows with []
+    """
+    import json as _json
+    import os
+    import sqlite3
+    from alembic import command
+    from alembic.config import Config
+
+    db_file = tmp_path / "test_mig_014.db"
+    db_url = f"sqlite:///{db_file}"
+
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    alembic_cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+
+    # Upgrade up to 013 before 014
+    command.upgrade(alembic_cfg, "013_add_token_version_to_doctors")
+
+    conn = sqlite3.connect(db_file)
+    try:
+        for doc_id, closed in [("d1", [0]), ("d2", [6]), ("d3", [3])]:
+            wh = _json.dumps({"shifts": [], "closed_days": closed})
+            conn.execute(
+                "INSERT INTO doctors (id, email, full_name, is_active, working_hours) "
+                "VALUES (?, ?, ?, 1, ?)",
+                (doc_id, f"{doc_id}@example.com", f"Dr {doc_id}", wh),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Run forward migration 014
+    command.upgrade(alembic_cfg, "014_align_doctor_working_hours_closed_days")
+
+    conn = sqlite3.connect(db_file)
+    try:
+        rows = dict(conn.execute("SELECT id, working_hours FROM doctors").fetchall())
+        assert _json.loads(rows["d1"])["closed_days"] == []
+        assert _json.loads(rows["d2"])["closed_days"] == []
+        assert _json.loads(rows["d3"])["closed_days"] == [3]
+    finally:
+        conn.close()
+
+    # Verify downgrade
+    command.downgrade(alembic_cfg, "013_add_token_version_to_doctors")
+    conn = sqlite3.connect(db_file)
+    try:
+        rows = dict(conn.execute("SELECT id, working_hours FROM doctors").fetchall())
+        assert _json.loads(rows["d1"])["closed_days"] == [0]
+        assert _json.loads(rows["d3"])["closed_days"] == [3]
+    finally:
+        conn.close()
+
+
 
 

@@ -311,6 +311,8 @@ class TenantResponse(BaseModel):
 
     id: uuid.UUID
     slug: str
+    clinic_name: Optional[str] = None
+    location: Optional[str] = None
 
 
 class DoctorResponse(BaseModel):

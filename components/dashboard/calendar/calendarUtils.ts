@@ -185,17 +185,54 @@ export function computeWeekRangeTitle(currentWeekDays: WeekDayItem[]): string {
 }
 
 /**
- * Determine operational day badge status (Open, Closed, Holiday)
+ * Determine operational day badge status (Open, Closed, Holiday) dynamically.
+ * Priority:
+ * 1. Explicit calendar events: HOLIDAY type event takes highest precedence (Holiday)
+ * 2. Full-day LEAVE event takes precedence (On Leave)
+ * 3. Doctor's working hours closed_days configuration (Closed)
+ * 4. Zero active shifts configured (Closed)
+ * 5. Otherwise Clinic Open
  */
-export function getDayStatus(dateStr: string): DayStatusInfo {
+export function getDayStatus(
+  dateStr: string,
+  config?: WorkingHoursConfig,
+  events?: CalendarEvent[]
+): DayStatusInfo {
   const d = parseYYYYMMDD(dateStr);
-  const dayOfWeek = d.getDay(); // 0 is Sunday, 3 is Wednesday
-  if (dayOfWeek === 0) {
+  const dayOfWeek = d.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+
+  // 1. Check for HOLIDAY or full-day LEAVE events on this date
+  if (events && events.length > 0) {
+    const holidayEvent = events.find((ev) => ev.type === "HOLIDAY" && ev.status !== "CANCELLED");
+    if (holidayEvent) {
+      return { text: "Holiday", color: "bg-red-50 text-red-600 border-red-200" };
+    }
+
+    const fullDayLeave = events.find(
+      (ev) =>
+        ev.type === "LEAVE" &&
+        ev.status !== "CANCELLED" &&
+        ((ev.start === "00:00" && (ev.end === "23:59" || ev.end === "24:00")) ||
+          (!ev.start && !ev.end))
+    );
+    if (fullDayLeave) {
+      return { text: "On Leave", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    }
+  }
+
+  // 2. Evaluate doctor's configured closed days & shifts
+  const activeConfig = config || DEFAULT_WORKING_HOURS;
+  const closedDays = activeConfig.closed_days ?? [];
+  if (closedDays.includes(dayOfWeek)) {
     return { text: "Closed", color: "bg-red-50 text-red-600 border-red-200" };
   }
-  if (dayOfWeek === 3) {
-    return { text: "Holiday", color: "bg-red-50 text-red-600 border-red-200" };
+
+  // If all shifts are disabled, clinic is closed
+  const enabledShifts = activeConfig.shifts?.filter((s) => s.enabled) ?? [];
+  if (enabledShifts.length === 0) {
+    return { text: "Closed", color: "bg-red-50 text-red-600 border-red-200" };
   }
+
   return { text: "Clinic Open", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
 }
 
@@ -327,7 +364,7 @@ export const DEFAULT_WORKING_HOURS: WorkingHoursConfig = {
       enabled: true,
     },
   ],
-  closed_days: [0],
+  closed_days: [],
 };
 
 export const WORKING_HOURS_STORAGE_KEY = "doctor_calendar_working_hours";
@@ -407,7 +444,7 @@ export function saveDoctorWorkingHours(config: WorkingHoursConfig): void {
 
 /**
  * Check if a time slot (start, end) falls within doctor's configured working hours.
- * Defaults to closed on Sundays if closed_days not specified, and disallows intervals during the doctor's break time.
+ * Evaluates against doctor's active shifts and closed_days (defaulting to open 7 days when closed_days is empty).
  */
 export function isSlotWithinWorkingHours(
   dateStr: string,
@@ -416,9 +453,9 @@ export function isSlotWithinWorkingHours(
   config?: WorkingHoursConfig
 ): boolean {
   if (!dateStr || !slotStart || !slotEnd) return false;
-  const d = new Date(dateStr);
+  const d = parseYYYYMMDD(dateStr);
   const activeConfig = config || DEFAULT_WORKING_HOURS;
-  const closedDays = activeConfig.closed_days ?? [0];
+  const closedDays = activeConfig.closed_days ?? [];
   if (closedDays.includes(d.getDay())) return false;
 
   const startM = timeToMinutes(slotStart);

@@ -968,3 +968,32 @@
 | **TypeScript Typecheck** | `npx tsc --noEmit` | 🟢 PASS | 0 errors |
 | **ESLint Check** | `npm run lint` | 🟢 PASS | 0 errors, 0 warnings |
 | **Next.js Production Build** | `npm run build` | 🟢 PASS | Production build compiled cleanly |
+
+---
+
+## 26. PR #59 Review Fixes: DayView Closed-Day Enforcement, Forward Migration `014`, and Clinic Logo Fallback Hardening
+
+- **Affected Files**:
+  - `components/dashboard/calendar/views/DayView.tsx`
+  - `components/dashboard/DashboardShell.tsx`
+  - `backend/alembic/versions/009_add_working_hours_to_doctor.py`
+  - `backend/alembic/versions/014_align_doctor_working_hours_closed_days.py`
+  - `scripts/tests/calendar/test_calendar_utils.mjs`
+  - `scripts/tests/dashboard/test_dashboard_header.mjs`
+  - `backend/tests/appointments/test_working_hours_engine.py`
+- **Changes**:
+  1. **DayView Closed-Day Slot Guard (`DayView.tsx`)**:
+     - Added `getDayStatus` and `isSlotWithinWorkingHours` checks in `DayView.tsx`.
+     - Excluded closed-day / out-of-shift slots from `emptySlotsCount` and rendered them as non-clickable `Closed` (`aria-disabled="true"`, `cursor-not-allowed`) rows, matching `WeekView` behavior.
+     - Added a header status badge when `dayStatus.text !== "Clinic Open"`.
+  2. **Forward Migration for Legacy `closed_days` (`009` + `014`)**:
+     - Restored historical migration `009_add_working_hours_to_doctor.py` to its original `closed_days: [0]` definition.
+     - Added forward migration `014_align_doctor_working_hours_closed_days.py` (revising `013_add_token_version_to_doctors`) to migrate existing `doctors.working_hours` rows from legacy `[0]` or legacy ISO Sunday `[6]` to `[]` while preserving custom closed days (with bidirectional `downgrade()`).
+  3. **Clinic Logo Fallback & `onError` Loop Prevention (`DashboardShell.tsx`)**:
+     - Removed `profile?.avatar_url` and `doctor.avatar_url` fallbacks from `clinicLogo` so personal avatars are never displayed as the clinic logo when `app_icon_url` is unset; `clinicLogo` now falls back directly to `DEFAULT_CLINIC_LOGO`.
+     - Extracted shared `handleClinicLogoError` helper that clears `target.onerror = null` and checks `target.getAttribute("src") !== DEFAULT_CLINIC_LOGO` to prevent infinite `onError` loops.
+- **Verification**:
+  - Updated `scripts/tests/calendar/test_calendar_utils.mjs`, `scripts/tests/dashboard/test_dashboard_header.mjs`, and `backend/tests/appointments/test_working_hours_engine.py` (`test_alembic_migration_014_aligns_legacy_closed_days`).
+  - `npm test` (`test_calendar_utils.mjs` 41/41, `test_calendar_no_demo_fallback.mjs` 11/11, `test_calendar_sidebar_theme.mjs` 100%, `test_onboarding_hardening.mjs` 24/24, `test_dashboard_header.mjs` 18/18): 🟢 PASS
+  - `npm run lint`: 🟢 PASS (0 errors, 0 warnings)
+  - `pytest tests/appointments/test_working_hours_engine.py`: 🟢 PASS (27/27 passed)

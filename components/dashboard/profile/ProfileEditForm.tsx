@@ -96,12 +96,12 @@ export default function ProfileEditForm({
         onError={onAvatarError}
       />
 
-      {/* Core Doctor Details Grid */}
+      {/* Core Identity Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Full Name */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Doctor Full Name <span className="text-red-500">*</span>
+            Full Name <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -112,7 +112,7 @@ export default function ProfileEditForm({
               value={fullName}
               onChange={(e) => onFullNameChange(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow min-h-[44px]"
-              placeholder="e.g. Dr. Jane Smith"
+              placeholder="e.g. Jane Smith"
             />
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function ProfileEditForm({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Save Practice Profile</span>
+              <span>Save Profile</span>
             </>
           )}
         </button>

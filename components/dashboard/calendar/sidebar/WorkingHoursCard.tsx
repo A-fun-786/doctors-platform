@@ -16,12 +16,19 @@ interface WorkingHoursCardProps {
   onEditHours?: () => void;
 }
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function WorkingHoursCard({
   config = DEFAULT_WORKING_HOURS,
   onEditHours,
 }: WorkingHoursCardProps) {
   const shifts = config.shifts || DEFAULT_WORKING_HOURS.shifts;
   const enabledShifts = shifts.filter((s) => s.enabled);
+  const closedDays = config.closed_days ?? DEFAULT_WORKING_HOURS.closed_days ?? [];
+  const closedDaysText =
+    closedDays.length === 0
+      ? "Open 7 Days"
+      : closedDays.map((d) => DAY_LABELS[d]).join(", ");
 
   const totalSlots = enabledShifts.reduce(
     (sum, shift) => sum + calculateShiftSlotCount(shift.start, shift.end),
@@ -31,16 +38,18 @@ export default function WorkingHoursCard({
   return (
     <Card className="p-4 space-y-3">
       {/* Card Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5" aria-hidden="true" />
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 leading-tight">Working Hours</h3>
-            <span className="text-[10px] text-brand-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true" />
-              {enabledShifts.length} {enabledShifts.length === 1 ? "Shift" : "Shifts"} Active
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">Working Hours</h3>
+            <span className="text-[10px] text-brand-600 font-semibold flex items-center gap-1 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse shrink-0" aria-hidden="true" />
+              <span className="truncate">
+                {enabledShifts.length} {enabledShifts.length === 1 ? "Shift" : "Shifts"} Active
+              </span>
             </span>
           </div>
         </div>
@@ -49,10 +58,11 @@ export default function WorkingHoursCard({
           <button
             type="button"
             onClick={onEditHours}
-            className="flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-800 bg-brand-50/80 hover:bg-brand-100/80 px-2.5 py-1 rounded-lg border border-brand-200 transition-all cursor-pointer shadow-2xs"
+            className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-brand-700 hover:text-brand-800 bg-brand-50/80 hover:bg-brand-100/80 px-2.5 py-1 rounded-lg border border-brand-200 transition-all cursor-pointer shadow-2xs whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             title="Edit Working Hours"
+            aria-label="Edit Working Hours"
           >
-            <Edit2 className="w-3 h-3" />
+            <Edit2 className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Edit</span>
           </button>
         )}
@@ -76,27 +86,27 @@ export default function WorkingHoursCard({
             return (
               <div
                 key={shift.id || index}
-                className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 hover:bg-brand-50/30 border border-slate-100 hover:border-brand-200 transition-all duration-150"
+                className="group flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50/80 hover:bg-brand-50/30 border border-slate-100 hover:border-brand-200 transition-all duration-150"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="w-6 h-6 rounded-md bg-white text-slate-700 border border-slate-200/80 flex items-center justify-center shrink-0 text-[10px] font-bold">
                     {index + 1}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-xs font-bold text-slate-900 truncate">
                       {shift.label || `Schedule ${index + 1}`}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-medium font-mono">
+                    <div className="text-[11px] text-slate-500 font-medium font-mono whitespace-nowrap truncate">
                       {start12} – {end12}
                     </div>
                   </div>
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200 block">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200 block whitespace-nowrap">
                     {slots} slots
                   </span>
-                  <span className="text-[9px] text-slate-400 font-medium block mt-0.5">
+                  <span className="text-[9px] text-slate-400 font-medium block mt-0.5 whitespace-nowrap">
                     {durH} hrs
                   </span>
                 </div>
@@ -108,16 +118,24 @@ export default function WorkingHoursCard({
 
       {/* Daily Total Capacity Capsule */}
       {enabledShifts.length > 0 && (
-        <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-medium px-0.5">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" aria-hidden="true" />
-            Total Capacity:
+        <div className="pt-1 flex items-center justify-between gap-2 text-[11px] text-slate-500 font-medium px-0.5">
+          <span className="flex items-center gap-1 min-w-0 truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" aria-hidden="true" />
+            <span className="truncate">Total Capacity:</span>
           </span>
-          <span className="font-bold text-slate-800">
+          <span className="font-bold text-slate-800 shrink-0 whitespace-nowrap">
             {totalSlots} slots ({Math.floor((totalSlots * 30) / 60)}h)
           </span>
         </div>
       )}
+
+      {/* Weekly Off Days Indicator */}
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] px-0.5">
+        <span className="text-slate-500 font-medium">Weekly Off:</span>
+        <span className="font-bold text-slate-700 truncate max-w-[150px] text-right" title={closedDaysText}>
+          {closedDaysText}
+        </span>
+      </div>
     </Card>
   );
 }

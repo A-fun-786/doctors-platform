@@ -71,6 +71,7 @@ const {
   calculateShiftSlotCount,
   isSlotWithinWorkingHours,
   formatPatientClinicalNotes,
+  getDayStatus,
 } = utils;
 
 // ============================================================================
@@ -335,7 +336,7 @@ describe("Editable Working Hours & Clinical Notes", () => {
     assert.strictEqual(calculateShiftSlotCount("14:00", "10:00"), 0); // inverted = 0 slots
   });
 
-  test("isSlotWithinWorkingHours respects default doctor operating hours and Sunday closure", () => {
+  test("isSlotWithinWorkingHours respects default doctor operating hours (Sunday open by default)", () => {
     // 2026-10-19 is Monday
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "10:00", "10:30"), true);
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "12:30", "13:00"), true);
@@ -345,8 +346,11 @@ describe("Editable Working Hours & Clinical Notes", () => {
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "14:00", "14:30"), false);
     // Early morning
     assert.strictEqual(isSlotWithinWorkingHours("2026-10-19", "08:00", "08:30"), false);
-    // 2026-10-18 is Sunday (Closed)
-    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30"), false);
+    // 2026-10-18 is Sunday (Open by default under closed_days: [])
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30"), true);
+    // Sunday with closed_days: [0]
+    const closedSundayConfig = { ...DEFAULT_WORKING_HOURS, closed_days: [0] };
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSundayConfig), false);
   });
 
   test("isSlotWithinWorkingHours respects dynamic customized shifts and disabled shifts", () => {
@@ -385,6 +389,117 @@ describe("Editable Working Hours & Clinical Notes", () => {
     assert.ok(hookSource.includes("handleSlotLeaveSubmit"), "Must expose handleSlotLeaveSubmit");
     assert.ok(hookSource.includes("openEditWorkingHours"), "Must expose openEditWorkingHours");
     assert.ok(hookSource.includes("workingHoursConfig"), "Must expose workingHoursConfig");
+  });
+});
+
+// ============================================================================
+// SUITE 8: Dynamic Day Status (Open, Closed, Holiday) Verification
+// ============================================================================
+describe("Dynamic Day Status (Open, Closed, Holiday) Verification", () => {
+  // 2026-10-21 is Wednesday (day 3)
+  // 2026-10-18 is Sunday (day 0)
+  // 2026-10-19 is Monday (day 1)
+
+  test("Wednesday is NOT hardcoded as a holiday and shows Clinic Open by default", () => {
+    const status = getDayStatus("2026-10-21");
+    assert.strictEqual(status.text, "Clinic Open");
+    assert.strictEqual(status.color, "bg-emerald-50 text-emerald-700 border-emerald-200");
+  });
+
+  test("Sunday is NOT closed by default and shows Clinic Open", () => {
+    const status = getDayStatus("2026-10-18");
+    assert.strictEqual(status.text, "Clinic Open");
+    assert.strictEqual(status.color, "bg-emerald-50 text-emerald-700 border-emerald-200");
+  });
+
+  test("Sunday dynamically shows Closed when configured in closed_days [0]", () => {
+    const closedSundayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [0],
+    };
+    const status = getDayStatus("2026-10-18", closedSundayConfig);
+    assert.strictEqual(status.text, "Closed");
+    assert.strictEqual(status.color, "bg-red-50 text-red-600 border-red-200");
+  });
+
+  test("Saturday closed [6] does NOT close Sunday and leaves Sunday Clinic Open and slot bookable", () => {
+    const closedSaturdayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [6], // Saturday closed
+    };
+    // 2026-10-17 is Saturday (day 6) -> Closed
+    assert.strictEqual(getDayStatus("2026-10-17", closedSaturdayConfig).text, "Closed");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSaturdayConfig), false);
+
+    // 2026-10-18 is Sunday (day 0) -> Clinic Open
+    assert.strictEqual(getDayStatus("2026-10-18", closedSaturdayConfig).text, "Clinic Open");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSaturdayConfig), true);
+  });
+
+  test("Sunday closed [0] does NOT close Saturday and leaves Saturday Clinic Open and slot bookable", () => {
+    const closedSundayConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [0], // Sunday closed
+    };
+    // 2026-10-18 is Sunday (day 0) -> Closed
+    assert.strictEqual(getDayStatus("2026-10-18", closedSundayConfig).text, "Closed");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-18", "10:00", "10:30", closedSundayConfig), false);
+
+    // 2026-10-17 is Saturday (day 6) -> Clinic Open
+    assert.strictEqual(getDayStatus("2026-10-17", closedSundayConfig).text, "Clinic Open");
+    assert.strictEqual(isSlotWithinWorkingHours("2026-10-17", "10:00", "10:30", closedSundayConfig), true);
+  });
+
+  test("Any day dynamically shows Closed when configured in closed_days", () => {
+    const wedClosedConfig = {
+      ...DEFAULT_WORKING_HOURS,
+      closed_days: [3], // Wednesday closed
+    };
+    const wedStatus = getDayStatus("2026-10-21", wedClosedConfig);
+    assert.strictEqual(wedStatus.text, "Closed");
+
+    // Monday (1) should remain open
+    const monStatus = getDayStatus("2026-10-19", wedClosedConfig);
+    assert.strictEqual(monStatus.text, "Clinic Open");
+  });
+
+  test("Day dynamically shows Holiday when a HOLIDAY calendar event exists", () => {
+    const holidayEvents = [
+      { id: "h1", start: "00:00", end: "23:59", type: "HOLIDAY", status: "CONFIRMED" },
+    ];
+    // Monday with Holiday event
+    const status = getDayStatus("2026-10-19", DEFAULT_WORKING_HOURS, holidayEvents);
+    assert.strictEqual(status.text, "Holiday");
+    assert.strictEqual(status.color, "bg-red-50 text-red-600 border-red-200");
+  });
+
+  test("Day dynamically shows On Leave when a full-day LEAVE calendar event exists", () => {
+    const leaveEvents = [
+      { id: "l1", start: "00:00", end: "23:59", type: "LEAVE", status: "CONFIRMED" },
+    ];
+    const status = getDayStatus("2026-10-19", DEFAULT_WORKING_HOURS, leaveEvents);
+    assert.strictEqual(status.text, "On Leave");
+    assert.strictEqual(status.color, "bg-amber-50 text-amber-700 border-amber-200");
+  });
+
+  test("DayView enforces isSlotWithinWorkingHours and getDayStatus for closed days", () => {
+    const dayViewPath = path.join(projectRoot, "components", "dashboard", "calendar", "views", "DayView.tsx");
+    const dayViewSrc = fs.readFileSync(dayViewPath, "utf-8");
+    assert.strictEqual(
+      dayViewSrc.includes("isSlotWithinWorkingHours(selectedDate, slotStart, slotEnd, workingHoursConfig)"),
+      true,
+      "DayView must check isSlotWithinWorkingHours for both emptySlotsCount and slot rendering"
+    );
+    assert.strictEqual(
+      dayViewSrc.includes("getDayStatus(selectedDate, workingHoursConfig, events)"),
+      true,
+      "DayView must compute dayStatus via getDayStatus"
+    );
+    assert.strictEqual(
+      dayViewSrc.includes('aria-disabled="true"'),
+      true,
+      "DayView must render non-clickable disabled slots on closed days"
+    );
   });
 });
 

@@ -32,10 +32,10 @@ export default function ProfileViewCard({
       <CardHeader className="p-5 sm:p-6 md:p-7 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <CardTitle className="text-lg sm:text-xl">
-            Doctor Practice Profile
+            Admin Profile
           </CardTitle>
           <CardDescription>
-            Your active practice information visible to patients.
+            Your active clinic profile and practice information visible to patients.
           </CardDescription>
         </div>
 
@@ -49,7 +49,7 @@ export default function ProfileViewCard({
         </button>
       </CardHeader>
 
-      {/* Doctor Identity Block */}
+      {/* Identity Block */}
       <div className="p-5 sm:p-7 md:p-8">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
           {/* Avatar with quick edit click trigger */}
@@ -61,7 +61,7 @@ export default function ProfileViewCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={avatarUrl}
-              alt={fullName || "Doctor"}
+              alt={fullName || "Profile"}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-slate-900/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -69,7 +69,7 @@ export default function ProfileViewCard({
             </div>
             {doctor.onboarding_completed && (
               <div
-                title="Verified Doctor"
+                title="Verified Account"
                 className="absolute bottom-1 right-1 w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -81,11 +81,11 @@ export default function ProfileViewCard({
           <div className="space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-                {fullName || "Doctor Name"}
+                {fullName || "Administrator"}
               </h2>
               {doctor.onboarding_completed && (
                 <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Verified Doctor
+                  Verified
                 </span>
               )}
             </div>
